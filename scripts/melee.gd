@@ -17,12 +17,14 @@ var _slashed := false
 var _was_locked := false
 var _toward := Vector2.RIGHT
 var _hit_sound: AudioStream
+var _swing_sound: AudioStream
 
 
 func setup(w: World, who: Miko) -> void:
 	world = w
 	miko = who
-	_hit_sound = Sfx.stream("res://assets/Sounds/blunt_staff_hit.mp3")
+	_hit_sound = Sfx.stream("res://assets/Sounds/blunt_staff_hit.mp3")      # when it lands on something
+	_swing_sound = Sfx.stream("res://assets/Sounds/blunt_sonic_sound.mp3")  # every swing, hit or miss
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -68,6 +70,8 @@ func _process_timed(_delta: float) -> void:
 	if f >= DOWNSWING - 1 and not _slashed:
 		_slashed = true
 		Slash.play(world, miko.position, _toward, Color(1.0, 0.93, 0.72, 0.9), 1.0)
+		if _swing_sound != null:
+			Sfx.play(world, _swing_sound, miko.position, 0.6, 0.08)
 	if f >= DOWNSWING and not _struck:
 		_struck = true
 		_strike()
