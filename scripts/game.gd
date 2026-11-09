@@ -25,7 +25,7 @@ func _ready() -> void:
 	var at := Shots.arg("at")
 	if at != "":
 		var p := at.split(",")
-		miko.position = Vector2(float(p[0]), float(p[1]))
+		miko.place(Vector2(float(p[0]), float(p[1])))
 	seconds_per_day = data.clock.secondsPerDay
 	hours = float(Shots.arg("hour", str(data.clock.startHour)))
 	follow_offset = Vector2(data.camera.offset[0], data.camera.offset[1])
@@ -33,6 +33,8 @@ func _ready() -> void:
 	var view_h := float(ProjectSettings.get_setting("display/window/size/viewport_height"))
 	camera.zoom = Vector2.ONE * view_h / (2.0 * data.camera.ortho * world.px)
 	camera.position_smoothing_speed = 1.0 / max(0.02, data.camera.smooth)
+	# The camera is moved every frame to where she's drawn, so it isn't smoothed itself (that would lag it a tick).
+	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.position = miko.position + follow_offset
 	camera.reset_smoothing()
 	_daylight()
@@ -57,7 +59,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	camera.position = miko.position + follow_offset
+	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
+	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
+	camera.position = miko.drawn_position() + follow_offset
 	hours = fmod(hours + delta * 24.0 / seconds_per_day, 24.0 * 10000.0)
 	_daylight()
 

@@ -19,6 +19,9 @@ var clock := 0.0
 var art_scale := Vector2.ONE
 ## While true she ignores movement input (casting, asleep, ...).
 var locked := false
+# Where she was at the last two physics ticks: she's drawn between them (physics interpolation).
+var _was := Vector2.ZERO
+var _now := Vector2.ZERO
 
 var art: Sprite2D
 var shadow: Sprite2D
@@ -30,7 +33,7 @@ func setup(w: World, d: Dictionary) -> void:
 	walk_speed = d.walkSpeed
 	run_speed = d.runSpeed
 	vertical_scale = d.verticalScale
-	position = Vector2(d.x, d.y)
+	place(Vector2(d.x, d.y))
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	# Her body: a small capsule at her feet.
 	var body := CollisionShape2D.new()
@@ -76,7 +79,24 @@ func _physics_process(_delta: float) -> void:
 	if input.x > 0.1: facing_right = true
 	elif input.x < -0.1: facing_right = false
 	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed)
+	_was = position
 	move_and_slide()
+	_now = position
+
+
+## Where she's drawn this frame: between her last two physics positions (what the camera follows).
+func drawn_position() -> Vector2:
+	if _now == Vector2.ZERO and _was == Vector2.ZERO:
+		return position
+	return _was.lerp(_now, Engine.get_physics_interpolation_fraction())
+
+
+## Puts her somewhere at once (no smoothing from where she was).
+func place(at: Vector2) -> void:
+	position = at
+	_was = at
+	_now = at
+	reset_physics_interpolation()
 
 
 func _process(delta: float) -> void:
