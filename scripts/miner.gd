@@ -70,7 +70,10 @@ func _process(_delta: float) -> void:
 		_last_frame = frame
 		_show("%s  ·  %d left   (move or E to stop)" % ["Chopping" if axe else "Mining", target.remaining()])
 		return
-	var near: Gatherable = null if door_near else Gatherable.nearest(miko.position, float(data.range))
+	# A rabbit or a pen in reach takes E (RabbitHands) before a tree or rock does.
+	var hands: RabbitHands = miko.get_node_or_null("RabbitHands")
+	var rabbit_near := hands != null and hands.claims(miko.position)
+	var near: Gatherable = null if door_near or rabbit_near else Gatherable.nearest(miko.position, float(data.range))
 	if near == null:
 		_show("")
 		return

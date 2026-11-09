@@ -110,6 +110,22 @@ func _ready() -> void:
 	spawners.setup(world, world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {})
 	if Shots.arg("nomonsters") != "":
 		spawners.process_mode = Node.PROCESS_MODE_DISABLED
+	# The rabbits in their holes, the pens, and grabbing them (E).
+	var monsters_data: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
+	var warren := Warren.new()
+	warren.name = "Warren"
+	add_child(warren)
+	warren.setup(world, monsters_data)
+	var pens := RabbitPens.new()
+	pens.name = "RabbitPens"
+	add_child(pens)
+	pens.setup(world, monsters_data.get("rabbitPen", {}))
+	if save.get("sections", {}).has("world.rabbits"):
+		pens.from_json(save.sections["world.rabbits"])
+	var hands := RabbitHands.new()
+	hands.name = "RabbitHands"
+	miko.add_child(hands)
+	hands.setup(world, miko, pens, $Hud)
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -181,6 +197,12 @@ func _ready() -> void:
 				if Shots.arg("trace") != "" and i % 20 == 0 and is_instance_valid(m):
 					print(i, " ", m.position, " v ", m.velocity, " asleep ", m.asleep, " ", m.get("hopping"), " ", m.get("chasing"), " ", m.get("state"), " target ", m.get("target"), " rest ", m.get("rest_until"), " now ", Creature.now(), " physics ", Engine.get_physics_frames())
 			print("Monster ", m.name if is_instance_valid(m) else "gone", " hp ", m.hit.hp if is_instance_valid(m) else 0.0, "; her hp ", hp0, " -> ", miko.stats.hp, "; creatures ", Creature.all.size(), "; lost bag ", Fainting.LostBag.active != null)
+		if Shots.arg("wait") != "":
+			# Let the world run this many frames before the shot (rabbits coming out, monsters about), for testing.
+			for i in int(Shots.arg("wait")):
+				await get_tree().process_frame
+			var out := Rabbit.rabbits.filter(func(r): return r.visible)
+			print("Rabbits ", Rabbit.rabbits.size(), " (", out.size(), " out), holes ", (get_node("Warren") as Warren).holes.size(), ", creatures ", Creature.all.size())
 		if Shots.arg("gather") != "":
 			# Start gathering from the nearest tree or rock, and keep at it this many frames (for testing).
 			var gathering: Miner = miko.get_node("Miner")
