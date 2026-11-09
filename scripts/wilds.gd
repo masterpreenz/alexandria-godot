@@ -21,7 +21,7 @@ static func open(w: World, at: Vector2, village_margin := 0.5, clearance := 0.35
 		return false
 	if w.roofs != null and w.roofs.covers(at):
 		return false
-	if w.water_depth(at) > 0.02:
+	if not dry(w, at):
 		return false
 	if _circle == null:
 		_circle = CircleShape2D.new()
@@ -31,6 +31,26 @@ static func open(w: World, at: Vector2, village_margin := 0.5, clearance := 0.35
 	q.transform = Transform2D(0.0, at)
 	q.collision_mask = 1  # the fixed world, not creatures or Miko
 	return w.get_world_2d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
+## No water at [param at] nor within [param margin] units round it: off the river and back from its banks.
+static func dry(w: World, at: Vector2, margin := 0.7) -> bool:
+	if w.water_depth(at) > 0.0:
+		return false
+	for i in 8:
+		var a := i * TAU / 8.0
+		if w.water_depth(at + Vector2(cos(a), sin(a) * 0.5) * margin * w.px) > 0.0:
+			return false
+	return true
+
+
+## No water along the way from [param from] to [param to] (looked at every half unit): a walk that doesn't cross a river.
+static func dry_way(w: World, from: Vector2, to: Vector2) -> bool:
+	var steps := maxi(1, ceili(from.distance_to(to) / (0.5 * w.px)))
+	for i in steps + 1:
+		if w.water_depth(from.lerp(to, float(i) / steps)) > 0.0:
+			return false
+	return true
 
 
 ## On grass, with no path or floor laid over it.

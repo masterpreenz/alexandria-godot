@@ -99,6 +99,9 @@ func _physics_process_timed(delta: float) -> void:
 		_bite_villager(t, prey_body, prey.position - at)
 	elif p != null:
 		_bite(t, p.position - at)
+	# Never into the water: a step that would end in the river stops at the bank.
+	if velocity != Vector2.ZERO and world.water_depth(position + velocity * get_physics_process_delta_time() * 4.0) > 0.0:
+		velocity = Vector2.ZERO
 	move_and_slide()
 	paint_flash()
 
@@ -216,7 +219,8 @@ func _pick_wander() -> void:
 	for i in 6:
 		var r := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * float(s.wander) * world.px
 		var spot := home + Vector2(r.x, r.y * 0.5)
-		if not world.village.contains(spot, 0.5):
+		# Never into the river: dry there, back from the bank, and nothing to cross on the way.
+		if not world.village.contains(spot, 0.5) and Wilds.dry(world, spot, 0.5) and Wilds.dry_way(world, position, spot):
 			target = spot
 			return
 	target = home

@@ -145,6 +145,9 @@ func _physics_process_timed(delta: float) -> void:
 				_wake()
 				if charge_on_waking:
 					_begin_wind_up()
+	# Never into the water: a step that would end in the river stops at the bank.
+	if velocity != Vector2.ZERO and world.water_depth(position + velocity * get_physics_process_delta_time() * 4.0) > 0.0:
+		velocity = Vector2.ZERO
 	move_and_slide()
 	paint_flash(Color(1, 0.75, 0.72))
 
@@ -298,7 +301,7 @@ func _pick_grass() -> bool:
 	for i in 10:
 		var r := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * 3.0 * world.px
 		var spot := home + Vector2(r.x, r.y * 0.5)
-		if Wilds.vegetation(world, spot) and Wilds.open(world, spot, 1.0, 0.3):
+		if Wilds.vegetation(world, spot) and Wilds.open(world, spot, 1.0, 0.3) and Wilds.dry_way(world, position, spot):
 			target = spot
 			return true
 	return false

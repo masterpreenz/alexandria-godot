@@ -178,6 +178,9 @@ func _physics_process_timed(delta: float) -> void:
 			nibble = _sleep_out(t)
 	if state != State.HIDDEN:
 		_reshow(nibble)
+		# Never into the water: a step that would end in the river stops at the bank.
+		if velocity != Vector2.ZERO and world.water_depth(position + velocity * get_physics_process_delta_time() * 4.0) > 0.0:
+			velocity = Vector2.ZERO
 		move_and_slide()
 	if shadow != null:
 		shadow.scale = _shadow_scale * _squash
@@ -317,7 +320,7 @@ func _pick_spot() -> bool:
 	for i in 10:
 		var r := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * float(s.roam) * world.px
 		var spot := centre + Vector2(r.x, r.y * 0.5)
-		var ok := _clear(spot) if in_village else Wilds.open(world, spot, 0.3, 0.2)
+		var ok := _clear(spot) if in_village else (Wilds.open(world, spot, 0.3, 0.2) and Wilds.dry_way(world, position, spot))
 		if ok:
 			target = spot
 			return true

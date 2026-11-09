@@ -703,16 +703,41 @@ func _ready() -> void:
 					while Time.get_ticks_msec() - t0 < int(ws._gust_length * 450.0):
 						await get_tree().process_frame
 					get_viewport().get_texture().get_image().save_png(base + "_gust.png")
+				"spawnspots":
+					# Random spots round the rivers: how many the spawners would take that are in or at the water.
+					var ws: WorldSounds = world.get_node("WorldSounds")
+					var taken := 0
+					var wet := 0
+					for i in 20000:
+						var r: Dictionary = ws._rivers[i % ws._rivers.size()]
+						var smp: Array = r.samples[randi() % r.samples.size()]
+						var spot_at := world.floors.corner(Vector2(smp[0], smp[1])) + Vector2(randf_range(-4, 4), randf_range(-2, 2)) * world.px
+						if Wilds.open(world, spot_at, 0.5):
+							taken += 1
+							var near_water := world.water_depth(spot_at) > 0.0
+							for k in 8:
+								var ang := k * TAU / 8.0
+								if world.water_depth(spot_at + Vector2(cos(ang), sin(ang) * 0.5) * 0.5 * world.px) > 0.0:
+									near_water = true
+							if near_water:
+								wet += 1
+					print("Spawn spots by rivers: ", taken, " taken, ", wet, " of them in or at the water")
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position
 					var radius := float(Shots.arg("radius", "18")) * world.px
 					var frames := int(Shots.arg("walkframes", "1200"))
+					var wet_ever := {}
 					for i in frames:
 						var a := TAU * i / 600.0
 						miko.place(centre + Vector2(cos(a) * radius, sin(a) * radius * 0.5) - Vector2(radius, 0))
+						if i % 10 == 0:
+							for c in Creature.all:
+								if is_instance_valid(c) and not Wilds.dry(world, c.position, 0.5):
+									wet_ever[c.get_instance_id()] = true
 						await get_tree().process_frame
 					print(Perf.active.summary())
+					print("Creatures in water at some point: ", wet_ever.size(), " (of ", Creature.all.size(), " now)")
 				"cams":
 					for c in get_tree().root.find_children("*", "Camera2D", true, false):
 						print("Camera ", c.get_path(), " callback ", c.process_callback, " interp ", c.is_physics_interpolated())
