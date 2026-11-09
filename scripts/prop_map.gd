@@ -312,3 +312,41 @@ func remove_one(cell: Vector2i) -> bool:
 			remove(cell, slot)
 			return true
 	return false
+
+
+## Lifts the top thing off [param cell] (as [method remove_one] would): {prop, turn, scale, free, pos}, or {}.
+func take_top(cell: Vector2i) -> Dictionary:
+	for i in range(free.size() - 1, -1, -1):
+		if floors.cell_at(free[i].pos) == cell:
+			var e: Dictionary = free[i]
+			free.remove_at(i)
+			_rebuild_free()
+			version += 1
+			return {"prop": e.prop, "turn": int(e.get("turn", 0)), "scale": _scale(float(e.get("scale", 1.0))), "free": true, "pos": e.pos}
+	for slot in [Slot.TALL, Slot.GROUND]:
+		var k := Vector3i(cell.x, cell.y, slot)
+		if cells.has(k):
+			var e: Dictionary = cells[k]
+			remove(cell, slot)
+			return {"prop": e.prop, "turn": int(e.get("turn", 0)), "scale": _scale(float(e.get("scale", 1.0))), "free": false, "pos": floors.cell_centre(cell)}
+	return {}
+
+
+## What's set down freely: [{pos, prop, turn, scale}].
+func free_props() -> Array:
+	return free
+
+
+## The drawn node of the prop on [param cell]'s [param slot], or null.
+func node_at(cell: Vector2i, slot: int) -> Node2D:
+	return _drawn.get(Vector3i(cell.x, cell.y, slot), null)
+
+
+## The drawn node of the free prop placed last, or null.
+func last_free_node() -> Node2D:
+	return _free_drawn[free.size() - 1] if not free.is_empty() and free.size() <= _free_drawn.size() else null
+
+
+## Every drawn prop node (for hiding or showing).
+func drawn_nodes() -> Array:
+	return _drawn.values() + _free_drawn.filter(func(n): return n != null)

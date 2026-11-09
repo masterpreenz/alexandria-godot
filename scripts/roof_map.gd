@@ -390,3 +390,61 @@ class Smoke:
 				img.set_pixel(x, y, Color(shade, shade, shade * 1.02, a))
 		_tex = ImageTexture.create_from_image(img)
 		return _tex
+
+
+# ---- Build mode ----
+
+var _missing: Array = []
+var _missing_key := ""
+
+
+## The bare cells in walled-in rooms that are mostly floored (so a missed tile is easy to find).
+func missing_floor() -> Array:
+	var key := "%d|%d" % [walls.version, floors.version]
+	if key == _missing_key:
+		return _missing
+	_missing_key = key
+	_missing = []
+	var seen := {}
+	for k in walls.walls:
+		var start := WallMap.Edge.of(k)
+		for i in int(walls.types[walls.walls[k]].length):
+			var e := WallMap.Edge.new(start.vertex + WallMap._dir(start.along_y) * i, start.along_y)
+			var v := e.vertex
+			for seed in ([Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]):
+				if seen.has(seed):
+					continue
+				var room := _fill(seed, seen)
+				if room.is_empty():
+					continue
+				var bare := []
+				for c in room:
+					if floors.get_laid(c) == "":
+						bare.append(c)
+				if not bare.is_empty() and bare.size() * 2 < room.size():
+					_missing.append_array(bare)
+	return _missing
+
+
+## The roof look picked for [param cells] (the first one's), or the default.
+func look_of(cells: Dictionary) -> String:
+	for c in cells:
+		if roof_floors.has(c):
+			return roof_floors[c]
+		break
+	return str(data.get("defaultRoof", ""))
+
+
+## The looks a house can be given: [[name, display]].
+func styles() -> Array:
+	return data.get("styles", []).map(func(n): return [n, str(looks.get(n, {}).get("display", n))])
+
+
+## Every drawn roof piece (for hiding them while building).
+func all_nodes() -> Array:
+	var out := []
+	for r in roofs:
+		out.append_array(r.holders)
+		if r.smoke != null and is_instance_valid(r.smoke):
+			out.append(r.smoke)
+	return out

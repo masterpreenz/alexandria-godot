@@ -59,6 +59,7 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 	active = self
 	settings = data.get("buildMode", {})
 	z_as_relative = false
+	visibility_layer = MapMarks.HIDDEN_LAYER   # build mode's feedback stays off the maps
 	z_index = 4080  # over the world and the mist veil, under floating text
 	var rank := {}
 	for i in CATEGORIES.size():
@@ -76,6 +77,7 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 		if it.kind == "Floor":
 			selected = it
 			break
+	_add_houses()
 
 
 static func is_open() -> bool:
@@ -89,6 +91,13 @@ func toggle() -> void:
 func set_open(on: bool) -> void:
 	if on == open:
 		return
+	if not on:
+		put_back_carried()
+		picked_room = null
+		hover_room = null
+		_house_ghost = {}
+		hide_buildings = false
+		_show_buildings()
 	open = on
 	_end_stroke()
 	miko.locked = on
@@ -146,6 +155,11 @@ func select(it: Dictionary) -> void:
 
 
 func set_tool(t: String) -> void:
+	if t != "Move":
+		put_back_carried()
+	if t != "Inspect":
+		picked_room = null
+	_house_ghost = {}
 	tool = t
 	_tool_clicked = true
 	changed.emit()
@@ -184,6 +198,14 @@ func brush_size() -> int:
 func tool_hint() -> String:
 	if tool == "Demolish":
 		return "Click a building to remove it · refunds half"
+	if tool == "Move":
+		return "Click its new spot · RMB puts it back" if not carried.is_empty() else "Click a building, then click its new spot"
+	if tool == "Copy":
+		return "Click anything built to copy it"
+	if tool == "Inspect":
+		return "Click a house to see what it is and change its roof"
+	if kind_of(selected) == "House":
+		return "Click to build the house · R turns it"
 	if selected.is_empty():
 		return "Pick something to build"
 	if kind_of(selected) == "Ground" or kind_of(selected) == "Floor":
@@ -222,6 +244,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif k == KEY_R:
 		turn = not turn
 		prop_turn += 1
+		preset_turn = (preset_turn + 1) % 4
+		if not carried.is_empty():
+			carried.turn = int(carried.turn) + 1
 		changed.emit()
 	elif k == KEY_Z and event.ctrl_pressed:
 		if event.shift_pressed: redo()
@@ -229,6 +254,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif k == KEY_Y and event.ctrl_pressed: redo()
 	elif k == KEY_X: set_tool("Place" if tool == "Demolish" else "Demolish")
 	elif k == KEY_N: toggle_blueprint()
+	elif k == KEY_M: set_tool("Place" if tool == "Move" else "Move")
+	elif k == KEY_V: set_tool("Place" if tool == "Copy" else "Copy")
+	elif k == KEY_H: set_tool("Place" if tool == "Inspect" else "Inspect")
+	elif k == KEY_U: toggle_hide_buildings()
 	else: handled = false
 	if handled:
 		get_viewport().set_input_as_handled()
@@ -259,7 +288,24 @@ func _process(delta: float) -> void:
 		var p := test.split(",")
 		point = miko.position + Vector2(float(p[0]), float(p[1])) * world.px
 		over = false
-	_place_or_clear(point, world.floors.cell_at(point), over)
+	if hide_buildings:
+		_hide_buildings()
+	var cell := world.floors.cell_at(point)
+	if tool == "Move" or tool == "Copy":
+		_house_ghost = {}
+		_move_or_copy(point, cell, over)
+	elif tool == "Inspect":
+		_house_ghost = {}
+		_inspect(point, over)
+	elif kind_of(selected) == "House":
+		_cells.clear()
+		_wall_ghost = null
+		_prop_ghost = {}
+		_ring = 0.0
+		_house_cursor(cell, over, not over and world.floors.in_bounds(cell))
+	else:
+		_house_ghost = {}
+		_place_or_clear(point, cell, over)
 	queue_redraw()
 
 
@@ -319,13 +365,24 @@ func _outside(at: Vector2, say: bool) -> bool:
 
 
 ## Why [param it] (a prop) can't stand at [param at], or "".
-func why_not(it: Dictionary, at: Vector2) -> String:
+func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
+	if it.is_empty():
+		return ""
+	if _use_cells().has(world.floors.cell_at(at)):
+		return "Keep clear: the way in to a bed or chest"
 	if bool(it.get("indoorsOnly", false)) and (world.roofs == null or not world.roofs.covers(at)):
 		return "Only inside a house"
 	if bool(it.get("villageOnly", false)) and not world.village.contains(at):
 		return "Only inside the village" if world.village.founded() else "Place a town banner first"
-	if bool(it.get("onlyOne", false)) and world.props.has(it.name):
+	if bool(it.get("onlyOne", false)) and world.props.has(it.name) and moving.is_empty():
 		return "There's already a %s" % it.display
+	# Furniture stands within one room or yard: never across a wall or fence.
+	var t := int(moving.turn) if not moving.is_empty() else prop_turn
+	var sc := float(moving.scale) if not moving.is_empty() else 1.0
+	if not _sizable(it) and _across_wall(it.name, at, t, sc):
+		return "Can't stand across a wall"
+	if bool(it.get("crystal", false)):
+		return _crystal_why(at, moving.pos if not moving.is_empty() else null)
 	return ""
 
 
@@ -460,6 +517,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 			if not no_build(f.cell_at(point)) and why_not(selected, point) == "" and _pay(selected, point):
 				var turns := int(world.props._turns(world.props.types[selected.name]))
 				world.props.place_free(point, selected.name, prop_scale, prop_turn % turns if turns > 1 else -1)
+				_drop_in([world.props.last_free_node()])
 			_last_free = point
 		return
 	# Fill the cells between this frame and the last, so fast strokes don't skip.
@@ -523,7 +581,7 @@ func _paint(cell: Vector2i, floor: String, turned: bool) -> void:
 
 func _place_wall(e: WallMap.Edge, type: String) -> void:
 	var w := world.walls
-	if _wall_no_build(e, type) or not w.can_place(e, type):
+	if _wall_no_build(e, type) or not w.can_place(e, type) or blocks_way_in(e):
 		return
 	var at := w.vertex_position(e.vertex)
 	var had := w.get_wall(e)
@@ -536,6 +594,7 @@ func _place_wall(e: WallMap.Edge, type: String) -> void:
 	if _outside(at, true) or not _pay(item_for("Wall", type), at):
 		return
 	w.place(e, type)
+	_drop_in(w.nodes_of(e))
 
 
 func _place_prop(cell: Vector2i, scale: float) -> void:
@@ -549,6 +608,7 @@ func _place_prop(cell: Vector2i, scale: float) -> void:
 		return
 	var turns := int(world.props._turns(world.props.types[selected.name]))
 	world.props.place(cell, selected.name, scale, prop_turn % turns if turns > 1 else -1)
+	_drop_in([world.props.node_at(cell, slot)])
 
 
 func _clear_one(cell: Vector2i) -> void:
@@ -669,6 +729,7 @@ func _step(from: Array, to: Array) -> void:
 func _draw() -> void:
 	if not open:
 		return
+	_draw_more()
 	var f := world.floors
 	for c in _cells:
 		var pts := PackedVector2Array([f.corner(Vector2(c)), f.corner(Vector2(c) + Vector2(1, 0)), f.corner(Vector2(c) + Vector2(1, 1)), f.corner(Vector2(c) + Vector2(0, 1))])
@@ -690,3 +751,581 @@ func _draw() -> void:
 		draw_set_transform(_ring_at, 0.0, Vector2(1, 0.5))
 		draw_arc(Vector2.ZERO, _ring * world.px, 0.0, TAU, 64, c, 0.04 * world.px, true)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# ==== Move, Copy, Inspect, houses, hiding buildings, the drop-in (Unity's BuildCatalog and the rest of BuildMode) ====
+
+const SQUARES := [["Hut", 5], ["House", 6], ["Hall", 8]]
+const PRESETS_FILE := "user://house_presets.json"
+const CRYSTAL_MIN_GAP := 10.0
+const CRYSTAL_MAX_GAP := 26.0
+
+var carried: Dictionary = {}           ## a prop picked up with Move: {prop, turn, scale, free, pos}
+var preset_turn := 0
+var picked_room: Variant = null        ## the house picked with Inspect (its cells), or null
+var hover_room: Variant = null
+var hide_buildings := false
+var saved_presets: Array = []
+var _move_down := false
+var _house_ghost: Dictionary = {}      ## {cells: [Vector2i], walls: [[a, b]], blocked}
+var _hidden: Array = []
+
+
+## A size x size room of [param floor] (laid alternately turned), walled all round, a door in the middle of the front
+## right side and windows in the middle of the others (Unity's HousePreset.Square).
+static func square(name: String, size: int, floor: String, wall: String, door: String, window: String) -> Dictionary:
+	var p := {"name": name, "width": size, "height": size, "cells": [], "walls": [], "props": [], "free": []}
+	for x in size:
+		for y in size:
+			p.cells.append({"x": x, "y": y, "floor": floor, "turned": (x + y) % 2 == 0, "roof": ""})
+	var mid := size / 2
+	for i in size:
+		var middle := i == mid
+		p.walls.append({"x": i, "y": 0, "alongY": false, "type": door if middle else wall})
+		p.walls.append({"x": 0, "y": i, "alongY": true, "type": window if middle else wall})
+		p.walls.append({"x": i, "y": size, "alongY": false, "type": window if middle else wall})
+		p.walls.append({"x": size, "y": i, "alongY": true, "type": window if middle else wall})
+	return p
+
+
+## The same house turned a quarter, rebuilt round the other way (grid corners (x, y) go to (y, width - x)).
+static func turned(p: Dictionary, quarters := 1) -> Dictionary:
+	var q := p
+	for n in ((quarters % 4) + 4) % 4:
+		var w: int = int(q.width)
+		var t := {"name": q.name, "width": q.height, "height": q.width, "cells": [], "walls": [], "props": [], "free": []}
+		for c in q.cells:
+			t.cells.append({"x": c.y, "y": w - 1 - int(c.x), "floor": c.floor, "turned": not bool(c.turned), "roof": c.get("roof", "")})
+		for f in q.get("free", []):
+			t.free.append({"x": f.y, "y": w - float(f.x), "type": f.type, "turn": int(f.turn) + 1, "scale": f.scale})
+		for r in q.get("props", []):
+			t.props.append({"x": r.y, "y": w - 1 - int(r.x), "type": r.type, "turn": int(r.turn) + 1, "scale": r.scale})
+		for wl in q.walls:
+			if bool(wl.alongY):
+				t.walls.append({"x": wl.y, "y": w - int(wl.x), "alongY": false, "type": wl.type})
+			else:
+				t.walls.append({"x": wl.y, "y": w - int(wl.x) - 1, "alongY": true, "type": wl.type})
+		q = t
+	return q
+
+
+func _first_laid_floor() -> String:
+	for it in items:
+		if it.kind == "Floor" and not _paving(it.name):
+			return it.name
+	return ""
+
+
+func _wall_named(n: String, fallback := "BarnWall") -> String:
+	return n if world.walls.types.has(n) else fallback
+
+
+# The houses in the catalogue: the squares, then what's been saved.
+func _add_houses() -> void:
+	var floor := _first_laid_floor()
+	var wall := _wall_named("BarnWall", world.walls.types.keys()[0])
+	var door := _wall_named("WallDoorClosed", wall)
+	var window := _wall_named("WallWindow", wall)
+	var houses := []
+	for s in SQUARES:
+		houses.append(_house_item(square(s[0], s[1], floor, wall, door, window), "%s %dx%d" % [s[0], s[1], s[1]]))
+	if FileAccess.file_exists(PRESETS_FILE):
+		var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(PRESETS_FILE))
+		if d is Dictionary:
+			saved_presets = d.get("presets", [])
+	for p in saved_presets:
+		houses.append(_house_item(p, str(p.name)))
+	var at := 0
+	for i in items.size():
+		if CATEGORIES.find(items[i].category) <= CATEGORIES.find("Houses"):
+			at = i + 1
+	for h in houses:
+		items.insert(at, h)
+		at += 1
+
+
+# A house costs its floor, its walls and what's inside.
+func _house_item(p: Dictionary, display: String) -> Dictionary:
+	var cost := []
+	for c in p.cells:
+		cost.append_array(item_for("Floor", str(c.floor) if str(c.floor) != "" else _first_laid_floor()).get("cost", []))
+	for w in p.walls:
+		cost.append_array(item_for("Wall", _wall_named(str(w.type))).get("cost", []))
+	var inside := 0
+	for r in p.get("props", []) + p.get("free", []):
+		var it := item_for("Prop", str(r.type))
+		if not it.is_empty():
+			inside += 1
+			cost.append_array(it.cost)
+	var desc := ("A whole %dx%d house as saved: floor, walls and the %d things inside. R turns it. In blueprint mode (N) the villagers build it all." % [p.width, p.height, inside]) if inside > 0 \
+		else "A whole %dx%d room: floor, walls, a door and windows. R turns the door." % [p.width, p.height]
+	var house_icon := -1
+	for it in items:
+		if it.name == "BarnWall":
+			house_icon = int(it.icon)
+	return {"name": str(p.name), "display": display, "kind": "House", "category": "Houses", "tier": 1, "description": desc,
+		"cost": Village.sum(cost), "lockedBy": "", "ring": 0.0, "icon": house_icon, "house": p}
+
+
+## Which house the cursor is over in Inspect, and clicking picks it.
+func _inspect(point: Vector2, over_ui: bool) -> void:
+	_cells.clear()
+	_wall_ghost = null
+	_prop_ghost = {}
+	_ring = 0.0
+	hover = {}
+	hover_room = null if over_ui or world.roofs == null else world.roofs.room_on(point)
+	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var click := down and not _move_down and not over_ui and not _tool_clicked
+	_move_down = down
+	if not down:
+		_tool_clicked = false
+	if click:
+		picked_room = hover_room
+		changed.emit()
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and not over_ui and picked_room != null:
+		picked_room = null
+		changed.emit()
+
+
+## What the picked house is: [kind, perk, what's in it].
+func picked_info() -> Array:
+	if picked_room == null:
+		return []
+	var cells: Dictionary = picked_room
+	var at: Vector2 = world.floors.cell_centre(cells.keys()[0])
+	var kind := world.village.room_kind_at(at)
+	var names := {"Storage": "Storage house", "Shelter": "Shelter", "House": "House", "": "Empty room"}
+	var perks := {"Storage": "Each chest adds 16 item slots to the village store instead of 8", "Shelter": "Sleep restores 25% faster, and beds are 15% comfier",
+		"House": "Put only beds in it for a Shelter, or only chests for a Storage house", "": "Put beds in it for a Shelter, or chests for a Storage house"}
+	var inside := {}
+	for c in cells:
+		for e in world.props.at(c):
+			inside[e.prop] = int(inside.get(e.prop, 0)) + 1
+	for e in world.props.free_props():
+		if cells.has(world.floors.cell_at(e.pos)):
+			inside[e.prop] = int(inside.get(e.prop, 0)) + 1
+	var list := []
+	for p in inside:
+		list.append("%s%s" % [world.props.types.get(p, {}).get("display", p), " ×%d" % inside[p] if inside[p] > 1 else ""])
+	return [names.get(kind, kind), perks.get(kind, ""), ", ".join(list) if not list.is_empty() else "nothing yet", cells.size()]
+
+
+func set_picked_roof(look: String) -> void:
+	if picked_room == null:
+		return
+	world.roofs.set_roof((picked_room as Dictionary).keys(), look)
+	changed.emit()
+
+
+## Keeps the picked house as a house to build again, here and in later games.
+func save_picked_house() -> void:
+	if picked_room == null:
+		return
+	var p := capture_house(picked_room, "My House %d" % (saved_presets.size() + 1))
+	saved_presets.append(p)
+	var f := FileAccess.open(PRESETS_FILE, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify({"presets": saved_presets}, "  "))
+	var at := 0
+	for i in items.size():
+		if items[i].kind == "House":
+			at = i + 1
+	items.insert(at, _house_item(p, str(p.name)))
+	_say("Saved as %s" % p.name, miko.position, HudStyle.color("accentLight"), true)
+	changed.emit()
+
+
+## A house as a preset: its cells' floors and roofs, every wall round or through them, and what's inside.
+func capture_house(cells: Dictionary, name: String) -> Dictionary:
+	var lo := Vector2i(1 << 30, 1 << 30)
+	var hi := -lo
+	for c in cells:
+		lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
+		hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
+	var p := {"name": name, "width": hi.x - lo.x + 1, "height": hi.y - lo.y + 1, "cells": [], "walls": [], "props": [], "free": []}
+	var seen := {}
+	for c in cells:
+		p.cells.append({"x": c.x - lo.x, "y": c.y - lo.y, "floor": world.floors.get_laid(c), "turned": world.floors.is_turned(c), "roof": world.roofs.roof_floors.get(c, "")})
+		for e in [WallMap.Edge.new(c, true), WallMap.Edge.new(c + Vector2i(1, 0), true), WallMap.Edge.new(c, false), WallMap.Edge.new(c + Vector2i(0, 1), false)]:
+			var t := world.walls.get_wall(e)
+			if t == "" or seen.has(e.key()):
+				continue
+			seen[e.key()] = true
+			p.walls.append({"x": e.vertex.x - lo.x, "y": e.vertex.y - lo.y, "alongY": e.along_y, "type": t})
+		for slot in PropMap.Slot.values():
+			var k := Vector3i(c.x, c.y, slot)
+			if world.props.cells.has(k):
+				var e: Dictionary = world.props.cells[k]
+				p.props.append({"x": c.x - lo.x, "y": c.y - lo.y, "type": e.prop, "turn": int(e.get("turn", 0)), "scale": float(e.get("scale", 1.0))})
+	for e in world.props.free_props():
+		if cells.has(world.floors.cell_at(e.pos)):
+			var fc := world.floors.fractional_cell(e.pos) - Vector2(lo)
+			p.free.append({"x": fc.x, "y": fc.y, "type": e.prop, "turn": int(e.get("turn", 0)), "scale": float(e.get("scale", 1.0))})
+	return p
+
+
+# ---- Placing a house ----
+
+func _house_low(p: Dictionary, cell: Vector2i) -> Vector2i:
+	return cell - Vector2i((int(p.width) - 1) / 2, (int(p.height) - 1) / 2)
+
+
+func _house_no_build(p: Dictionary, low: Vector2i) -> bool:
+	for c in p.cells:
+		if no_build(low + Vector2i(int(c.x), int(c.y))):
+			return true
+	return false
+
+
+func _house_outside(p: Dictionary, low: Vector2i, say: bool) -> bool:
+	for c in p.cells:
+		if _outside(world.floors.cell_centre(low + Vector2i(int(c.x), int(c.y))), say):
+			return true
+	return false
+
+
+func _place_house(p: Dictionary, low: Vector2i) -> void:
+	var f := world.floors
+	if blueprint and Construction.active != null:
+		for c in p.cells:
+			var fl := str(c.floor) if f.types.has(str(c.floor)) else _first_laid_floor()
+			Construction.active.plan_floor(low + Vector2i(int(c.x), int(c.y)), fl, bool(c.turned) and f.can_turn(fl))
+		for w in p.walls:
+			Construction.active.plan_wall(WallMap.Edge.new(low + Vector2i(int(w.x), int(w.y)), bool(w.alongY)), _wall_named(str(w.type)))
+		for r in p.get("props", []):
+			if world.props.types.has(r.type):
+				Construction.active.plan_prop(low + Vector2i(int(r.x), int(r.y)), r.type, int(r.turn), float(r.get("scale", 1.0)))
+		for r in p.get("free", []):
+			if world.props.types.has(r.type):
+				Construction.active.plan_free(Vector2(low) + Vector2(float(r.x), float(r.y)), r.type, int(r.turn), float(r.get("scale", 1.0)))
+		return
+	var dropped := []
+	for c in p.cells:
+		var cell := low + Vector2i(int(c.x), int(c.y))
+		if not f.in_bounds(cell):
+			continue
+		world.props.remove_all(cell)
+		var fl := str(c.floor) if f.types.has(str(c.floor)) else _first_laid_floor()
+		f.paint(cell, fl, bool(c.turned) and f.can_turn(fl))
+		if str(c.get("roof", "")) != "":
+			world.roofs.roof_floors[cell] = c.roof
+	for w in p.walls:
+		var e := WallMap.Edge.new(low + Vector2i(int(w.x), int(w.y)), bool(w.alongY))
+		world.walls.place(e, _wall_named(str(w.type)))
+		dropped.append_array(world.walls.nodes_of(e))
+	for r in p.get("free", []):
+		if not world.props.types.has(r.type):
+			continue
+		var turns := maxi(1, world.props._turns(world.props.types[r.type]))
+		world.props.place_free(f.corner(Vector2(low) + Vector2(float(r.x), float(r.y))), r.type, float(r.get("scale", 1.0)), ((int(r.turn) % turns) + turns) % turns if turns > 1 else -1)
+	for r in p.get("props", []):
+		if not world.props.types.has(r.type):
+			continue
+		var turns := maxi(1, world.props._turns(world.props.types[r.type]))
+		world.props.place(low + Vector2i(int(r.x), int(r.y)), r.type, float(r.get("scale", 1.0)), ((int(r.turn) % turns) + turns) % turns if turns > 1 else -1)
+	_drop_in(dropped, 0.1)
+
+
+func _house_cursor(cell: Vector2i, over_ui: bool, visible: bool) -> void:
+	var p := turned(selected.house, preset_turn)
+	var low := _house_low(p, cell)
+	var status := status_of(selected)
+	var outside := _house_outside(p, low, false)
+	var blocked := _house_no_build(p, low)
+	var ok := status == "Ready" or blueprint
+	_house_ghost = {}
+	if visible:
+		var cells := []
+		for c in p.cells:
+			cells.append(low + Vector2i(int(c.x), int(c.y)))
+		var walls := []
+		for w in p.walls:
+			var e := WallMap.Edge.new(low + Vector2i(int(w.x), int(w.y)), bool(w.alongY))
+			walls.append([world.walls.vertex_position(e.vertex), world.walls.vertex_position(e.end())])
+		_house_ghost = {"cells": cells, "walls": walls, "blocked": blocked or outside or not ok}
+	var note := ""
+	if outside: note = _village_note()
+	elif blocked: note = "Can't build on the road"
+	elif status == "Short" and not blueprint: note = missing(selected.cost)
+	hover = {"show": visible, "title": selected.display, "tier": 1, "status": "Ready" if blueprint else status, "costs": selected.cost, "note": note, "plan": blueprint}
+	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var click := down and not _move_down and not over_ui and not _tool_clicked
+	_move_down = down
+	if not down:
+		_tool_clicked = false
+	if not click or not visible:
+		return
+	if blocked:
+		_say("Can't build on the road", world.floors.cell_centre(cell))
+		return
+	if _house_outside(p, low, true):
+		return
+	var before := _capture()
+	if not blueprint and not _pay(selected, world.floors.cell_centre(cell)):
+		return
+	_stroke_start = before
+	_place_house(p, low)
+	_end_stroke()
+
+
+# ---- Move and Copy ----
+
+func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
+	_cells.clear()
+	_wall_ghost = null
+	_prop_ghost = {}
+	_ring = 0.0
+	var visible := not over_ui and world.floors.in_bounds(cell)
+	var top := world.props.peek_top(cell)
+	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var click := down and not _move_down and not over_ui and not _tool_clicked
+	_move_down = down
+	if not down:
+		_tool_clicked = false
+	if visible:
+		_cells.append(cell)
+	if tool == "Move":
+		if not carried.is_empty():
+			var free := Input.is_key_pressed(KEY_ALT)
+			var at := point if free else world.floors.cell_centre(cell)
+			var it := item_for("Prop", carried.prop)
+			var why := "Can't build on the road" if no_build(cell) else why_not(it, at, carried)
+			var blocked := why != ""
+			_cell_colour = BLOCKED if blocked else Color(HudStyle.color("green"), 0.9)
+			if free:
+				_cells.clear()
+			_prop_ghost = {"sprite": world.props.sprite_for(carried.prop, int(carried.turn)), "at": at, "scale": float(carried.scale), "colour": BLOCKED if blocked else Color(1, 1, 1, 0.6)}
+			hover = {"show": visible, "title": "Move " + str(world.props.types.get(carried.prop, {}).get("display", carried.prop)), "move": true, "note": why}
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+				put_back_carried()
+				return
+			if click and not blocked and visible:
+				var turns := world.props._turns(world.props.types[carried.prop])
+				var t := int(carried.turn) if turns > 1 else -1
+				if free:
+					world.props.place_free(point, carried.prop, float(carried.scale), t)
+					_drop_in([world.props.last_free_node()])
+				else:
+					world.props.place(cell, carried.prop, float(carried.scale), t)
+					_drop_in([world.props.node_at(cell, int(world.props.types[carried.prop].slot))])
+				carried = {}
+				_end_stroke()
+				changed.emit()
+			return
+		_cell_colour = HudStyle.color("accent") if top != "" else Color(1, 1, 1, 0.35)
+		hover = {"show": visible and top != "", "title": "Move " + str(world.props.types.get(top, {}).get("display", top)), "move": true, "note": ""}
+		if click and top != "":
+			_stroke_start = _capture()
+			carried = world.props.take_top(cell)
+			changed.emit()
+		return
+	# Copy: what's here, top first.
+	var found := item_for("Prop", top) if top != "" else {}
+	if found.is_empty():
+		for e in world.walls.edges_in(cell):
+			var w := world.walls.get_wall(e)
+			if w != "":
+				found = item_for("Wall", w)
+				if found.is_empty() and str(world.walls.types[w].get("toggle", "")) != "":
+					found = item_for("Wall", world.walls.types[w].toggle)
+				if not found.is_empty():
+					break
+	if found.is_empty():
+		var laid := world.floors.get_laid(cell)
+		found = item_for("Floor", laid) if laid != "" else item_for("Ground", world.floors.get_floor(cell))
+	_cell_colour = HudStyle.color("accent") if not found.is_empty() else Color(1, 1, 1, 0.35)
+	hover = {"show": visible and not found.is_empty(), "title": "Copy " + str(found.get("display", "")), "move": true, "note": ""}
+	if click and not found.is_empty():
+		select(found)
+
+
+## Puts what Move is carrying back where it came from.
+func put_back_carried() -> void:
+	if carried.is_empty():
+		return
+	var turns := world.props._turns(world.props.types[carried.prop])
+	var t := int(carried.turn) if turns > 1 else -1
+	if bool(carried.free):
+		world.props.place_free(carried.pos, carried.prop, float(carried.scale), t)
+	else:
+		world.props.place(world.floors.cell_at(carried.pos), carried.prop, float(carried.scale), t)
+	carried = {}
+	_stroke_start = null
+	changed.emit()
+
+
+# ---- Where props may stand (the rest of Unity's WhyNot) ----
+
+# The tiles beds and chests are used from.
+func _use_cells() -> Dictionary:
+	var out := {}
+	var people: Villagers = get_tree().current_scene.get_node_or_null("Villagers")
+	for bed in (Needs.all_beds(world, people.d.get("beds", {})) if people != null else []):
+		out[UseSpots.bed_cell(world, bed)] = world.floors.cell_at(bed.pos)
+	for c in world.props.entries_named("Chest"):
+		out[UseSpots.chest_cell(world, c.pos, int(c.e.get("turn", 0)))] = world.floors.cell_at(c.pos)
+	return out
+
+
+## Whether [param e] would run between a bed or chest and its way in.
+func blocks_way_in(e: WallMap.Edge) -> bool:
+	var uses := _use_cells()
+	for use in uses:
+		var on: Vector2i = uses[use]
+		var d: Vector2i = use - on
+		var between: WallMap.Edge = null
+		if d == Vector2i(1, 0): between = WallMap.Edge.new(use, true)
+		elif d == Vector2i(-1, 0): between = WallMap.Edge.new(on, true)
+		elif d == Vector2i(0, 1): between = WallMap.Edge.new(use, false)
+		elif d == Vector2i(0, -1): between = WallMap.Edge.new(on, false)
+		if between != null and between.key() == e.key():
+			return true
+	return false
+
+
+# Whether a prop's footing at [param at] has a solid wall running through it.
+func _across_wall(prop: String, at: Vector2, t: int, scale: float) -> bool:
+	var id := world.props.sprite_for(prop, t)
+	if id < 0:
+		return false
+	var info: Dictionary = world.sprites[id]
+	var k := scale * world.px / float(info.ppu)
+	var w: float = float(info.rect[2]) * k * 0.8
+	var h: float = float(info.rect[3]) * k
+	var below: float = (float(info.rect[3]) - float(info.pivot[1])) * k   # how far its picture reaches below its spot
+	var foot := at.y + below
+	var depth := h * 0.3
+	var seen := {}
+	for i in 7:
+		for j in 3:
+			seen[world.floors.cell_at(Vector2(at.x - w / 2.0 + w * i / 6.0, foot - depth * (j + 0.5) / 3.0))] = true
+	for c in seen:
+		for pair in [[Vector2i(1, 0), WallMap.Edge.new(c + Vector2i(1, 0), true)], [Vector2i(0, 1), WallMap.Edge.new(c + Vector2i(0, 1), false)]]:
+			if not seen.has(c + pair[0]):
+				continue
+			var type := world.walls.get_wall(pair[1])
+			if type != "" and float(world.walls.types[type].get("opening", 0.0)) < 1.0 and not bool(world.walls.types[type].get("fence", false)):
+				return true
+	return false
+
+
+func _crystal_gap(at: Vector2, skip: Variant = null) -> float:
+	var best := INF
+	var crystals: Crystals = get_tree().current_scene.get_node_or_null("Crystals")
+	if crystals == null:
+		return best
+	for c in crystals.teleports:
+		if skip != null and (c.pos as Vector2).distance_to(skip) < 1.0:
+			continue
+		best = minf(best, c.pos.distance_to(at) / world.px)
+	return best
+
+
+func _crystal_why(at: Vector2, moved_from: Variant) -> String:
+	var gap := _crystal_gap(at, moved_from)
+	if is_inf(gap):
+		return ""
+	if gap < CRYSTAL_MIN_GAP:
+		return "Too close to another crystal (%.1f of %d needed)" % [gap, CRYSTAL_MIN_GAP]
+	var alone: bool = moved_from != null and _crystal_gap(moved_from, moved_from) > CRYSTAL_MAX_GAP
+	if gap > CRYSTAL_MAX_GAP and not alone:
+		return "Too far from the nearest crystal (%.1f, at most %d)" % [gap, CRYSTAL_MAX_GAP]
+	return ""
+
+
+# ---- Hiding walls and roofs, and the drop-in ----
+
+func toggle_hide_buildings() -> void:
+	hide_buildings = not hide_buildings
+	if not hide_buildings:
+		_show_buildings()
+	changed.emit()
+
+
+func _show_buildings() -> void:
+	for n in _hidden:
+		if is_instance_valid(n):
+			n.visible = true
+	_hidden.clear()
+
+
+func _hide_buildings() -> void:
+	var nodes: Array = world.walls.all_nodes() + (world.roofs.all_nodes() if world.roofs != null else [])
+	if Construction.active != null:
+		nodes += Construction.active.ghost_nodes()
+	for n in nodes:
+		if is_instance_valid(n) and n.visible:
+			n.visible = false
+			_hidden.append(n)
+
+
+## Drops freshly built pieces into place: from a little above, fading in, with a small squash as they land.
+func _drop_in(nodes: Array, spread := 0.0) -> void:
+	for n in nodes:
+		if n == null or not is_instance_valid(n):
+			continue
+		var node: Node2D = n
+		var rest := node.position
+		var delay := randf_range(0.0, spread)
+		node.position = rest + Vector2(0, -0.6 * world.px)
+		node.modulate.a = 0.0
+		var tw := node.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_property(node, "modulate:a", 1.0, 0.12)
+		tw.parallel().tween_property(node, "position", rest, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(node, "scale", Vector2(1.06, 0.92), 0.06)
+		tw.tween_property(node, "scale", Vector2.ONE, 0.1)
+
+
+# ---- More to draw while building: the village's edge, crystals' rings, the missing floors, the picked house, a house's ghost ----
+
+func _draw_more() -> void:
+	var f := world.floors
+	var green := HudStyle.color("green")
+	var t := Time.get_ticks_msec() / 1000.0
+	# The village's edge, breathing gently (where the banner being placed would put it).
+	var edge := Color(green, 0.55 + 0.2 * sin(t * 2.0))
+	if kind_of(selected) == "Prop" and bool(selected.get("banner", false)) and tool == "Place" and not _prop_ghost.is_empty():
+		var c := f.cell_at(_prop_ghost.at)
+		var r := int(world.village.radii[0])
+		var pts := PackedVector2Array()
+		for k in [Vector2(-r, -r), Vector2(r + 1, -r), Vector2(r + 1, r + 1), Vector2(-r, r + 1), Vector2(-r, -r)]:
+			pts.append(f.corner(Vector2(c) + k))
+		draw_polyline(pts, edge, 0.04 * world.px, true)
+	else:
+		for loop in MapMarks.village_loops(world):
+			var pts := PackedVector2Array(loop)
+			pts.append(loop[0])
+			draw_polyline(pts, edge, 0.04 * world.px, true)
+	# Placing a crystal: round each one, the nearest a new one may stand (coral) and the farthest (blue).
+	if kind_of(selected) == "Prop" and bool(selected.get("crystal", false)) and tool == "Place":
+		var crystals: Crystals = get_tree().current_scene.get_node_or_null("Crystals")
+		if crystals != null:
+			for c in crystals.teleports:
+				draw_set_transform(c.pos, 0.0, Vector2(1, 0.5))
+				draw_arc(Vector2.ZERO, CRYSTAL_MIN_GAP * world.px, 0, TAU, 96, Color(HudStyle.color("coral"), 0.75), 0.04 * world.px * 2.0, true)
+				draw_arc(Vector2.ZERO, CRYSTAL_MAX_GAP * world.px, 0, TAU, 128, Color(HudStyle.color("mana"), 0.75), 0.04 * world.px * 2.0, true)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Bare tiles in walled-in rooms, pulsing.
+	if world.roofs != null:
+		var pulse := 0.45 + 0.35 * sin(t * 5.0)
+		for c in world.roofs.missing_floor():
+			draw_colored_polygon(_diamond(c), Color(1, 0.3, 0.25, pulse * 0.6))
+	# Inspect: the house under the cursor, and the one picked.
+	for pair in [[hover_room, Color(1, 1, 1, 0.18)], [picked_room, Color(HudStyle.color("accent"), 0.35)]]:
+		if pair[0] != null and tool == "Inspect":
+			for c in pair[0]:
+				draw_colored_polygon(_diamond(c), pair[1])
+	# A house's ghost: its floor and its walls.
+	if not _house_ghost.is_empty():
+		var col := BLOCKED if _house_ghost.blocked else (Color(0.55, 0.78, 1.0, 0.8) if blueprint else Color(green, 0.85))
+		for c in _house_ghost.cells:
+			draw_colored_polygon(_diamond(c), Color(col, 0.22))
+		for w in _house_ghost.walls:
+			draw_line(w[0], w[1], col, 0.06 * world.px, true)
+
+
+func _diamond(c: Vector2i) -> PackedVector2Array:
+	var f := world.floors
+	return PackedVector2Array([f.corner(Vector2(c)), f.corner(Vector2(c) + Vector2(1, 0)), f.corner(Vector2(c) + Vector2(1, 1)), f.corner(Vector2(c) + Vector2(0, 1))])

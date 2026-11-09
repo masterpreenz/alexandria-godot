@@ -63,7 +63,7 @@ static func marks(w: World) -> Array:
 
 
 static func _hostile(c: Node) -> bool:
-	if bool(c.get("chasing")):
+	if c.get("chasing") == true:
 		return true
 	var st: Variant = c.get("state")
 	return c is Boar and st is int and st in [Boar.State.WIND_UP, Boar.State.CHARGE, Boar.State.RECOVER]

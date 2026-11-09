@@ -28,6 +28,9 @@ var _footer_text: Label
 var _have: Label
 var _brushes: HBoxContainer
 var _turn: Label
+var _card: PanelContainer
+var _card_box: VBoxContainer
+var _card_for: Variant = null
 var _tip: PanelContainer
 var _tip_text: RichTextLabel
 
@@ -49,6 +52,14 @@ func setup(b: BuildMode, w: World, who: Miko) -> void:
 	_build_rail()
 	_build_bar()
 	_build_tip()
+	_card = PanelContainer.new()
+	_card.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
+	_card.custom_minimum_size.x = _k(300)
+	_card_box = VBoxContainer.new()
+	_card_box.add_theme_constant_override("separation", int(_k(6)))
+	_card.add_child(_card_box)
+	_card.visible = false
+	add_child(_card)
 	for it in b.items:
 		if category == "":
 			category = it.category
@@ -88,6 +99,10 @@ func _build_rail() -> void:
 	col.add_theme_constant_override("separation", int(_k(4)))
 	col.add_child(_rail_button("Place", "Place", "Place the picked item", func(): build.set_tool("Place")))
 	col.add_child(_rail_button("Demolish", "Demolish  X", "Remove what's built (refunds half)", func(): build.set_tool("Place" if build.tool == "Demolish" else "Demolish")))
+	col.add_child(_rail_button("Move", "Move  M", "Pick up a prop and put it somewhere else", func(): build.set_tool("Place" if build.tool == "Move" else "Move")))
+	col.add_child(_rail_button("Copy", "Copy  V", "Click anything built to pick the same", func(): build.set_tool("Place" if build.tool == "Copy" else "Copy")))
+	col.add_child(_rail_button("Inspect", "Inspect  H", "Click a house: what it's given to, what's in it, its roof, and saving it", func(): build.set_tool("Place" if build.tool == "Inspect" else "Inspect")))
+	col.add_child(_rail_button("Hide", "Hide  U", "Hide walls, roofs and plans to see the ground", build.toggle_hide_buildings))
 	col.add_child(_rail_button("Plan", "Blueprint  N", "Blueprint mode: walls and floors you place become plans for the villagers to build", build.toggle_blueprint))
 	col.add_child(_rail_button("Undo", "Undo", "Ctrl+Z", build.undo))
 	col.add_child(_rail_button("Redo", "Redo", "Ctrl+Y", build.redo))
@@ -214,7 +229,11 @@ func _process(_delta: float) -> void:
 	_bar.position = Vector2((vp.x - _bar.size.x) / 2.0, vp.y - _bar.size.y - _k(14)).round()
 	_rail.reset_size()
 	_rail.position = Vector2(_bar.position.x - _rail.size.x - _k(8), vp.y - _rail.size.y - _k(14)).round()
-	_hint.text = build.tool_hint() + ("   ·   PLAN" if build.blueprint else "")
+	_hint.text = build.tool_hint() + ("   ·   PLAN" if build.blueprint else "") + ("   ·   HIDDEN" if build.hide_buildings else "")
+	_house_card()
+	if _card.visible:
+		_card.reset_size()
+		_card.position = Vector2(vp.x - _card.size.x - _k(16), _bar.position.y - _card.size.y - _k(10)).round()
 	_tooltip()
 
 
@@ -252,12 +271,22 @@ func _refresh() -> void:
 		_footer_text.text = "Pick something to build"
 	else:
 		_footer_text.text = "%s  ·  %s" % [sel.display, sel.description]
-	var painting: bool = not sel.is_empty() and (sel.kind == "Ground" or sel.kind == "Floor" or build._sizable(sel)) or build.tool == "Demolish"
+	var painting: bool = (build.tool == "Place" and not sel.is_empty() and (sel.kind == "Ground" or sel.kind == "Floor" or build._sizable(sel))) or build.tool == "Demolish"
 	_brushes.visible = painting
 	for i in _brushes.get_child_count():
 		_brushes.get_child(i).modulate = Color(1.3, 1.15, 0.8) if i == build.brush else Color(1, 1, 1, 0.6)
 	var turnable: bool = not sel.is_empty() and sel.kind == "Floor" and world.floors.can_turn(sel.name)
 	_turn.text = ("R turn: %s%s" % ["across" if build.turn else "along", "  (auto)" if build.auto_turn else ""]) if turnable else ""
+	if build.tool != "Place":
+		_turn.text = ""
+	elif not sel.is_empty() and sel.kind == "House":
+		_turn.text = "R turn: door %s" % ["front right", "front left", "back left", "back right"][build.preset_turn]
+	if build.tool == "Move":
+		_footer_text.text = "Move: click a prop to pick it up, then click its new spot (Alt: exactly there) · R turns it · right-click puts it back"
+	elif build.tool == "Copy":
+		_footer_text.text = "Copy: click anything built to pick the same thing to build"
+	elif build.tool == "Inspect":
+		_footer_text.text = "Inspect: click a house to see what it's given to, what's in it, and change its roof"
 	var parts := []
 	for r in ["Wood", "Stone", "Gold"]:
 		parts.append("%s %d" % [UiKit.resource_name(r), world.village.have(miko.bag, miko, r)])
@@ -266,6 +295,11 @@ func _refresh() -> void:
 	_light("Place", build.tool == "Place")
 	_light("Demolish", build.tool == "Demolish")
 	_light("Plan", build.blueprint)
+	_light("Move", build.tool == "Move")
+	_light("Copy", build.tool == "Copy")
+	_light("Inspect", build.tool == "Inspect")
+	_light("Hide", build.hide_buildings)
+	_card_for = null
 	_rail_buttons.Undo.disabled = not build.can_undo()
 	_rail_buttons.Redo.disabled = not build.can_redo()
 	var drafts: int = Construction.active.drafts() if Construction.active != null else 0
@@ -368,3 +402,47 @@ class ItemTile extends Control:
 			c = HudStyle.color("coral") if st == "Short" else HudStyle.color("muted")
 		draw_string(font, Vector2(4, 78 * k), line, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, roundi(9 * k), c)
 		draw_string(HudStyle.font("pixel"), Vector2(6, 14 * k), "T%d" % int(item.get("tier", 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(9 * k), HudStyle.color("faint"))
+
+
+# The picked house (Inspect): what it's given to and its bonus, what's in it, its roof, and saving it.
+func _house_card() -> void:
+	var show: bool = build.tool == "Inspect" and build.picked_room != null
+	_card.visible = show
+	if not show or _card_for == build.picked_room:
+		return
+	_card_for = build.picked_room
+	for ch in _card_box.get_children():
+		_card_box.remove_child(ch)
+		ch.queue_free()
+	var info: Array = build.picked_info()
+	_card_box.add_child(HudStyle.label(info[0], 15, "bold", HudStyle.color("accentLight")))
+	var perk := HudStyle.label(info[1], 11, "body", HudStyle.color("green"))
+	perk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	perk.custom_minimum_size.x = _k(280)
+	_card_box.add_child(perk)
+	_card_box.add_child(HudStyle.label("%d tiles" % info[3], 11, "bold", HudStyle.color("muted")))
+	var inside := HudStyle.label("Inside: " + info[2], 11, "body")
+	inside.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inside.custom_minimum_size.x = _k(280)
+	_card_box.add_child(inside)
+	_card_box.add_child(HudStyle.label("ROOF", 10, "bold", HudStyle.color("faint")))
+	var roofs := HFlowContainer.new()
+	roofs.add_theme_constant_override("h_separation", int(_k(4)))
+	roofs.add_theme_constant_override("v_separation", int(_k(4)))
+	roofs.custom_minimum_size.x = _k(280)
+	var current := world.roofs.look_of(build.picked_room)
+	for st in world.roofs.styles():
+		var b := HudStyle.button(st[1], 11, "pill", HudStyle.color("text") if st[0] == current else HudStyle.color("muted"))
+		if st[0] == current:
+			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.7)))
+		b.pressed.connect(func():
+			build.set_picked_roof(st[0])
+			_card_for = null)
+		roofs.add_child(b)
+	_card_box.add_child(roofs)
+	var save := HudStyle.button("Save as blueprint", 12, "barFill", HudStyle.color("ink"))
+	save.add_theme_stylebox_override("normal", HudStyle.piece("barFill", HudStyle.color("accent")))
+	save.pressed.connect(func():
+		build.save_picked_house()
+		_dirty = true)
+	_card_box.add_child(save)

@@ -400,3 +400,16 @@ func restore(e: Edge) -> void:
 	var c := covering(e)
 	if c[0] != "" and not original.has((c[1] as Edge).key()):
 		remove(e)
+
+
+## The drawn pieces of the wall starting on [param e] (for the drop-in), or [].
+func nodes_of(e: Edge) -> Array:
+	return _drawn.get(e.key(), {}).get("holders", [])
+
+
+## Every drawn wall piece (for hiding them while building).
+func all_nodes() -> Array:
+	var out := []
+	for d in _drawn.values():
+		out.append_array(d.get("holders", []))
+	return out

@@ -276,3 +276,20 @@ func clear_drafts() -> int:
 	var n := drafts()
 	_remove_where(func(p): return not bool(p.get("ready", false)))
 	return n
+
+
+## A planned prop (furniture and the like) on [param cell]: set up once the floor and walls are in.
+func plan_prop(cell: Vector2i, type: String, turn: int, scale: float) -> void:
+	_remove_where(func(p): return bool(p.get("prop", false)) and not bool(p.get("free", false)) and int(p.x) == cell.x and int(p.y) == cell.y)
+	_add({"wall": false, "prop": true, "free": false, "x": cell.x, "y": cell.y, "type": type, "turn": turn, "ready": false, "scale": scale if scale > 0.0 else 1.0})
+
+
+## A planned prop set down freely at [param at] (cell coordinates).
+func plan_free(at: Vector2, type: String, turn: int, scale: float) -> void:
+	_add({"wall": false, "prop": true, "free": true, "x": floori(at.x), "y": floori(at.y), "fx": at.x, "fy": at.y, "type": type, "turn": turn,
+		"ready": false, "scale": scale if scale > 0.0 else 1.0})
+
+
+## Every ghost drawn for a plan (for hiding them while building).
+func ghost_nodes() -> Array:
+	return _ghosts.values().filter(func(n): return is_instance_valid(n))
