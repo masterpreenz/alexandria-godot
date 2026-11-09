@@ -164,3 +164,30 @@ static func _shadow() -> Texture2D:
 	if _shadow_tex == null:
 		_shadow_tex = Waterfall._dot(32, 0.6)
 	return _shadow_tex
+
+
+## What's lying on the ground, as Unity's world.ground (in units, y up).
+static func to_json(w: World) -> String:
+	var items := []
+	for p in all:
+		if is_instance_valid(p) and p.amount > 0:
+			items.append({"resource": p.resource, "amount": p.amount, "gear": "", "x": p.ground.x / w.px, "y": -p.ground.y / w.px, "age": p.age})
+	return JSON.stringify({"items": items})
+
+
+## Lays out what the save had lying on the ground.
+static func from_json(w: World, json: String) -> void:
+	var d: Variant = JSON.parse_string(json)
+	if not d is Dictionary:
+		return
+	for g in d.get("items", []):
+		if str(g.get("gear", "")) != "" or int(g.get("amount", 0)) <= 0 or not UiKit.data.resources.has(g.resource):
+			continue
+		var at := Vector2(float(g.x) * w.px, -float(g.y) * w.px)
+		var p := launch_icon(w, g.resource, int(g.amount), at)
+		p.ground = at
+		p.velocity = Vector2.ZERO
+		p.rise = 0.0
+		p.height = 0.0
+		p.age = float(g.get("age", 0.0))
+		p.landed_at = p.age - 10.0

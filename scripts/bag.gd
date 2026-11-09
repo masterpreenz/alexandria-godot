@@ -129,3 +129,13 @@ func from_json(json: String, equipped: Array = []) -> void:
 		if slotted(r) and count(r) > 0 and not stack_slot.has(r):
 			stack_slot[r] = free_slot()
 	changed.emit()
+
+
+## The bag as Unity's player.bag: every resource's amount (in Unity's order), each slot's item, each stack's slot.
+func to_json() -> String:
+	var res := []
+	var stacks := []
+	for r in RESOURCES:
+		res.append({"resource": r, "amount": count(r)})
+		stacks.append(int(stack_slot.get(r, -1)) if count(r) > 0 else int(stack_slot.get(r, -1)))
+	return JSON.stringify({"resources": res, "slots": items, "stackSlots": stacks})

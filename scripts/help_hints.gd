@@ -75,6 +75,11 @@ static func from_json(json: String) -> void:
 			shown[id] = true
 
 
+## The hints already seen, as Unity's help.shown.
+static func to_json() -> String:
+	return JSON.stringify({"shown": shown.keys()})
+
+
 ## Shows a hint (once per game): [param id] marks it as seen.
 func hint(id: String, icon: Texture2D, title: String, text: String) -> void:
 	if off() or shown.has(id):

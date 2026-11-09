@@ -32,7 +32,7 @@ func _ready() -> void:
 	miner.name = "Miner"
 	miko.add_child(miner)
 	miner.setup(world, miko, world._load_json("res://data/gather.json").miner, $Hud)
-	var sv: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	var sv: Dictionary = {"sections": SaveSystem.start_sections(world)}
 	UiKit.setup(world)
 	miko.bag.item_data = UiKit.data.items
 	if sv.get("sections", {}).has("player.bag"):
@@ -186,9 +186,7 @@ func _ready() -> void:
 		fainting.setup(world, miko, monsters.fainting, $Hud)
 		# What she's picked up this life (it'd fall with her).
 		if sv.get("sections", {}).has("player.life"):
-			for a in JSON.parse_string(sv.sections["player.life"]).get("looted", []):
-				if int(a.amount) > 0:
-					Fainting.looted[a.resource] = int(a.amount)
+			Fainting.from_json(world, sv.sections["player.life"])
 	# The Character & Bag window (C or I) and the talents (P).
 	var char_panel := CharacterPanel.new()
 	char_panel.name = "CharacterPanel"
@@ -214,7 +212,7 @@ func _ready() -> void:
 		$Hud.add_child(bench)
 		bench.setup(world, miko, people.d.get("workbenches", {}), $Hud)
 	# Where the save left her.
-	var saved_game: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	var saved_game: Dictionary = {"sections": SaveSystem.start_sections(world)}
 	if saved_game.get("sections", {}).has("player"):
 		var pl: Dictionary = JSON.parse_string(saved_game.sections.player)
 		miko.place(Vector2(float(pl.x) * world.px, -float(pl.y) * world.px))
@@ -227,7 +225,7 @@ func _ready() -> void:
 	add_child(clock)
 	clock.seconds_per_day = data.clock.secondsPerDay
 	clock.hours = data.clock.startHour
-	var save: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	var save: Dictionary = {"sections": SaveSystem.start_sections(world)}
 	if save.get("sections", {}).has("world.clock"):
 		clock.from_json(save.sections["world.clock"])
 	if Shots.arg("hour") != "":
@@ -282,6 +280,17 @@ func _ready() -> void:
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
 	world_map.setup(world, miko)
+	# What was lying on the ground; saving (F5, F8, autosaves) and the save menu (Esc).
+	if save.get("sections", {}).has("world.ground"):
+		Pickup.from_json(world, save.sections["world.ground"])
+	var saving := SaveGame.new()
+	saving.name = "SaveGame"
+	add_child(saving)
+	saving.setup(self, world, miko, $Hud)
+	var save_menu := SaveMenu.new()
+	save_menu.name = "SaveMenu"
+	$Hud.add_child(save_menu)
+	save_menu.setup(saving)
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -427,6 +436,24 @@ func _ready() -> void:
 						bm.picked_room = world.roofs.rooms()[0]
 					if Shots.arg("hide") != "": bm.toggle_hide_buildings()
 					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(float(Shots.arg("mx", "0.55")), float(Shots.arg("my", "0.45"))))
+				"roundtrip":
+					var now := ($SaveGame as SaveGame).capture()
+					var start := SaveSystem.start_sections(world)
+					for k in start:
+						if not now.has(k): print("Round trip: missing ", k)
+						elif JSON.parse_string(now[k]) != JSON.parse_string(start[k]): print("Round trip: differs ", k, "
+  was ", str(start[k]).left(300), "
+  now ", str(now[k]).left(300))
+						else: print("Round trip: same ", k)
+				"reload":
+					if SaveSystem.loaded_slot == "":
+						print("Reloading into ", Shots.arg("slot2"))
+						($SaveGame as SaveGame).restart(Shots.arg("slot2"))
+						return
+					print("Reloaded from ", SaveSystem.loaded_slot, ": villagers ", Villager.all.size(), " creatures ", Creature.all.size(), " gatherables ", Gatherable.all.size(), " Miko at ", miko.position)
+				"saves":
+					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
+					($Hud/SaveMenu as SaveMenu).open()
 				"map":
 					($Hud/WorldMap as WorldMap).open()
 					if Shots.arg("mapzoom") != "":

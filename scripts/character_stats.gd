@@ -560,3 +560,14 @@ func bonuses() -> Dictionary:
 		if _talents.has(id):
 			_add(t, _talents[id].perRank, ranks[id])
 	return t
+
+
+## The stats as Unity's player.stats.
+func to_json() -> String:
+	var ids := []
+	var rs := []
+	for id in ranks:
+		ids.append(id)
+		rs.append(int(ranks[id]))
+	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana,
+		"talentIds": ids, "talentRanks": rs, "equipped": equipped})

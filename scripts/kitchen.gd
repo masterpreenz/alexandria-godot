@@ -46,6 +46,14 @@ static func set_target(key: String, n: int) -> void:
 	targets[key] = clampi(n, 0, MOST)
 
 
+## The targets as Unity's village.kitchen, with the crop rotation (kept by the farms).
+static func to_json(rotation: Array) -> String:
+	var list := []
+	for k in targets:
+		list.append({"food": k, "keep": int(targets[k])})
+	return JSON.stringify({"targets": list, "rotation": rotation, "seedsGiven": seeds_given})
+
+
 ## Whether storage already holds enough of [param r].
 static func stocked(v: Village, r: String) -> bool:
 	return v.stored(r) >= target(r)

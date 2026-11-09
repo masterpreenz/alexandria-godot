@@ -111,8 +111,8 @@ func _ready() -> void:
 			wake.flow_lift = wk.flowLift
 			wake.foam_lift = wk.foamLift
 	# The saved game's world over the scene's (the village as it stands).
-	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
-	var sections: Dictionary = save.get("sections", {})
+	# The save this run starts from (the latest, one asked for, or the start bundled with the game).
+	var sections: Dictionary = SaveSystem.start_sections(self)
 	if sections.has("world.floors"):
 		floors.from_json(sections["world.floors"])
 	else:

@@ -22,6 +22,38 @@ var dark: ColorRect
 var dark_text: Label
 
 
+## This life's loot and the bag left where she last fainted, as Unity's player.life (units, y up).
+static func to_json(w: World) -> String:
+	var loot_list := []
+	var bag_list := []
+	var lost: LostBag = LostBag.active if LostBag.active != null and is_instance_valid(LostBag.active) else null
+	for r in Bag.RESOURCES:
+		loot_list.append({"resource": r, "amount": int(looted.get(r, 0))})
+		bag_list.append({"resource": r, "amount": int(lost.counts.get(r, 0)) if lost != null else 0})
+	var d := {"looted": loot_list, "hasBag": lost != null, "bagX": 0.0, "bagY": 0.0, "bag": bag_list if lost != null else [], "bagWorn": "", "bagGear": []}
+	if lost != null:
+		d.bagX = lost.position.x / w.px
+		d.bagY = -lost.position.y / w.px
+	return JSON.stringify(d)
+
+
+## Puts back this life's loot and any lost bag from the save.
+static func from_json(w: World, json: String) -> void:
+	looted.clear()
+	var d: Variant = JSON.parse_string(json)
+	if not d is Dictionary:
+		return
+	for a in d.get("looted", []):
+		if int(a.amount) > 0:
+			looted[a.resource] = int(a.amount)
+	if bool(d.get("hasBag", false)):
+		var counts := {}
+		for a in d.get("bag", []):
+			if int(a.amount) > 0:
+				counts[a.resource] = int(a.amount)
+		LostBag.make(w, counts, Vector2(float(d.bagX) * w.px, -float(d.bagY) * w.px))
+
+
 ## Counts [param amount] of [param r] as picked up this life (it'd fall with her).
 static func loot(r: String, amount: int) -> void:
 	if amount > 0:
@@ -142,6 +174,10 @@ class LostBag extends Node2D:
 			var n := mini(int(loot[r]), from.count(r))
 			if n > 0 and from.spend(r, n):
 				counts[r] = n
+		make(w, counts, at)
+
+	## A lost bag holding [param counts] at [param at] (a new one, or one from the save); replaces any lying out.
+	static func make(w: World, counts: Dictionary, at: Vector2) -> void:
 		if active != null and is_instance_valid(active):
 			active.queue_free()  # the old one is lost
 		active = null
