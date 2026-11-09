@@ -12,6 +12,8 @@ extends Node
 var world: World
 var d: Dictionary                 ## monsters.json
 var small: Array[Slime] = []
+var mutants: Array = []        ## the mutated villagers about
+var _next_mutants := 0.0
 var large: Array[Slime] = []
 var forest: Array[Slime] = []
 var boars: Array[Boar] = []
@@ -41,10 +43,30 @@ func _process_timed(_delta: float) -> void:
 	if d.has("slime") and _now() >= _next_restock:
 		_next_restock = _now() + float(d.slimeSpawner.restockEvery)
 		restock_slimes()
+	if d.has("mutatedVillager") and _now() >= _next_mutants:
+		_next_mutants = _now() + float(d.mutatedVillagerSpawner.restockEvery)
+		restock_mutants()
 	var day: int = world.clock.day() if world.clock != null else 1
 	if d.has("boar") and day != _last_day:
 		_last_day = day
 		restock_boars()
+
+
+## Keeps a few mutated villagers shambling about the mist: the first near Miko (out of sight), the rest anywhere.
+func restock_mutants() -> void:
+	var __t := Time.get_ticks_usec()
+	mutants.assign(_alive(mutants))
+	for i in range(mutants.size(), int(d.mutatedVillagerSpawner.count)):
+		if not _budget():
+			_next_mutants = _now()
+			break
+		var at: Variant = _spot_near(10.0, 18.0) if i == 0 else null
+		if at == null:
+			at = Wilds.find_spot(world, _free, 60)
+		if at == null:
+			break
+		mutants.append(MutatedVillager.spawn(world, d.mutatedVillager, at))
+	Perf.add(&"spawning: mutated villagers", __t)
 
 
 static func _alive(list: Array) -> Array:

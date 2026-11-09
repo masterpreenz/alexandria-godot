@@ -753,6 +753,18 @@ func _ready() -> void:
 							shot_taken = true
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_swing.png")
 					print("Smack: slime hp ", before, " -> ", sl.hit.hp if is_instance_valid(sl) else -1.0, ", Miko facing right ", miko.facing_right, ", locked after ", miko.locked)
+				"mutants":
+					# Four mutated villagers round her, each walking a different diagonal, to see which way they face.
+					var md: Dictionary = world._load_json("res://data/monsters.json")
+					var dirs := [Vector2(-1, 0.5), Vector2(1, 0.5), Vector2(-1, -0.5), Vector2(1, -0.5)]
+					var gap := float(Shots.arg("gap", "2.2"))
+					for dv: Vector2 in dirs:
+						var mv := MutatedVillager.spawn(world, md.mutatedVillager, miko.position + dv * gap * world.px)
+						mv.target = mv.position + dv * 3.0 * world.px
+						mv.state = MutatedVillager.State.WALK
+						mv.state_until = MutatedVillager.now() + 10.0
+					for i in int(Shots.arg("mframes", "25")):
+						await get_tree().process_frame
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

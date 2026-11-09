@@ -87,7 +87,7 @@ func setup(w: World, d: Dictionary) -> void:
 		add_child(shadow)
 	art = Sprite2D.new()
 	art.position = Vector2(d.art[0], d.art[1])
-	art_scale = Vector2(d.art[2], d.art[3])
+	art_scale = Vector2.ONE * World.BODY_SCALE   # (player.json's art scale no longer counts: one scale for everyone)
 	add_child(art)
 	_animate(0.0)
 	# Findable behind things (and fading what hides her), her steps, and dust at her feet.

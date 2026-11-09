@@ -6,6 +6,9 @@ extends Node2D
 
 signal built
 
+## Every person's body on screen, one scale for all of them (Miko, the villagers, the mutated villagers, and anyone
+## drawn like them): their sheets are drawn at the same size, so this alone sets how big people are in the world.
+const BODY_SCALE := 0.7
 const GROUND_ORDER := -9000  ## Unity sorting orders at or below this are ground level (drawn under everything standing)
 
 var sprites: Array = []           ## the sprite table: tex, rect, pivot, ppu

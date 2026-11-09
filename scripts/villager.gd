@@ -630,7 +630,7 @@ func _show(id: int) -> void:
 
 # How big they're drawn: their look's scale (villagers are scaled to Miko's size, as she is).
 func _scale() -> float:
-	return float(look.get("scale", 1.0))
+	return World.BODY_SCALE   # one scale for every person (villagers.json's look scale no longer counts)
 
 
 func _show_idle() -> void:
