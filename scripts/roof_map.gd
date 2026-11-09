@@ -33,7 +33,13 @@ func setup(w: World, f: FloorMap, wm: WallMap, d: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
-	if walls.version != _wall_version or floors.version != _floor_version:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"roof_map.process", __t)
+
+
+func _process_timed(delta: float) -> void:
+	if walls.rooms_version != _wall_version or floors.laid_version != _floor_version:
 		rebuild()
 	var inside := Vector2i(1 << 30, 0)
 	if world.player != null:
@@ -117,8 +123,14 @@ func from_json(json: String) -> void:
 # ---- Building ----
 
 func rebuild() -> void:
-	_wall_version = walls.version
-	_floor_version = floors.version
+	var __t := Time.get_ticks_usec()
+	_rebuild_untimed()
+	Perf.add(&"roofs: rebuild", __t)
+
+
+func _rebuild_untimed() -> void:
+	_wall_version = walls.rooms_version
+	_floor_version = floors.laid_version
 	# Keep how faded each roof was, so rebuilding while inside doesn't flash; and keep its chimney's smoke going.
 	var faded := {}
 	for roof in roofs:
@@ -409,7 +421,7 @@ var _missing_key := ""
 
 ## The bare cells in walled-in rooms that are mostly floored (so a missed tile is easy to find).
 func missing_floor() -> Array:
-	var key := "%d|%d" % [walls.version, floors.version]
+	var key := "%d|%d" % [walls.rooms_version, floors.laid_version]
 	if key == _missing_key:
 		return _missing
 	_missing_key = key

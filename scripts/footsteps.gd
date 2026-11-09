@@ -33,6 +33,12 @@ func _player(stream: AudioStream) -> AudioStreamPlayer:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"footsteps.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var moving: bool = walker.get("moving")
 	var running: bool = walker.get("running")
 	var step := delta / maxf(0.01, fade)

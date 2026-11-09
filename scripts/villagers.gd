@@ -90,6 +90,13 @@ func practise(p: Dictionary, sk: int) -> void:
 
 
 func _beds() -> Array:
+	var __t := Time.get_ticks_usec()
+	var __r := _beds_untimed()
+	Perf.add(&"villagers: beds", __t)
+	return __r
+
+
+func _beds_untimed() -> Array:
 	return Needs.all_beds(world, d.beds)
 
 
@@ -108,7 +115,13 @@ func _look_for(p: Dictionary) -> Dictionary:
 	return looks[i] if looks[i] != null else looks[0]
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"villagers.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if d.get("looks", []).is_empty() or world.player == null:
 		return
 	_quarry()
@@ -257,6 +270,12 @@ func _clear_waiting() -> void:
 
 # What's wrong with the village's homes, for its message list.
 func _notice(beds: Array) -> void:
+	var __t := Time.get_ticks_usec()
+	_notice_untimed(beds)
+	Perf.add(&"villagers: notice", __t)
+
+
+func _notice_untimed(beds: Array) -> void:
 	var v := world.village
 	for r in Bag.RESOURCES:
 		var cap := v.stash_cap(r)
@@ -289,6 +308,12 @@ var _quarry_day := -2
 
 
 func _quarry() -> void:
+	var __t := Time.get_ticks_usec()
+	_quarry_untimed()
+	Perf.add(&"villagers: quarry", __t)
+
+
+func _quarry_untimed() -> void:
 	var q: Dictionary = d.get("quarry", {})
 	if q.is_empty() or world.clock == null:
 		return
@@ -322,7 +347,13 @@ func _unhandled_input(event: InputEvent) -> void:
 class Tags extends Control:
 	var people: Villagers
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"villagers.Tags.process", __t)
+
+
+	func _process_timed(_delta: float) -> void:
 		if visible:
 			queue_redraw()
 

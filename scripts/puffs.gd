@@ -19,6 +19,12 @@ static func burst(w: World, at: Vector2, size := 1.0, count := 10) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"puffs.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	for p in puffs:
 		p[2] += delta
 		p[1] *= 1.0 - delta * 3.0

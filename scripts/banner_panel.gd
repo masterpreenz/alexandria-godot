@@ -36,7 +36,13 @@ func close() -> void:
 	visible = false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"banner_panel.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if not visible:
 		return
 	if _dirty:

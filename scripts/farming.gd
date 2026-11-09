@@ -50,6 +50,7 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 
 
 ## The saved plots (Unity's world.farms: {plots: [{x, y, sown, sownAt, crop, setTo}]}).
@@ -204,7 +205,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_R: _keys["r"] = true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"farming.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var keys := _keys
 	_keys = {}
 	if world.props.version != _looked_at:

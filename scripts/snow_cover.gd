@@ -46,7 +46,13 @@ func set_cover(v: float) -> void:
 	RenderingServer.global_shader_parameter_set("snow_cover", cover)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"snow_cover.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var passed := 0.0 if _last_hours < 0.0 else maxf(0.0, clock.hours - _last_hours)
 	_last_hours = clock.hours
 	if clock.weather() == GameClock.Weather.SNOW:

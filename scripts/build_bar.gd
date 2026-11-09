@@ -215,7 +215,13 @@ func _categories() -> Array:
 	return out
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"build_bar.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	visible = build.open
 	if not visible:
 		return

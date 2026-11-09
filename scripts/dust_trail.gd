@@ -16,6 +16,12 @@ var _owed := 0.0
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"dust_trail.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if target == null:
 		return
 	var feet: Vector2 = target.drawn_position() if target.has_method("drawn_position") else target.position

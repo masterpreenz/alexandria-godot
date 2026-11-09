@@ -116,6 +116,12 @@ func known_spells() -> Array:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"character_stats.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var t := total()
 	# HP in ticks, every few seconds, and not while being hurt (a drain still bites).
 	_regen_clock += delta

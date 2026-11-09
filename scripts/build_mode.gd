@@ -149,6 +149,8 @@ func missing(cost: Array) -> String:
 func select(it: Dictionary) -> void:
 	selected = it
 	tool = "Place"
+	# The click that picked it (in the bar) isn't a click on the world: nothing's placed until the button comes up.
+	_tool_clicked = true
 	if it.is_empty() or (kind_of(it) != "Ground" and kind_of(it) != "Floor" and not _sizable(it)):
 		brush = 0
 	changed.emit()
@@ -269,6 +271,12 @@ func _over_ui() -> bool:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"build_mode.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if not open:
 		return
 	# The view: WASD (or the arrows) move it while building.

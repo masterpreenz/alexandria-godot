@@ -30,6 +30,12 @@ static func hide(root: Node) -> void:
 
 ## Keeps Miko, the villagers, the creatures and the rabbits off the maps (checked every second).
 static func hide_characters(w: World) -> void:
+	var t0 := Time.get_ticks_usec()
+	_hide_characters(w)
+	Perf.add(&"maps: hiding characters", t0)
+
+
+static func _hide_characters(w: World) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if t < _next_hide:
 		return

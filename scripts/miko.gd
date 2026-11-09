@@ -108,6 +108,12 @@ func setup(w: World, d: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_physics_process_timed(delta)
+	Perf.add(&"miko.physics", __t)
+
+
+func _physics_process_timed(delta: float) -> void:
 	var input := Vector2.ZERO
 	if not locked:
 		input = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -153,6 +159,12 @@ func place(at: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"miko.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	_animate(delta)
 	var extra := Vector2.ZERO
 	# Thrown: up and down in an arc.

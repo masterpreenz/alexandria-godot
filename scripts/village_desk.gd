@@ -31,6 +31,7 @@ func setup(w: World, who: Miko, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 	chest_window = ChestWindow.new()
 	chest_window.name = "ChestWindow"
 	hud.add_child(chest_window)
@@ -72,7 +73,13 @@ func _nearest_chest(range: float) -> Variant:
 	return best
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"village_desk.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var pressed := _pressed
 	var esc := _esc
 	_pressed = false
@@ -108,6 +115,7 @@ func _process(_delta: float) -> void:
 	var chest: Variant = null if busy else _nearest_chest(CHEST_RANGE)
 	if chest != null:
 		prompt.visible = true
+		WorldPrompts.at(prompt, chest + Vector2(0, -0.9 * world.px))
 		if not v.contains(chest):
 			prompt.text = "Outside the village: this chest isn't connected" if v.founded() else "Place a town banner to use chests"
 			return
@@ -117,6 +125,7 @@ func _process(_delta: float) -> void:
 		return
 	if not busy and v.founded() and miko.position.distance_to(v.centre()) < BANNER_RANGE * world.px:
 		prompt.visible = true
+		WorldPrompts.at(prompt, v.centre() + Vector2(0, -1.7 * world.px))
 		prompt.text = "E  Town banner" if v.max_tier() else "E  Town banner  ·  grow the village"
 		if pressed:
 			banner_panel.open()

@@ -36,6 +36,8 @@ var cells_per_wall := 1
 var thickness := 7.68
 ## Goes up whenever any wall changes, for things that rebuild from the whole map.
 var version := 0
+## Goes up when walls are placed or taken away (not when a door swings): the rooms (and their roofs) change only then.
+var rooms_version := 0
 
 var walls := {}            # Vector3i (edge key) -> type name
 var keep_open := {}        # Vector3i -> true: doors of houses set to stay open
@@ -140,7 +142,9 @@ func toggle(e: Edge) -> void:
 	if t == "" or types[t].toggle == "":
 		return
 	walls[e.key()] = types[t].toggle
+	var rooms := rooms_version
 	_changed(e)
+	rooms_version = rooms  # a door swinging doesn't change the rooms
 
 
 func place(e: Edge, type: String) -> void:
@@ -168,6 +172,7 @@ func remove(e: Edge) -> void:
 
 func _changed(e: Edge, end: Variant = null) -> void:
 	version += 1
+	rooms_version += 1
 	var t := get_wall(e)
 	var stop: Vector2i = end if end != null else span_end(e, t if t != "" else "")
 	_sync(e)
@@ -216,6 +221,7 @@ func from_json(json: String) -> void:
 
 func rebuild() -> void:
 	version += 1
+	rooms_version += 1
 	for k in _drawn.keys():
 		_clear(k)
 	for k in walls:

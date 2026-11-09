@@ -25,6 +25,12 @@ static func play(w: World, from: Vector2, to: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"spear_thrust.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	age += delta
 	if age >= LIFE:
 		queue_free()

@@ -51,6 +51,12 @@ func _scale() -> float:
 
 
 func _physics_process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_physics_process_timed(delta)
+	Perf.add(&"slime.physics", __t)
+
+
+func _physics_process_timed(delta: float) -> void:
 	if resting():
 		return
 	var t := now()
@@ -278,6 +284,12 @@ class SlimePop extends Node2D:
 		w.things.add_child(pop)
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"slime.SlimePop.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		age += delta
 		var t := clampf(age / 0.45, 0.0, 1.0)
 		sprite.scale = Vector2(base.x * (1.0 + t * 0.5), base.y * (1.0 - t * 0.8))

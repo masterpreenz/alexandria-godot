@@ -36,21 +36,17 @@ func setup(w: World, who: Miko, card: TimeCard) -> void:
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_vp)
 	_cam = Camera2D.new()
+	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_cam.process_callback = Camera2D.CAMERA2D_PROCESS_IDLE
 	_vp.add_child(_cam)
 	_cam.make_current()
 	_zoom()
+	if Perf.active != null:
+		Perf.active.watch_viewport(_vp, "minimap")
 	# Zoom in and out, in the map's bottom right corner.
 	for t in [["plus", -1], ["minus", 1]]:
-		var b := HudStyle.button("", 12, "key")
-		b.add_theme_stylebox_override("normal", HudStyle.piece("key", Color(0.11, 0.08, 0.07, 0.85)))
-		b.add_theme_stylebox_override("hover", HudStyle.piece("key", Color(0.2, 0.16, 0.13, 0.95)))
-		b.add_theme_stylebox_override("pressed", HudStyle.piece("key", Color(0.06, 0.05, 0.04, 0.95)))
-		b.icon = HudStyle.icon(t[0])
-		b.expand_icon = true
-		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.add_theme_constant_override("icon_max_width", int(12 * HudStyle.SCALE))
-		for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
-			b.add_theme_color_override(st, Color(2.2, 2.1, 1.9) if st != "icon_normal_color" else Color(1.8, 1.7, 1.55))
+		var b := ZoomButton.new()
+		b.plus = t[1] < 0
 		b.custom_minimum_size = Vector2(22, 22) * HudStyle.SCALE
 		b.size = b.custom_minimum_size
 		b.tooltip_text = "Zoom in" if t[1] < 0 else "Zoom out"
@@ -76,7 +72,13 @@ func _zoom() -> void:
 	_cam.zoom = Vector2.ONE * (RES / 2.0) / (float(ZOOM_STEPS[step]) * world.px)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"minimap.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, 16.0)
 	MapMarks.hide_characters(world)
 	_meter(_delta)
@@ -168,3 +170,27 @@ func _meter(delta: float) -> void:
 	_fps.add_theme_color_override("font_color", HudStyle.color("green") if fps >= 55 else (HudStyle.color("accent") if fps >= 30 else HudStyle.color("coral")))
 	_fps.reset_size()
 	_fps.position = Vector2(size.x - _fps.size.x - 4.0, size.y + 2.0)
+
+
+## A zoom button: a dark key with a bright plus or minus drawn on it (the icons' own art is too dark to read there).
+class ZoomButton extends Button:
+	var plus := true
+
+	func _init() -> void:
+		flat = true
+		focus_mode = Control.FOCUS_NONE
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var back := Color(0.2, 0.16, 0.13, 0.95) if is_hovered() else Color(0.11, 0.08, 0.07, 0.88)
+		draw_style_box(HudStyle.piece("key", back), r)
+		var c := size / 2.0
+		var arm := size.x * 0.24
+		var w := maxf(2.0, size.x * 0.11)
+		var col := HudStyle.color("accentLight") if is_hovered() else HudStyle.color("text")
+		draw_line(c - Vector2(arm, 0), c + Vector2(arm, 0), col, w)
+		if plus:
+			draw_line(c - Vector2(0, arm), c + Vector2(0, arm), col, w)

@@ -66,6 +66,12 @@ func _now() -> float:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"world_sounds.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if get_tree().paused:
 		return
 	_flow()

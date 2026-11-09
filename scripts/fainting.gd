@@ -83,6 +83,12 @@ func setup(w: World, who: Miko, settings: Dictionary, hud: Node) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"fainting.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if not fainted:
 		return
 	clock += delta
@@ -201,7 +207,13 @@ class LostBag extends Node2D:
 		w.things.add_child(b)
 		active = b
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"fainting.LostBag.process", __t)
+
+
+	func _process_timed(_delta: float) -> void:
 		# Bobbing and glowing a little, so it's seen from a way off.
 		var t := Time.get_ticks_msec() / 1000.0 + phase
 		icon.position = Vector2(0, (-0.3 - sin(t * 2.5) * 0.05) * world.px)

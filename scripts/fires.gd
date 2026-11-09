@@ -48,6 +48,7 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 	_sizzle = AudioStreamPlayer.new()
 	var c: Dictionary = d.get("cooking", {})
 	var path: Variant = c.get("sizzle")
@@ -243,6 +244,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"fires.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	if world.props.version != _looked_at:

@@ -12,6 +12,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"world_viewer.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	if Input.is_key_pressed(KEY_A): dir.x -= 1
 	if Input.is_key_pressed(KEY_D): dir.x += 1

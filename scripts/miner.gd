@@ -38,6 +38,7 @@ func setup(w: World, who: Miko, d: Dictionary, hud: CanvasLayer) -> void:
 	prompt.offset_right = 300
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 
 
 func is_mining() -> bool:
@@ -52,7 +53,13 @@ func _unhandled_input(event: InputEvent) -> void:
 var _pressed := false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"miner.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var pressed := _pressed and Engine.get_process_frames() != _started_frame
 	_pressed = false
 	var door_near := world.walls != null and not world.walls.nearest_door(miko.position, 0.6 * world.px).is_empty()
@@ -121,5 +128,7 @@ func _hit() -> void:
 
 
 func _show(text: String) -> void:
+	if target != null and is_instance_valid(target):
+		WorldPrompts.at(prompt, target.foot + Vector2(0, -target.tree_height() * 0.5 - 0.3 * world.px) if target.axe else target.foot + Vector2(0, -0.9 * world.px))
 	prompt.text = text
 	prompt.visible = text != ""

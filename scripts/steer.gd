@@ -32,6 +32,13 @@ static func _now() -> float:
 
 ## The velocity to use instead of [param velocity]: the same speed, turned round anything fixed ahead.
 func around(velocity: Vector2, delta: float) -> Vector2:
+	var t := Time.get_ticks_usec()
+	var r := _around(velocity, delta)
+	Perf.add(&"AI: steering", t)
+	return r
+
+
+func _around(velocity: Vector2, delta: float) -> Vector2:
 	_track(velocity, delta)
 	var speed := velocity.length()
 	if speed < 0.001:

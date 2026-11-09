@@ -56,6 +56,12 @@ func _now() -> float:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"save_game.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var t := _now()
 	if get_tree().paused:
 		_next_autosave += delta

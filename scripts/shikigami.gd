@@ -180,7 +180,13 @@ func _start_heal_loop(at: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
-	super._process(delta)
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"shikigami.process", __t)
+
+
+func _process_timed(delta: float) -> void:
+	super._process_timed(delta)
 	if owner_node == null or not is_instance_valid(owner_node):
 		queue_free()
 		return

@@ -86,7 +86,7 @@ func reveal(at: Vector2, radius: float) -> void:
 			var i := y * width + x
 			if v > seen[i]:
 				seen[i] = v
-				_fog_dirty = true
+				_changed_cells.append(i)
 
 
 ## Whether [param at] (px) has been seen (more than half).
@@ -97,7 +97,13 @@ func is_seen(at: Vector2) -> bool:
 	return x >= 0 and y >= 0 and x < width and y < height and seen[y * width + x] > 128
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"exploration.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var p := world.player
 	if p == null or p.position.distance_squared_to(_last) < 0.25 * world.px * world.px:
 		return
@@ -112,9 +118,31 @@ const FOG_COLOUR := Color8(18, 14, 12)
 
 ## The fog as a picture over [member rect] (its top row the world's top): dark where she hasn't been.
 func fog() -> ImageTexture:
+	var __t := Time.get_ticks_usec()
+	var __r := _fog_untimed()
+	Perf.add(&"maps: fog picture", __t)
+	return __r
+
+
+# What's changed since the picture was last brought up to date (cells revealed), applied cell by cell: rebuilding the
+# whole picture (a quarter of a million cells) each time she moved cost tens of milliseconds.
+var _changed_cells := PackedInt32Array()
+var _img: Image
+var _updated_at := 0.0
+
+
+func _fog_untimed() -> ImageTexture:
 	if _fog != null and not _fog_dirty:
+		var t := Time.get_ticks_msec() / 1000.0
+		if not _changed_cells.is_empty() and t - _updated_at > 0.2:
+			_updated_at = t
+			for i in _changed_cells:
+				_img.set_pixel(i % width, height - 1 - i / width, Color8(18, 14, 12, 0 if show_all else 255 - seen[i]))
+			_changed_cells.clear()
+			_fog.update(_img)
 		return _fog
 	_fog_dirty = false
+	_changed_cells.clear()
 	var bytes := PackedByteArray()
 	bytes.resize(width * height * 4)
 	for y in height:
@@ -125,11 +153,11 @@ func fog() -> ImageTexture:
 			bytes[o + 1] = 14
 			bytes[o + 2] = 12
 			bytes[o + 3] = 0 if show_all else 255 - seen[y * width + x]
-	var img := Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, bytes)
+	_img = Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, bytes)
 	if _fog == null:
-		_fog = ImageTexture.create_from_image(img)
+		_fog = ImageTexture.create_from_image(_img)
 	else:
-		_fog.update(img)
+		_fog.update(_img)
 	return _fog
 
 

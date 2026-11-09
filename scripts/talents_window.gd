@@ -209,7 +209,13 @@ func _rich(size: float) -> RichTextLabel:
 	return r
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"talents_window.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if not visible:
 		return
 	reset_size()
@@ -482,6 +488,12 @@ class TalentWeb extends Control:
 		_pan_to = -Vector2(float(t.position[0]), -float(t.position[1])) * zoom * HudStyle.SCALE
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"talents_window.TalentWeb.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		if not is_visible_in_tree():
 			return
 		if not _fitted and size.x > 10:

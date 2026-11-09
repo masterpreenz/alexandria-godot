@@ -91,6 +91,12 @@ func setup(w: World, c: GameClock, cam: Camera2D, modulate_node: CanvasModulate,
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"sky_effects.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var w := clock.weather()
 	var step := delta / maxf(0.01, blend)
 	var rainy := w == GameClock.Weather.RAIN or w == GameClock.Weather.STORM
@@ -230,7 +236,13 @@ static func _streak() -> Texture2D:
 class ViewRect extends Node2D:
 	var camera: Camera2D
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"sky_effects.ViewRect.process", __t)
+
+
+	func _process_timed(_delta: float) -> void:
 		queue_redraw()
 
 	func _draw() -> void:

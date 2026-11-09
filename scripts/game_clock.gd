@@ -83,6 +83,12 @@ func set_weather(w: int) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"game_clock.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	hours += delta * speed * 24.0 / maxf(1.0, seconds_per_day)
 	_update_weather()
 

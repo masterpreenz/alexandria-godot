@@ -109,6 +109,12 @@ func resting() -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_physics_process_timed(delta)
+	Perf.add(&"rabbit.physics", __t)
+
+
+func _physics_process_timed(delta: float) -> void:
 	if resting():
 		return
 	var t := now()

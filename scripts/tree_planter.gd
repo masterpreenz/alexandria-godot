@@ -37,7 +37,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_t = true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"tree_planter.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var pressed := _t
 	_t = false
 	_show_growth()

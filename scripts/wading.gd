@@ -39,6 +39,12 @@ func setup(w: World, who: Node2D, art: Sprite2D, ground_shadow: Sprite2D) -> voi
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"wading.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if walker == null:
 		return
 	var feet: Vector2 = walker.global_position
@@ -114,6 +120,12 @@ class Ripples extends Node2D:
 		r.rings.append([at, width, strength, 0.0])
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"wading.Ripples.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		for ring in rings:
 			ring[3] += delta
 		rings = rings.filter(func(ring): return ring[3] < 1.1)

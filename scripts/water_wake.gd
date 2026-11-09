@@ -33,6 +33,12 @@ static func make(w: World, who: Node2D, spot: Vector2, w_px: float) -> WaterWake
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"water_wake.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	for f in _flecks:
 		f[2] += delta
 		f[0] += f[1] * delta

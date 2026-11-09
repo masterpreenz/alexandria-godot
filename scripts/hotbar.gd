@@ -222,7 +222,13 @@ func use(i: int) -> void:
 			needs.eat(r)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"hotbar.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	_sync_skills()
 	var vp := get_viewport_rect().size
 	var row: HBoxContainer = get_node("Row")
@@ -451,7 +457,13 @@ class QuickButton extends Button:
 		focus_mode = Control.FOCUS_NONE
 		flat = true
 
-	func _process(_delta: float) -> void:
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"hotbar.QuickButton.process", __t)
+
+
+	func _process_timed(_delta: float) -> void:
 		queue_redraw()
 
 	func _draw() -> void:

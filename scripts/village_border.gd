@@ -17,7 +17,13 @@ func setup(w: World) -> void:
 	world.add_ground_layer(self, -9968)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"village_border.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var key := world.village.shape_key()
 	if key == _shown:
 		return

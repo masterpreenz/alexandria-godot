@@ -28,7 +28,13 @@ static func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"spawners.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	# Not before the forest is laid out (which woods are rotten decides where the wildlife goes).
 	if world.player == null or not Corruption.ready():
 		return
@@ -57,6 +63,12 @@ func _stranded(sl: Slime) -> bool:
 
 ## Brings the slimes back up to their numbers.
 func restock_slimes() -> void:
+	var __t := Time.get_ticks_usec()
+	_restock_slimes_untimed()
+	Perf.add(&"spawning: slimes", __t)
+
+
+func _restock_slimes_untimed() -> void:
 	var sp: Dictionary = d.slimeSpawner
 	small.assign(_alive(small))
 	large.assign(_alive(large))
@@ -69,6 +81,9 @@ func restock_slimes() -> void:
 			large.erase(sl)
 			sl.queue_free()
 	for i in range(large.size(), int(sp.largeCount)):
+		if not _budget():
+			_next_restock = _now()
+			return
 		# The first large group not far from Miko, the rest anywhere.
 		var at: Variant = _spot_near(9.0, 16.0) if i == 0 else null
 		if at == null:
@@ -87,6 +102,9 @@ func restock_slimes() -> void:
 	# A few living in the healthy forest, one to a stretch of it.
 	forest.assign(_alive(forest))
 	for i in range(forest.size(), int(sp.forestCount)):
+		if not _budget():
+			_next_restock = _now()
+			return
 		var at: Variant = Wilds.find_spot(world, _forest_spot, 120)
 		if at == null:
 			break
@@ -96,6 +114,9 @@ func restock_slimes() -> void:
 	# The ones with a large slime don't count against the loners.
 	var loners := small.size() - _grouped()
 	for i in range(loners, int(sp.smallCount)):
+		if not _budget():
+			_next_restock = _now()
+			return
 		# Every other one within reach of Miko (but not on top of her), so they're met.
 		var at: Variant = _spot_near(7.0, 15.0) if i % 2 == 0 else null
 		if at == null:
@@ -103,6 +124,21 @@ func restock_slimes() -> void:
 		if at == null:
 			break
 		small.append(_slime(false, at))
+
+
+## How many creatures may be made in one frame: making them is the costly part, so a restock fills in over a few
+## frames instead of stalling one.
+const PER_FRAME := 3
+var _made := 0
+var _made_frame := -1
+
+
+func _budget() -> bool:
+	if Engine.get_process_frames() != _made_frame:
+		_made_frame = Engine.get_process_frames()
+		_made = 0
+	_made += 1
+	return _made <= PER_FRAME
 
 
 func _slime(is_large: bool, at: Vector2) -> Slime:
@@ -150,12 +186,21 @@ func _forest_spot(at: Vector2) -> bool:
 
 ## Brings the boars back up to their number (any that ended up in the village go).
 func restock_boars() -> void:
+	var __t := Time.get_ticks_usec()
+	_restock_boars_untimed()
+	Perf.add(&"spawning: boars", __t)
+
+
+func _restock_boars_untimed() -> void:
 	boars.assign(_alive(boars))
 	for b in boars.duplicate():
 		if world.village.contains(b.position, 0.5):
 			boars.erase(b)
 			b.queue_free()
 	for i in range(boars.size(), int(d.boarSpawner.count)):
+		if not _budget():
+			_last_day = -1   # the rest next frame
+			return
 		var at: Variant = Wilds.find_spot(world, _boar_fits, 160)
 		if at == null:
 			break
@@ -169,4 +214,7 @@ func _boar_fits(at: Vector2) -> bool:
 	for b in boars:
 		if is_instance_valid(b) and b.position.distance_to(at) < float(sp.apart) * world.px:
 			return false
+	# Not in the mist: boars only live where it's been cleared (a crystal's living forest).
+	if world.mist != null and world.mist.tier_at(at) != Mist.Tier.CLEAR:
+		return false
 	return Wilds.healthy_forest(world, at) and Wilds.open(world, at, float(sp.villageMargin), 0.45)

@@ -46,7 +46,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"jobs_window.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if not visible or villagers == null:
 		return
 	var roster := ""

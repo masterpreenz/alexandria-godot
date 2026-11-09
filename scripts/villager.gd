@@ -245,7 +245,13 @@ func _hungry() -> bool:
 
 # Lying in bed they draw over the bed (z 1), which would lift them over the roof too: under a roof that's shown they
 # fade out with it, and back in as it fades away (Miko stepping inside).
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"villager.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if in_bed and world.roofs != null:
 		modulate.a = 1.0 - world.roofs.alpha_over(position)
 	elif modulate.a < 1.0:
@@ -253,6 +259,12 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_physics_process_timed(delta)
+	Perf.add(&"villager.physics", __t)
+
+
+func _physics_process_timed(delta: float) -> void:
 	var t := now()
 	_needs()
 	_unstick(t, delta)

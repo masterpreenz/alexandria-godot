@@ -38,6 +38,9 @@ var bounds := Rect2i()
 var order := -10000
 ## Goes up whenever any floor changes, for things that rebuild from the whole map.
 var version := 0
+## Goes up when a laid floor (boards, paving) goes down or comes up: rooms (and their roofs) care only about those, not
+## the ground painted under them (grass, dirt, tilled soil).
+var laid_version := 0
 
 var cells := {}            # Vector2i -> floor name (ground floors other than the base)
 var laid := {}             # Vector2i -> floor name (whole floors on top)
@@ -165,6 +168,7 @@ func paint(cell: Vector2i, floor: String, turn := false) -> void:
 		if get_laid(cell) == floor and is_turned(cell) == turn:
 			return
 		laid[cell] = floor
+		laid_version += 1
 		if turn: turned[cell] = true
 		else: turned.erase(cell)
 		_changed(cell)
@@ -187,6 +191,7 @@ func erase(cell: Vector2i) -> void:
 func unlay(cell: Vector2i) -> void:
 	turned.erase(cell)
 	if laid.erase(cell):
+		laid_version += 1
 		_changed(cell)
 
 
@@ -233,6 +238,7 @@ func from_json(json: String) -> void:
 	var data: Dictionary = JSON.parse_string(json)
 	cells.clear()
 	laid.clear()
+	laid_version += 1
 	turned.clear()
 	for c in data.get("cells", []):
 		if not types.has(c.floor):

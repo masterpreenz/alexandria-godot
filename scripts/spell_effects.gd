@@ -95,6 +95,12 @@ class Projectile extends Node2D:
 		max_travel = clampf(direction.length(), 0.3 * world.px, float(spell.range))
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"spell_effects.Projectile.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		queue_redraw()
 		if falling:
 			fall_progress = minf(fall_progress + delta / fall_time, 1.0)
@@ -188,6 +194,12 @@ class Burst extends Node2D:
 		b.add_child(p)
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"spell_effects.Burst.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		age += delta
 		queue_redraw()
 		if age > 0.9:
@@ -226,6 +238,12 @@ class Spikes extends Node2D:
 		SpellEffects.sound(world, spell.impactSound, at, spell.soundVolume)
 
 	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"spell_effects.Spikes.process", __t)
+
+
+	func _process_timed(delta: float) -> void:
 		age += delta
 		queue_redraw()
 		if age > 2.6:

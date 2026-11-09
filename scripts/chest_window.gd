@@ -143,7 +143,13 @@ func say(text: String) -> void:
 	_say_until = Villager.now() + 2.5
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"chest_window.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if not visible:
 		return
 	if _say.text != "" and Villager.now() > _say_until:

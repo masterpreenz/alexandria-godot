@@ -57,6 +57,12 @@ static func near(at: Vector2) -> bool:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"springs.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if world.player == null:
 		return
 	if not _pending.is_empty():

@@ -72,6 +72,7 @@ func setup(w: World, who: Miko, d: Dictionary, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 
 
 ## Hunger and energy from the save (Unity's player section).
@@ -163,7 +164,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _keys["g"] = true
 
 
-func _process(dt: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"needs.process", __t)
+
+
+func _process_timed(dt: float) -> void:
 	var keys := _keys
 	_keys = {}
 	var fainting: Fainting = miko.get_node_or_null("Fainting")

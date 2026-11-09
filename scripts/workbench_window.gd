@@ -43,6 +43,7 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 	add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", int(8 * k))
@@ -141,7 +142,13 @@ func _nearest(slack := 1.0) -> Array:
 	return best
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"workbench_window.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var pressed := _pressed
 	var esc := _esc
 	_pressed = false
@@ -161,6 +168,7 @@ func _process(_delta: float) -> void:
 	if near.is_empty():
 		return
 	prompt.text = "E  Use workbench"
+	WorldPrompts.at(prompt, near[1] + Vector2(0, -1.5 * world.px))
 	if pressed:
 		open(near[0], near[1])
 

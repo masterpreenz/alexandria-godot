@@ -78,6 +78,12 @@ func _inside(p: Vector2) -> bool:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"shield_bubble.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	age += delta
 	var shown := clampf(age / FADE_IN, 0.0, 1.0)
 	if end_at >= 0.0:

@@ -34,7 +34,13 @@ static func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"warren.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if world.player == null or not d.has("rabbit"):
 		return
 	var t := _now()
@@ -89,6 +95,9 @@ func look() -> void:
 # Tops a hole up to its number, each new rabbit coming out after a while.
 func _fill(h: Hole, soonest: float, latest: float) -> void:
 	h.rabbits = h.rabbits.filter(func(r): return is_instance_valid(r))
+	# A hole the mist has covered stays empty until it's cleared again.
+	if world.mist != null and world.mist.tier_at(h.position) != Mist.Tier.CLEAR:
+		return
 	for i in range(h.rabbits.size(), int(d.rabbitSpawner.perHole)):
 		h.rabbits.append(Rabbit.spawn(world, d.rabbit, h, randf_range(soonest, latest)))
 
@@ -121,6 +130,9 @@ func _forest_edge() -> Variant:
 		var a := randf() * TAU
 		var r := randf_range(1.6, 2.8) * px
 		var spot := tree + Vector2(cos(a) * r, sin(a) * r * 0.5)
+		# Not in the mist: rabbits only live where it's been cleared (a crystal's living forest).
+		if world.mist != null and world.mist.tier_at(spot) != Mist.Tier.CLEAR:
+			continue
 		if not Wilds.vegetation(world, spot) or not Wilds.open(world, spot, 2.0, 0.7):
 			continue
 		if not Wilds.healthy_forest(world, spot, 3, 4.0):

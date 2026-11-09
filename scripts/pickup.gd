@@ -99,6 +99,12 @@ static func drop(w: World, res: String, amount: int, at: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"pickup.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	age += delta
 	if age > LIFETIME:
 		queue_free()

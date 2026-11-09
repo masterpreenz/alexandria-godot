@@ -24,6 +24,13 @@ static func square_centre(walls: WallMap, sq: Vector2i) -> Vector2:
 
 ## The way from [param from] to [param to] as points (ending at [param to]), or null when walls leave no way through.
 static func find(w: World, from: Vector2, to: Vector2) -> Variant:
+	var t := Time.get_ticks_usec()
+	var r: Variant = _find(w, from, to)
+	Perf.add(&"AI: route finding", t)
+	return r
+
+
+static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 	var walls := w.walls
 	if walls == null:
 		return null

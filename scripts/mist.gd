@@ -94,6 +94,12 @@ func power(p: Vector2) -> float:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"mist.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if now >= _next_refresh:
 		_next_refresh = now + 0.5

@@ -19,6 +19,13 @@ var follow_offset := Vector2.ZERO
 
 func _ready() -> void:
 	# The player's window (size, borderless fullscreen), once a run.
+	# The performance logger (F3), first so everything after can be measured.
+	var prompts := WorldPrompts.new()
+	prompts.name = "WorldPrompts"
+	add_child(prompts)
+	var perf := Perf.new()
+	perf.name = "Perf"
+	add_child(perf)
 	Settings.load_settings()
 	Settings.apply_sound()
 	Settings.route_sounds(get_tree())
@@ -27,6 +34,7 @@ func _ready() -> void:
 		Settings.apply_window()
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/player.json"))
 	miko = Miko.new()
+	($WorldPrompts as WorldPrompts).setup(miko)
 	miko.name = "Miko"
 	world.things.add_child(miko)
 	miko.setup(world, data)
@@ -334,6 +342,9 @@ func _ready() -> void:
 	camera.position_smoothing_speed = 1.0 / max(0.02, data.camera.smooth)
 	# The camera is moved every frame to where she's drawn, so it isn't smoothed itself (that would lag it a tick).
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	# With physics interpolation on, Godot moves the camera only on physics ticks unless told otherwise: then it lags
+	# Miko by up to a tick and the world shakes as she moves. It follows her every drawn frame instead.
+	camera.process_callback = Camera2D.CAMERA2D_PROCESS_IDLE
 	camera.position = miko.position + follow_offset
 	camera.reset_smoothing()
 	await get_tree().process_frame
@@ -504,6 +515,19 @@ func _ready() -> void:
 					g._grow_up()
 					print("After 30h: wood ", g.left, " scale ", g.art.scale, " next in ", g.hours_to_next(), "h; saved ", miko.get_node("TreePlanter").to_json().left(120))
 					print("Sleep villagers alpha: ", Villager.all.map(func(v): return [v.in_bed, snappedf(v.modulate.a, 0.01)]))
+				"walk":
+					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
+					var centre := miko.position
+					var radius := float(Shots.arg("radius", "18")) * world.px
+					var frames := int(Shots.arg("walkframes", "1200"))
+					for i in frames:
+						var a := TAU * i / 600.0
+						miko.place(centre + Vector2(cos(a) * radius, sin(a) * radius * 0.5) - Vector2(radius, 0))
+						await get_tree().process_frame
+					print(Perf.active.summary())
+				"cams":
+					for c in get_tree().root.find_children("*", "Camera2D", true, false):
+						print("Camera ", c.get_path(), " callback ", c.process_callback, " interp ", c.is_physics_interpolated())
 				"saves":
 					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
 					($Hud/SaveMenu as SaveMenu).open()
@@ -545,6 +569,12 @@ func _window_up() -> bool:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"game.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
 	if not BuildMode.is_open():

@@ -21,6 +21,12 @@ static func spawn(w: World, text: String, at: Vector2, color := Color.WHITE) -> 
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"floating_text.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	_age += delta
 	position.y -= 40.0 * delta
 	modulate.a = 1.0 - clampf((_age - 0.6) / 0.6, 0.0, 1.0)

@@ -38,6 +38,12 @@ func _k(v: float) -> float:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"player_card.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	_mana_flash = move_toward(_mana_flash, 0.0, delta * 2.0)
 	# Hovering a tag shows what it does.
 	var m := get_local_mouse_position()

@@ -43,6 +43,12 @@ func setup(w: World, art: Sprite2D, color := Color(1, 0.96, 0.88, 1)) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"occluded_outline.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if body == null:
 		return
 	var now := Time.get_ticks_msec() / 1000.0

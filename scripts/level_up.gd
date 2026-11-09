@@ -51,6 +51,12 @@ static func play(w: World, who: Node2D, level: int) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"level_up.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	age += delta
 	queue_redraw()
 	if age > 2.6:

@@ -250,6 +250,12 @@ static func _now() -> float:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"gatherable.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if planted_at >= 0.0 and _fall < 0.0 and left > 0 and Engine.get_process_frames() % 30 == 0:
 		_grow_up()
 	if _shake > 0.0:

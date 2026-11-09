@@ -142,6 +142,12 @@ func _aim_point(spell: String) -> Vector2:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"spell_caster.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if aiming != "":
 		var t := _aim_point(aiming)
 		_marker.position = t

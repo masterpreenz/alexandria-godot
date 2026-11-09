@@ -499,9 +499,13 @@ func add_ground_layer(node: Node2D, order: float) -> void:
 
 ## Where every prop of the type [param name] stands (on cells and free), px.
 func props_named(name: String) -> Array:
-	var out := []
 	if props == null:
-		return out
+		return []
+	return props.cached("positions", name, _props_named)
+
+
+func _props_named(name: String) -> Array:
+	var out := []
 	for k in props.cells:
 		if props.cells[k].prop == name:
 			out.append(floors.cell_centre(Vector2i(k.x, k.y)))

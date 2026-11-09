@@ -67,7 +67,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"village_growth.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var click := _click
 	var stop := _stop
 	_click = false

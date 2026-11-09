@@ -44,6 +44,7 @@ func setup(w: World, who: Miko, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 	panel = PanelContainer.new()
 	panel.theme = UiKit.theme
 	panel.add_theme_stylebox_override("panel", UiKit.piece("frame"))
@@ -116,33 +117,6 @@ func _dress_teleport(e: Dictionary) -> Dictionary:
 	var px := _px()
 	var holder: Node2D = e.node
 	var base: Vector2 = (holder.get_child(0) as Node2D).position if holder.get_child_count() > 0 else Vector2.ZERO
-	# Blue motes rising from the pedestal past the crystal.
-	var motes := CPUParticles2D.new()
-	motes.amount = 26
-	motes.lifetime = 2.2
-	motes.lifetime_randomness = 0.35
-	motes.local_coords = false
-	motes.position = base + Vector2(0, -0.2 * px)
-	motes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RING
-	motes.emission_ring_radius = 0.55 * px
-	motes.emission_ring_inner_radius = 0.45 * px
-	motes.scale = Vector2(1.0, 0.5)
-	motes.direction = Vector2(0, -1)
-	motes.spread = 5.0
-	motes.gravity = Vector2.ZERO
-	motes.initial_velocity_min = 0.45 * px * 2.0
-	motes.initial_velocity_max = 0.75 * px * 2.0
-	motes.texture = Fires._soft_dot()
-	motes.scale_amount_min = 0.12 * px / 64.0 * 1.5
-	motes.scale_amount_max = 0.2 * px / 64.0 * 1.5
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.2, 0.7, 1.0])
-	g.colors = PackedColorArray([Color(0.75, 0.96, 1, 0), Color(0.85, 1, 1, 1), Color(0.75, 0.96, 1, 0.8), Color(1, 1, 1, 0)])
-	motes.color_ramp = g
-	var add := CanvasItemMaterial.new()
-	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	motes.material = add
-	holder.add_child(motes)
 	# Sparkles winking on its facets.
 	var sp := CPUParticles2D.new()
 	sp.amount = 4
@@ -164,10 +138,12 @@ func _dress_teleport(e: Dictionary) -> Dictionary:
 	twinkle.add_point(Vector2(1, 0))
 	sp.scale_amount_curve = twinkle
 	sp.color = Color(0.9, 1, 1)
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	sp.material = add
 	holder.add_child(sp)
 	var l := _light(e.pos + Vector2(0, -0.6 * px), Color(0.45, 0.85, 1.0), 2.2)
-	return {"pos": e.pos, "nodes": [motes, sp, l], "light": l, "phase": randf() * 10.0}
+	return {"pos": e.pos, "nodes": [sp, l], "light": l, "phase": randf() * 10.0}
 
 
 func _dress_ward(e: Dictionary) -> Dictionary:
@@ -257,6 +233,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"crystals.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	if world.props.version != _looked_at:
@@ -298,6 +280,7 @@ func _travel(pressed: bool) -> void:
 	prompt.visible = not c.is_empty()
 	if c.is_empty():
 		return
+	WorldPrompts.at(prompt, c.pos + Vector2(0, -1.5 * _px()))
 	if teleports.size() < 2:
 		prompt.text = "%s  ·  place another crystal to travel" % name_of(c.pos)
 		return

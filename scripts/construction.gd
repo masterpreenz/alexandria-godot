@@ -165,7 +165,13 @@ func build(p: Dictionary) -> bool:
 	return true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"construction.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if drafts() > 0:
 		VillageLog.problem("drafts", "Blueprints drawn: \"Start building\" in build mode when they're ready", VillageLog.Kind.NEWS)
 

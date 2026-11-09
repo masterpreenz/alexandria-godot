@@ -28,6 +28,7 @@ func setup(w: World, who: Miko, p: RabbitPens, hud: Node) -> void:
 	prompt.offset_bottom = -120
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 
 
 ## Whether a rabbit or a pen is within reach of [param at] (E is theirs, not the miner's, then).
@@ -40,7 +41,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_pressed = true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"rabbit_hands.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	if miko.locked:

@@ -106,6 +106,12 @@ func butcher(p: Pen) -> int:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"rabbit_pens.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version
 		_look()

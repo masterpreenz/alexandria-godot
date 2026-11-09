@@ -35,7 +35,13 @@ static func note(r: String) -> String:
 	return " Spoils %s (about %d%% a day)." % [speed, roundi(day * 100.0)]
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"spoilage.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if t < _next_tick or world.clock == null:
 		return

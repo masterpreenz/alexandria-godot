@@ -73,6 +73,14 @@ func at(cell: Vector2i) -> Array:
 
 ## Whether a prop named [param name] (its asset or display name) stands anywhere.
 func has(name: String) -> bool:
+	return not cached("has", name, _has_list).is_empty()
+
+
+func _has_list(name: String) -> Array:
+	return [true] if _has(name) else []
+
+
+func _has(name: String) -> bool:
 	for e in cells.values() + free:
 		if e.prop == name or types[e.prop].display == name:
 			return true
@@ -204,7 +212,27 @@ func _sync_free(i: int) -> void:
 
 
 ## Every placed [param name]: where it stands (px, as it's drawn), and its entry (flipped, turn, scale).
+## Lookups by name, kept until the props change (many systems ask every frame; scanning every prop each time cost
+## milliseconds a frame).
+var _named := {}
+var _named_version := -1
+
+
+func cached(kind: String, name: String, build: Callable) -> Array:
+	if _named_version != version:
+		_named_version = version
+		_named.clear()
+	var key := kind + ":" + name
+	if not _named.has(key):
+		_named[key] = build.call(name)
+	return (_named[key] as Array).duplicate()
+
+
 func entries_named(name: String) -> Array:
+	return cached("entries", name, _entries_named)
+
+
+func _entries_named(name: String) -> Array:
 	var out := []
 	for k in cells:
 		if cells[k].prop == name:
@@ -217,6 +245,10 @@ func entries_named(name: String) -> Array:
 
 ## Every placed [param name] with the node it's drawn as: [{pos, e, node}] (a holder whose first child is its sprite).
 func drawn_named(name: String) -> Array:
+	return cached("drawn", name, _drawn_named)
+
+
+func _drawn_named(name: String) -> Array:
 	var out := []
 	for k in cells:
 		if cells[k].prop == name and _drawn.has(k):

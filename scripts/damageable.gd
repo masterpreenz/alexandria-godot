@@ -118,7 +118,13 @@ static func nearest(at: Vector2, reach: float, side: int) -> Damageable:
 	return best
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"damageable.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if dummy and hp < max_hp and now - _last_hit > 3.0:
 		hp = max_hp

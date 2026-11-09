@@ -43,10 +43,14 @@ func setup(w: World, who: Miko) -> void:
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 	_cam = Camera2D.new()
+	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_cam.process_callback = Camera2D.CAMERA2D_PROCESS_IDLE
 	_cam.position = _area.get_center()
 	_cam.zoom = Vector2.ONE * (_vp.size.x / _area.size.x)
 	_vp.add_child(_cam)
 	_cam.make_current()
+	if Perf.active != null:
+		Perf.active.watch_viewport(_vp, "world map")
 	visible = false
 
 
@@ -198,7 +202,13 @@ func _click_buttons(at: Vector2) -> void:
 				"out": _step(-1, null)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"world_map.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if not visible:
 		return
 	_redraw_picture()

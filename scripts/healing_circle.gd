@@ -69,6 +69,12 @@ static func spawn(sk: Shikigami, at: Vector2) -> HealingCircle:
 
 
 func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"healing_circle.process", __t)
+
+
+func _process_timed(delta: float) -> void:
 	age += delta
 	if age >= life:
 		_free_motes()

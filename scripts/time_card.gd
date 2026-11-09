@@ -22,7 +22,13 @@ func setup(w: World, c: GameClock) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"time_card.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	if holder != null:
 		position = Vector2((holder.size.x - size.x) / 2.0, 10.0 * HudStyle.SCALE)
 	else:

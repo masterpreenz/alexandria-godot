@@ -93,7 +93,13 @@ func _close() -> void:
 	visible = false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"help_hints.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if t >= _next_check:
 		_next_check = t + 0.25

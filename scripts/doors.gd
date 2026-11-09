@@ -40,6 +40,7 @@ func setup(w: World, who: Miko, settings: Dictionary, hud: Node) -> void:
 	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	prompt.visible = false
 	hud.add_child(prompt)
+	WorldPrompts.register(prompt)
 
 
 ## A door's sound at [param at] (opening or shutting).
@@ -66,7 +67,13 @@ func _villager_near(mid: Vector2, within: float) -> bool:
 	return false
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var __t := Time.get_ticks_usec()
+	_process_timed(delta)
+	Perf.add(&"doors.process", __t)
+
+
+func _process_timed(_delta: float) -> void:
 	var walls := world.walls
 	if walls == null:
 		return
@@ -143,6 +150,7 @@ func _keep_open_prompt(pressed: bool) -> void:
 		return
 	var kept := walls.kept_open(best)
 	prompt.visible = true
+	WorldPrompts.at(prompt, walls.edge_middle(best) + Vector2(0, -1.4 * world.px))
 	prompt.text = "O  " + ("Let the doors close" if kept else "Keep the doors open")
 	if not pressed:
 		return
