@@ -163,7 +163,7 @@ func _sound() -> void:
 		return
 	_last_sound = now
 	if _pick_sound == null and ResourceLoader.exists("res://assets/Resources/Sounds/pickup.mp3"):
-		_pick_sound = load("res://assets/Resources/Sounds/pickup.mp3")
+		_pick_sound = Sfx.stream("res://assets/Resources/Sounds/pickup.mp3")
 	Sfx.play(world, _pick_sound, ground, 0.6, 0.08)
 
 

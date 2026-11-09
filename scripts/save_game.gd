@@ -20,6 +20,7 @@ var _notice: PanelContainer
 var _notice_text: Label
 var _notice_until := -1.0
 var _saving: Label
+var _runner: RunningMiko
 var _saving_since := -10.0
 var _started := 0.0
 
@@ -44,6 +45,13 @@ func setup(g: Node, w: World, who: Miko, hud: Node) -> void:
 	_saving = HudStyle.label("", 12, "bold")
 	_saving.visible = false
 	hud.add_child(_saving)
+	# Miko running in place beside it, as in Unity.
+	_runner = RunningMiko.new()
+	_runner.setup(w)
+	_runner.height = 44.0 * HudStyle.SCALE
+	_runner.size = Vector2(44, 46) * HudStyle.SCALE
+	_runner.visible = false
+	hud.add_child(_runner)
 	_started = _now()
 	_next_autosave = _now() + AUTOSAVE_MINUTES * 60.0
 	get_tree().auto_accept_quit = false
@@ -87,11 +95,15 @@ func _process_timed(delta: float) -> void:
 		var a := t - _saving_since
 		if a > 1.8:
 			_saving.visible = false
+			_runner.visible = false
 		else:
 			_saving.text = ("Saving" + ".".repeat(1 + int(a * 3.0) % 3)) if a < 1.2 else "Saved"
 			_saving.modulate.a = clampf(minf(a / 0.2, (1.8 - a) / 0.35), 0.0, 1.0)
 			_saving.reset_size()
-			_saving.position = Vector2(vp.x - _saving.size.x - 22.0, vp.y - _saving.size.y - 18.0)
+			_runner.visible = true
+			_runner.alpha = _saving.modulate.a
+			_runner.position = Vector2(vp.x - _runner.size.x - 16.0, vp.y - _runner.size.y - 12.0)
+			_saving.position = Vector2(_runner.position.x - _saving.size.x - 4.0, vp.y - _saving.size.y - 22.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:

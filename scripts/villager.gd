@@ -856,7 +856,7 @@ func _eat(t: float) -> void:
 func _start_eating(t: float) -> void:
 	var path: Variant = people.d.get("eatSound")
 	if path is String and ResourceLoader.exists(path):
-		Sfx.play(world, load(path), position, 0.6)
+		Sfx.play(world, Sfx.stream(path), position, 0.6)
 	state = State.EATING
 	state_until = t + randf_range(5.0, 7.0)
 	velocity = Vector2.ZERO
@@ -1470,7 +1470,7 @@ func _strike() -> void:
 	_wear_tools()
 	var path: Variant = s.axeSound if job.axe else s.pickaxeSound
 	if path is String and ResourceLoader.exists(path):
-		Sfx.play(world, load(path), job.foot, float(s.toolVolume), 0.08)
+		Sfx.play(world, Sfx.stream(path), job.foot, float(s.toolVolume), 0.08)
 	var spot := job
 	var got := spot.strike()
 	# Felling a tree: now and then a seed, brought home for planting.
@@ -1894,7 +1894,7 @@ func _sizzle_on() -> void:
 		if not (path is String and ResourceLoader.exists(path)):
 			return
 		_sizzle = AudioStreamPlayer2D.new()
-		_sizzle.stream = load(path)
+		_sizzle.stream = Sfx.stream(path)
 		_sizzle.volume_db = linear_to_db(0.45)
 		_sizzle.max_distance = 3000.0
 		_sizzle.finished.connect(func(): if state == State.COOK: _sizzle.play())
@@ -2046,7 +2046,7 @@ func _building(t: float) -> void:
 	if t >= _next_knock and not sounds.is_empty():
 		var path: Variant = sounds[randi() % sounds.size()]
 		if path is String and ResourceLoader.exists(path):
-			var clip: AudioStream = load(path)
+			var clip: AudioStream = Sfx.stream(path)
 			Sfx.play(world, clip, at, float(s.toolVolume), 0.08)
 			_next_knock = t + clip.get_length() + randf_range(0.1, 0.4)
 	_show_idle()

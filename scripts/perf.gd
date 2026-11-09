@@ -30,6 +30,11 @@ var _log: FileAccess
 var _spikes := 0
 var _all_frames: PackedFloat32Array = PackedFloat32Array()
 var _sub_viewports: Array = []
+# What the engine runs by itself, outside any script (so no timer sees it): particle effects (fires, chimney smoke,
+# sparkles, rain, snow, motes), lights and sounds. Counted as they come and go.
+var _particles := {}
+var _lights := {}
+var _sounds := {}
 
 
 ## Times one call: [code]var t := Time.get_ticks_usec()[/code] ... [code]Perf.add(&"name", t)[/code].
@@ -71,6 +76,10 @@ func _ready() -> void:
 	_panel.visible = Shots.arg("perf") == "show"
 	add_child(_panel)
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	get_tree().node_added.connect(_added)
+	get_tree().node_removed.connect(_removed)
+	for n in get_tree().root.find_children("*", "", true, false):
+		_added(n)
 	var f := FileAccess.open("user://perf_log.txt", FileAccess.WRITE)
 	_log = f
 	if _log != null:
@@ -127,6 +136,64 @@ func _process(delta: float) -> void:
 		_worst_frame = 0.0
 
 
+func _added(n: Node) -> void:
+	if n is CPUParticles2D or n is GPUParticles2D:
+		_particles[n] = true
+	elif n is PointLight2D:
+		_lights[n] = true
+	elif n is AudioStreamPlayer or n is AudioStreamPlayer2D:
+		_sounds[n] = true
+
+
+func _removed(n: Node) -> void:
+	_particles.erase(n)
+	_lights.erase(n)
+	_sounds.erase(n)
+
+
+# Whose an engine-run thing is: the nearest script above it (fires, roof_map's smoke, crystals...).
+static func _owner_of(n: Node) -> String:
+	var p := n.get_parent()
+	while p != null:
+		var s: Script = p.get_script()
+		if s != null:
+			return s.resource_path.get_file().get_basename()
+		p = p.get_parent()
+	return "?"
+
+
+## The engine-run things now: how many particle effects are emitting (and how many particles they hold), by owner;
+## lights on; sounds playing.
+func engine_things() -> Dictionary:
+	var by := {}
+	var emitting := 0
+	var particles := 0
+	for n in _particles:
+		if is_instance_valid(n) and n.emitting and n.is_visible_in_tree():
+			emitting += 1
+			particles += n.amount
+			var o := _owner_of(n)
+			by[o] = int(by.get(o, 0)) + n.amount
+	var lights := 0
+	for n in _lights:
+		if is_instance_valid(n) and n.enabled and n.is_visible_in_tree():
+			lights += 1
+	var sounds := 0
+	for n in _sounds:
+		if is_instance_valid(n) and n.playing:
+			sounds += 1
+	return {"effects": emitting, "particles": particles, "by": by, "lights": lights, "sounds": sounds}
+
+
+## This frame's time in scripts (the top-level timers; the finer ones, "AI: ..." and the like, sit inside them).
+static func _script_ms(table: Dictionary) -> float:
+	var us := 0
+	for k in table:
+		if not String(k).contains(":"):
+			us += int(table[k][0])
+	return us / 1000.0
+
+
 func _engine() -> Dictionary:
 	var vp := get_viewport().get_viewport_rid()
 	var out := {
@@ -161,6 +228,20 @@ func _show(_seconds: float) -> void:
 	var t := "[b]%d FPS[/b]  ·  frame %.1f ms avg, %.1f worst  ·  F3 hides\n" % [e.fps, _frame_ms_sum / frames, _worst_frame]
 	t += "process %.1f ms · physics %.1f ms · render cpu %.1f gpu %.1f ms\n" % [e["process ms"], e["physics ms"], e["render cpu ms"], e["render gpu ms"]]
 	t += "draw calls %d · objects %d · nodes %d · bodies %d\n" % [e["draw calls"], e.objects, e.nodes, e["physics bodies"]]
+	var th := engine_things()
+	var scripts := 0.0
+	for k in _window:
+		if not String(k).contains(":"):
+			scripts += _window[k][0]
+	scripts = scripts / frames / 1000.0
+	t += "scripts %.1f ms · outside scripts %.1f ms (engine: particles, physics, animation...)
+" % [scripts, maxf(0.0, _frame_ms_sum / frames - scripts - e["render cpu ms"])]
+	var owners := []
+	for o in th.by:
+		owners.append([o, th.by[o]])
+	owners.sort_custom(func(x, y): return x[1] > y[1])
+	t += "effects %d (%d particles: %s) · lights %d · sounds %d
+" % [th.effects, th.particles, ", ".join(owners.slice(0, 5).map(func(o): return "%s %d" % o)), th.lights, th.sounds]
 	for k in e:
 		if k.ends_with(" render ms") and not k.begins_with("render"):
 			t += "%s %.2f\n" % [k, e[k]]
@@ -177,8 +258,11 @@ func _spike(ms: float) -> void:
 	_spikes += 1
 	var e := _engine()
 	var rows := _sorted(_frame, 1.0)
-	var line := "SPIKE %.1f ms (avg %.1f) at %.2fs | process %.1f physics %.1f render cpu %.1f gpu %.1f | draw %d objects %d nodes %d | " % [
-		ms, _avg_ms, Time.get_ticks_msec() / 1000.0, e["process ms"], e["physics ms"], e["render cpu ms"], e["render gpu ms"], e["draw calls"], e.objects, e.nodes]
+	var th := engine_things()
+	var sc := _script_ms(_frame)
+	var line := "SPIKE %.1f ms (avg %.1f) at %.2fs | scripts %.1f, outside scripts %.1f | process %.1f physics %.1f render cpu %.1f gpu %.1f | draw %d objects %d nodes %d | effects %d (%d particles) lights %d sounds %d | " % [
+		ms, _avg_ms, Time.get_ticks_msec() / 1000.0, sc, maxf(0.0, ms - sc - e["render cpu ms"]), e["process ms"], e["physics ms"], e["render cpu ms"], e["render gpu ms"],
+		e["draw calls"], e.objects, e.nodes, th.effects, th.particles, th.lights, th.sounds]
 	var parts := []
 	for i in mini(8, rows.size()):
 		parts.append("%s %.2f×%d" % [rows[i][0], rows[i][1], rows[i][2]])

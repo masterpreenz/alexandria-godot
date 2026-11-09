@@ -53,7 +53,7 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	var c: Dictionary = d.get("cooking", {})
 	var path: Variant = c.get("sizzle")
 	if path is String and ResourceLoader.exists(path):
-		_sizzle.stream = load(path)
+		_sizzle.stream = Sfx.stream(path)
 		_sizzle.volume_db = linear_to_db(maxf(0.0001, float(c.get("volume", 0.6))))
 	add_child(_sizzle)
 	_sizzle.finished.connect(func(): if cooking: _sizzle.play())

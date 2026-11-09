@@ -1297,7 +1297,7 @@ func drop_sound(kind: String, at: Vector2) -> void:
 		_last_rustle = t
 	var path: Variant = drop_sounds.get(key)
 	if path is String and ResourceLoader.exists(path):
-		Sfx.play(world, load(path), at, vol, 0.06)
+		Sfx.play(world, Sfx.stream(path), at, vol, 0.06)
 
 
 # Which sound a prop makes landing: grass rustles, plants rustle their leaves, the rest thud.

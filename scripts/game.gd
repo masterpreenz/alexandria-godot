@@ -28,6 +28,10 @@ func _ready() -> void:
 	# Unity's post-processing (its scene volume) toned the picture down a little, with a slight vignette: the "Soft"
 	# picture (Settings), on by default.
 	_post_processing()
+	# The loading screen, over everything while the game sets up and its shaders warm up.
+	var loading := LoadingScreen.new()
+	loading.name = "Loading"
+	add_child(loading)
 	# The key prompts beside what they're about, and the performance logger (F3), first so the rest can be measured.
 	var prompts := WorldPrompts.new()
 	prompts.name = "WorldPrompts"
@@ -40,6 +44,7 @@ func _ready() -> void:
 	($WorldPrompts as WorldPrompts).setup(miko)
 	miko.name = "Miko"
 	world.things.add_child(miko)
+	($Loading as LoadingScreen).set_world(world)
 	miko.setup(world, data)
 	world.player = miko
 	# Her own layer: creatures pass by her rather than shove her about (only the fixed world blocks her).
@@ -351,6 +356,13 @@ func _ready() -> void:
 	camera.position = miko.position + follow_offset
 	camera.reset_smoothing()
 	await get_tree().process_frame
+	# The shaders warmed up behind the loading screen (not in test runs, unless asked for).
+	if Shots.arg("shot") == "" or Shots.arg("loading") != "":
+		var t0 := Time.get_ticks_msec()
+		await loading.warm_up(self, world, miko, camera, Exploration.active.px_rect() if Exploration.active != null else Rect2(-20000, -10000, 40000, 20000))
+		print("Shaders warmed up in %d ms" % (Time.get_ticks_msec() - t0))
+	else:
+		loading.queue_free()
 	if Shots.arg("shot") != "":
 		var walk := Shots.arg("walk")
 		if walk != "":
@@ -629,7 +641,7 @@ func _process(delta: float) -> void:
 func _process_timed(_delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
-	if not BuildMode.is_open():
+	if not BuildMode.is_open() and not has_meta("warming"):
 		camera.position = miko.drawn_position() + follow_offset
 	time_label.text = "%s · %s, day %d · %s
 Wood %d · Stone %d" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()], miko.bag.count("Wood"), miko.bag.count("Stone")]

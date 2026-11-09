@@ -30,8 +30,8 @@ func setup(w: World, who: Miko, settings: Dictionary, hud: Node) -> void:
 	for k in ["openSound", "closeSound"]:
 		var path: Variant = s.get(k)
 		if path is String and ResourceLoader.exists(path):
-			if k == "openSound": open_sound = load(path)
-			else: close_sound = load(path)
+			if k == "openSound": open_sound = Sfx.stream(path)
+			else: close_sound = Sfx.stream(path)
 	prompt = HudStyle.label("", 16, "bold")
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)

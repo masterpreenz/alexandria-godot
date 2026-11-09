@@ -53,12 +53,12 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 	_wind.max_distance = 1.0e6
 	add_child(_wind)
 	_next_gust = _now() + randf_range(6.0, 12.0)
-	_grass_step = load("res://assets/Sounds/running_grass.wav")
-	_solid_step = load("res://assets/Sounds/running_solid.wav")
+	_grass_step = Sfx.stream("res://assets/Sounds/running_grass.wav")
+	_solid_step = Sfx.stream("res://assets/Sounds/running_solid.wav")
 
 
 static func _stream(path: Variant) -> AudioStream:
-	return load(path) if path is String and ResourceLoader.exists(path) else null
+	return Sfx.stream(path) if path is String else null
 
 
 func _now() -> float:

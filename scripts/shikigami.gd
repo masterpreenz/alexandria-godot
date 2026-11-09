@@ -169,7 +169,7 @@ func _start_heal_loop(at: Vector2) -> void:
 	if path == null or not ResourceLoader.exists(path):
 		return
 	heal_loop = AudioStreamPlayer2D.new()
-	heal_loop.stream = load(path)
+	heal_loop.stream = Sfx.stream(path)
 	heal_loop.volume_db = linear_to_db(maxf(float(s.healVolume), 0.0001))
 	heal_loop.max_distance = 3000.0
 	heal_loop.attenuation = 1.5

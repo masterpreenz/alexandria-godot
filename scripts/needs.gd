@@ -330,7 +330,7 @@ func drink() -> bool:
 func _sound(key: String) -> void:
 	var path: Variant = data.get(key)
 	if path is String and ResourceLoader.exists(path):
-		Sfx.play(world, load(path), miko.position, 0.8)
+		Sfx.play(world, Sfx.stream(path), miko.position, 0.8)
 
 
 func _frames() -> Array:

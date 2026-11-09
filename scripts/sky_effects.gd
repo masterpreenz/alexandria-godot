@@ -79,14 +79,14 @@ func setup(w: World, c: GameClock, cam: Camera2D, modulate_node: CanvasModulate,
 	_rain_sound = AudioStreamPlayer.new()
 	# A seamless copy of the rain loop (made from rain_loop.mp3 as Unity did at runtime: the MP3's quiet padding
 	# trimmed off, its end crossfaded into its start), so it loops without a gap or a click.
-	var loop: AudioStream = load("res://assets/Sounds/rain_loop_seamless.ogg")
+	var loop: AudioStream = Sfx.stream("res://assets/Sounds/rain_loop_seamless.ogg")
 	if loop is AudioStreamOggVorbis:
 		(loop as AudioStreamOggVorbis).loop = true
 	_rain_sound.stream = loop
 	_rain_sound.bus = "Rain"
 	add_child(_rain_sound)
 	_thunder = AudioStreamPlayer.new()
-	_thunder.stream = load("res://assets/Sounds/thunder.mp3")
+	_thunder.stream = Sfx.stream("res://assets/Sounds/thunder.mp3")
 	add_child(_thunder)
 
 

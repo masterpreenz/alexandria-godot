@@ -38,7 +38,7 @@ static func color(spell: Dictionary) -> Color:
 
 static func sound(w: World, path: String, at: Vector2, volume: float) -> void:
 	if path != "" and ResourceLoader.exists(path):
-		Sfx.play(w, load(path), at, volume)
+		Sfx.play(w, Sfx.stream(path), at, volume)
 
 
 ## A glowing ball with a trail, flying or falling; bursting with sparks and a ring where it lands.

@@ -304,8 +304,8 @@ func _make(r: Dictionary) -> void:
 		v.give(bag, miko, r.resource, int(r.amount), miko.position)
 		LifeSkills.practise(_skill(), miko)
 		if str(bench.get("skill", "")) == "Cooking":
-			Sfx.play(world, load("res://assets/Sounds/cooking.mp3"), bench_at, 0.5)
-		Sfx.play(world, load("res://assets/Resources/Sounds/pickup.mp3"), bench_at, 0.7)
+			Sfx.play(world, Sfx.stream("res://assets/Sounds/cooking.mp3"), bench_at, 0.5)
+		Sfx.play(world, Sfx.stream("res://assets/Resources/Sounds/pickup.mp3"), bench_at, 0.7)
 		Puffs.burst(world, bench_at + Vector2(0, -0.4 * world.px), 0.5, 10)
 		FloatingText.spawn(world, "Made: %s" % recipe_name(r), at, HudStyle.color("accentLight"))
 		_refresh()
@@ -326,7 +326,7 @@ func _make(r: Dictionary) -> void:
 		bag.items[bag.free_slot()] = r.item
 		bag.changed.emit()
 	LifeSkills.practise(_skill(), miko)
-	Sfx.play(world, load("res://assets/Resources/Sounds/pickup.mp3"), bench_at, 0.7)
+	Sfx.play(world, Sfx.stream("res://assets/Resources/Sounds/pickup.mp3"), bench_at, 0.7)
 	Puffs.burst(world, bench_at + Vector2(0, -0.4 * world.px), 0.5, 10)
 	FloatingText.spawn(world, "Made: %s%s" % [recipe_name(r), " (in storage)" if into_storage else ""], at, HudStyle.color("accentLight"))
 	_refresh()

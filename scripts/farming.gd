@@ -305,7 +305,7 @@ func harvest(p: Dictionary) -> Array:
 func till(p: Dictionary) -> float:
 	_till(p)
 	var path: Variant = p.s.get("tillSound")
-	return (load(path) as AudioStream).get_length() if path is String and ResourceLoader.exists(path) else 0.0
+	return (Sfx.stream(path) as AudioStream).get_length() if path is String and ResourceLoader.exists(path) else 0.0
 
 
 # The first seeds: some for each new crop in storage, once (a passing farmer's gift), so there's something to plant.
@@ -371,7 +371,7 @@ func _set_field(p: Dictionary) -> void:
 func _till(p: Dictionary) -> void:
 	var path: Variant = p.s.get("tillSound")
 	if path is String and ResourceLoader.exists(path):
-		Sfx.play(world, load(path), p.pos, float(p.s.tillVolume), 0.08)
+		Sfx.play(world, Sfx.stream(path), p.pos, float(p.s.tillVolume), 0.08)
 
 
 func _say(text: String) -> void:
