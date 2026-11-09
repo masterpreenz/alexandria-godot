@@ -23,6 +23,7 @@ var shikigami := {}          ## spell -> its shikigami's settings (shikigami.jso
 var _marker: Sprite2D
 var _pinned: Sprite2D
 var _circle: Sprite2D
+var _circle_flat: Node2D      # holds the circle squashed flat on the 2:1 ground (it spins inside, so it turns as a disc lying there)
 var _bar_fill := 0.0
 var _bar_color := Color.WHITE
 var _charge: CPUParticles2D
@@ -44,8 +45,11 @@ func setup(w: World, who: Miko, st: CharacterStats, sp: Dictionary, d: Dictionar
 	_pinned = _ring()
 	_circle = Sprite2D.new()
 	_circle.visible = false
-	_circle.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # placed by hand each frame
-	world.add_ground_layer(_circle, -9979)  # on the ground under her (following her as she turns)
+	_circle_flat = Node2D.new()
+	_circle_flat.scale = Vector2(1.0, 0.5)
+	_circle_flat.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # placed by hand each frame
+	_circle_flat.add_child(_circle)
+	world.add_ground_layer(_circle_flat, -9979)  # on the ground under her (following her as she turns)
 	_charge = CPUParticles2D.new()
 	_charge.emitting = false
 	_charge.amount = 30
@@ -154,7 +158,7 @@ func _process_timed(delta: float) -> void:
 	if _pinned.visible:
 		_pin_spin += delta
 	if _circle.visible:
-		_circle.position = miko.drawn_position() + Vector2(0, data.circleY)
+		_circle_flat.position = miko.drawn_position() + Vector2(0, data.circleY)
 		_circle.rotation += deg_to_rad(float(data.spinSpeed)) * delta
 	queue_redraw()
 
@@ -210,7 +214,7 @@ func _cast(spell: String, target: Vector2) -> void:
 		world.show_frame(_circle, int(circles[e]), Vector2.ONE * float(data.circleScale))
 		_circle.centered = true
 		_circle.offset = Vector2.ZERO
-		_circle.position = miko.drawn_position() + Vector2(0, data.circleY)
+		_circle_flat.position = miko.drawn_position() + Vector2(0, data.circleY)
 		_circle.visible = true
 	var cast_time := float(s.castTime) / (1.0 + maxf(0.0, stats.stat("castSpeed")) / 100.0)
 	# Ground and sky spells leave their ring where they were aimed, turning until they go off.
