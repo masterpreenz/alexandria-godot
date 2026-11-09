@@ -44,20 +44,20 @@ static func piece(name: String, tint := Color.WHITE) -> StyleBox:
 	if id < 0 or _world == null:
 		return StyleBoxEmpty.new()
 	var info: Dictionary = _world.sprites[id]
-	var sb := StyleBoxTexture.new()
+	var sb := HudPiece.new()
 	sb.texture = _world._texture(info.tex)
-	sb.region_rect = Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
-	# Unity's border is left, bottom, right, top (in the sprite's pixels; drawn at the HUD's scale).
+	sb.region = Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
+	# Unity's border is left, bottom, right, top (in the sprite's pixels).
 	var b: Array = data.get("borders", {}).get(str(id), [0, 0, 0, 0])
-	sb.texture_margin_left = b[0]
-	sb.texture_margin_bottom = b[1]
-	sb.texture_margin_right = b[2]
-	sb.texture_margin_top = b[3]
+	sb.left = b[0]
+	sb.bottom = b[1]
+	sb.right = b[2]
+	sb.top = b[3]
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8
 	sb.content_margin_top = 6
 	sb.content_margin_bottom = 6
-	sb.modulate_color = tint
+	sb.tint = tint
 	return sb
 
 
