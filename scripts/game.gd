@@ -312,6 +312,11 @@ func _ready() -> void:
 	$Hud.add_child(world_map)
 	world_map.setup(world, miko)
 	# Planting trees (T), and the trees planted before.
+	# The crystal necklace's light and clearing, while she wears one.
+	var necklace := CrystalNecklace.new()
+	necklace.name = "CrystalNecklace"
+	miko.add_child(necklace)
+	necklace.setup(world, miko)
 	var planter := TreePlanter.new()
 	planter.name = "TreePlanter"
 	miko.add_child(planter)
@@ -571,6 +576,19 @@ func _ready() -> void:
 						await get_tree().process_frame
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_air.png")
 					print("Jump: airborne ", miko.airborne(), " body lift ", miko.wading.extra.y, " shadow ", miko.shadow.scale, " a ", snappedf(miko.shadow.modulate.a, 0.01))
+				"necklace":
+					# A crystal necklace worn at night out in the mist: its light and clearing; then worn nearly out.
+					clock.hours = 22.0
+					miko.place(miko.position + Vector2(float(Shots.arg("dx", "0")), float(Shots.arg("dy", "0"))) * world.px)
+					miko.bag.items[miko.bag.free_slot()] = "CrystalNecklace"
+					var slot := miko.bag.items.find("CrystalNecklace")
+					if Shots.arg("nowear") == "": miko.stats.equip(miko.bag, slot)
+					print("Necklace worn: ", miko.stats.worn_in("Necklace"), " durability ", miko.stats.durability_left("CrystalNecklace"))
+					if Shots.arg("wornout") != "":
+						miko.stats.wear["CrystalNecklace"] = 899.0
+					for i in 120:
+						await get_tree().process_frame
+					print("After: worn ", miko.stats.worn_in("Necklace"), " durability ", miko.stats.durability_left("CrystalNecklace"), " tier here ", world.mist.tier_at(miko.position))
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position
@@ -616,6 +634,8 @@ func _ready() -> void:
 				"bench":
 					var wb: WorkbenchWindow = $Hud/WorkbenchWindow
 					for prop in wb.benches:
+						if Shots.arg("bench") != "" and prop != Shots.arg("bench"):
+							continue
 						if not world.props_named(prop).is_empty():
 							miko.place(world.props_named(prop)[0] + Vector2(0, 0.6 * world.px))
 							wb.open(prop, world.props_named(prop)[0])

@@ -21,6 +21,7 @@ var xp := 0
 var talent_points := 0
 var ranks := {}                    ## talent id -> rank
 var equipped: Array = []           ## worn item names
+var wear := {}                     ## item name -> seconds it's been worn (gear that wears out: the crystal necklace)
 var hp := 0.0
 var mana := 0.0
 var buffs := {}                    ## source -> stat dict
@@ -240,6 +241,7 @@ func from_json(json: String) -> void:
 		if t.kind == "Start" and not ranks.has(t.id):
 			ranks[t.id] = 1
 	equipped = d.get("equipped", [])
+	wear = d.get("wear", {})
 	wear_saved()
 	var tot := total()
 	hp = clampf(float(d.get("hp", tot.get("maxHp", 100.0))), 1.0, tot.get("maxHp", 100.0))
@@ -366,6 +368,35 @@ func _used_past(bag: Bag, past: int, skip := -1) -> int:
 		if i != skip and (bag.items[i] != "" or bag.stack_in(i) != ""):
 			n += 1
 	return n
+
+
+## How much of [param item]'s life is left, 1 (new) to 0, or -1 for gear that doesn't wear out. (Kept by name: a
+## necklace taken off and put on again picks up where it was; another of the same kind shares it.)
+func durability_left(item: String) -> float:
+	var most := float(item_stats.get(item, {}).get("durability", 0.0))
+	if most <= 0.0:
+		return -1.0
+	return clampf(1.0 - float(wear.get(item, 0.0)) / most, 0.0, 1.0)
+
+
+## Wears [param item] for [param seconds] more; true when that's used it up.
+func wear_out(item: String, seconds: float) -> bool:
+	wear[item] = float(wear.get(item, 0.0)) + seconds
+	return durability_left(item) == 0.0
+
+
+## Gear in [param slot] used up: gone (not back in the bag), and the next of its kind starts new.
+func break_worn(bag: Bag, slot: String) -> void:
+	var item := worn_in(slot)
+	if item == "":
+		return
+	worn.erase(slot)
+	wear.erase(item)
+	_sync_equipped()
+	bag.worn = equipped
+	bag.changed.emit()
+	_clamp()
+	changed.emit()
 
 
 ## Takes off what's in [param slot], into the bag.
@@ -576,4 +607,4 @@ func to_json() -> String:
 		ids.append(id)
 		rs.append(int(ranks[id]))
 	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana,
-		"talentIds": ids, "talentRanks": rs, "equipped": equipped})
+		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear})

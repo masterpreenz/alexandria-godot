@@ -26,6 +26,10 @@ var target := PackedByteArray()     # what it should be now (Tier)
 var _shown := PackedFloat32Array()  # what's drawn, easing towards target (0..2)
 var _near := PackedByteArray()      # how near a tree or rock each cell is (0..255)
 var _moving := PackedInt32Array()   # cells still easing
+var _fixed := PackedByteArray()     # the mist as the village and crystals leave it (what the world goes by)
+var _fast := PackedInt32Array()     # cells easing quickly (the clearing round Miko's crystal necklace)
+var _personal := Vector2.INF        # where that clearing is (snapped to a cell), and how wide (px; 0: none)
+var _personal_radius := 0.0
 var _image: Image
 var texture: ImageTexture
 var _sources := ""
@@ -76,13 +80,49 @@ func _centre(x: int, y: int) -> Vector2:
 	return rect.position + Vector2((x + 0.5) * cell, (y + 0.5) * cell)
 
 
-## How thick the mist is at [param p].
+## How thick the mist is at [param p]: as the village and the crystals leave it. (The little clearing round Miko's
+## necklace is only how it looks: the villagers, the spawning and the monsters go by the mist itself.)
 func tier_at(p: Vector2) -> int:
 	var x := floori((p.x - rect.position.x) / cell)
 	var y := floori((p.y - rect.position.y) / cell)
 	if x < 0 or y < 0 or x >= width or y >= height:
 		return Tier.STRONG
-	return target[y * width + x]
+	return (_fixed if _fixed.size() == target.size() else target)[y * width + x]
+
+
+## A small clearing that goes with Miko (her crystal necklace): the normal mist (not the strong) parted within
+## [param radius] px of [param centre], quickly. A radius of 0 takes it away. Only the cells it leaves and enters change.
+func set_personal(centre: Vector2, radius: float) -> void:
+	var snapped_at := (centre / cell).round() * cell if radius > 0.0 else Vector2.INF
+	if snapped_at == _personal and is_equal_approx(radius, _personal_radius):
+		return
+	var changed := {}
+	if _personal != Vector2.INF and _fixed.size() == target.size():
+		_for_cells(_personal_box(_personal, _personal_radius), func(i: int, _at: Vector2) -> void:
+			if target[i] != _fixed[i]:
+				target[i] = _fixed[i]
+				changed[i] = true)
+	_personal = snapped_at
+	_personal_radius = radius
+	_apply_personal(changed)
+	for i: int in changed:
+		_fast.append(i)
+
+
+func _personal_box(centre: Vector2, radius: float) -> Rect2:
+	return Rect2(centre - Vector2(radius, radius * 0.5), Vector2(radius * 2.0, radius))
+
+
+# The clearing round Miko onto the target ([param changed] gets each cell it alters).
+func _apply_personal(changed: Dictionary) -> void:
+	if _personal == Vector2.INF:
+		return
+	var r2 := _personal_radius * _personal_radius
+	_for_cells(_personal_box(_personal, _personal_radius), func(i: int, at: Vector2) -> void:
+		var d := Vector2(at.x - _personal.x, (at.y - _personal.y) * 2.0)
+		if d.length_squared() <= r2 and target[i] == Tier.NORMAL:
+			target[i] = Tier.CLEAR
+			changed[i] = true)
 
 
 ## How much stronger a monster is at [param p] (1 on clear ground).
@@ -141,6 +181,8 @@ func refresh(force := false) -> void:
 		_clear_circle(p, data.crystalRadius, Tier.NORMAL)
 	for p in world.props_named("CleansingCrystal"):
 		_clear_circle(p, data.wardRadius, Tier.NORMAL)
+	_fixed = target.duplicate()
+	_apply_personal({})
 	# Ease only what changed.
 	for i in target.size():
 		if before.size() == target.size() and before[i] != target[i]:
@@ -182,6 +224,17 @@ func _note_obstacles(list: Array) -> void:
 
 # Eases what's drawn towards what the mist now is (about a second and a bit to clear).
 func _settle(delta: float) -> void:
+	if not _fast.is_empty():
+		# Miko's clearing parts and closes quickly (a third of a second), keeping up as she walks.
+		var quick := PackedInt32Array()
+		for i in _fast:
+			_shown[i] = move_toward(_shown[i], target[i], delta * 3.0)
+			_put(i)
+			if not is_equal_approx(_shown[i], target[i]):
+				quick.append(i)
+		_fast = quick
+		if _moving.is_empty():
+			texture.update(_image)
 	if _moving.is_empty():
 		return
 	var step := delta * 0.8

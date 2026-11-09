@@ -22,7 +22,7 @@ const USES := {
 	"Bottle": "From the alchemy workbench: potions are made in it.",
 	"Carrot": "Fills 12 hunger raw. Plant it in a farm plot, or cook it with raw meat into a stew.",
 	"Cabbage": "Fills 15 hunger raw. Cook it with a potato into a soup.", "Wheat": "Ground into flour at the alchemy workbench.",
-	"Cotton": "For cloth: the workbench's cloth armour is made from it.", "CabbageSeed": "Plant in a farm plot to grow cabbages.",
+	"Cotton": "For cloth: the workbench's cloth armour is made from it, or spun into fibre.", "Fiber": "Cotton spun into cord at the tool workbench: strings the crystal necklace.", "CabbageSeed": "Plant in a farm plot to grow cabbages.",
 	"WheatSeed": "Plant in a farm plot to grow wheat.", "CottonSeed": "Plant in a farm plot to grow cotton.",
 	"Flour": "Baked into bread at a bonfire.", "Bread": "Fills 40 hunger, and keeps well.", "CarrotStew": "Fills 55 hunger.",
 	"CabbageSoup": "Fills 50 hunger.", "HpPotion": "Restores HP.", "ManaPotion": "Restores mana.",
@@ -629,6 +629,9 @@ func _show_item(it_name: String) -> void:
 	var desc := CharacterStats.describe(stats.item_stats.get(it_name, {}).get("stats", {}))
 	if int(it.get("bagSlots", 0)) > 0:
 		desc += ("" if desc == "" else ", ") + "+%d bag slots" % int(it.bagSlots)
+	var left := stats.durability_left(it_name)
+	if left >= 0.0:
+		desc += ("" if desc == "" else ", ") + "%d%% durability" % roundi(left * 100.0)
 	_labels.pick_info.text = "%s%s%s" % [it.get("label", ""), (" · " + desc) if desc != "" else "", (" · grants " + grants) if grants != "" else ""]
 
 
