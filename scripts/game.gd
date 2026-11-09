@@ -353,7 +353,9 @@ func _ready() -> void:
 	# Unity's orthographic size is half the view's height, in units: the same view here.
 	var view_h := float(ProjectSettings.get_setting("display/window/size/viewport_height"))
 	camera.zoom = Vector2.ONE * view_h / (2.0 * data.camera.ortho * world.px)
-	camera.position_smoothing_speed = 1.0 / max(0.02, data.camera.smooth)
+	# Locked on her, no easing: smoothed (Unity's 0.15 s follow), the view went on sliding a moment after she stopped
+	# and eased to rest, the ground drifting under her.
+	camera.position_smoothing_enabled = false
 	# The camera is moved every frame to where she's drawn, so it isn't smoothed itself (that would lag it a tick).
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	# With physics interpolation on, Godot moves the camera only on physics ticks unless told otherwise: then it lags
@@ -619,6 +621,17 @@ func _ready() -> void:
 						await get_tree().process_frame
 						tilt = maxf(tilt, absf(g.art.rotation))
 					print("Chop: fell (most tilt ", snappedf(tilt, 0.01), "), regrow at ", g._regrow_at > 0.0, ", processing ", g.is_processing())
+				"stopcam":
+					# Walks right, then stops: how far the view's centre is from where she's drawn, frame by frame after.
+					Input.action_press("ui_right")
+					for i in 40:
+						await get_tree().process_frame
+					Input.action_release("ui_right")
+					var gaps := []
+					for i in 30:
+						await get_tree().process_frame
+						gaps.append(snappedf((camera.get_screen_center_position() - follow_offset - miko.drawn_position()).length(), 0.1))
+					print("Stop: view behind her by ", gaps)
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position
