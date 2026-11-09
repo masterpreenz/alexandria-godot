@@ -22,6 +22,7 @@ func _ready() -> void:
 	Settings.load_settings()
 	Settings.apply_sound()
 	Settings.route_sounds(get_tree())
+	MapMarks.hide_particles(get_tree())
 	if not _window_set and Shots.arg("shot") == "":
 		_window_set = true
 		Settings.apply_window()

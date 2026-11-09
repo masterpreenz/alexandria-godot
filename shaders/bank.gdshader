@@ -4,6 +4,7 @@
 //
 // UV: x is cells along the bank, y is 0 at the top to 1 at the water. COLOR.r is the wall's height / 4 (world units).
 shader_type canvas_item;
+#include "res://shaders/map_still.gdshaderinc"
 
 uniform sampler2D stone : source_color, filter_linear_mipmap, repeat_enable;
 uniform float tile_size = 1.6;     // world units a stone tile covers
@@ -47,10 +48,10 @@ void fragment() {
 		color *= mix(1.0, 0.72, UV.y);
 	}
 	// The wet band just above the water, and the waterline, lifting and falling a little.
-	float swell = 0.012 * sin(TIME * 1.4 + along * 3.0);
+	float swell = 0.012 * sin(anim_time(SCREEN_PIXEL_SIZE) * 1.4 + along * 3.0);
 	float wet_from = height - (0.06 + 0.06 * noise1(along * 1.3 + 31.0)) + swell;
 	color = mix(color, wet.rgb, smoothstep(wet_from - 0.02, wet_from + 0.02, depth) * 0.65);
 	float line = smoothstep(height - 0.05 + swell, height - 0.025 + swell, depth);
-	color = mix(color, waterline.rgb, line * (0.6 + 0.4 * noise1(along * 4.0 - TIME * 0.6)));
+	color = mix(color, waterline.rgb, line * (0.6 + 0.4 * noise1(along * 4.0 - anim_time(SCREEN_PIXEL_SIZE) * 0.6)));
 	COLOR = vec4(color, 1.0);
 }

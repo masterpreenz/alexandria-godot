@@ -28,6 +28,18 @@ static func hide(root: Node) -> void:
 		hide(ch)
 
 
+## Keeps every particle effect (smoke, sparks, sparkles, splashes) off the maps: they're drawn now and then, not every
+## frame, so moving things would jump about there.
+static func hide_particles(tree: SceneTree) -> void:
+	if not tree.node_added.is_connected(_on_node_added):
+		tree.node_added.connect(_on_node_added)
+
+
+static func _on_node_added(n: Node) -> void:
+	if n is CPUParticles2D or n is GPUParticles2D:
+		(n as CanvasItem).visibility_layer = HIDDEN_LAYER
+
+
 ## Keeps Miko, the villagers, the creatures and the rabbits off the maps (checked every second).
 static func hide_characters(w: World) -> void:
 	var t0 := Time.get_ticks_usec()

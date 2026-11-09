@@ -5,6 +5,7 @@
 //
 // UV: x is cells along the river (0 on a pond), y is 0..1 across it (a pond: 0.5 in the middle, 1 at the shore).
 shader_type canvas_item;
+#include "res://shaders/map_still.gdshaderinc"
 
 uniform vec4 deep : source_color = vec4(0.15, 0.39, 0.48, 1.0);
 uniform vec4 shallow : source_color = vec4(0.42, 0.70, 0.67, 1.0);
@@ -68,7 +69,7 @@ vec4 surface(vec2 at, vec2 offset, float t) {
 }
 
 void fragment() {
-	float t = TIME;
+	float t = anim_time(SCREEN_PIXEL_SIZE);
 	float edge = clamp(abs(UV.y - 0.5) * 2.0, 0.0, 1.0);  // 0 in the middle, 1 at a bank
 	vec2 at = world * vec2(1.0, 2.0);  // patterns laid in the world (the iso ground is half as tall on screen)
 	// Drifting downstream, as a flow map: two layers carried along and faded in turn, each starting over while it's

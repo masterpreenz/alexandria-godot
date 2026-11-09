@@ -4,6 +4,7 @@
 //
 // UV: x is 0..1 across the falls, y is 0 at the lip to 1 at the foot.
 shader_type canvas_item;
+#include "res://shaders/map_still.gdshaderinc"
 
 uniform vec4 deep : source_color = vec4(0.15, 0.39, 0.48, 1.0);
 uniform vec4 water : source_color = vec4(0.28, 0.55, 0.58, 1.0);
@@ -28,7 +29,7 @@ float noise(vec2 p) {
 }
 
 void fragment() {
-	float t = TIME;
+	float t = anim_time(SCREEN_PIXEL_SIZE);
 	float across = UV.x, down = UV.y;
 	float fall = down * (1.0 + down * 0.8);
 	float flow_n = noise(vec2(across * 18.0, fall * 3.0 - t * speed));

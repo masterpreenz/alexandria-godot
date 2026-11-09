@@ -5,6 +5,7 @@
 // thicker. `part` 1 draws only the darkened ground (under everything standing), 2 only the drifting smoke (over
 // everything). Lit by the world (CanvasModulate), like everything else.
 shader_type canvas_item;
+#include "res://shaders/map_still.gdshaderinc"
 
 uniform sampler2D mist : filter_linear, repeat_disable;
 uniform sampler2D wisps : filter_linear_mipmap, repeat_enable;
@@ -48,7 +49,7 @@ void fragment() {
 		float ny = texture(mist, UV - vec2(0.0, texel.y)).b - texture(mist, UV + vec2(0.0, texel.y)).b;
 		vec2 slope = vec2(nx, ny * 0.5);
 		g += vec2(-slope.y, slope.x) * swirl * 4.0 + slope * swirl * 2.0;
-		float t = TIME;
+		float t = anim_time(SCREEN_PIXEL_SIZE);
 		vec2 uv_a = (g - drift_a * t) / scale;
 		// The second layer: bigger, turned a little, drifting the other way.
 		vec2 r = vec2(g.x * 0.94 - g.y * 0.34, g.x * 0.34 + g.y * 0.94);

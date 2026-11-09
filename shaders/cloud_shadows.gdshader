@@ -1,6 +1,7 @@
 // Cloud shadows (from Unity's SkyEffects): soft blobs of shadow pinned to the world and drifting with the wind, so they
 // slide across the ground as you walk. Drawn over a rectangle covering the view.
 shader_type canvas_item;
+#include "res://shaders/map_still.gdshaderinc"
 
 uniform float strength = 0.0;       // 0 none .. 1 full
 uniform float darkness = 0.42;
@@ -30,7 +31,7 @@ void vertex() {
 
 void fragment() {
 	// In Unity's units (y up), the ground's y counting double so clouds lie flat.
-	vec2 g = vec2(world.x, -world.y * 2.0) - wind * TIME;
+	vec2 g = vec2(world.x, -world.y * 2.0) - wind * anim_time(SCREEN_PIXEL_SIZE);
 	vec2 p = g / cloud_scale * 4.0;
 	float v = noise(p) * 0.6 + noise(p * 2.1 + 7.3) * 0.3 + noise(p * 4.3 + 1.7) * 0.1;
 	float a = smoothstep(0.52, 0.72, v);
