@@ -73,6 +73,11 @@ func _process(_delta: float) -> void:
 	# A rabbit or a pen in reach takes E (RabbitHands) before a tree or rock does.
 	var hands: RabbitHands = miko.get_node_or_null("RabbitHands")
 	var rabbit_near := hands != null and hands.claims(miko.position)
+	# So does a fire to light or cook at, or a farm plot.
+	for n in ["Fires", "Farming"]:
+		var other: Node = miko.get_node_or_null(n)
+		if other != null and other.claims(miko.position):
+			rabbit_near = true
 	var near: Gatherable = null if door_near or rabbit_near else Gatherable.nearest(miko.position, float(data.range))
 	if near == null:
 		_show("")

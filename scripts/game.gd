@@ -76,6 +76,23 @@ func _ready() -> void:
 			var pl: Dictionary = JSON.parse_string(sv.sections.player)
 			needs.set_levels(float(pl.get("hunger", Needs.MAX)), float(pl.get("energy", Needs.MAX)))
 		bars.needs = needs
+	# The fires (lighting them, cooking at bonfires) and the farm plots.
+	if FileAccess.file_exists("res://data/farm.json"):
+		var farm_data: Dictionary = world._load_json("res://data/farm.json")
+		var fires := Fires.new()
+		fires.name = "Fires"
+		miko.add_child(fires)
+		fires.setup(world, miko, farm_data, $Hud)
+		if sv.get("sections", {}).has("world.fires"):
+			fires.from_json(sv.sections["world.fires"])
+		var farming := Farming.new()
+		farming.name = "Farming"
+		miko.add_child(farming)
+		farming.setup(world, miko, farm_data, $Hud)
+		if sv.get("sections", {}).has("world.farms"):
+			farming.from_json(sv.sections["world.farms"])
+		if sv.get("sections", {}).has("village.kitchen"):
+			farming.rotation_from_json(sv.sections["village.kitchen"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}

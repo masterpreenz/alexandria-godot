@@ -215,6 +215,18 @@ func entries_named(name: String) -> Array:
 	return out
 
 
+## Every placed [param name] with the node it's drawn as: [{pos, e, node}] (a holder whose first child is its sprite).
+func drawn_named(name: String) -> Array:
+	var out := []
+	for k in cells:
+		if cells[k].prop == name and _drawn.has(k):
+			out.append({"pos": floors.cell_centre(Vector2i(k.x, k.y)), "e": cells[k], "node": _drawn[k]})
+	for i in free.size():
+		if free[i].prop == name and i < _free_drawn.size() and _free_drawn[i] != null:
+			out.append({"pos": free[i].pos, "e": free[i], "node": _free_drawn[i]})
+	return out
+
+
 ## Whether a placed prop shows mirrored (a turning prop without turned art mirrors on odd turns).
 func shown_flipped(e: Dictionary) -> bool:
 	var t: Dictionary = types[e.prop]
