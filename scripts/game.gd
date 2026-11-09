@@ -93,6 +93,7 @@ func _ready() -> void:
 			farming.from_json(sv.sections["world.farms"])
 		if sv.get("sections", {}).has("village.kitchen"):
 			farming.rotation_from_json(sv.sections["village.kitchen"])
+			Kitchen.from_json(sv.sections["village.kitchen"])
 		# The mist rotting the forest, and the springs that heal it.
 		var springs := Springs.new()
 		springs.name = "Springs"
@@ -104,6 +105,18 @@ func _ready() -> void:
 		corruption.setup(world, farm_data.get("corruption", {}))
 		if sv.get("sections", {}).has("world.forest"):
 			corruption.from_json(sv.sections["world.forest"])
+	# The village: its edge shaded on the ground, its messages (bottom left), and food spoiling.
+	var border := VillageBorder.new()
+	border.name = "VillageBorder"
+	border.setup(world)
+	var log := VillageLog.new()
+	log.name = "VillageLog"
+	log.theme = UiKit.theme
+	$Hud.add_child(log)
+	var spoilage := Spoilage.new()
+	spoilage.name = "Spoilage"
+	add_child(spoilage)
+	spoilage.setup(world, miko)
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
@@ -253,6 +266,14 @@ func _ready() -> void:
 			# Let the world run this many frames before the shot (rabbits coming out, monsters about), for testing.
 			for i in int(Shots.arg("wait")):
 				await get_tree().process_frame
+			var v := world.village
+			print("Village chests ", v.chests().size(), ", wood ", v.stored("Wood"), "/", v.stash_cap("Wood"), ", potatoes ", v.stored("Potato"), "/", v.stash_cap("Potato"), ", items ", v.items.size(), "/", v.item_slots(), ", Miko has wood ", v.have(miko.bag, miko, "Wood"))
+			if Shots.arg("log") != "":
+				VillageLog.event("test", "Spoiled in storage: 2 potatoes")
+				VillageLog.problem("food", "No food in storage", VillageLog.Kind.WARNING)
+				VillageLog.event("attack", "A slime is attacking the village!", VillageLog.Kind.DANGER)
+				for i in 5:
+					await get_tree().process_frame
 			if Corruption.active != null:
 				print("Rotten trees ", Corruption.active.corrupted.size(), ", armed ", Corruption.active.armed.size(), ", springs ", Springs.active.all.map(func(sp): return sp.at))
 			var out := Rabbit.rabbits.filter(func(r): return r.visible)

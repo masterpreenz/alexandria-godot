@@ -277,8 +277,8 @@ func _process(delta: float) -> void:
 	if not fire.is_empty():
 		var have := []
 		for r in RECIPES:
-			if miko.bag.count(r[0]) > 0:
-				have.append("%d %s" % [miko.bag.count(r[0]), r[2]])
+			if world.village.have(miko.bag, miko, r[0]) > 0:
+				have.append("%d %s" % [world.village.have(miko.bag, miko, r[0]), r[2]])
 		_say("Press E to cook  ·  " + ", ".join(have) if not have.is_empty() else "Need raw meat, potatoes or slime jelly to cook")
 		if pressed and not have.is_empty():
 			_begin(fire)
@@ -291,12 +291,12 @@ func _process(delta: float) -> void:
 	var wood := int(unlit.s.woodToLight)
 	var stone := int(unlit.s.stoneToLight)
 	var cost := "%d wood, %d stone" % [wood, stone] if stone > 0 else "%d wood" % wood
-	var can := miko.bag.count("Wood") >= wood and miko.bag.count("Stone") >= stone
+	var can := world.village.have(miko.bag, miko, "Wood") >= wood and world.village.have(miko.bag, miko, "Stone") >= stone
 	_say("Press E to light  ·  " + cost if can else "Needs %s to light" % cost)
 	if can and pressed:
-		miko.bag.spend("Wood", wood)
+		world.village.take(miko.bag, miko, "Wood", wood)
 		if stone > 0:
-			miko.bag.spend("Stone", stone)
+			world.village.take(miko.bag, miko, "Stone", stone)
 		light(unlit)
 		FloatingText.spawn(world, "Lit", unlit.pos + Vector2(0, -0.8 * world.px), Color(1, 0.75, 0.4))
 
@@ -340,13 +340,13 @@ func _cook(pressed: bool, delta: float) -> void:
 		return
 	# Done: the first thing there is to cook, cooked.
 	for r in RECIPES:
-		if miko.bag.spend(r[0], 1):
-			miko.bag.add(r[1], 1)
+		if world.village.take(miko.bag, miko, r[0], 1):
+			world.village.give(miko.bag, miko, r[1], 1, miko.position)
 			LifeSkills.practise(LifeSkills.Skill.COOKING, miko)
 			FloatingText.spawn(world, "+1 " + UiKit.resource_name(r[1]), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
 			break
 	# Still holding E with more to cook: straight on to the next one.
-	if holding and RECIPES.any(func(r): return miko.bag.count(r[0]) > 0):
+	if holding and RECIPES.any(func(r): return world.village.have(miko.bag, miko, r[0]) > 0):
 		_cook_clock = 0.0
 		return
 	_stop()

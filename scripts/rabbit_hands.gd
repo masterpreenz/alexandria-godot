@@ -51,7 +51,7 @@ func _process(_delta: float) -> void:
 		_say("Press E to grab the rabbit")
 		if pressed:
 			r.grab()
-			miko.bag.add("Rabbit", 1)
+			world.village.give(miko.bag, miko, "Rabbit", 1, miko.position)
 			FloatingText.spawn(world, "+1 Rabbit", miko.position + Vector2(0, -1.6 * world.px), Color(0.9, 0.8, 0.6))
 		return
 	var p := pens.nearest(miko.position, PEN_RANGE * world.px) if pens != null else null
@@ -81,7 +81,7 @@ func _process(_delta: float) -> void:
 		if pressed:
 			var meat := pens.butcher(p)
 			if meat > 0:
-				miko.bag.add("Food", meat)
+				world.village.give(miko.bag, miko, "Food", meat, p.at)
 				FloatingText.spawn(world, "+%d Raw meat" % meat, miko.position + Vector2(0, -1.6 * world.px), Color(0.95, 0.6, 0.5))
 		return
 	_say(("The pen is full  ·  " + status) if carrying > 0 else "Rabbit pen  ·  empty: grab rabbits in the wild (E) and bring them here")

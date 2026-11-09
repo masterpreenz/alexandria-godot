@@ -103,15 +103,20 @@ func _process(delta: float) -> void:
 		var d := to.length()
 		if d < REACH * px:
 			var bag: Bag = world.player.get("bag")
-			# With no room for a new kind of thing it stays on the ground.
-			if bag != null and not bag.add(resource, amount):
+			# Into her bag, and storage past it in the village; what nothing can take stays on the ground.
+			var got := world.village.accept(bag, world.player, resource, amount) if bag != null else amount
+			if got <= 0:
 				if Time.get_ticks_msec() / 1000.0 - _full_said > 2.5:
 					_full_said = Time.get_ticks_msec() / 1000.0
 					FloatingText.spawn(world, "Bag full", ground + Vector2(0, -0.6 * px), Color(1, 0.55, 0.45))
 				position = ground
 				return
-			Fainting.loot(resource, amount)  # picked up this life: it'd fall with her
-			FloatingText.spawn(world, "+%d %s" % [amount, resource], ground + Vector2(0, -0.4 * px), Color(0.85, 0.86, 0.9))
+			Fainting.loot(resource, got)  # picked up this life: it'd fall with her
+			FloatingText.spawn(world, "+%d %s" % [got, UiKit.resource_name(resource)], ground + Vector2(0, -0.4 * px), Color(0.85, 0.86, 0.9))
+			if got < amount:
+				amount -= got  # the rest waits on the ground
+				position = ground
+				return
 			_sound()
 			queue_free()
 			return

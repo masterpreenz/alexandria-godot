@@ -61,6 +61,18 @@ Each phase ends with something playable in Godot, checked against the Unity buil
 - Villagers (the biggest script): jobs, needs, schedule, pathfinding, emotes and chat, recruitment.
 - Village growth, construction and blueprints, storage, keep-in-stock targets, the jobs window.
 
+In steps (about 7,600 lines of Unity code):
+1. **Village core**: the storage (Village, Chest: the stash and its caps, rooms), giving and taking from the bag and the
+   stash together, the border's shading, the village log, spoilage, the kitchen's keep-in-stock targets.
+2. **Villagers, living**: who they are (Villagers, VillagerTags), their look and walking (VillagerSteps, VillagerRoute's
+   paths round walls), their needs and day (eating, sleeping in beds, schedule), emotes and chat.
+3. **Villagers, working**: jobs (gathering in work areas, farming, cooking, lighting fires, hauling to storage), use spots,
+   quarries, being attacked (monsters into the village).
+4. **Building**: construction sites and blueprints, the workbenches (tools, alchemy, cooking) and their recipes.
+5. **Crystals and growth**: the teleport and cleansing crystals, the ward barrier, exploration, recruiting newcomers,
+   growing the village.
+(Their windows (chest, jobs, workbench, banner) come in phase 5 with the rest of the UI.)
+
 ### Phase 5: UI
 - HUD, character panel, talent web, build mode and build bar, world map and minimap, chest and workbench windows, save menu.
 - Godot `Control` nodes with a shared theme, ported from UiKit and UiTheme.
@@ -159,7 +171,10 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
   - Not yet: the village's storage for cooking, lighting and planting (phase 4, bag only for now); the starter seeds gift (with the village log); the cooking workbench (phase 4).
 - [x] Phase 3: **Corruption and springs** (`corruption.gd`, `springs.gd`), ported from Unity's Corruption, Springs and Pond, settings in `data/farm.json`. Trees in the mist rot to their corrupted look (tougher: 40% of swings glance off, half the wood): at the start in noise patches (none needed with a save, whose rotten trees are put back), then every game hour creeping in the mist and spreading from rotten neighbours, healing on cleared ground and faster by a spring. Rotten trees near Miko can be fought (HP, a faint purple glow near her) and fall when beaten. Healthy forest (for boars, rabbits, forest slimes) now leaves out rotten woods, and the spawners wait for the forest to be laid out. Springs well up in forest clearings (one soon, then a chance each morning, a few at most, far apart), a generated pool with a wobbly shore, a bank wall on its far side, motes and a pale light; they dry out after a few days. The saved spring loads.
   - Not yet: wading in a spring (the water depth map is built once from the exported water), the save itself (phase 6).
-- [ ] Phase 3 done. Next: phase 4, the village and villagers.
+- [x] Phase 3 done.
+- [x] Phase 4, step 1: **Village core** (`village.gd`, `village_border.gd`, `village_log.gd`, `spoilage.gd`, `kitchen.gd`), ported from Unity's Village, Chest, VillageBorder, VillageLog, Spoilage and Kitchen. The stash (loaded from the save) in the village's chests, each holding 100 wood or stone, 1000 gold, 40 of anything else and 8 item slots, twice that in a storage house (a room with chests and no beds); in the village what's stored counts as hers for eating, drinking, cooking, lighting fires and planting, and what her bag can't take (pickups, harvests, cooking, rabbits) goes to storage, the bag holding 100 wood or stone and 40 of the rest. The border's soft shading on the ground; the village's messages in the bottom left (problems and events, red, amber or plain); food spoiling in storage and the bag; the keep-in-stock targets and the starter seeds gift.
+  - Not yet: the chest window to put things in and take them out (phase 5); room badges.
+- [ ] Phase 4 next: villagers, living.
 - [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
 - [ ] Phase 2: World systems
 

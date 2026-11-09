@@ -252,7 +252,7 @@ func eat(food := "") -> bool:
 		var kind: String = pair[0]
 		if food != "" and food != kind:
 			continue
-		if miko.bag.spend(kind, 1):
+		if world.village.take(miko.bag, miko, kind, 1):
 			var fills: float = float(s[pair[1]]) if pair[1] is String else float(pair[1])
 			hunger = minf(MAX, hunger + fills)
 			_say("+%d hunger" % roundi(fills), Color(0.96, 0.68, 0.32))
@@ -272,7 +272,7 @@ func drink() -> bool:
 	if energy >= MAX - 1.0:
 		_say("Not thirsty", Color(0.85, 0.8, 0.7))
 		return false
-	if not miko.bag.spend("Tea", 1):
+	if not world.village.take(miko.bag, miko, "Tea", 1):
 		_say("Nothing to drink", Color(1, 0.6, 0.5))
 		return false
 	energy = minf(MAX, energy + float(s.teaFills))

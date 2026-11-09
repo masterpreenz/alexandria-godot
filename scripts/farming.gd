@@ -217,6 +217,7 @@ func _process(_delta: float) -> void:
 	if p.is_empty():
 		_say("")
 		return
+	_give_starter()
 	if keys.has("r"):
 		_set_field(p)
 	var st := _state(p)
@@ -226,10 +227,10 @@ func _process(_delta: float) -> void:
 			var pick := _pick(p)
 			var c: String = pick[1]
 			var seed: String = CROPS[c].seed
-			var have := miko.bag.count(seed)
+			var have := world.village.have(miko.bag, miko, seed)
 			_say("E plant %s  ·  %d %s  ·  R %s" % [CROPS[c].plural, have, UiKit.resource_name(seed).to_lower(), set_to] if pick[0]
 				else "Bare plot  ·  needs %s to plant  ·  R %s" % [UiKit.resource_name(seed).to_lower(), set_to])
-			if keys.has("e") and pick[0] and miko.bag.spend(seed, 1):
+			if keys.has("e") and pick[0] and world.village.take(miko.bag, miko, seed, 1):
 				st.sown = true
 				st.sownAt = _hours()
 				st.crop = c
@@ -250,15 +251,25 @@ func _process(_delta: float) -> void:
 				_harvest(p)
 
 
+# The first seeds: some for each new crop in storage, once (a passing farmer's gift), so there's something to plant.
+func _give_starter() -> void:
+	if Kitchen.seeds_given or not world.village.founded():
+		return
+	Kitchen.seeds_given = true
+	for r in ["Carrot", "CabbageSeed", "WheatSeed", "CottonSeed"]:
+		world.village.put_in_stash(r, 4)
+	VillageLog.event("seeds", "A passing farmer left seeds in storage: 4 carrots, and cabbage, wheat and cotton seeds")
+
+
 # The crop for a bare plot: its field's, if set (when there's seed for it); else the next in the rotation there's
 # seed for. [ok, crop].
 func _pick(p: Dictionary) -> Array:
 	var st := _state(p)
 	if st.setTo != "":
-		return [miko.bag.count(CROPS[st.setTo].seed) > 0, st.setTo]
+		return [world.village.have(miko.bag, miko, CROPS[st.setTo].seed) > 0, st.setTo]
 	for i in rotation.size():
 		var c: String = rotation[(_next + i) % rotation.size()]
-		if miko.bag.count(CROPS[c].seed) > 0:
+		if world.village.have(miko.bag, miko, CROPS[c].seed) > 0:
 			return [true, c]
 	return [false, rotation[_next % rotation.size()]]
 
@@ -275,10 +286,10 @@ func _harvest(p: Dictionary) -> void:
 	if randf() < 0.06 * (LifeSkills.get_level(LifeSkills.Skill.FARMING) - 1):
 		n += 1
 	LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
-	miko.bag.add(c, n)
+	world.village.give(miko.bag, miko, c, n, p.pos)
 	var text := "+%d %s" % [n, info.plural.capitalize()]
 	if seeds > 0:
-		miko.bag.add(info.seed, seeds)
+		world.village.give(miko.bag, miko, info.seed, seeds, p.pos)
 		text += ", +%d seeds" % seeds
 	FloatingText.spawn(world, text, miko.position + Vector2(0, -1.6 * world.px), Color(0.9, 0.74, 0.45))
 
