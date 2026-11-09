@@ -159,7 +159,8 @@ static func nearest(p: Vector2, reach: float) -> Gatherable:
 	var best: Gatherable = null
 	var best_d := reach
 	for g in all:
-		if g.depleted() or g.foot.distance_squared_to(p) > (reach + 200.0) * (reach + 200.0):
+		# The cheap distance check first: depleted() asks a planted tree's age, which looks up her growth talent.
+		if g.foot.distance_squared_to(p) > (reach + 200.0) * (reach + 200.0) or g.depleted():
 			continue
 		var d := g.distance_to(p)
 		if d < best_d:
@@ -214,10 +215,12 @@ func strike() -> int:
 		return 0
 	if corrupted and randf() < CORRUPT_GLANCE:
 		_shake = 0.1
+		set_process(true)
 		return 0
 	var got := mini(left, randi_range(int(data.perStrike[0]), int(data.perStrike[1])))
 	left -= got
 	_shake = 0.18
+	set_process(true)
 	var crumbles: Array = data.crumbles
 	if depleted() and stage < crumbles.size():
 		# Breaks off into a smaller rock, still standing.
@@ -227,6 +230,7 @@ func strike() -> int:
 		world.show_frame(art, int(next[0]), _scale)
 		version += 1
 		_shake = 0.3
+		set_process(true)
 	elif depleted():
 		_topple()
 	if corrupted and got > 0:
@@ -240,11 +244,13 @@ func _topple() -> void:
 		body.process_mode = Node.PROCESS_MODE_DISABLED
 	if float(data.regrow) > 0.0 and planted_at < 0.0:
 		_regrow_at = _now() + float(data.regrow)
+		set_process(true)
 	if int(data.rubble) >= 0:
 		world.show_frame(art, int(data.rubble), _scale)
 		version += 1
 	else:
 		_fall = 0.0
+		set_process(true)
 		_burst = false
 		_landed = false
 		if axe and fall_sound != null:
@@ -281,6 +287,14 @@ func _process_timed(delta: float) -> void:
 			_grow = -1.0
 	if _regrow_at > 0.0 and _now() >= _regrow_at:
 		regrow()
+	# Nothing going on (most of the time, for most of them): it stops being called until something starts again.
+	if not _busy():
+		set_process(false)
+
+
+# Shaking from a hit, falling, fading back in, waiting to regrow, or planted and still growing.
+func _busy() -> bool:
+	return _shake > 0.0 or _fall >= 0.0 or _grow >= 0.0 or _regrow_at > 0.0 		or (planted_at >= 0.0 and _fall < 0.0 and left > 0 and age() < MATURE_AFTER)
 
 
 # A felled tree drops (faster and faster) until it slams into the ground, bounces once, and bursts into logs as it
@@ -355,6 +369,7 @@ func regrow() -> void:
 	if body != null:
 		body.process_mode = Node.PROCESS_MODE_INHERIT
 	_grow = 0.0
+	set_process(true)
 
 
 ## Plants a sapling of the tree kind [param kind] (a spot from gather.json) at [param at] (px), [param hours] game
@@ -384,6 +399,7 @@ static func plant(w: World, kind: Dictionary, at: Vector2, tree_wood: int, hours
 	w.things.add_child(g)
 	g.setup(w, d, tree_wood)
 	g.planted_at = hours
+	g.set_process(true)
 	g.art.set_meta("full_scale", g.art.scale)
 	g.left = 0
 	g.stone = 0

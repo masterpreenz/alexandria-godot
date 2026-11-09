@@ -101,6 +101,14 @@ func _look() -> void:
 		teleports.append(_dress_teleport(e))
 	for e in world.props.drawn_named("CleansingCrystal"):
 		wards.append(_dress_ward(e))
+	# How much of each one's edge shows (not inside another's clearing): fixed while the crystals stay put.
+	for wd in wards:
+		var edge := PackedFloat32Array()
+		for i in SEGMENTS + 1:
+			var a := i * TAU / SEGMENTS
+			edge.append(_edge_shown(wd.pos + Vector2(cos(a), -sin(a) * 0.5) * WARD_RADIUS * _px(), wd))
+		wd.edge = edge
+		_build_ring(wd)
 
 
 func _light(at: Vector2, c: Color, radius: float) -> PointLight2D:
@@ -152,6 +160,14 @@ func _dress_ward(e: Dictionary) -> Dictionary:
 	# The curtain: its back half drawn behind what stands in the clearing, its front half over the ground in front.
 	var back := MeshInstance2D.new()
 	var front := MeshInstance2D.new()
+	var phase := randf() * 10.0
+	for half in [back, front]:
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://shaders/crystal_curtain.gdshader")
+		m.set_shader_parameter("base", 0.22 if half == back else 0.16)
+		m.set_shader_parameter("height", HEIGHT * px)
+		m.set_shader_parameter("phase", phase)
+		(half as MeshInstance2D).material = m
 	var r := WARD_RADIUS * px
 	var back_holder := Node2D.new()
 	back_holder.position = e.pos + Vector2(0, -r * 0.5)
@@ -194,7 +210,8 @@ func _dress_ward(e: Dictionary) -> Dictionary:
 	wanted.resize(SEGMENTS + 1)
 	wanted.fill(1.0)
 	return {"pos": e.pos, "nodes": [l, back_holder, front_holder, motes, ring], "light": l, "back": back, "front": front,
-		"motes": motes, "ring": ring, "shown": shown, "wanted": wanted, "ring_shown": 0.0, "phase": randf() * 10.0, "mote_clock": 0.0}
+		"motes": motes, "ring": ring, "shown": shown, "wanted": wanted, "ring_shown": 0.0, "phase": phase, "mote_clock": 0.0,
+		"edge": PackedFloat32Array(), "built": false}
 
 
 # A four-point star.
@@ -372,7 +389,7 @@ func _check_edge(wd: Dictionary) -> void:
 	for i in SEGMENTS:
 		var a := i * TAU / SEGMENTS
 		var p: Vector2 = Vector2(cos(a), -sin(a) * 0.5) * WARD_RADIUS * _px()
-		if wd.wanted[i] > 0.5 and _edge_shown(wd.pos + p, wd) > 0.5:
+		if wd.wanted[i] > 0.5 and wd.edge[i] > 0.5:
 			pts.append(p)
 	var m: CPUParticles2D = wd.motes
 	m.position = wd.pos
@@ -389,34 +406,45 @@ func _shown_at(wd: Dictionary, a: float) -> float:
 	return lerpf(wd.shown[i], wd.shown[i + 1], f - i)
 
 
+# The curtain eases where it shows towards where it should; its mesh is built again only while that's changing
+# (the rippling and swaying are in its shader).
 func _curtain(wd: Dictionary, delta: float) -> void:
+	var changed: bool = not wd.built
 	for i in SEGMENTS + 1:
-		wd.shown[i] = wd.wanted[i] if wd.shown[i] < 0.0 else move_toward(wd.shown[i], wd.wanted[i], delta * 1.5)
+		var was: float = wd.shown[i]
+		wd.shown[i] = wd.wanted[i] if was < 0.0 else move_toward(was, wd.wanted[i], delta * 1.5)
+		if wd.shown[i] != was:
+			changed = true
+	if not changed:
+		return
+	wd.built = true
 	_half(wd, wd.back, true)
 	_half(wd, wd.front, false)
 
 
 
-# One half of the curtain: a band round the ellipse, from the ground up, its brightness rippling round.
+# One half of the curtain at rest: a band round the ellipse, both rows on the ground (the shader raises the top
+# row and ripples its brightness), the ground row as bright as that stretch shows.
 func _half(wd: Dictionary, mi: MeshInstance2D, back_half: bool) -> void:
 	@warning_ignore("integer_division")
 	var n := SEGMENTS / 2
-	var px := _px()
-	var r := WARD_RADIUS * px
-	var t: float = _clock + wd.phase
+	var r := WARD_RADIUS * _px()
+	var start := 0 if back_half else n
 	var verts := PackedVector2Array()
 	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
 	var tris := PackedInt32Array()
 	for i in n + 1:
 		# The back half runs over the top of the ellipse (0 to pi), the front half under it.
-		var a := (0.0 if back_half else PI) + i * PI / n
+		var k := start + i
+		var a := k * TAU / SEGMENTS
 		var ground := Vector2(cos(a) * r, -sin(a) * r * 0.5)
-		var ripple := 0.5 + 0.5 * sin(a * 6.0 - t * 1.4)
-		var h := HEIGHT * px * (0.8 + 0.2 * sin(a * 3.0 + t * 0.9))
 		verts.append(ground)
-		verts.append(ground + Vector2(0, -h))
-		var base := ((0.22 if back_half else 0.16) + 0.12 * ripple) * _shown_at(wd, a) * _edge_shown(wd.pos + ground, wd)
-		cols.append(Color(0.82, 0.68, 1.0, base))
+		verts.append(ground)
+		uvs.append(Vector2(a, 0.0))
+		uvs.append(Vector2(a, 1.0))
+		var shows: float = maxf(0.0, wd.shown[k]) * (wd.edge[k] if k < wd.edge.size() else 1.0)
+		cols.append(Color(0.82, 0.68, 1.0, shows))
 		cols.append(Color(0.9, 0.82, 1.0, 0.0))
 		if i == n:
 			continue
@@ -426,24 +454,28 @@ func _half(wd: Dictionary, mi: MeshInstance2D, back_half: bool) -> void:
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = tris
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mi.mesh = mesh
 
 
-# While Miko is within its reach, a soft ring on the ground along the edge of its clearing.
+# While Miko is within its reach, a soft ring on the ground along the edge of its clearing, gently pulsing (the ring
+# is built once, with the crystal; its pulse and fade are its modulate).
 func _reach(wd: Dictionary, delta: float) -> void:
 	var d: Vector2 = (miko.position - wd.pos) / _px()
 	var inside := Vector2(d.x, d.y * 2.0).length() <= WARD_RADIUS
 	wd.ring_shown = move_toward(wd.ring_shown, 1.0 if inside else 0.0, delta * 3.0)
 	var mi: MeshInstance2D = wd.ring
 	mi.visible = wd.ring_shown > 0.0
-	if not mi.visible:
-		return
+	if mi.visible:
+		mi.modulate.a = (0.28 + 0.08 * sin((_clock + wd.phase) * 2.0)) * wd.ring_shown
+
+
+func _build_ring(wd: Dictionary) -> void:
 	var px := _px()
 	var half := 0.0225 * px
-	var pulse := 0.28 + 0.08 * sin((_clock + wd.phase) * 2.0)
 	var verts := PackedVector2Array()
 	var cols := PackedColorArray()
 	var tris := PackedInt32Array()
@@ -453,7 +485,7 @@ func _reach(wd: Dictionary, delta: float) -> void:
 		var nrm := Vector2(cos(a) * 0.5, -sin(a)).normalized() * half
 		verts.append(p - nrm)
 		verts.append(p + nrm)
-		var c := Color(0.9, 0.84, 1.0, pulse * wd.ring_shown * _edge_shown(wd.pos + p, wd))
+		var c := Color(0.9, 0.84, 1.0, wd.edge[i])
 		cols.append(c)
 		cols.append(c)
 		if i == SEGMENTS:
@@ -467,4 +499,4 @@ func _reach(wd: Dictionary, delta: float) -> void:
 	arrays[Mesh.ARRAY_INDEX] = tris
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	mi.mesh = mesh
+	(wd.ring as MeshInstance2D).mesh = mesh

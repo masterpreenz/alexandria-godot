@@ -589,6 +589,36 @@ func _ready() -> void:
 					for i in 120:
 						await get_tree().process_frame
 					print("After: worn ", miko.stats.worn_in("Necklace"), " durability ", miko.stats.durability_left("CrystalNecklace"), " tier here ", world.mist.tier_at(miko.position))
+				"ward":
+					# Beside a cleansing crystal, inside its clearing: its curtain and the ring on the ground.
+					var cr: Crystals = $Crystals
+					for i in 10:
+						await get_tree().process_frame   # (the crystals are dressed a frame or two in)
+					if not cr.wards.is_empty():
+						miko.place(cr.wards[0].pos + Vector2(float(Shots.arg("dx", "1.5")), float(Shots.arg("dy", "2.5"))) * world.px)
+					for i in 60:
+						await get_tree().process_frame
+				"chop":
+					# The nearest tree struck until it falls: it shakes, topples and lands (its processing woken for it).
+					var g: Gatherable = null
+					var best := INF
+					for c in Gatherable.all:
+						if c.axe and not c.depleted() and c.foot.distance_to(miko.position) < best:
+							best = c.foot.distance_to(miko.position)
+							g = c
+					for i in 5:
+						await get_tree().process_frame
+					print("Chop: idle trees processing ", Gatherable.all.filter(func(c): return c.is_processing()).size(), " of ", Gatherable.all.size())
+					var tilt := 0.0
+					while g.left > 0:
+						g.strike()
+						print("  struck: left ", g.left, " processing ", g.is_processing(), " shaking ", g._shake > 0.0)
+						for i in 12:
+							await get_tree().process_frame
+					for i in 90:
+						await get_tree().process_frame
+						tilt = maxf(tilt, absf(g.art.rotation))
+					print("Chop: fell (most tilt ", snappedf(tilt, 0.01), "), regrow at ", g._regrow_at > 0.0, ", processing ", g.is_processing())
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position
