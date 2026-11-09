@@ -282,6 +282,7 @@ func _process_timed(delta: float) -> void:
 	var c: Dictionary = d.get("cooking", {})
 	var fire := nearest(miko.position, float(c.get("range", 1.3)) * world.px, true, true)
 	if not fire.is_empty():
+		WorldPrompts.at(prompt, flame_point(fire))
 		var have := []
 		for r in RECIPES:
 			if world.village.have(miko.bag, miko, r[0]) > 0:
@@ -295,6 +296,7 @@ func _process_timed(delta: float) -> void:
 	if unlit.is_empty():
 		_say("")
 		return
+	WorldPrompts.at(prompt, flame_point(unlit))
 	var wood := int(unlit.s.woodToLight)
 	var stone := int(unlit.s.stoneToLight)
 	var cost := "%d wood, %d stone" % [wood, stone] if stone > 0 else "%d wood" % wood
@@ -340,6 +342,7 @@ func _cook(pressed: bool, delta: float) -> void:
 	# Her cooking skill quickens it: 6% a level.
 	var f := int(_cook_clock * float(d.cooking.fps) * LifeSkills.factor(LifeSkills.Skill.COOKING, 0.06))
 	var holding := Input.is_key_pressed(KEY_E)
+	WorldPrompts.at(prompt, flame_point(_cook_fire))
 	_say("Cooking…  (hold E to keep cooking)" if holding else "Cooking…")
 	if f < frames.size():
 		miko.pose = int(frames[f])
@@ -365,6 +368,12 @@ func _stop() -> void:
 	miko.pose = -1
 	miko.locked = false
 	_say("")
+
+
+## Where a fire's flame is (a torch's high on its post, a bonfire's low): what its prompts point at.
+func flame_point(f: Dictionary) -> Vector2:
+	var off: Array = f.s.get("fireOffset", [0, 0])
+	return f.pos + Vector2(0, -(float(off[1]) + 0.35) * world.px)
 
 
 func _say(text: String) -> void:

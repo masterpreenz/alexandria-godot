@@ -49,10 +49,17 @@ func _process_timed(delta: float) -> void:
 		var c: Array = l.color
 		_light.color = Color(c[0], c[1], c[2])
 		_light.texture_scale = float(l.radius) * 2.0 * world.px / float(_light.texture.get_width())
-		# Dimmer as it wears thin: down to half at the very end.
+		# A small light, like a candle carried: it flickers a little, shows in the dark and hardly at all by day (the
+		# fires' undoing of the night's tint, the other way round), and dims as it wears thin, to half at the end.
 		var left := maxf(0.0, miko.stats.durability_left(item))
-		var breathe := 1.0 + 0.06 * sin(Time.get_ticks_msec() / 1000.0 * 2.2)
-		_light.energy = float(l.energy) * lerpf(0.5, 1.0, left) * breathe * _shown
+		var t := Time.get_ticks_msec() / 1000.0
+		var flicker := 0.92 + 0.05 * sin(t * 9.1) + 0.03 * sin(t * 23.7 + 1.3)
+		var day := 1.0
+		var daylight := get_tree().current_scene.get_node_or_null("Daylight") as CanvasModulate
+		if daylight != null:
+			day = clampf(maxf(daylight.color.r, maxf(daylight.color.g, daylight.color.b)), 0.2, 1.0)
+		var dark := clampf((1.0 - day) / 0.55, 0.12, 1.0)
+		_light.energy = float(l.energy) * lerpf(0.5, 1.0, left) * flicker * dark * _shown
 		_wear(item, delta, left)
 	else:
 		_light.energy *= _shown

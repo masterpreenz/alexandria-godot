@@ -55,6 +55,7 @@ func _process_timed(_delta: float) -> void:
 		return
 	var r := Rabbit.nearest(miko.position, Rabbit.GRAB_RANGE * world.px)
 	if r != null:
+		WorldPrompts.at(prompt, r.position + Vector2(0, -0.6 * world.px))
 		_say("Press E to grab the rabbit")
 		if pressed:
 			r.grab()
@@ -66,6 +67,7 @@ func _process_timed(_delta: float) -> void:
 		_say("")
 		return
 	var at := p.at + Vector2(0, -1.2 * world.px)
+	WorldPrompts.at(prompt, at)
 	var carrying := miko.bag.count("Rabbit")
 	var n := pens.count(p)
 	var litter := pens.hours_to_litter(p)

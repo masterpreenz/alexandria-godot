@@ -551,6 +551,8 @@ func _comfort_and_prompt() -> void:
 	var near := {} if sleep != Sleep.AWAKE or miko.locked else nearest_bed(miko.position, float(s.bedRange) * world.px)
 	prompt.visible = not near.is_empty()
 	prompt.text = "Press Z to sleep" if not near.is_empty() else ""
+	if not near.is_empty():
+		WorldPrompts.at(prompt, near.pos + Vector2(0, -0.6 * world.px))
 
 
 func _say(text: String, c: Color) -> void:

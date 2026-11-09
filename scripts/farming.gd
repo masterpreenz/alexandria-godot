@@ -53,7 +53,8 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	WorldPrompts.register(prompt)
 
 
-## The saved plots (Unity's world.farms: {plots: [{x, y, sown, sownAt, crop, setTo}]}).
+## The saved plots (Unity's world.farms: {plots: [{x, y, sown, sownAt, crop, setTo}]}, and last: the crop harvested
+## there last, for the rotation).
 func from_json(json: String) -> void:
 	var data: Variant = JSON.parse_string(json)
 	_saved = data.get("plots", []) if data is Dictionary else []
@@ -87,7 +88,7 @@ func _key(at: Vector2) -> Vector2i:
 
 func _state(p: Dictionary) -> Dictionary:
 	if not states.has(p.key):
-		states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": ""}
+		states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": "", "last": ""}
 	return states[p.key]
 
 
@@ -139,7 +140,8 @@ func _look() -> void:
 				best_d = dd
 				best = p
 		if not best.is_empty():
-			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo))}
+			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo)),
+				"last": _crop_name(int(sv.get("last", 0)))}
 	_saved = []
 	# An old wild patch is ripe when first found.
 	for p in plots:
@@ -224,6 +226,7 @@ func _process_timed(_delta: float) -> void:
 	if p.is_empty():
 		_say("")
 		return
+	WorldPrompts.at(prompt, p.pos + Vector2(0, -0.7 * world.px))   # the arrow to the plot, not to her
 	_give_starter()
 	if keys.has("r"):
 		_set_field(p)
@@ -238,13 +241,7 @@ func _process_timed(_delta: float) -> void:
 			_say("E plant %s  ·  %d %s  ·  R %s" % [CROPS[c].plural, have, UiKit.resource_name(got_seed).to_lower(), set_to] if pick[0]
 				else "Bare plot  ·  needs %s to plant  ·  R %s" % [UiKit.resource_name(got_seed).to_lower(), set_to])
 			if keys.has("e") and pick[0] and world.village.take(miko.bag, miko, got_seed, 1):
-				st.sown = true
-				st.sownAt = _hours()
-				st.crop = c
-				if st.setTo == "":
-					var i := rotation.find(c)
-					if i >= 0:
-						_next = (i + 1) % rotation.size()
+				sow(p, c)
 				_till(p)
 				FloatingText.spawn(world, "Planted " + CROPS[c].plural, p.pos + Vector2(0, -0.6 * world.px), Color(0.62, 0.86, 0.5))
 				LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
@@ -262,15 +259,8 @@ func _process_timed(_delta: float) -> void:
 
 ## The crop for a bare plot, with seed for it in storage: [ok, crop].
 func pick_from_storage(p: Dictionary) -> Array:
-	var st := _state(p)
 	var v := world.village
-	if st.setTo != "":
-		return [v.stored(CROPS[st.setTo].seed) > 0, st.setTo]
-	for i in rotation.size():
-		var c: String = rotation[(_next + i) % rotation.size()]
-		if v.stored(CROPS[c].seed) > 0:
-			return [true, c]
-	return [false, rotation[_next % rotation.size()]]
+	return _field_crop(p, func(seed_name: String) -> bool: return v.stored(seed_name) > 0)
 
 
 ## Sows a bare plot with [param c] (the seed is the caller's to take).
@@ -278,13 +268,14 @@ func sow(p: Dictionary, c: String) -> bool:
 	if stage(p) != 0:
 		return false
 	var st := _state(p)
-	st.sown = true
-	st.sownAt = _hours()
-	st.crop = c
-	if st.setTo == "":
+	# The first plot of a new field under the village rotation: the next new field gets the next crop.
+	if st.setTo == "" and st.get("last", "") == "" and _sown_in_field(p) == "":
 		var i := rotation.find(c)
 		if i >= 0:
 			_next = (i + 1) % rotation.size()
+	st.sown = true
+	st.sownAt = _hours()
+	st.crop = c
 	return true
 
 
@@ -297,7 +288,7 @@ func harvest(p: Dictionary) -> Array:
 	var y: Array = p.s.yield if c == "Potato" else info.yield
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
-	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo}
+	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c}
 	return [c, n, seeds]
 
 
@@ -321,14 +312,50 @@ func _give_starter() -> void:
 # The crop for a bare plot: its field's, if set (when there's seed for it); else the next in the rotation there's
 # seed for. [ok, crop].
 func _pick(p: Dictionary) -> Array:
+	return _field_crop(p, func(seed_name: String) -> bool: return world.village.have(miko.bag, miko, seed_name) > 0)
+
+
+# The crop a bare plot gets, field by field (the plots joined to it grow one crop together): [seed to hand (by
+# [param has_seed]), crop]. A field set to one crop (R) grows that. Under the village rotation: what the rest of the
+# field is growing; else, harvested here before, the crop after that one in the rotation (so a field planted together
+# moves on together); else, a new field, the rotation's next.
+func _field_crop(p: Dictionary, has_seed: Callable) -> Array:
 	var st := _state(p)
 	if st.setTo != "":
-		return [world.village.have(miko.bag, miko, CROPS[st.setTo].seed) > 0, st.setTo]
+		return [has_seed.call(CROPS[st.setTo].seed), st.setTo]
+	var growing := _sown_in_field(p)
+	if growing != "":
+		return [has_seed.call(CROPS[growing].seed), growing]
+	var last: String = st.get("last", "")
+	if last != "" and rotation.has(last):
+		var after: String = rotation[(rotation.find(last) + 1) % rotation.size()]
+		return [has_seed.call(CROPS[after].seed), after]
 	for i in rotation.size():
 		var c: String = rotation[(_next + i) % rotation.size()]
-		if world.village.have(miko.bag, miko, CROPS[c].seed) > 0:
+		if has_seed.call(CROPS[c].seed):
 			return [true, c]
 	return [false, rotation[_next % rotation.size()]]
+
+
+## The plots joined to [param p] (its field, [param p] among them): plots next to one another, and on from those.
+func field_of(p: Dictionary) -> Array:
+	var field: Array = [p]
+	var i := 0
+	while i < field.size():
+		for q in plots:
+			if not field.has(q) and q.pos.distance_to(field[i].pos) < 0.8 * world.px:
+				field.append(q)
+		i += 1
+	return field
+
+
+# What the rest of [param p]'s field (those under the rotation too) is growing this season, or "".
+func _sown_in_field(p: Dictionary) -> String:
+	for q in field_of(p):
+		var qs := _state(q)
+		if q != p and qs.sown and qs.setTo == "":
+			return crop(q)
+	return ""
 
 
 func _harvest(p: Dictionary) -> void:
@@ -337,7 +364,7 @@ func _harvest(p: Dictionary) -> void:
 	var y: Array = p.s.yield if c == "Potato" else info.yield
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
-	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo}
+	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c}
 	_till(p)
 	# Her farming skill: a 6% chance a level (past the first) of one more.
 	if randf() < 0.06 * (LifeSkills.get_level(LifeSkills.Skill.FARMING) - 1):
@@ -355,13 +382,7 @@ func _harvest(p: Dictionary) -> void:
 func _set_field(p: Dictionary) -> void:
 	var order: Array = [""] + ORDER
 	var nxt: String = order[(order.find(_state(p).setTo) + 1) % order.size()]
-	var field: Array = [p]
-	var i := 0
-	while i < field.size():
-		for q in plots:
-			if not field.has(q) and q.pos.distance_to(field[i].pos) < 0.8 * world.px:
-				field.append(q)
-		i += 1
+	var field := field_of(p)
 	for q in field:
 		_state(q).setTo = nxt
 	FloatingText.spawn(world, "Field (%d): %s only" % [field.size(), CROPS[nxt].plural] if nxt != "" else "Field (%d): village rotation" % field.size(),
@@ -384,5 +405,6 @@ func to_json() -> String:
 	var list := []
 	for p in plots:
 		var st := _state(p)
-		list.append({"x": p.pos.x / world.px, "y": -p.pos.y / world.px, "sown": st.sown, "sownAt": st.sownAt, "crop": _crop_index(st.crop), "setTo": _crop_index(st.setTo)})
+		list.append({"x": p.pos.x / world.px, "y": -p.pos.y / world.px, "sown": st.sown, "sownAt": st.sownAt, "crop": _crop_index(st.crop), "setTo": _crop_index(st.setTo),
+			"last": _crop_index(st.get("last", ""))})
 	return JSON.stringify({"plots": list})

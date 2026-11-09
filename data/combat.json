@@ -66,7 +66,7 @@
 "OakWand":{"stats":{"magic":2,"manaRegen":1,"castSpeed":5},"grantsSpell":""},
 "Sachet":{"stats":{},"grantsSpell":""},
 "ShrineCharm":{"stats":{"maxHp":15,"hpRegen":0.5},"grantsSpell":""},
-"CrystalNecklace":{"stats":{},"grantsSpell":"","durability":900,"light":{"radius":3.2,"energy":0.9,"color":[0.62,0.86,1.0]},"clearRadius":2.4},
+"CrystalNecklace":{"stats":{},"grantsSpell":"","durability":900,"light":{"radius":1.7,"energy":0.5,"color":[0.7,0.86,1.0]},"clearRadius":2.4},
 "Tools":{"stats":{},"grantsSpell":""},
 "WoodenShield":{"stats":{"defense":3},"grantsSpell":""}},
 "caster":{"marker":3322,"markerRadius":117.76,"barOffset":[0,-134.4],"bodyCentre":[0,-58.24],"skyOffset":[-320,-1024],"pinnedSpin":90,"circles":[3312,3313,3317,3318,3319,3320,3321],"circleScale":0.7,"circleY":-1.792,"spinSpeed":60}
