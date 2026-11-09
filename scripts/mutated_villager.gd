@@ -3,14 +3,15 @@ extends Creature
 ## A villager the mist has taken, early on (one arm swollen purple): it shambles slowly about the mist, standing a
 ## while, then walking a little way to somewhere dry nearby, and back towards where it started when it strays. While
 ## Miko is in the mist and it sees her (sight), it comes after her, a little quicker but far slower than she walks, and
-## hits her if it reaches her (a touch, for now: it has no attack of its own yet); out of the mist, or far enough off
+## swings its swollen arm down at her when it reaches her (a purple slash; she's hit if she's still in reach on the slam);
+## out of the mist, or far enough off
 ## (giveUpAt), and it gives up. Hit, it flashes pale and is knocked back a little; when it falls it gives Miko some XP and
 ## drops a few coins.
 ##
 ## Its sheets (front: facing south-west, back: north-west; mirrored for the east) are 16 walking frames; standing still
 ## shows one of them (standFrame).
 
-enum State { STAND, WALK, CHASE }
+enum State { STAND, WALK, CHASE, ATTACK }
 
 var state := State.STAND
 var home := Vector2.ZERO
@@ -19,7 +20,10 @@ var state_until := 0.0
 var clock := 0.0
 var _last_pos := Vector2.ZERO
 var _stuck := 0.0
-var _next_touch := 0.0
+var _next_attack := 0.0
+var _attack_clock := 0.0
+var _hit_done := false
+var _slashed := false
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedVillager:
@@ -51,7 +55,7 @@ func _physics_process_timed(delta: float) -> void:
 	# Miko in the mist and in sight: after her. Out of the mist, or got away: back to its wandering.
 	var p := player()
 	var hunting := _hunting(p)
-	if hunting and state != State.CHASE:
+	if hunting and state != State.CHASE and state != State.ATTACK:
 		state = State.CHASE
 	elif not hunting and state == State.CHASE:
 		home = position
@@ -63,15 +67,34 @@ func _physics_process_timed(delta: float) -> void:
 				_pick_walk()
 		State.CHASE:
 			var to := p.position - position
-			var reach := float(s.touchReach) * world.px
+			var reach := float(s.attackReach) * world.px
 			face(to, 0.1)
 			if to.length() > reach:
 				velocity = to.normalized() * float(s.chaseSpeed) * world.px
 			else:
 				velocity = Vector2.ZERO
-				if t >= _next_touch:
-					_next_touch = t + float(s.touchEvery)
-					hurt_player(float(s.touchDamage), to.normalized() * float(s.knockback) * world.px, 0.2)
+				if t >= _next_attack:
+					_next_attack = t + float(s.attackEvery)
+					state = State.ATTACK
+					_attack_clock = 0.0
+					_hit_done = false
+					_slashed = false
+		State.ATTACK:
+			velocity = Vector2.ZERO
+			_attack_clock += delta
+			var f := int(_attack_clock * float(s.attackFps))
+			var to_her := p.position - position if p != null else Vector2.ZERO
+			if f >= int(s.hitFrame) - 1 and not _slashed:
+				_slashed = true
+				Slash.play(world, position, to_her if to_her != Vector2.ZERO else (Vector2.RIGHT if flip else Vector2.LEFT), Color(0.85, 0.4, 1.0, 0.85), 0.9)
+			if f >= int(s.hitFrame) and not _hit_done:
+				_hit_done = true
+				# The slam lands where she was: she's hit only if she's still in reach.
+				if p != null and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
+					hurt_player(float(s.attackDamage), to_her.normalized() * float(s.knockback) * world.px, 0.2)
+			if f >= (s.attackFront as Array).size():
+				state = State.CHASE if hunting else State.STAND
+				state_until = t + 1.0
 		State.WALK:
 			var to := target - position
 			if to.length() < 0.15 * world.px or t >= state_until:
@@ -130,7 +153,10 @@ func _pick_walk() -> void:
 
 func _show() -> void:
 	var sheet: Array = s.back if facing_back else s.front
-	if velocity.length_squared() > 1.0:
+	if state == State.ATTACK:
+		var swing: Array = s.attackBack if facing_back else s.attackFront
+		show_art(int(swing[mini(int(_attack_clock * float(s.attackFps)), swing.size() - 1)]))
+	elif velocity.length_squared() > 1.0:
 		var fps := float(s.chaseFps if state == State.CHASE else s.walkFps)
 		show_art(int(sheet[int(clock * fps) % sheet.size()]))
 	else:

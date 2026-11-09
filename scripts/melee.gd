@@ -13,6 +13,7 @@ var world: World
 var miko: Miko
 var _swinging := false
 var _struck := false
+var _slashed := false
 var _was_locked := false
 var _toward := Vector2.RIGHT
 var _hit_sound: AudioStream
@@ -47,6 +48,7 @@ func _swing(screen: Vector2) -> void:
 		_toward = Vector2.RIGHT if miko.facing_right else Vector2.LEFT
 	_swinging = true
 	_struck = false
+	_slashed = false
 	_was_locked = miko.locked
 	miko.locked = true   # planted while she swings
 	miko.play_action(frames.attackDownLeft, frames.attackUpLeft, float(miko.data.get("attackFps", 16)), _toward)
@@ -62,6 +64,10 @@ func _process_timed(_delta: float) -> void:
 	if not _swinging:
 		return
 	var f := miko.action_frame()
+	# The slash sweeps out a moment before the staff lands.
+	if f >= DOWNSWING - 1 and not _slashed:
+		_slashed = true
+		Slash.play(world, miko.position, _toward, Color(1.0, 0.93, 0.72, 0.9), 1.0)
 	if f >= DOWNSWING and not _struck:
 		_struck = true
 		_strike()
