@@ -4211,5 +4211,10 @@
 {"name":"Emote_pruning_4","tex":"res://assets/Resources/Emotes/Emote_pruning.png","rect":[568,0,142,162],"pivot":[71.0,162],"ppu":380},
 {"name":"Emote_pruning_5","tex":"res://assets/Resources/Emotes/Emote_pruning.png","rect":[710,0,142,162],"pivot":[71.0,162],"ppu":380},
 {"name":"Emote_pruning_6","tex":"res://assets/Resources/Emotes/Emote_pruning.png","rect":[852,0,142,162],"pivot":[71.0,162],"ppu":380},
-{"name":"Emote_pruning_7","tex":"res://assets/Resources/Emotes/Emote_pruning.png","rect":[994,0,142,162],"pivot":[71.0,162],"ppu":380}
+{"name":"Emote_pruning_7","tex":"res://assets/Resources/Emotes/Emote_pruning.png","rect":[994,0,142,162],"pivot":[71.0,162],"ppu":380},
+{"name":"farm_soil_dry","tex":"res://assets/Art/Environment/Farm/farm_soil_dry.png","rect":[0,0,1203,720],"pivot":[599.54,363.92],"ppu":1176.385},
+{"name":"potato_crop_1","tex":"res://assets/Art/Environment/Farm/Potato/potato_crop_1.png","rect":[0,0,666,440],"pivot":[333.0,283.5],"ppu":823.589},
+{"name":"potato_crop_2","tex":"res://assets/Art/Environment/Farm/Potato/potato_crop_2.png","rect":[0,0,758,526],"pivot":[379.0,369.5],"ppu":823.589},
+{"name":"cotton_crop_1","tex":"res://assets/Art/Environment/Farm/Cotton/cotton_crop_1.png","rect":[0,0,817,611],"pivot":[408.5,430.8],"ppu":948.54},
+{"name":"cotton_crop_2","tex":"res://assets/Art/Environment/Farm/Cotton/cotton_crop_2.png","rect":[0,0,873,646],"pivot":[436.5,465.8],"ppu":948.54}
 ]

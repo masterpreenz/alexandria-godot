@@ -217,41 +217,53 @@ func _art(p: Dictionary, st: int) -> int:
 	return int(stages[st]) if st < stages.size() else -1
 
 
-# Shows each plot's stage: bare soil flat on the ground, sprouts and ripe plants standing on the prop.
+# Shows each plot: its soil lying flat on the ground (wet: dark, watered; dry: pale), and the crop standing on it (the
+# same plants at one size, growing then ripe). A crop with no art of its own over the soil yet shows its old picture
+# (soil and all) instead.
 func _show(p: Dictionary) -> void:
 	var st := stage(p)
-	var id := _art(p, st)
-	_show_care(p)
-	if st == p.shown and id == p.art:
+	var overlay := _overlay(p, st)
+	var full := _art(p, st) if st >= 1 and overlay < 0 else -1
+	var soils: Dictionary = d.get("soil", {})
+	var soil := _art(p, 0)
+	if not soils.is_empty():
+		soil = int(soils.wet if st >= 1 and not dry(p) else soils.dry)
+	_show_care(p, full >= 0)
+	var key := [soil, overlay, full]
+	if p.get("drawn") == key:
 		return
-	p.shown = st
-	p.art = id
+	p.drawn = key
 	var holder: Node2D = p.node
 	if not is_instance_valid(holder) or holder.get_child_count() == 0:
 		return
 	var sprite: Sprite2D = holder.get_child(0)
 	var flat: Sprite2D = p.flat.get_child(0)
 	var scale: float = p.scale
-	if st == 0:
-		sprite.visible = false
-		flat.visible = id >= 0
-		if id >= 0:
-			world.show_frame(flat, id, Vector2.ONE * scale)
-	else:
-		flat.visible = false
-		sprite.visible = id >= 0
-		if id >= 0:
-			world.show_frame(sprite, id, Vector2.ONE * scale)
+	flat.visible = full < 0 and soil >= 0
+	if flat.visible:
+		world.show_frame(flat, soil, Vector2.ONE * scale)
+	var top := overlay if overlay >= 0 else full
+	sprite.visible = top >= 0
+	if top >= 0:
+		world.show_frame(sprite, top, Vector2.ONE * scale)
+
+
+# The crop's own art over the soil at [param st] (1 growing, 2 ripe), or -1.
+func _overlay(p: Dictionary, st: int) -> int:
+	if st < 1:
+		return -1
+	return int(d.get("cropOverlay", {}).get("%s_%d" % [crop(p), st], -1))
 
 
 static var _pest_tex: Texture2D
 
-# A dry crop looks a little parched; one with pests in it has a small bubble over it (the pest emote) until cleared.
-func _show_care(p: Dictionary) -> void:
+# A dry crop looks a little parched (its soil pale); one with pests in it has a small bubble over it (the pest emote) until cleared.
+func _show_care(p: Dictionary, old_art: bool) -> void:
 	var holder: Node2D = p.node
 	if not is_instance_valid(holder) or holder.get_child_count() == 0:
 		return
-	(holder.get_child(0) as Sprite2D).self_modulate = Color(1.0, 0.93, 0.78) if dry(p) else Color.WHITE
+	# (A crop on its own soil shows dryness by the soil; an old whole picture, by a tint.)
+	(holder.get_child(0) as Sprite2D).self_modulate = Color(1.0, 0.93, 0.78) if old_art and dry(p) else Color.WHITE
 	var has_pests := pests(p)
 	var mark: Sprite2D = p.get("mark")
 	if mark == null:
