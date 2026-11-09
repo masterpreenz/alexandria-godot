@@ -124,6 +124,21 @@ func _ready() -> void:
 		villagers.name = "Villagers"
 		add_child(villagers)
 		villagers.setup(world, world._load_json("res://data/villagers.json"), needs_data.get("beds", {}), needs_data.get("eatSound"))
+		# The blueprints the villagers build from, and the workbenches they make things at.
+		var build_data: Dictionary = world._load_json("res://data/build.json") if FileAccess.file_exists("res://data/build.json") else {}
+		villagers.d["workbenches"] = build_data.get("workbenches", {})
+		var construction := Construction.new()
+		construction.name = "Construction"
+		add_child(construction)
+		construction.setup(world, build_data)
+		if sv.get("sections", {}).has("village.blueprints"):
+			construction.from_json(sv.sections["village.blueprints"])
+		if Shots.arg("blueprint") != "":
+			# A test plan by the banner: a few floor tiles and a wall, ready to build.
+			var c0 := world.floors.cell_at(world.village.centre()) + Vector2i(3, -4)
+			for i in 3:
+				construction._add({"wall": false, "prop": false, "free": false, "x": c0.x + i, "y": c0.y, "type": "DarkBoards", "ready": true, "turned": false, "scale": 1.0})
+			construction._add({"wall": true, "prop": false, "free": false, "x": c0.x, "y": c0.y, "alongY": false, "type": "BambooWall", "ready": true, "scale": 1.0})
 		if sv.get("sections", {}).has("village.people"):
 			villagers.from_json(sv.sections["village.people"])
 		var tags := Villagers.Tags.new()
@@ -284,6 +299,8 @@ func _ready() -> void:
 				await get_tree().process_frame
 			for vg in Villager.all:
 				print("Villager ", vg.name, " state ", Villager.State.keys()[vg.state], " at ", vg.position, " hunger ", int(vg.person.hunger), " energy ", int(vg.person.energy), " in bed ", vg.in_bed, " carrying ", vg.carrying, " ", vg.carry_kind, " job ", vg.job != null)
+			if Construction.active != null:
+				print("Blueprint pieces left ", Construction.active.pieces.size())
 			var v := world.village
 			print("Village chests ", v.chests().size(), ", wood ", v.stored("Wood"), "/", v.stash_cap("Wood"), ", potatoes ", v.stored("Potato"), "/", v.stash_cap("Potato"), ", items ", v.items.size(), "/", v.item_slots(), ", Miko has wood ", v.have(miko.bag, miko, "Wood"))
 			if Shots.arg("log") != "":

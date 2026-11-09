@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
 
@@ -41,6 +41,9 @@ static var out_of_reach := {}     ## Pickup -> until when it's left alone
 static var tending := {}          ## plot key -> true
 static var cooking_at := {}       ## fire key -> true
 static var lighting := {}         ## fire key -> true
+static var building := {}         ## blueprint piece -> true: being built
+static var unreachable := {}      ## blueprint piece -> until when it's left (walled off)
+static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 const FOODS := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
 	["Candy", 35.0], ["Food", 20.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
@@ -114,6 +117,12 @@ var dishes := 0
 var fire: Dictionary = {}         ## the fire or torch they're off to light
 var _next_till := 0.0
 var _sizzle: AudioStreamPlayer2D
+var piece: Dictionary = {}        ## the blueprint piece they're building
+var _next_smoke := 0.0
+var _next_knock := 0.0
+var craft_bench: Dictionary = {}
+var craft_at := Vector2.ZERO
+var craft_recipe: Dictionary = {}
 
 
 static func now() -> float:
@@ -259,7 +268,9 @@ func _physics_process(delta: float) -> void:
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
 				elif _work_hours() and randf() < chance and _go_farm(): pass
 				elif _work_hours() and randf() < chance and _go_cook(): pass
+				elif _work_hours() and randf() < chance and _go_build(): pass
 				elif _work_hours() and _go_pick_up(): pass
+				elif _work_hours() and randf() < chance and _go_craft(): pass
 				elif _work_hours() and randf() < chance and _find_work():
 					state = State.TO_WORK
 					clock = 0.0
@@ -324,6 +335,19 @@ func _physics_process(delta: float) -> void:
 		State.TO_LIGHT:
 			if fire.is_empty() or _fires().lit(fire): _done_lighting(t)
 			else: _walk(t, delta)
+		State.TO_BUILD:
+			if piece.is_empty() or _night() or Construction.active == null or not Construction.active.has(piece): _done_building(t)
+			elif t > state_until:
+				unreachable[piece] = t + 30.0
+				_done_building(t)
+			else: _walk(t, delta)
+		State.BUILD:
+			_building(t)
+		State.TO_CRAFT:
+			if _night() or craft_bench.is_empty(): _done_crafting(t)
+			else: _walk(t, delta)
+		State.CRAFT:
+			_crafting(t, delta)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing:
 		_sizzle.stop()
@@ -474,6 +498,13 @@ func _walk(t: float, delta: float) -> void:
 			if not stove.is_empty() and position.distance_to(stove.pos) < 1.3 * world.px: _arrive(t)
 			else: _done_cooking(t)
 			return
+		if state == State.TO_BUILD:
+			# Close enough to reach it: build from here. Otherwise leave it a while and do something else.
+			if dir.length() < world.px or (not piece.is_empty() and position.distance_to(Construction.active.position_of(piece)) < 1.1 * world.px): _arrive(t)
+			else:
+				if not piece.is_empty(): unreachable[piece] = t + 30.0
+				_done_building(t)
+			return
 	velocity = v
 
 
@@ -490,6 +521,8 @@ func _arrive(t: float) -> void:
 		State.TO_FARM: _start_farming(t)
 		State.TO_COOK: _start_cooking(t)
 		State.TO_LIGHT: _light_it(t)
+		State.TO_BUILD: _start_building(t)
+		State.TO_CRAFT: _start_crafting(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
 			if not home.is_empty() and not Needs.occupants.has(Needs.bed_key(home.pos)):
@@ -502,7 +535,7 @@ func _arrive(t: float) -> void:
 
 func _going() -> bool:
 	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
-		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT]
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -881,6 +914,11 @@ func _status() -> void:
 		State.TO_STORE: e = "transporting" if carrying > 0 else ""
 		State.TO_PICKUP: e = "gathering"
 		State.COOK: e = "cooking"
+		State.BUILD: e = "building"
+		State.CRAFT:
+			if craft_bench.get("skill", "") == "Cooking": e = "cooking"
+			elif str(craft_bench.get("title", "")).contains("Alchemy"): e = "alchemy"
+			else: e = "workbench"
 		_:
 			if state != State.ASLEEP and hit.hp < hit.max_hp * 0.35:
 				e = "sick"
@@ -1149,6 +1187,10 @@ func _abandon(t: float) -> void:
 		State.TO_FARM: _done_farming(t)
 		State.TO_LIGHT: _done_lighting(t)
 		State.TO_CHAT: _end_chat(t)
+		State.TO_BUILD:
+			if not piece.is_empty(): unreachable[piece] = t + 30.0
+			_done_building(t)
+		State.TO_CRAFT: _done_crafting(t)
 		State.TO_PICKUP:
 			if loose != null:
 				out_of_reach[loose] = t + 60.0
@@ -1163,6 +1205,8 @@ func _let_go() -> void:
 	if not plot.is_empty(): tending.erase(plot.key)
 	if not stove.is_empty(): cooking_at.erase(stove.key)
 	if not fire.is_empty(): lighting.erase(fire.key)
+	if not piece.is_empty(): building.erase(piece)
+	if not craft_recipe.is_empty(): crafting_now.erase(_recipe_key(craft_recipe))
 
 
 # Strength lets them carry more: one more for every two levels past the first, and a bag more again.
@@ -1839,4 +1883,237 @@ func _done_lighting(t: float) -> void:
 	if not fire.is_empty():
 		lighting.erase(fire.key)
 	fire = {}
+	_stand(t, randf_range(1.0, 2.0))
+
+
+
+# ---- Building from blueprints: ready pieces, paid for from storage ----
+
+func _go_build() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.BUILDING:
+		return false
+	var c := Construction.active
+	if c == null:
+		return false
+	var t := now()
+	var skip: Array = building.keys()
+	for p in unreachable:
+		if float(unreachable[p]) > t:
+			skip.append(p)
+	for tries in 4:
+		var nxt := c.next(position, skip)
+		if nxt.is_empty():
+			return false
+		var goal: Variant = _way_to(nxt)
+		if goal == null:
+			# Walled off from here for now (say, inside a finished room): try others, and this one again later.
+			unreachable[nxt] = t + 30.0
+			skip.append(nxt)
+			continue
+		piece = nxt
+		building[piece] = true
+		state = State.TO_BUILD
+		clock = 0.0
+		state_until = t + 40.0
+		target = goal
+		route = VillagerRoute.find(world, position, goal)
+		leg = 0
+		return true
+	return false
+
+
+# Where to stand to build a piece: on the tile for a floor; for a wall, beside it in whichever of the two squares it
+# divides can be walked to (the nearer if both); null when neither can.
+func _way_to(p: Dictionary) -> Variant:
+	var at := Construction.active.position_of(p)
+	var walls := world.walls
+	if not bool(p.get("wall", false)) or walls == null:
+		return at
+	var v := Vector2i(int(p.x), int(p.y))
+	var other := v - (Vector2i(1, 0) if bool(p.alongY) else Vector2i(0, 1))
+	var best: Variant = null
+	var best_d := INF
+	var here := VillagerRoute.square_at(walls, position)
+	for square in [v, other]:
+		var spot := VillagerRoute.square_centre(walls, square).lerp(at, 0.45)
+		if here != square and VillagerRoute.find(world, position, spot) == null:
+			continue
+		var dd := position.distance_to(spot)
+		if dd < best_d:
+			best_d = dd
+			best = spot
+	return best
+
+
+func _start_building(t: float) -> void:
+	state = State.BUILD
+	clock = 0.0
+	var to: Vector2 = Construction.active.position_of(piece) - position if not piece.is_empty() else Vector2(0, 1)
+	facing_up = to.y < -0.02 * world.px
+	facing_right = to.x > 0.0
+	_kit()
+	var skill := 1.0 + 0.08 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.BUILDING)) - 1)
+	state_until = t + (2.5 if bool(piece.get("wall", false)) else 1.6) / skill / _tool_pace()
+
+
+# Hammering away a moment, then the piece paid for and put in place.
+func _building(t: float) -> void:
+	velocity = Vector2.ZERO
+	var c := Construction.active
+	if piece.is_empty() or c == null or not c.has(piece):
+		_done_building(t)
+		return
+	var at := c.position_of(piece)
+	# A puff of grey dust now and then, for the drama of it.
+	if t >= _next_smoke:
+		_next_smoke = t + randf_range(0.45, 0.8)
+		Puffs.burst(world, at + Vector2(randf_range(-0.2, 0.2), -randf_range(0.05, 0.35)) * world.px, 0.45, 6)
+	# The sound of the work: one of the building sounds, again each time the last has finished.
+	var sounds: Array = s.get("buildSounds", [])
+	if t >= _next_knock and not sounds.is_empty():
+		var path: Variant = sounds[randi() % sounds.size()]
+		if path is String and ResourceLoader.exists(path):
+			var clip: AudioStream = load(path)
+			Sfx.play(world, clip, at, float(s.toolVolume), 0.08)
+			_next_knock = t + clip.get_length() + randf_range(0.1, 0.4)
+	_show_idle()
+	if t < state_until:
+		return
+	if c.build(piece):
+		people.practise(person, LifeSkills.Skill.BUILDING)
+		_wear_tools()
+	_done_building(t)
+
+
+func _done_building(t: float) -> void:
+	if not piece.is_empty():
+		building.erase(piece)
+	piece = {}
+	_stand(t, randf_range(0.5, 1.5))
+
+
+# ---- Crafting: at a workbench in the village, whatever is furthest below what's to be kept in storage, out of
+# what's in storage. One villager on each kind of thing at a time. ----
+
+## How many of what [param r] makes are in storage.
+func _in_storage(r: Dictionary) -> int:
+	if bool(r.makesResource):
+		return world.village.stored(r.resource)
+	return world.village.items.count(r.item)
+
+
+static func _recipe_key(r: Dictionary) -> String:
+	return str(r.resource) if bool(r.makesResource) else "item:" + str(r.item)
+
+
+func _storage_has(cost: Array) -> bool:
+	for c in cost:
+		if world.village.stored(c.resource) < int(c.amount):
+			return false
+	return true
+
+
+func _go_craft() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.CRAFTING and choice != Job.COOKING:
+		return false
+	var benches: Dictionary = people.d.get("workbenches", {})
+	var best := {}
+	var best_recipe := {}
+	var best_at := Vector2.ZERO
+	var worst := 1.0
+	for prop in benches:
+		var bench: Dictionary = benches[prop]
+		var cooks: bool = bench.skill == "Cooking"
+		# The cooking bench is a cook's (those who can cook); the others a crafter's.
+		if (choice == Job.CRAFTING) if cooks else (choice == Job.COOKING):
+			continue
+		if cooks and _cook_skill() <= 0:
+			continue
+		var sk := LifeSkills.NAMES.find(bench.skill)
+		for at in world.props_named(prop):
+			if not world.village.contains(at):
+				continue
+			for r in bench.recipes:
+				var need := 1
+				if cooks and bool(r.makesResource) and r.resource in ["CarrotStew", "CabbageSoup"]:
+					need = 3
+				if sk >= 0 and need > Villagers.skill(person, sk):
+					continue
+				var key := _recipe_key(r)
+				var want := Kitchen.target(key)
+				if want <= 0 or crafting_now.has(key):
+					continue
+				var have := _in_storage(r)
+				if have >= want or not _storage_has(r.cost):
+					continue
+				var share := have / float(want)
+				if share >= worst:
+					continue
+				worst = share
+				best = bench
+				best_recipe = r
+				best_at = at
+	if best.is_empty():
+		return false
+	var spot := _beside(best_at, 0.7)
+	if world.walls != null and VillagerRoute.find(world, position, spot) == null:
+		return false
+	craft_bench = best
+	craft_at = best_at
+	craft_recipe = best_recipe
+	crafting_now[_recipe_key(best_recipe)] = true
+	state = State.TO_CRAFT
+	clock = 0.0
+	_set_goal(spot)
+	return true
+
+
+func _start_crafting(t: float) -> void:
+	if craft_recipe.is_empty() or not _storage_has(craft_recipe.cost):
+		_done_crafting(t)
+		return
+	for c in craft_recipe.cost:
+		world.village.take_from_stash(c.resource, int(c.amount))
+	state = State.CRAFT
+	clock = 0.0
+	var toward := craft_at - position
+	facing_up = toward.y < 0.0
+	facing_right = toward.x > 0.0
+	var sk := LifeSkills.NAMES.find(craft_bench.skill)
+	var factor := 1.0 + 0.08 * (maxi(1, Villagers.skill(person, sk if sk >= 0 else LifeSkills.Skill.BUILDING)) - 1)
+	state_until = t + 4.0 / factor / _tool_pace()
+
+
+# Working at the bench a moment (a cook at the cooking bench cooks), then the thing made, into storage.
+func _crafting(t: float, delta: float) -> void:
+	velocity = Vector2.ZERO
+	var up: Array = s.cookUp
+	var cook_frames: Array = up if facing_up and not up.is_empty() else s.cookDown
+	if craft_bench.get("skill", "") == "Cooking" and not cook_frames.is_empty():
+		clock += delta
+		_show(int(cook_frames[int(clock * float(s.cookFps)) % cook_frames.size()]))
+	else:
+		_show_idle()
+	if t < state_until:
+		return
+	var r := craft_recipe
+	if bool(r.makesResource):
+		world.village.deposit(r.resource, int(r.amount), craft_at)
+	elif world.village.items.size() < world.village.item_slots():
+		world.village.items.append(r.item)
+		world.village.changed.emit()
+	var nm: String = UiKit.resource_name(r.resource) if bool(r.makesResource) else str(UiKit.item(r.item).get("name", r.item))
+	FloatingText.spawn(world, "Made: " + nm, position + Vector2(0, -1.4 * world.px), Color(0.96, 0.85, 0.5))
+	var sk := LifeSkills.NAMES.find(craft_bench.skill)
+	people.practise(person, sk if sk >= 0 else LifeSkills.Skill.BUILDING)
+	_done_crafting(t)
+
+
+func _done_crafting(t: float) -> void:
+	if not craft_recipe.is_empty():
+		crafting_now.erase(_recipe_key(craft_recipe))
+	craft_recipe = {}
+	craft_bench = {}
 	_stand(t, randf_range(1.0, 2.0))
