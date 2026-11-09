@@ -22,7 +22,7 @@ var _hit_sound: AudioStream
 func setup(w: World, who: Miko) -> void:
 	world = w
 	miko = who
-	_hit_sound = Sfx.stream("res://assets/Sounds/pickaxe_sound.mp3")
+	_hit_sound = Sfx.stream("res://assets/Sounds/blunt_staff_hit.mp3")
 
 
 func _unhandled_input(event: InputEvent) -> void:
