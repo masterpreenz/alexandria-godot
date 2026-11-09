@@ -3,6 +3,7 @@ extends Control
 ## Miko's HP and mana, in the corner (the start of Unity's PlayerHud: its full frame comes with the HUD in phase 5).
 
 var stats: CharacterStats
+var needs: Needs
 
 
 func _process(_delta: float) -> void:
@@ -20,10 +21,23 @@ func _draw() -> void:
 		var most := maxf(1.0, t.get("maxHp", 100.0))
 		draw_rect(Rect2(2, 2, 216.0 * clampf(sh / most, 0.0, 1.0), 6), Color(0.55, 0.8, 1.0, 0.95))
 	_bar(26, stats.mana, t.get("maxMana", 50.0), UiKit.colors.get("mana", Color(0.25, 0.5, 0.98)), "MP")
+	var y := 52.0
+	if needs != null:
+		_bar(52, needs.hunger, Needs.MAX, Color(0.9, 0.58, 0.22), "Hunger")
+		_bar(78, needs.energy, Needs.MAX, Color(0.45, 0.78, 0.35), "Energy")
+		y = 104.0
 	var f: Font = UiKit.body_font if UiKit.body_font else get_theme_default_font()
 	var line := "Level %d   XP %d / %d" % [stats.level, stats.xp, stats.xp_to_next()]
-	draw_string_outline(f, Vector2(0, 70), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 5, Color(0, 0, 0, 0.8))
-	draw_string(f, Vector2(0, 70), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+	draw_string_outline(f, Vector2(0, y + 18), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 5, Color(0, 0, 0, 0.8))
+	draw_string(f, Vector2(0, y + 18), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+	# What's on her now: hunger, exhaustion, the mist, a night's comfort, a dish's buff.
+	if needs != null:
+		var x := 0.0
+		for e in needs.effects():
+			var c: Color = Color(0.62, 0.86, 0.5) if e[1] else Color(1, 0.6, 0.5)
+			draw_string_outline(f, Vector2(x, y + 40), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 5, Color(0, 0, 0, 0.8))
+			draw_string(f, Vector2(x, y + 40), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, c)
+			x += f.get_string_size(e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 14.0
 
 
 func _bar(y: float, v: float, most: float, c: Color, label: String) -> void:

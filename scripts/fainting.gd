@@ -83,6 +83,9 @@ func faint() -> void:
 	fainted = true
 	woke = false
 	clock = 0.0
+	var needs: Needs = miko.get_node_or_null("Needs")
+	if needs != null:
+		needs.end_sleep_now()
 	miko.locked = true
 	miko.velocity = Vector2.ZERO
 	LostBag.drop(world, miko.bag, looted, miko.position)

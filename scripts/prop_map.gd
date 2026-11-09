@@ -203,6 +203,26 @@ func _sync_free(i: int) -> void:
 	_free_drawn[i] = _show(free[i].pos, free[i], 0.0)
 
 
+## Every placed [param name]: where it stands (px, as it's drawn), and its entry (flipped, turn, scale).
+func entries_named(name: String) -> Array:
+	var out := []
+	for k in cells:
+		if cells[k].prop == name:
+			out.append({"pos": floors.cell_centre(Vector2i(k.x, k.y)), "e": cells[k]})
+	for e in free:
+		if e.prop == name:
+			out.append({"pos": e.pos, "e": e})
+	return out
+
+
+## Whether a placed prop shows mirrored (a turning prop without turned art mirrors on odd turns).
+func shown_flipped(e: Dictionary) -> bool:
+	var t: Dictionary = types[e.prop]
+	if _turns(t) > 1:
+		return (t.turnSprites as Array).is_empty() and e.turn % 2 == 1
+	return e.flipped
+
+
 ## A prop's sprite for [param turn]: its turned art, or its one sprite (mirrored on odd turns if it turns).
 func sprite_for(prop: String, turn: int) -> int:
 	var t: Dictionary = types[prop]

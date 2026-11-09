@@ -64,6 +64,18 @@ func _ready() -> void:
 	bars.stats = miko.stats
 	bars.position = Vector2(16, 84)
 	$Hud.add_child(bars)
+	# Her hunger, energy and sleep (F eats, G drinks tea, Z sleeps), and her life skills.
+	if sv.get("sections", {}).has("player.skills"):
+		LifeSkills.from_json(sv.sections["player.skills"])
+	if FileAccess.file_exists("res://data/needs.json"):
+		var needs := Needs.new()
+		needs.name = "Needs"
+		miko.add_child(needs)
+		needs.setup(world, miko, world._load_json("res://data/needs.json"), $Hud)
+		if sv.get("sections", {}).has("player"):
+			var pl: Dictionary = JSON.parse_string(sv.sections.player)
+			needs.set_levels(float(pl.get("hunger", Needs.MAX)), float(pl.get("energy", Needs.MAX)))
+		bars.needs = needs
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
@@ -73,6 +85,11 @@ func _ready() -> void:
 		fainting.name = "Fainting"
 		miko.add_child(fainting)
 		fainting.setup(world, miko, monsters.fainting, $Hud)
+		# What she's picked up this life (it'd fall with her).
+		if sv.get("sections", {}).has("player.life"):
+			for a in JSON.parse_string(sv.sections["player.life"]).get("looted", []):
+				if int(a.amount) > 0:
+					Fainting.looted[a.resource] = int(a.amount)
 	# The bag window (I).
 	var bag_window := BagWindow.new()
 	bag_window.name = "BagWindow"
@@ -197,6 +214,13 @@ func _ready() -> void:
 				if Shots.arg("trace") != "" and i % 20 == 0 and is_instance_valid(m):
 					print(i, " ", m.position, " v ", m.velocity, " asleep ", m.asleep, " ", m.get("hopping"), " ", m.get("chasing"), " ", m.get("state"), " target ", m.get("target"), " rest ", m.get("rest_until"), " now ", Creature.now(), " physics ", Engine.get_physics_frames())
 			print("Monster ", m.name if is_instance_valid(m) else "gone", " hp ", m.hit.hp if is_instance_valid(m) else 0.0, "; her hp ", hp0, " -> ", miko.stats.hp, "; creatures ", Creature.all.size(), "; lost bag ", Fainting.LostBag.active != null)
+		if Shots.arg("sleep") != "":
+			# Lie down (on the nearest bed, if one's in reach) and sleep this many frames, for testing.
+			var nd: Needs = miko.get_node("Needs")
+			nd.lie_down()
+			for i in int(Shots.arg("sleep")):
+				await get_tree().process_frame
+			print("Sleeping ", nd.sleep, " on ", nd._bed.get("type", "the ground"), "; energy ", nd.energy, " hunger ", nd.hunger, " at ", miko.position)
 		if Shots.arg("wait") != "":
 			# Let the world run this many frames before the shot (rabbits coming out, monsters about), for testing.
 			for i in int(Shots.arg("wait")):

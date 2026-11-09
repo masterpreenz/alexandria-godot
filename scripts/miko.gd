@@ -17,6 +17,8 @@ var moving := false
 var running := false
 var clock := 0.0
 var art_scale := Vector2.ONE
+## Whether Shift runs (not while exhausted).
+var can_run := true
 ## While true she ignores movement input (casting, asleep, ...).
 var locked := false
 ## Slows her down (or speeds her up) on top of everything else: wading sets it below 1.
@@ -114,7 +116,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_key_pressed(KEY_W): input.y -= 1
 		if Input.is_key_pressed(KEY_S): input.y += 1
 		input = input.limit_length(1.0)
-	running = not locked and Input.is_key_pressed(KEY_SHIFT)
+	running = not locked and can_run and Input.is_key_pressed(KEY_SHIFT)
 	var now_moving := input.length_squared() > 0.01
 	if now_moving != moving:
 		clock = 0.0
@@ -124,7 +126,8 @@ func _physics_process(delta: float) -> void:
 	elif input.y > 0.1: facing_up = false
 	if input.x > 0.1: facing_right = true
 	elif input.x < -0.1: facing_right = false
-	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed) * speed_scale
+	var stat_speed := CharacterStats.percent(stats.stat("moveSpeed")) if stats != null else 1.0
+	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed) * speed_scale * maxf(0.2, stat_speed)
 	# Shoved: carried along, easing off, whatever's pressed.
 	if _knock_left > 0.0:
 		velocity = _knock * (_knock_left / _knock_time)

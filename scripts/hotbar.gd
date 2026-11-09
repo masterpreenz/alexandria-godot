@@ -64,7 +64,10 @@ func use(i: int) -> void:
 			caster.toggle_aiming(spell)
 	elif s.begins_with("food:"):
 		var r := s.substr(5)
-		if bag.spend(r, 1):
+		var needs: Needs = world.player.get_node_or_null("Needs")
+		if needs != null:
+			needs.eat(r)
+		elif bag.spend(r, 1):
 			FloatingText.spawn(world, "Ate %s" % UiKit.resource_name(r), world.player.position + Vector2(0, -1.6 * world.px), UiKit.colors.worldText)
 
 

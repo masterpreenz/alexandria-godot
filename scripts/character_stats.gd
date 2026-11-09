@@ -62,6 +62,31 @@ func total() -> Dictionary:
 	return t
 
 
+## Everything but the buffs (what hunger and the mist take a share of).
+func unbuffed() -> Dictionary:
+	var keep := buffs
+	buffs = {}
+	var t := total()
+	buffs = keep
+	return t
+
+
+## Lends (or, with null, takes back) the stats [param block] under [param key].
+func set_buff(key, block: Variant) -> void:
+	if block == null:
+		if buffs.erase(key):
+			changed.emit()
+	else:
+		buffs[key] = block
+		changed.emit()
+
+
+## Sets HP outright (within 0 and max).
+func set_hp(v: float) -> void:
+	hp = clampf(v, 0.0, stat("maxHp"))
+	changed.emit()
+
+
 func stat(name: String) -> float:
 	return float(total().get(name, 0.0))
 
