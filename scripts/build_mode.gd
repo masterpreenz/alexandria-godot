@@ -47,6 +47,9 @@ var _said := 0.0
 var _cells: Array = []            ## cells under the cursor
 var _cell_colour := Color.WHITE
 var _wall_ghost: Variant = null   ## [a, b] px
+var _wall_art: Array = []         ## the wall's own art over that line: [[sprite, mirrored, at]] (WallMap.ghost_pieces)
+var _ghost_tint := Color(1, 1, 1, 0.6)
+var _floor_art := ""              ## a floor being laid: its tiles drawn see-through on the cells   ## what the art of a wall or prop being placed is drawn in
 var _prop_ghost: Dictionary = {}  ## {sprite, at, scale, flip, colour}
 var _ring := 0.0
 var _ring_at := Vector2.ZERO
@@ -308,6 +311,8 @@ func _process_timed(delta: float) -> void:
 	elif kind_of(selected) == "House":
 		_cells.clear()
 		_wall_ghost = null
+		_wall_art = []
+		_floor_art = ""
 		_prop_ghost = {}
 		_ring = 0.0
 		_house_cursor(cell, over, not over and world.floors.in_bounds(cell))
@@ -477,24 +482,30 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	# The feedback in the world.
 	_cells.clear()
 	_wall_ghost = null
+	_wall_art = []
+	_floor_art = ""
 	_prop_ghost = {}
 	_ring = 0.0
 	if shown and not selected.is_empty() or (shown and clear):
 		if wall_mode:
 			_wall_ghost = [world.walls.vertex_position(edge.vertex), world.walls.vertex_position(world.walls.span_end(edge, selected.name))]
+			_wall_art = [] if clear else world.walls.ghost_pieces(edge, selected.name)
 		elif not placing_free:
 			for x in size:
 				for y in size:
 					_cells.append(low + Vector2i(x, y))
+		_floor_art = selected.name if not clear and kind_of(selected) == "Floor" and f.types.has(selected.name) else ""
 		var ok := Color(HudStyle.color("green"), 0.9)
 		_cell_colour = HudStyle.color("coral") if clear else (ok if can_here else BLOCKED)
 		if blueprint and can_here and structure:
 			_cell_colour = Color(0.55, 0.78, 1.0, 0.9)
+		# The thing itself, see-through: as it'll look, red where it can't go, blue as a plan.
+		_ghost_tint = BLOCKED if not can_here else (Color(0.6, 0.82, 1.0, 0.6) if blueprint and structure else Color(1, 1, 1, 0.6))
 		if placing_prop:
 			var at := point if placing_free else f.cell_centre(cell)
 			var turns := int(world.props._turns(world.props.types[selected.name])) if world.props.types.has(selected.name) else 1
 			_prop_ghost = {"sprite": world.props.sprite_for(selected.name, prop_turn % maxi(1, turns)), "at": at, "scale": prop_scale,
-				"colour": Color(1, 1, 1, 0.6) if can_here else BLOCKED}
+				"colour": _ghost_tint}
 			if float(selected.get("ring", 0.0)) > 0.0:
 				_ring = float(selected.ring)
 				_ring_at = at
@@ -745,13 +756,35 @@ func _draw() -> void:
 	_draw_more()
 	var f := world.floors
 	for c in _cells:
+		if _floor_art != "":
+			# The floor itself on the cell, see-through (a laid floor's whole tile; ground, its plain tile).
+			var ft: Dictionary = f.types[_floor_art]
+			var tile: Variant = (ft.whole[0] if not (ft.whole as Array).is_empty() else null) if f.is_whole(_floor_art) else ft.tiles[15]
+			var sid := FloorMap._sprite_for(tile, c)
+			if sid >= 0:
+				var info: Dictionary = world.sprites[sid]
+				var tex := world._texture(info.tex)
+				var k := world.px / float(info.ppu)
+				var region := Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
+				draw_texture_rect_region(tex, Rect2(f.cell_centre(c) - Vector2(float(info.pivot[0]), float(info.pivot[1])) * k, region.size * k), region, _ghost_tint)
 		var pts := PackedVector2Array([f.corner(Vector2(c)), f.corner(Vector2(c) + Vector2(1, 0)), f.corner(Vector2(c) + Vector2(1, 1)), f.corner(Vector2(c) + Vector2(0, 1))])
 		draw_colored_polygon(pts, Color(_cell_colour, 0.18))
 		pts.append(pts[0])
 		draw_polyline(pts, _cell_colour, 0.03 * world.px, true)
 	if _wall_ghost != null:
-		draw_line(_wall_ghost[0], _wall_ghost[1], Color(_cell_colour, 0.35), 0.16 * world.px, true)
-		draw_line(_wall_ghost[0], _wall_ghost[1], _cell_colour, 0.05 * world.px, true)
+		# The line it runs along, faint, and the wall's own art over it (just the line where there's none: demolishing).
+		draw_line(_wall_ghost[0], _wall_ghost[1], Color(_cell_colour, 0.2 if not _wall_art.is_empty() else 0.35), 0.16 * world.px, true)
+		draw_line(_wall_ghost[0], _wall_ghost[1], Color(_cell_colour, 0.5 if not _wall_art.is_empty() else 1.0), 0.04 * world.px, true)
+		for piece in _wall_art:
+			var info: Dictionary = world.sprites[int(piece[0])]
+			var tex := world._texture(info.tex)
+			if tex == null:
+				continue
+			var k := world.px / float(info.ppu)
+			var region := Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
+			draw_set_transform(piece[2], 0.0, Vector2(-1.0 if piece[1] else 1.0, 1.0))
+			draw_texture_rect_region(tex, Rect2(-Vector2(float(info.pivot[0]), float(info.pivot[1])) * k, region.size * k), region, _ghost_tint)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if not _prop_ghost.is_empty() and int(_prop_ghost.sprite) >= 0:
 		var info: Dictionary = world.sprites[int(_prop_ghost.sprite)]
 		var tex := world._texture(info.tex)
@@ -885,6 +918,8 @@ func _house_item(p: Dictionary, display: String) -> Dictionary:
 func _inspect(point: Vector2, over_ui: bool) -> void:
 	_cells.clear()
 	_wall_ghost = null
+	_wall_art = []
+	_floor_art = ""
 	_prop_ghost = {}
 	_ring = 0.0
 	hover = {}
@@ -1089,6 +1124,8 @@ func _house_cursor(cell: Vector2i, over_ui: bool, shown: bool) -> void:
 func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	_cells.clear()
 	_wall_ghost = null
+	_wall_art = []
+	_floor_art = ""
 	_prop_ghost = {}
 	_ring = 0.0
 	var shown := not over_ui and world.floors.in_bounds(cell)

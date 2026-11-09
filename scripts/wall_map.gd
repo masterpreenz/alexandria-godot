@@ -281,6 +281,26 @@ func _sync(e: Edge) -> void:
 	_drawn[k] = drawn
 
 
+## The art a wall of [param type] would stand at edge [param e] with, for a ghost of it while placing: [[sprite, mirrored,
+## where its pivot goes (px)]]. Nothing for an invisible wall.
+func ghost_pieces(e: Edge, type_name: String) -> Array:
+	if not types.has(type_name):
+		return []
+	var type: Dictionary = types[type_name]
+	if type.invisible:
+		return []
+	var mid := (vertex_position(e.vertex) + vertex_position(span_end(e, type_name))) / 2.0
+	var own_y: bool = e.along_y and int(type.leftY) >= 0
+	var flip: bool = e.along_y and not own_y
+	var panels: bool = type.panels
+	var cap_art := int(type.capY if own_y else type.cap)
+	var starts := get_wall(Edge.new(e.vertex - _dir(e.along_y), e.along_y)) == ""
+	var out := [[cap_art if panels and starts and cap_art >= 0 else int(type.leftY if own_y else type.left), flip, mid]]
+	if not panels:
+		out.append([int(type.rightY if own_y else type.right), flip, mid])
+	return out.filter(func(p): return int(p[0]) >= 0)
+
+
 # A piece of wall art: at the wall's middle (a whole wall's halves pivot there; a panel stands on its own centre),
 # sorting at its ground centre among everything standing.
 func _half(into: Array, sprite_id: int, flip: bool, ground_centre: Vector2, mid: Vector2, centred: bool) -> void:
