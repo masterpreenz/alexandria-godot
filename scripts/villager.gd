@@ -483,7 +483,13 @@ func _stand(t: float, seconds: float) -> void:
 
 
 func _show(id: int) -> void:
-	world.show_frame(art, id, Vector2(-1.0 if facing_right else 1.0, 1.0))
+	var k := _scale()
+	world.show_frame(art, id, Vector2(-k if facing_right else k, k))
+
+
+# How big they're drawn: their look's scale (villagers are scaled to Miko's size, as she is).
+func _scale() -> float:
+	return float(look.get("scale", 1.0))
 
 
 func _show_idle() -> void:
@@ -841,7 +847,7 @@ func _emote(e: String) -> void:
 # How tall their standing art is above their feet, px.
 func _top() -> float:
 	var info: Dictionary = world.sprites[int(s.idleDown)]
-	return float(info.pivot[1]) * world.px / float(info.ppu)
+	return float(info.pivot[1]) * world.px / float(info.ppu) * _scale()
 
 
 # ---- Chats ----
