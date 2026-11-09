@@ -21,7 +21,7 @@ const USES := {
 	"Potato": "Fills 10 hunger raw. Plant it in a farm plot, or bake it at a bonfire.", "BakedPotato": "Fills 45 hunger.",
 	"Bottle": "From the alchemy workbench: potions are made in it.",
 	"Carrot": "Fills 12 hunger raw. Plant it in a farm plot, or cook it with raw meat into a stew.",
-	"Cabbage": "Fills 15 hunger raw. Cook it with a potato into a soup.", "Wheat": "Ground into flour at the alchemy workbench.",
+	"Cabbage": "Fills 15 hunger raw.", "Wheat": "Ground into flour at the alchemy workbench.",
 	"Cotton": "For cloth: the workbench's cloth armour is made from it, or spun into fibre.", "Fiber": "Cotton spun into cord at the tool workbench: strings the crystal necklace.", "CabbageSeed": "Plant in a farm plot to grow cabbages.",
 	"WheatSeed": "Plant in a farm plot to grow wheat.", "CottonSeed": "Plant in a farm plot to grow cotton.",
 	"Flour": "Baked into bread at a bonfire.", "Bread": "Fills 40 hunger, and keeps well.", "CarrotStew": "Fills 55 hunger.",

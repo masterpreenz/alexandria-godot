@@ -682,7 +682,7 @@ func _ready() -> void:
 					# Two fields of three plots, planted plot by plot as the villagers do: one crop a field; then the
 					# first harvested and planted again, moving on to the next crop together.
 					var fm: Farming = miko.get_node("Farming")
-					fm.rotation = ["Potato", "Carrot", "Cabbage", "Wheat"]
+					fm.rotation = ["Potato", "Carrot", "Wheat", "Cotton"]
 					var base := world.floors.cell_at(miko.position) + Vector2i(2, 1)
 					for k in 3:
 						world.props.place(base + Vector2i(k, 0), "FarmPlot")

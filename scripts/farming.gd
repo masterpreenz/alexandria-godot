@@ -1,7 +1,7 @@
 class_name Farming
 extends Node
 ## Farm plots and crops (from Unity's FarmPlot, Crops and FarmInteractor). A plot is a tilled patch one tile across
-## growing a crop: potatoes, carrots, cabbages, wheat or cotton. Bare until something's planted (E), it sprouts, grows
+## growing a crop: potatoes, carrots, wheat or cotton. Bare until something's planted (E), it sprouts, grows
 ## over its crop's game hours and is then ripe, to be harvested with E (crops grown from seed give some seed back; her
 ## farming skill sometimes gives one more). R sets the plot's whole field (the plots joined to it) to one crop, in
 ## turn: the village's rotation, then each crop. Bare soil lies flat on the ground; sprouts and ripe plants stand up.
@@ -16,11 +16,10 @@ const RANGE := 0.7
 const CROPS := {
 	"Potato": {"seed": "Potato", "hours": 48.0, "yield": [3, 5], "seedBack": [0, 0], "plural": "potatoes"},
 	"Carrot": {"seed": "Carrot", "hours": 36.0, "yield": [3, 5], "seedBack": [0, 0], "plural": "carrots"},
-	"Cabbage": {"seed": "CabbageSeed", "hours": 60.0, "yield": [1, 2], "seedBack": [1, 2], "plural": "cabbages"},
 	"Wheat": {"seed": "WheatSeed", "hours": 48.0, "yield": [3, 5], "seedBack": [1, 2], "plural": "wheat"},
 	"Cotton": {"seed": "CottonSeed", "hours": 60.0, "yield": [2, 4], "seedBack": [1, 2], "plural": "cotton"},
 }
-const ORDER := ["Potato", "Carrot", "Cabbage", "Wheat", "Cotton"]
+const ORDER := ["Potato", "Carrot", "Wheat", "Cotton"]   ## (no cabbages for now)
 const WET_FOR := 24.0            ## game hours a watering lasts
 const DRY_RATE := 0.5            ## how fast a dry crop grows
 const PEST_PER_HOUR := 0.015     ## the chance a growing crop gets pests, each game hour (about one in three crops a 24 h)
@@ -199,6 +198,13 @@ func _look() -> void:
 			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo)),
 				"last": _crop_name(int(sv.get("last", 0))), "grown": float(sv.get("grown", _hours() - float(sv.sownAt))),
 				"wateredAt": float(sv.get("wateredAt", _hours())), "pest": bool(sv.get("pest", false))}
+			# A crop no longer grown (cabbages, for now): the plot bare again, and any field setting for it the rotation.
+			var stb: Dictionary = states[best.key]
+			for k in ["crop", "setTo", "last"]:
+				if stb[k] != "" and not CROPS.has(stb[k]):
+					if k == "crop":
+						stb.sown = false
+					stb[k] = ""
 	_saved = []
 	# An old wild patch is ripe when first found.
 	for p in plots:
@@ -430,9 +436,9 @@ func _give_starter() -> void:
 	if Kitchen.seeds_given or not world.village.founded():
 		return
 	Kitchen.seeds_given = true
-	for r in ["Carrot", "CabbageSeed", "WheatSeed", "CottonSeed"]:
+	for r in ["Carrot", "WheatSeed", "CottonSeed"]:
 		world.village.put_in_stash(r, 4)
-	VillageLog.event("seeds", "A passing farmer left seeds in storage: 4 carrots, and cabbage, wheat and cotton seeds")
+	VillageLog.event("seeds", "A passing farmer left seeds in storage: 4 carrots, and wheat and cotton seeds")
 
 
 # The crop for a bare plot: its field's, if set (when there's seed for it); else the next in the rotation there's
