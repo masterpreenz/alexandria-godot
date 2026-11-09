@@ -6,7 +6,7 @@ can be run after a change (or before a commit) to keep the project clean:
 
     python tools/check_warnings.py           # writes warnings.txt, prints the count
 """
-import json, os, pathlib, socket, subprocess, sys, time
+import json, os, pathlib, socket, subprocess, sys, tempfile, time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GODOT = os.environ.get("GODOT", r"C:\Users\preen\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe")
@@ -14,8 +14,12 @@ PORT = 6011
 
 
 def main() -> int:
+    # The hidden editor gets an APPDATA of its own: the project's MCP Toolkit plugin starts in it too, and would
+    # otherwise publish itself in the machine-wide registry (and renew the project's token) over the real editor's,
+    # leaving the MCP server dialling a closed editor once this one quits.
+    env = dict(os.environ, APPDATA=tempfile.mkdtemp(prefix="check_warnings_"))
     editor = subprocess.Popen([GODOT, "--editor", "--headless", "--path", str(ROOT), "--lsp-port", str(PORT)],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     try:
         s = None
         for _ in range(90):
