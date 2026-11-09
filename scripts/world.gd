@@ -20,6 +20,7 @@ var walls: WallMap        ## the walls, doors and fences
 var props: PropMap        ## furniture, decorations, crops, the grass and bushes
 var roofs: RoofMap        ## the roofs over closed, floored rooms
 var player: Node2D        ## who the roofs fade for (set by the game)
+var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
 ## What live maps draw themselves: the exported snapshot's sprites and colliders of these kinds are left out.
 const LIVE_KINDS := ["Walls", "Props"]
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
@@ -82,6 +83,11 @@ func _ready() -> void:
 	roofs.name = "Roofs"
 	add_child(roofs)
 	roofs.setup(self, floors, walls, _load_json("res://data/roofs.json"))
+	if FileAccess.file_exists("res://data/water.json"):
+		var water: Dictionary = _load_json("res://data/water.json")
+		for k in water.depth:
+			var xy: PackedStringArray = k.split(",")
+			_depths[Vector2i(int(xy[0]), int(xy[1]))] = float(water.depth[k])
 	# The saved game's world over the scene's (the village as it stands).
 	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	var sections: Dictionary = save.get("sections", {})
@@ -173,7 +179,8 @@ func _sprite_node(s: Dictionary, sorted: bool) -> Node2D:
 	return holder
 
 
-## A water (or other) mesh, plain-coloured for now (its shader comes over in phase 2).
+## A water mesh (the river, lake, ponds), a bank's earth wall, or the waterfall, each with its Godot shader and the
+## colours and numbers its Unity material had.
 func _mesh(m: Dictionary) -> Node2D:
 	var verts := PackedVector2Array()
 	var v: Array = m.v
@@ -188,14 +195,97 @@ func _mesh(m: Dictionary) -> Node2D:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	if uvs.size() == verts.size():
 		arrays[Mesh.ARRAY_TEX_UV] = uvs
+	# A bank's height (world units) rides in the vertex colour's red, for its shader (canvas shaders have one UV set).
+	var uv2: Array = m.get("uv2", [])
+	if m.material == "Cliff" and uv2.size() == verts.size() * 2:
+		var colors := PackedColorArray()
+		for i in verts.size():
+			colors.append(Color(clampf(uv2[i * 2 + 1] / 4.0, 0.0, 1.0), 0, 0, 1))
+		arrays[Mesh.ARRAY_COLOR] = colors
+	if m.material == "River" and uvs.size() == verts.size():
+		arrays[Mesh.ARRAY_COLOR] = _flow_directions(verts, uvs, PackedInt32Array(m.t))
 	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array(m.t)
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	var node := MeshInstance2D.new()
-	node.name = m.name
+	node.name = m.name if m.get("parent", "") in ["", "World"] else m.parent + " " + m.name
 	node.mesh = mesh
-	node.modulate = Color(0.32, 0.58, 0.72, 0.95) if m.material != "Waterfall" else Color(0.75, 0.9, 1.0, 0.85)
+	node.material = _water_material(m)
+	if m.material == "Waterfall":
+		node.add_child(Waterfall.spray(verts, uvs))
 	return node
+
+
+## Which way the water runs at each vertex (where UV.x, cells along the river, grows), averaged over the triangles
+## round it so it turns smoothly round bends: packed into the vertex colour (rg: direction * 0.5 + 0.5; b: 1 where it
+## runs at all). Still water (UV.x all 0) gets none.
+static func _flow_directions(verts: PackedVector2Array, uvs: PackedVector2Array, tris: PackedInt32Array) -> PackedColorArray:
+	var sum := []
+	sum.resize(verts.size())
+	sum.fill(Vector2.ZERO)
+	for i in range(0, tris.size(), 3):
+		var a := tris[i]
+		var b := tris[i + 1]
+		var c := tris[i + 2]
+		var e1 := verts[b] - verts[a]
+		var e2 := verts[c] - verts[a]
+		var du1 := uvs[b].x - uvs[a].x
+		var du2 := uvs[c].x - uvs[a].x
+		var det := e1.x * e2.y - e1.y * e2.x
+		if absf(det) < 1e-6:
+			continue
+		# The gradient of u over the triangle: solves grad . e1 = du1, grad . e2 = du2.
+		var grad := Vector2((du1 * e2.y - du2 * e1.y) / det, (du2 * e1.x - du1 * e2.x) / det)
+		for v in [a, b, c]:
+			sum[v] += grad
+	var out := PackedColorArray()
+	for v in sum:
+		var d: Vector2 = v.normalized() if v.length() > 1e-9 else Vector2.ZERO
+		out.append(Color(d.x * 0.5 + 0.5, d.y * 0.5 + 0.5, 1.0 if d != Vector2.ZERO else 0.0, 1.0))
+	return out
+
+
+var _materials := {}
+
+func _water_material(m: Dictionary) -> ShaderMaterial:
+	if _materials.is_empty():
+		_materials = _load_json("res://data/materials.json") if FileAccess.file_exists("res://data/materials.json") else {}
+	var unity: Dictionary = _materials.get(m.material, {"colors": {}, "floats": {}, "textures": {}})
+	var c: Dictionary = unity.colors
+	var f: Dictionary = unity.floats
+	var mat := ShaderMaterial.new()
+	var col := func(n: String, fallback: Color) -> Color:
+		return Color(c[n][0], c[n][1], c[n][2], c[n][3]) if c.has(n) else fallback
+	match m.material:
+		"River":
+			mat.shader = preload("res://shaders/water.gdshader")
+			mat.set_shader_parameter("deep", col.call("_Deep", Color(0.15, 0.39, 0.48)))
+			mat.set_shader_parameter("shallow", col.call("_Shallow", Color(0.42, 0.7, 0.67)))
+			mat.set_shader_parameter("foam", col.call("_Foam", Color(0.88, 0.93, 0.88)))
+			mat.set_shader_parameter("flow", float(m.get("flow", f.get("_Flow", 0.7))))
+			mat.set_shader_parameter("ripple_scale", float(f.get("_RippleScale", 1.4)))
+			mat.set_shader_parameter("foam_width", float(f.get("_FoamWidth", 0.14)))
+			mat.set_shader_parameter("cell_px", px)
+		"Cliff":
+			mat.shader = preload("res://shaders/bank.gdshader")
+			var tex: String = unity.textures.get("_MainTex", "")
+			if tex != "":
+				mat.set_shader_parameter("stone", load(tex))
+			mat.set_shader_parameter("tile_size", float(f.get("_TileSize", 1.6)))
+			mat.set_shader_parameter("cell_length", float(f.get("_CellLength", 0.559)))
+			mat.set_shader_parameter("grass", col.call("_Grass", Color(0.36, 0.52, 0.25)))
+			mat.set_shader_parameter("grass_light", col.call("_GrassLight", Color(0.41, 0.6, 0.27)))
+			mat.set_shader_parameter("wet", col.call("_Wet", Color(0.16, 0.18, 0.19)))
+			mat.set_shader_parameter("waterline", col.call("_Waterline", Color(0.42, 0.55, 0.55)))
+		"Waterfall":
+			mat.shader = preload("res://shaders/waterfall.gdshader")
+			mat.set_shader_parameter("deep", col.call("_Deep", Color(0.15, 0.39, 0.48)))
+			mat.set_shader_parameter("water", col.call("_Water", Color(0.28, 0.55, 0.58)))
+			mat.set_shader_parameter("pale", col.call("_Light2", Color(0.42, 0.7, 0.67)))
+			mat.set_shader_parameter("foam", col.call("_Foam", Color(0.88, 0.93, 0.88)))
+			mat.set_shader_parameter("edge_fade", float(f.get("_EdgeFade", 0.14)))
+			mat.set_shader_parameter("speed", float(f.get("_Speed", 2.4)))
+	return mat
 
 
 ## Shows sprite [param id] from the table on [param sprite] (its image, slice and pivot), at [param scale] on top of the
@@ -279,3 +369,16 @@ func drawn_at(sprite: Sprite2D, p: Vector2) -> bool:
 ## Whether something's laid over the grass at [param p] (a path, stone, boards).
 func on_floor(p: Vector2) -> bool:
 	return floors.on_floor(p)
+
+
+## How far into the water [param p] is, in cells in from its edge (0 on dry land): blended between the depth map's
+## half-cell samples.
+func water_depth(p: Vector2) -> float:
+	var g := floors.fractional_cell(p) * 2.0
+	var i := Vector2i(floori(g.x), floori(g.y))
+	var f := g - Vector2(i)
+	var d00: float = _depths.get(i, 0.0)
+	var d10: float = _depths.get(i + Vector2i(1, 0), 0.0)
+	var d01: float = _depths.get(i + Vector2i(0, 1), 0.0)
+	var d11: float = _depths.get(i + Vector2i(1, 1), 0.0)
+	return lerpf(lerpf(d00, d10, f.x), lerpf(d01, d11, f.x), f.y)

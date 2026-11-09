@@ -19,6 +19,8 @@ var clock := 0.0
 var art_scale := Vector2.ONE
 ## While true she ignores movement input (casting, asleep, ...).
 var locked := false
+## Slows her down (or speeds her up) on top of everything else: wading sets it below 1.
+var speed_scale := 1.0
 # Where she was at the last two physics ticks: she's drawn between them (physics interpolation).
 var _was := Vector2.ZERO
 var _now := Vector2.ZERO
@@ -66,6 +68,10 @@ func setup(w: World, d: Dictionary) -> void:
 	steps.name = "Footsteps"
 	add_child(steps)
 	steps.setup(world, self)
+	var wade := Wading.new()
+	wade.name = "Wading"
+	add_child(wade)
+	wade.setup(world, self, art, shadow)
 	var dust := DustTrail.new()
 	dust.name = "Dust"
 	dust.target = self
@@ -92,7 +98,7 @@ func _physics_process(_delta: float) -> void:
 	elif input.y > 0.1: facing_up = false
 	if input.x > 0.1: facing_right = true
 	elif input.x < -0.1: facing_right = false
-	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed)
+	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed) * speed_scale
 	_was = position
 	move_and_slide()
 	_now = position
