@@ -17,8 +17,9 @@ var things: Node2D  ## everything standing, y-sorted
 var solids: StaticBody2D  ## the colliders
 var floors: FloorMap      ## the floors (ground, paths, boards)
 var walls: WallMap        ## the walls, doors and fences
+var props: PropMap        ## furniture, decorations, crops, the grass and bushes
 ## What live maps draw themselves: the exported snapshot's sprites and colliders of these kinds are left out.
-const LIVE_KINDS := ["Walls"]
+const LIVE_KINDS := ["Walls", "Props"]
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
 var occluders := {}  # Vector2i (OCC_CELL px squares) -> Array[Sprite2D]
 const OCC_CELL := 512.0
@@ -71,6 +72,10 @@ func _ready() -> void:
 	walls.name = "Walls"
 	add_child(walls)
 	walls.setup(self, floors, _load_json("res://data/walls.json"))
+	props = PropMap.new()
+	props.name = "Props"
+	add_child(props)
+	props.setup(self, floors, _load_json("res://data/props.json"))
 	# The saved game's world over the scene's (the village as it stands).
 	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	var sections: Dictionary = save.get("sections", {})
@@ -82,8 +87,13 @@ func _ready() -> void:
 		walls.from_json(sections["world.walls"])
 	else:
 		walls.rebuild()
-	print("World: %d floor types, %d walls, %d meshes, %d sprites, %d textures in %d ms" % [
-		floors.types.size(), walls.walls.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
+	# Props after the walls: they sort against them.
+	if sections.has("world.props"):
+		props.from_json(sections["world.props"])
+	else:
+		props.rebuild()
+	print("World: %d floor types, %d walls, %d props, %d meshes, %d sprites, %d textures in %d ms" % [
+		floors.types.size(), walls.walls.size(), props.cells.size() + props.free.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
 	built.emit()
 
 

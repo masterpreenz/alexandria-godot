@@ -126,7 +126,9 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
   - Changed from Unity: when two trees together hide her, both fade (Unity faded only the first it found).
 - [x] Phase 2: **FloorMap** live (`scripts/floor_map.gd`), ported from Unity: ground floors on a dual grid (the 16 corner cases), periodic tiles, laid floors with front edges, turning, paint/erase/unlay/restore, save to and load from JSON (with Unity's rules for reshaped land). The world loads your latest save's floors (`data/save.json`, exported with the rest).
 - [x] Phase 2: **WallMap** live (`scripts/wall_map.gd`), ported from Unity: walls along grid lines (panels with their caps, halves, y art or mirrored), doors with their open and closed twins, collision with a door's opening left clear, place/remove/toggle, kept-open doors, save JSON. The world loads your save's walls, so the village's houses and fences stand; they hide Miko like trees do.
-- [ ] Phase 2 next: PropMap (furniture, beds, chests, crops...), RoofMap (roofs, see-through when inside, chimneys); then water shaders and wading, mist, weather, world chunks.
+- [x] Phase 2: **PropMap** live (`scripts/prop_map.gd`), ported from Unity: props per cell and slot (ground, tall), free props anywhere, turned and mirrored art, sizes, solid footprints, sorting kept behind walls in front (WallMap's sort-against-walls, ported too), place/remove, save JSON. The world loads your save's 1,970 props: chests, the bed, the banner, crystals, torches, the farm plot, the grass, bushes and flowers.
+  - Not yet: what a prop brings along (a bonfire's flames, a bed's sleeper spot, a chest's storage, crystals' light and barriers): phase 3.
+- [ ] Phase 2 next: RoofMap (roofs, see-through when inside, chimneys); then water shaders and wading, mist, weather, world chunks.
 - [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
 - [ ] Phase 2: World systems
 

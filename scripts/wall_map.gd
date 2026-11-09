@@ -289,3 +289,40 @@ func _half(into: Array, sprite_id: int, flip: bool, ground_centre: Vector2, mid:
 	world.things.add_child(holder)
 	world.add_occluder(sprite)
 	into.append(holder)
+
+
+## Where something standing at [param foot], [param half_width] wide on screen, should sort (from Unity's
+## SortAgainstWalls): over any wall it stands in front of and under any wall it stands behind. A wall is long and
+## sloped, so sorting by one point of it goes wrong near its ends; this asks which side of the wall's line it's on.
+func sort_against_walls(foot: Vector2, half_width: float, sort_y: float) -> float:
+	var above := -INF
+	var below := INF
+	var around := vertex_at(foot)
+	for x in range(around.x - 3, around.x + 4):
+		for y in range(around.y - 3, around.y + 4):
+			for k in 2:
+				var e := Edge.new(Vector2i(x, y), k == 1)
+				var t: String = walls.get(e.key(), "")
+				if t == "":
+					continue
+				var a := vertex_position(e.vertex)
+				var b := vertex_position(span_end(e, t))
+				if a.x > b.x:
+					var swap := a
+					a = b
+					b = swap
+				if foot.x + half_width <= a.x or foot.x - half_width >= b.x:
+					continue
+				var line_y := lerpf(a.y, b.y, inverse_lerp(a.x, b.x, foot.x)) if b.x != a.x else (a.y + b.y) / 2.0
+				# Its pieces sort at their ground centres: one panel, or two halves.
+				var mid := (a + b) / 2.0
+				var front: float = mid.y if types[t].panels else maxf((a.y + mid.y) / 2.0, (b.y + mid.y) / 2.0)
+				var back: float = mid.y if types[t].panels else minf((a.y + mid.y) / 2.0, (b.y + mid.y) / 2.0)
+				if foot.y > line_y:
+					above = maxf(above, front + 1.28)
+				else:
+					below = minf(below, back - 1.28)
+	# Where both can't hold (a narrow room), hiding behind the nearer wall wins.
+	if above > below:
+		return below
+	return clampf(sort_y, above, below)
