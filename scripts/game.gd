@@ -749,7 +749,7 @@ func _ready() -> void:
 					var shot_taken := false
 					for i in 40:
 						await get_tree().process_frame
-						if not shot_taken and miko.action_frame() == 3:
+						if not shot_taken and miko.action_frame() == int(Shots.arg("atframe", "3")):
 							shot_taken = true
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_swing.png")
 					print("Smack: slime hp ", before, " -> ", sl.hit.hp if is_instance_valid(sl) else -1.0, ", Miko facing right ", miko.facing_right, ", locked after ", miko.locked)
