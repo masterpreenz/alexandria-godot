@@ -264,6 +264,15 @@ func _ready() -> void:
 	time_card.name = "TimeCard"
 	$Hud.add_child(time_card)
 	time_card.setup(world, clock)
+	# Build mode (B) and its bar.
+	var build_mode := BuildMode.new()
+	build_mode.name = "BuildMode"
+	world.add_child(build_mode)
+	build_mode.setup(world, miko, world._load_json("res://data/build.json") if FileAccess.file_exists("res://data/build.json") else {})
+	var build_bar := BuildBar.new()
+	build_bar.name = "BuildBar"
+	$Hud.add_child(build_bar)
+	build_bar.setup(build_mode, world, miko)
 	# The minimap over it, and the world map (M).
 	var minimap := Minimap.new()
 	minimap.name = "Minimap"
@@ -405,6 +414,16 @@ func _ready() -> void:
 				"character": ($Hud/CharacterPanel as CharacterPanel).toggle()
 				"talents": ($Hud/CharacterPanel as CharacterPanel).toggle_talents()
 				"picker": ($Hud/Hotbar as Hotbar).clicked(0)
+				"build":
+					var bm := BuildMode.active
+					bm.set_open(true)
+					if Shots.arg("pick") != "":
+						for it in bm.items:
+							if it.name == Shots.arg("pick"):
+								bm.select(it)
+								($Hud/BuildBar as BuildBar).category = it.category
+					if Shots.arg("tool") != "": bm.set_tool(Shots.arg("tool"))
+					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(float(Shots.arg("mx", "0.55")), float(Shots.arg("my", "0.45"))))
 				"map":
 					($Hud/WorldMap as WorldMap).open()
 					if Shots.arg("mapzoom") != "":
@@ -428,7 +447,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
-	camera.position = miko.drawn_position() + follow_offset
+	if not BuildMode.is_open():
+		camera.position = miko.drawn_position() + follow_offset
 	time_label.text = "%s · %s, day %d · %s
 Wood %d · Stone %d" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()], miko.bag.count("Wood"), miko.bag.count("Stone")]
 

@@ -284,3 +284,31 @@ func _show(at: Vector2, e: Dictionary, bias: float) -> Node2D:
 	if String(world.sprites[id].name).contains("tree") if id >= 0 else false:
 		world.add_occluder(sprite)
 	return holder
+
+
+## What [method remove_one] would take off [param cell]: the latest free prop there, else the tallest placed one; "".
+func peek_top(cell: Vector2i) -> String:
+	for i in range(free.size() - 1, -1, -1):
+		if floors.cell_at(free[i].pos) == cell:
+			return free[i].prop
+	for slot in [Slot.TALL, Slot.GROUND]:
+		var p := get_prop(cell, slot)
+		if p != "":
+			return p
+	return ""
+
+
+## Removes one thing standing on [param cell]: the free prop placed there last, else the tallest slot's prop. False
+## when there was nothing.
+func remove_one(cell: Vector2i) -> bool:
+	for i in range(free.size() - 1, -1, -1):
+		if floors.cell_at(free[i].pos) == cell:
+			free.remove_at(i)
+			_rebuild_free()
+			version += 1
+			return true
+	for slot in [Slot.TALL, Slot.GROUND]:
+		if get_prop(cell, slot) != "":
+			remove(cell, slot)
+			return true
+	return false

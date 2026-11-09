@@ -224,3 +224,55 @@ func _tile_diamond() -> Texture2D:
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 	_diamond = ImageTexture.create_from_image(img)
 	return _diamond
+
+
+# ---- Planning (build mode's blueprint mode) ----
+
+func _remove_where(test: Callable) -> bool:
+	var gone := false
+	for p in pieces.duplicate():
+		if test.call(p):
+			_drop(p)
+			pieces.erase(p)
+			gone = true
+	return gone
+
+
+## A planned floor tile on [param cell] (replacing any plan there).
+func plan_floor(cell: Vector2i, floor: String, turned: bool) -> void:
+	_remove_where(func(p): return not bool(p.get("wall", false)) and not bool(p.get("prop", false)) and int(p.x) == cell.x and int(p.y) == cell.y)
+	_add({"wall": false, "prop": false, "free": false, "x": cell.x, "y": cell.y, "type": floor, "turned": turned, "ready": false, "scale": 1.0})
+
+
+## A planned wall on [param edge].
+func plan_wall(edge: WallMap.Edge, type: String) -> void:
+	_remove_where(func(p): return bool(p.get("wall", false)) and int(p.x) == edge.vertex.x and int(p.y) == edge.vertex.y and bool(p.get("alongY", false)) == edge.along_y)
+	_add({"wall": true, "prop": false, "free": false, "x": edge.vertex.x, "y": edge.vertex.y, "alongY": edge.along_y, "type": type, "ready": false, "scale": 1.0})
+
+
+## Takes away one plan at [param cell]: furniture first, then a wall on one of [param edges], then the floor.
+func remove_at(cell: Vector2i, edges: Array) -> bool:
+	for p in pieces:
+		if bool(p.get("prop", false)) and int(p.x) == cell.x and int(p.y) == cell.y:
+			_drop(p)
+			pieces.erase(p)
+			return true
+	for e in edges:
+		for p in pieces:
+			if bool(p.get("wall", false)) and int(p.x) == e.vertex.x and int(p.y) == e.vertex.y and bool(p.get("alongY", false)) == e.along_y:
+				_drop(p)
+				pieces.erase(p)
+				return true
+	for p in pieces:
+		if not bool(p.get("wall", false)) and not bool(p.get("prop", false)) and int(p.x) == cell.x and int(p.y) == cell.y:
+			_drop(p)
+			pieces.erase(p)
+			return true
+	return false
+
+
+## Drops every draft (ready pieces stay).
+func clear_drafts() -> int:
+	var n := drafts()
+	_remove_where(func(p): return not bool(p.get("ready", false)))
+	return n

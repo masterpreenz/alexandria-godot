@@ -338,3 +338,65 @@ func set_alpha(e: Edge, alpha: float) -> void:
 		for s in h.get_children():
 			if s is Sprite2D and not is_equal_approx(s.modulate.a, alpha):
 				s.modulate.a = alpha
+
+
+# ---- Building (build mode) ----
+
+## The grid edge nearest [param p]; with [param keep_along_y] (true or false) it keeps that way until the other line
+## is clearly nearer by [param padding] cells.
+func edge_at(p: Vector2, keep_along_y: Variant = null, padding := 0.0) -> Edge:
+	var c := floors.fractional_cell(p) / cells_per_wall
+	var to_x_line := absf(c.y - roundf(c.y))
+	var to_y_line := absf(c.x - roundf(c.x))
+	var on_x: bool
+	if keep_along_y == null: on_x = to_x_line <= to_y_line
+	elif keep_along_y: on_x = to_x_line + padding < to_y_line
+	else: on_x = to_x_line <= to_y_line + padding
+	if on_x:
+		return Edge.new(Vector2i(floori(c.x), roundi(c.y)), false)
+	return Edge.new(Vector2i(roundi(c.x), floori(c.y)), true)
+
+
+func in_bounds(e: Edge) -> bool:
+	return floors.in_bounds(floors.cell_at(edge_middle(e) + Vector2(0, -0.05 * world.px)))
+
+
+## Whether [param type] may go on [param e]: in bounds, and no door or window would end up at a corner or junction.
+func can_place(e: Edge, type: String) -> bool:
+	if not types.has(type):
+		return false
+	var n := int(types[type].length)
+	for i in n:
+		if not in_bounds(Edge.new(e.vertex + _dir(e.along_y) * i, e.along_y)):
+			return false
+	for v in [e.vertex, span_end(e, type)]:
+		for other in _at(v):
+			var there: String = covering(other)[0]
+			if there == "" or other.along_y == e.along_y:
+				continue
+			if bool(types[type].keepOffCorners) or bool(types[there].keepOffCorners):
+				return false
+	return true
+
+
+## The walls whose middle lies in [param cell].
+func edges_in(cell: Vector2i) -> Array:
+	var out := []
+	var lo := Vector2i(floori((cell.x - 1.0) / cells_per_wall), floori((cell.y - 1.0) / cells_per_wall))
+	for x in range(lo.x, lo.x + 3):
+		for y in range(lo.y, lo.y + 3):
+			for along_y in [false, true]:
+				var e := Edge.new(Vector2i(x, y), along_y)
+				if floors.cell_at(edge_middle(e) + Vector2(0, -0.05 * world.px)) == cell:
+					out.append(e)
+	return out
+
+
+## Puts the wall on [param e] back to how the map loaded.
+func restore(e: Edge) -> void:
+	if original.has(e.key()):
+		place(e, original[e.key()])
+		return
+	var c := covering(e)
+	if c[0] != "" and not original.has((c[1] as Edge).key()):
+		remove(e)

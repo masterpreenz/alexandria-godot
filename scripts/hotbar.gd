@@ -79,10 +79,10 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 	# Bag and Character.
 	_quick = VBoxContainer.new()
 	_quick.alignment = BoxContainer.ALIGNMENT_END
-	for q in [["Bag", "I"], ["Character", "C"]]:
+	for q in [["Build", "B"], ["Bag", "I"], ["Character", "C"]]:
 		var btn := HudStyle.button("%s  %s" % [q[0], q[1]], 11, "pill")
-		btn.custom_minimum_size = Vector2(_k(96), _k(26))
-		btn.pressed.connect(_toggle_panel)
+		btn.custom_minimum_size = Vector2(_k(96), _k(22))
+		btn.pressed.connect(_toggle_build if q[0] == "Build" else _toggle_panel)
 		_quick.add_child(btn)
 	row.add_child(_quick)
 	_picker = PanelContainer.new()
@@ -121,6 +121,11 @@ func from_json(json: String) -> void:
 
 func to_json() -> String:
 	return JSON.stringify({"rows": rows, "slots": slots})
+
+
+func _toggle_build() -> void:
+	if BuildMode.active != null:
+		BuildMode.active.toggle()
 
 
 func _toggle_panel() -> void:
