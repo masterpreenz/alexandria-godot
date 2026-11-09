@@ -58,9 +58,9 @@ func grabbable() -> bool:
 
 
 ## The nearest rabbit she could grab within [param range] px of [param at], or null.
-static func nearest(at: Vector2, range: float) -> Rabbit:
+static func nearest(at: Vector2, reach: float) -> Rabbit:
 	var best: Rabbit = null
-	var best_d := range
+	var best_d := reach
 	for r in rabbits:
 		if not r.grabbable():
 			continue

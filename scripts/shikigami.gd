@@ -227,11 +227,11 @@ func _process_timed(delta: float) -> void:
 	# Eases after where it's going rather than sticking to it: it lags, speeds up and settles. (A thrust moves it itself.)
 	if not (kind == "Attacker" and strike != 0):
 		var walking := owner_velocity.length_squared() > 0.3 * world.px * world.px
-		var ease := float(s.followEase)
-		if kind == "Healer" and t < healing_until: ease = 0.12
-		elif recalled: ease *= 0.5
-		elif walking: ease *= 0.55
-		position = _smooth_damp(position, goal, ease, _px(s.speed) * (1.6 if recalled else 1.0), delta)
+		var eased := float(s.followEase)
+		if kind == "Healer" and t < healing_until: eased = 0.12
+		elif recalled: eased *= 0.5
+		elif walking: eased *= 0.55
+		position = _smooth_damp(position, goal, eased, _px(s.speed) * (1.6 if recalled else 1.0), delta)
 	else:
 		velocity = Vector2.ZERO
 	# Floats and bobs; faces the way it's going.
@@ -404,9 +404,9 @@ func _striking(t: float) -> Vector2:
 	var wind := float(s.windTime)
 	if strike == 1:
 		var k := clampf(e / wind, 0.0, 1.0)
-		var ease := 1.0 - (1.0 - k) * (1.0 - k)
+		var eased := 1.0 - (1.0 - k) * (1.0 - k)
 		var shake := Vector2.from_angle(randf() * TAU) * randf() * 0.025 * world.px if k > 0.7 else Vector2.ZERO
-		position = strike_from.lerp(strike_back, ease) + shake
+		position = strike_from.lerp(strike_back, eased) + shake
 		if not stab_sounded and e >= wind - float(s.stabLead):
 			stab_sounded = true
 			if s.stabSound != null:

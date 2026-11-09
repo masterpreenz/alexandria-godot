@@ -108,14 +108,14 @@ func _draw() -> void:
 		var x := 0.0
 		for e in needs.effects():
 			var c: Color = HudStyle.color("green") if e[1] else HudStyle.color("coral")
-			var name: String = e[0]
+			var nm: String = e[0]
 			var bf := HudStyle.font("bold")
-			var w := (bf.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11 * k)).x if bf else 60.0) + 16 * k
+			var w := (bf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(11 * k)).x if bf else 60.0) + 16 * k
 			var r := Rect2(Vector2(x, y), Vector2(w, TAG_H * k))
 			draw_style_box(HudStyle.piece("panel"), r)
-			_text(name, r.position + Vector2(0, r.size.y * 0.72), 11, "bold", c, w, HORIZONTAL_ALIGNMENT_CENTER)
+			_text(nm, r.position + Vector2(0, r.size.y * 0.72), 11, "bold", c, w, HORIZONTAL_ALIGNMENT_CENTER)
 			if _tag_rects.size() == _hovered:
-				tip = {"name": name, "color": c, "what": e[2] if e.size() > 2 else "", "x": x}
+				tip = {"name": nm, "color": c, "what": e[2] if e.size() > 2 else "", "x": x}
 			_tag_rects.append(r)
 			x += w + 4 * k
 		if not needs.effects().is_empty():
@@ -125,11 +125,11 @@ func _draw() -> void:
 		_tip(tip, y)
 
 
-func _text(s: String, at: Vector2, size: float, kind: String, c: Color, width := -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
+func _text(s: String, at: Vector2, sz: float, kind: String, c: Color, width := -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	var f := HudStyle.font(kind)
 	if f == null:
 		f = get_theme_default_font()
-	var px := roundi(size * HudStyle.SCALE)
+	var px := roundi(sz * HudStyle.SCALE)
 	draw_string_outline(f, at, s, align, width, px, 3, Color(0, 0, 0, 0.5))
 	draw_string(f, at, s, align, width, px, c)
 

@@ -90,8 +90,8 @@ static func trees_near(at: Vector2, radius: float) -> Array:
 
 ## A sheltered spot in the nearest wood to [param from]: beside a tree with at least [param neighbours] others close
 ## round it (else beside the nearest tree); null if there are no trees in [param range] units.
-static func forest(w: World, from: Vector2, neighbours := 2, range := 25.0) -> Variant:
-	var trees := trees_near(from, range * w.px)
+static func forest(w: World, from: Vector2, neighbours := 2, reach := 25.0) -> Variant:
+	var trees := trees_near(from, reach * w.px)
 	var best: Variant = null
 	var best_d := INF
 	var fallback: Variant = null
@@ -141,4 +141,5 @@ static func healthy_forest(w: World, at: Vector2, min_trees := 4, reach := 4.5) 
 	if trees < min_trees:
 		return false
 	var rot := Corruption.active.corrupted_near(at, reach * w.px) if Corruption.active != null else 0
+	@warning_ignore("integer_division")
 	return rot <= trees / 4

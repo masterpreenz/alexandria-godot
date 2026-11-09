@@ -53,7 +53,7 @@ static func _hide_characters(w: World) -> void:
 
 
 ## What to mark: [[where (px), colour, size (HUD px)]], creatures only while she's near them (awake), villagers always.
-static func marks(w: World) -> Array:
+static func marks(_w: World) -> Array:
 	var out := []
 	var ex := Exploration.active
 	for c in Creature.all:
@@ -79,6 +79,7 @@ static func _hostile(c: Node) -> bool:
 static func section_lines() -> Array:
 	var out := [MIN_CELL]
 	for i in range(1, SECTIONS):
+		@warning_ignore("integer_division")
 		out.append((i - SECTIONS / 2) * SECTION_SIZE)
 	out.append(MAX_CELL + 1)
 	return out
@@ -90,9 +91,13 @@ static func section_name(column: int, row: int) -> String:
 
 ## The tiles of section [param column], [param row] (from 0).
 static func section_bounds(column: int, row: int) -> Rect2i:
+	@warning_ignore("integer_division")
 	var x0 := MIN_CELL if column == 0 else (column - SECTIONS / 2) * SECTION_SIZE
+	@warning_ignore("integer_division")
 	var x1 := MAX_CELL + 1 if column == SECTIONS - 1 else (column + 1 - SECTIONS / 2) * SECTION_SIZE
+	@warning_ignore("integer_division")
 	var y0 := MIN_CELL if row == 0 else (row - SECTIONS / 2) * SECTION_SIZE
+	@warning_ignore("integer_division")
 	var y1 := MAX_CELL + 1 if row == SECTIONS - 1 else (row + 1 - SECTIONS / 2) * SECTION_SIZE
 	return Rect2i(x0, y0, x1 - x0, y1 - y0)
 

@@ -33,13 +33,13 @@ var _sub_viewports: Array = []
 
 
 ## Times one call: [code]var t := Time.get_ticks_usec()[/code] ... [code]Perf.add(&"name", t)[/code].
-static func add(name: StringName, since_usec: int) -> void:
+static func add(nm: StringName, since_usec: int) -> void:
 	if not on:
 		return
 	var us := Time.get_ticks_usec() - since_usec
-	var e: Variant = _frame.get(name)
+	var e: Variant = _frame.get(nm)
 	if e == null:
-		_frame[name] = [us, 1]
+		_frame[nm] = [us, 1]
 	else:
 		e[0] += us
 		e[1] += 1
@@ -78,9 +78,9 @@ func _ready() -> void:
 
 
 ## A SubViewport (the minimap's, the world map's) whose rendering is measured too.
-func watch_viewport(vp: SubViewport, name: String) -> void:
+func watch_viewport(vp: SubViewport, nm: String) -> void:
 	RenderingServer.viewport_set_measure_render_time(vp.get_viewport_rid(), true)
-	_sub_viewports.append([vp, name])
+	_sub_viewports.append([vp, nm])
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -155,7 +155,7 @@ func _sorted(table: Dictionary, per: float) -> Array:
 	return rows
 
 
-func _show(seconds: float) -> void:
+func _show(_seconds: float) -> void:
 	var frames := maxf(1.0, _frames)
 	var e := _engine()
 	var t := "[b]%d FPS[/b]  ·  frame %.1f ms avg, %.1f worst  ·  F3 hides\n" % [e.fps, _frame_ms_sum / frames, _worst_frame]

@@ -5,9 +5,9 @@ extends Label
 var _age := 0.0
 
 
-static func spawn(w: World, text: String, at: Vector2, color := Color.WHITE) -> void:
+static func spawn(w: World, msg: String, at: Vector2, color := Color.WHITE) -> void:
 	var l := FloatingText.new()
-	l.text = text
+	l.text = msg
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	l.add_theme_constant_override("outline_size", 6)

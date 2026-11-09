@@ -195,7 +195,7 @@ func _on_changed() -> void:
 		refresh()
 
 
-func _rich(size: float) -> RichTextLabel:
+func _rich(sz: float) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
 	r.fit_content = true
@@ -203,8 +203,8 @@ func _rich(size: float) -> RichTextLabel:
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_theme_font_override("normal_font", HudStyle.font("body"))
 	r.add_theme_font_override("bold_font", HudStyle.font("bold"))
-	r.add_theme_font_size_override("normal_font_size", roundi(_k(size)))
-	r.add_theme_font_size_override("bold_font_size", roundi(_k(size + 1)))
+	r.add_theme_font_size_override("normal_font_size", roundi(_k(sz)))
+	r.add_theme_font_size_override("bold_font_size", roundi(_k(sz + 1)))
 	r.add_theme_color_override("default_color", HudStyle.color("text"))
 	return r
 
@@ -632,10 +632,10 @@ class TalentWeb extends Control:
 				c = LOCKED.lerp(region, 0.55 if near else 0.18)
 			if searching and not _matches.has(t.id):
 				c = Color(c.lerp(LOCKED, 0.75), 0.5)
-			var scale := 1.18 if t.id == hovered else (1.25 if t.id == selection else 1.0)
+			var sc := 1.18 if t.id == hovered else (1.25 if t.id == selection else 1.0)
 			if searching and _matches.has(t.id) and t.id != hovered:
-				scale = pulse + (0.2 if _matches.find(t.id) == _focused else 0.0)
-			var r := node_size(t.kind) * 0.5 * k * scale
+				sc = pulse + (0.2 if _matches.find(t.id) == _focused else 0.0)
+			var r := node_size(t.kind) * 0.5 * k * sc
 			var p := _at(t)
 			if t.kind == "Big":
 				var pts := PackedVector2Array([p + Vector2(0, -r * 1.2), p + Vector2(r * 1.2, 0), p + Vector2(0, r * 1.2), p + Vector2(-r * 1.2, 0)])

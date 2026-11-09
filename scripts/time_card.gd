@@ -47,6 +47,7 @@ func _gui_input(event: InputEvent) -> void:
 			# On to the first day of the next season.
 			var days := clock.days_per_season
 			var day := clock.day() - 1
+			@warning_ignore("integer_division")
 			clock.hours = float((day / days + 1) * days) * 24.0 + clock.hour()
 			accept_event()
 

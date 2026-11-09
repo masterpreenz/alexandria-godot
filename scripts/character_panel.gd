@@ -61,7 +61,7 @@ var _points_button: Button
 var _badge: Label
 
 
-func setup(w: World, who: Miko, hud: Node) -> void:
+func setup(w: World, who: Miko, _hud: Node) -> void:
 	world = w
 	miko = who
 	stats = who.stats
@@ -224,8 +224,8 @@ func _build() -> void:
 	root.add_child(foot)
 
 
-func _label(key: String, size: float, kind := "bold", c: Variant = null) -> Label:
-	var l := HudStyle.label("", size, kind, c)
+func _label(key: String, sz: float, kind := "bold", c: Variant = null) -> Label:
+	var l := HudStyle.label("", sz, kind, c)
 	_labels[key] = l
 	return l
 
@@ -257,8 +257,8 @@ func _build_equipment() -> Control:
 	box.add_theme_constant_override("separation", int(_k(6)))
 	well.add_child(box)
 	var head := HBoxContainer.new()
-	var name := HudStyle.label("Miko", 18, "bold")
-	head.add_child(name)
+	var nm := HudStyle.label("Miko", 18, "bold")
+	head.add_child(nm)
 	head.add_child(_gap())
 	head.add_child(_label("level", 14, "pixel", HudStyle.color("accentLight")))
 	box.add_child(head)

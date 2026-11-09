@@ -251,14 +251,14 @@ func _animate(delta: float) -> void:
 		world.show_frame(art, pose, Vector2(-art_scale.x if pose_mirror else art_scale.x, art_scale.y))
 		return
 	if _casting:
-		var pose: Array = data.frames.castUpLeft if facing_up else data.frames.castDownLeft
-		if not pose.is_empty():
-			world.show_frame(art, int(pose[0]), Vector2(-art_scale.x if facing_right else art_scale.x, art_scale.y))
+		var pose_now: Array = data.frames.castUpLeft if facing_up else data.frames.castDownLeft
+		if not pose_now.is_empty():
+			world.show_frame(art, int(pose_now[0]), Vector2(-art_scale.x if facing_right else art_scale.x, art_scale.y))
 			return
 	if not _action_down.is_empty():
 		_action_clock += delta
-		var set: Array = _action_up if facing_up and not _action_up.is_empty() else _action_down
-		var frame := int(set[action_frame() % set.size()])
+		var seen: Array = _action_up if facing_up and not _action_up.is_empty() else _action_down
+		var frame := int(seen[action_frame() % seen.size()])
 		world.show_frame(art, frame, Vector2(-art_scale.x if facing_right else art_scale.x, art_scale.y))
 		return
 	var frames: Array

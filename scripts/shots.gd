@@ -6,17 +6,17 @@ class_name Shots
 ## [code]--zoom=z[/code], [code]--hour=h[/code] handled by the caller), waits a few frames, saves a screenshot and quits.
 static func take_if_asked(node: Node, camera: Camera2D) -> void:
 	var shot := ""
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--shot="): shot = arg.substr(7)
-		elif arg.begins_with("--at="):
-			var p := arg.substr(5).split(",")
+	for a2 in OS.get_cmdline_user_args():
+		if a2.begins_with("--shot="): shot = a2.substr(7)
+		elif a2.begins_with("--at="):
+			var p := a2.substr(5).split(",")
 			camera.position = Vector2(float(p[0]), float(p[1]))
-		elif arg.begins_with("--zoom="): camera.zoom = Vector2.ONE * float(arg.substr(7))
+		elif a2.begins_with("--zoom="): camera.zoom = Vector2.ONE * float(a2.substr(7))
 	if shot == "":
 		return
 	var frames := 8
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--frames="): frames = int(arg.substr(9))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--frames="): frames = int(a.substr(9))
 	for i in frames:
 		await RenderingServer.frame_post_draw
 	node.get_viewport().get_texture().get_image().save_png(shot)

@@ -140,10 +140,10 @@ func _ready() -> void:
 	var border := VillageBorder.new()
 	border.name = "VillageBorder"
 	border.setup(world)
-	var log := VillageLog.new()
-	log.name = "VillageLog"
-	log.theme = UiKit.theme
-	$Hud.add_child(log)
+	var log_panel := VillageLog.new()
+	log_panel.name = "VillageLog"
+	log_panel.theme = UiKit.theme
+	$Hud.add_child(log_panel)
 	var spoilage := Spoilage.new()
 	spoilage.name = "Spoilage"
 	add_child(spoilage)
@@ -387,6 +387,7 @@ func _ready() -> void:
 			var moff := mparts[1].split(",")
 			var mspot := miko.position + Vector2(float(moff[0]), float(moff[1]))
 			var md: Dictionary = world._load_json("res://data/monsters.json")
+			@warning_ignore("incompatible_ternary")
 			var m: Creature = Boar.spawn(world, md.boar, mspot) if mparts[0] == "boar" else Slime.spawn(world, md.slime, mparts[0] == "large", mspot, world.mist.power(mspot))
 			await get_tree().physics_frame
 			if Shots.arg("strike") != "":
@@ -398,6 +399,7 @@ func _ready() -> void:
 				await get_tree().process_frame
 				if Shots.arg("trace") != "" and i % 20 == 0 and is_instance_valid(m):
 					print(i, " ", m.position, " v ", m.velocity, " asleep ", m.asleep, " ", m.get("hopping"), " ", m.get("chasing"), " ", m.get("state"), " target ", m.get("target"), " rest ", m.get("rest_until"), " now ", Creature.now(), " physics ", Engine.get_physics_frames())
+			@warning_ignore("incompatible_ternary")
 			print("Monster ", m.name if is_instance_valid(m) else "gone", " hp ", m.hit.hp if is_instance_valid(m) else 0.0, "; her hp ", hp0, " -> ", miko.stats.hp, "; creatures ", Creature.all.size(), "; lost bag ", Fainting.LostBag.active != null)
 		if Shots.arg("sleep") != "":
 			# Lie down (on the nearest bed, if one's in reach) and sleep this many frames, for testing.
@@ -528,6 +530,17 @@ func _ready() -> void:
 				"cams":
 					for c in get_tree().root.find_children("*", "Camera2D", true, false):
 						print("Camera ", c.get_path(), " callback ", c.process_callback, " interp ", c.is_physics_interpolated())
+				"eat":
+					while Villager.all.is_empty():
+						await get_tree().process_frame
+					var v: Villager = Villager.all[0]
+					v.meal = "Meal"
+					v.state = Villager.State.EATING
+					v.state_until = Villager.now() + 60.0
+					miko.place(v.position + Vector2(1.5, 0.5) * world.px)
+					for i in 20:
+						v.state = Villager.State.EATING
+						await get_tree().process_frame
 				"saves":
 					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
 					($Hud/SaveMenu as SaveMenu).open()
@@ -574,7 +587,7 @@ func _process(delta: float) -> void:
 	Perf.add(&"game.process", __t)
 
 
-func _process_timed(delta: float) -> void:
+func _process_timed(_delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
 	if not BuildMode.is_open():

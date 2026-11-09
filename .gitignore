@@ -1,4 +1,5 @@
 # Godot's import cache and editor state
-.godot/
 *.translation
+.godot/
 export_presets.cfg
+warnings.txt

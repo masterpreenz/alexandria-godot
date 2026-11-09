@@ -23,7 +23,6 @@ var shikigami := {}          ## spell -> its shikigami's settings (shikigami.jso
 var _marker: Sprite2D
 var _pinned: Sprite2D
 var _circle: Sprite2D
-var _bar: Node2D
 var _bar_fill := 0.0
 var _bar_color := Color.WHITE
 var _charge: CPUParticles2D

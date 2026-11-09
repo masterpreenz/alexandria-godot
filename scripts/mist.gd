@@ -197,6 +197,7 @@ func _settle(delta: float) -> void:
 
 func _put(i: int) -> void:
 	var v := _shown[i]
+	@warning_ignore("integer_division")
 	_image.set_pixel(i % width, i / width, Color(clampf(v, 0.0, 1.0), clampf(v - 1.0, 0.0, 1.0), _near[i] / 255.0, 1.0))
 
 

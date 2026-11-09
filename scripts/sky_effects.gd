@@ -184,6 +184,7 @@ func _drive(p: CPUParticles2D, strength: float, rate: float) -> void:
 	var want := int(rate * strength * (view.x / world.px) / 12.0 * p.lifetime)
 	p.emitting = strength > 0.01
 	# Changing the count restarts the fall, so only on a real change, and pre-filled so the view is never empty.
+	@warning_ignore("integer_division")
 	if p.emitting and absi(p.amount - want) > maxi(p.amount / 2, 20):
 		p.amount = clampi(want, 1, 3000)
 		p.preprocess = p.lifetime

@@ -165,7 +165,7 @@ func _clear() -> void:
 
 # The rooms: cells closed in by walls with a laid floor on every cell, big enough to live in.
 func _find_rooms() -> Array:
-	var rooms := []
+	var found := []
 	var seen := {}
 	for k in walls.walls:
 		var start := WallMap.Edge.of(k)
@@ -173,24 +173,24 @@ func _find_rooms() -> Array:
 			var e := WallMap.Edge.new(start.vertex + WallMap._dir(start.along_y) * i, start.along_y)
 			var v := e.vertex
 			var sides := [Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]
-			for seed in sides:
-				if seen.has(seed):
+			for start2 in sides:
+				if seen.has(start2):
 					continue
-				var room := _fill(seed, seen)
+				var room := _fill(start2, seen)
 				if room.is_empty() or not _floored(room):
 					continue
 				var size := _size(room)
 				if size.x >= int(data.minRoomSize) and size.y >= int(data.minRoomSize):
-					rooms.append(room)
-	return rooms
+					found.append(room)
+	return found
 
 
 # Every cell reachable from seed without crossing a wall (fences don't stop it), or {} if that runs off the map or
 # past the most a room can be (not closed in).
-func _fill(seed: Vector2i, seen: Dictionary) -> Dictionary:
-	var room := {seed: true}
-	var open := [seed]
-	seen[seed] = true
+func _fill(start: Vector2i, seen: Dictionary) -> Dictionary:
+	var room := {start: true}
+	var open := [start]
+	seen[start] = true
 	var closed := true
 	var most := int(data.maxRoomCells)
 	while not open.is_empty():
@@ -283,7 +283,7 @@ func _add_chimney(roof: Dictionary, cells: Dictionary, spot: Vector2i, root: Vec
 	var overhang: float = data.overhang
 	var at := root + (floors.cell_centre(spot) + Vector2(0, -float(data.height)) - root) * overhang
 	var sort := _lid_order(spot, cells) + 1.28
-	var sprite := _tile(roof, art, at, sort, overhang)
+	var _sprite := _tile(roof, art, at, sort, overhang)
 	roof.chimney = spot
 	var info: Dictionary = world.sprites[art]
 	var top := at + Vector2(0, -(info.pivot[1] * world.px / info.ppu) * overhang + 0.08 * world.px)
@@ -310,8 +310,8 @@ func _tile_sprite(cell: Vector2i, edges: int, melted := false) -> int:
 		return FloorMap._sprite_for(snow[mini(edges, snow.size() - 1)], cell)
 	if look == "" or not (data.styles as Array).has(look):
 		look = _default_look(cell)
-	var set: Array = looks[look].whole
-	return FloorMap._sprite_for(set[mini(edges, set.size() - 1)], cell)
+	var seen: Array = looks[look].whole
+	return FloorMap._sprite_for(seen[mini(edges, seen.size() - 1)], cell)
 
 
 func _default_look(cell: Vector2i) -> String:
@@ -432,10 +432,10 @@ func missing_floor() -> Array:
 		for i in int(walls.types[walls.walls[k]].length):
 			var e := WallMap.Edge.new(start.vertex + WallMap._dir(start.along_y) * i, start.along_y)
 			var v := e.vertex
-			for seed in ([Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]):
-				if seen.has(seed):
+			for start2 in ([Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]):
+				if seen.has(start2):
 					continue
-				var room := _fill(seed, seen)
+				var room := _fill(start2, seen)
 				if room.is_empty():
 					continue
 				var bare := []

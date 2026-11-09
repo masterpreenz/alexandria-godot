@@ -133,18 +133,18 @@ func build(p: Dictionary) -> bool:
 		return false
 	for c in cost_of(p):
 		world.village.take_from_stash(c[0], int(c[1]))
-	var scale := float(p.get("scale", 1.0))
-	if scale <= 0.0:
-		scale = 1.0
+	var sc := float(p.get("scale", 1.0))
+	if sc <= 0.0:
+		sc = 1.0
 	if bool(p.get("prop", false)):
 		var t: Dictionary = world.props.types.get(p.type, {})
 		if not t.is_empty():
 			var turns := maxi(1, world.props._turns(t))
 			var turn := posmod(int(p.get("turn", 0)), turns) if turns > 1 else -1
 			if bool(p.get("free", false)):
-				world.props.place_free(position_of(p), p.type, scale, turn)
+				world.props.place_free(position_of(p), p.type, sc, turn)
 			else:
-				world.props.place(Vector2i(int(p.x), int(p.y)), p.type, scale, turn)
+				world.props.place(Vector2i(int(p.x), int(p.y)), p.type, sc, turn)
 	elif bool(p.get("wall", false)):
 		world.walls.place(WallMap.Edge.new(Vector2i(int(p.x), int(p.y)), bool(p.alongY)), p.type)
 	else:
@@ -245,9 +245,9 @@ func _remove_where(test: Callable) -> bool:
 
 
 ## A planned floor tile on [param cell] (replacing any plan there).
-func plan_floor(cell: Vector2i, floor: String, turned: bool) -> void:
+func plan_floor(cell: Vector2i, floor_name: String, turned: bool) -> void:
 	_remove_where(func(p): return not bool(p.get("wall", false)) and not bool(p.get("prop", false)) and int(p.x) == cell.x and int(p.y) == cell.y)
-	_add({"wall": false, "prop": false, "free": false, "x": cell.x, "y": cell.y, "type": floor, "turned": turned, "ready": false, "scale": 1.0})
+	_add({"wall": false, "prop": false, "free": false, "x": cell.x, "y": cell.y, "type": floor_name, "turned": turned, "ready": false, "scale": 1.0})
 
 
 ## A planned wall on [param edge].
@@ -285,15 +285,15 @@ func clear_drafts() -> int:
 
 
 ## A planned prop (furniture and the like) on [param cell]: set up once the floor and walls are in.
-func plan_prop(cell: Vector2i, type: String, turn: int, scale: float) -> void:
+func plan_prop(cell: Vector2i, type: String, turn: int, sc: float) -> void:
 	_remove_where(func(p): return bool(p.get("prop", false)) and not bool(p.get("free", false)) and int(p.x) == cell.x and int(p.y) == cell.y)
-	_add({"wall": false, "prop": true, "free": false, "x": cell.x, "y": cell.y, "type": type, "turn": turn, "ready": false, "scale": scale if scale > 0.0 else 1.0})
+	_add({"wall": false, "prop": true, "free": false, "x": cell.x, "y": cell.y, "type": type, "turn": turn, "ready": false, "scale": sc if sc > 0.0 else 1.0})
 
 
 ## A planned prop set down freely at [param at] (cell coordinates).
-func plan_free(at: Vector2, type: String, turn: int, scale: float) -> void:
+func plan_free(at: Vector2, type: String, turn: int, sc: float) -> void:
 	_add({"wall": false, "prop": true, "free": true, "x": floori(at.x), "y": floori(at.y), "fx": at.x, "fy": at.y, "type": type, "turn": turn,
-		"ready": false, "scale": scale if scale > 0.0 else 1.0})
+		"ready": false, "scale": sc if sc > 0.0 else 1.0})
 
 
 ## Every ghost drawn for a plan (for hiding them while building).

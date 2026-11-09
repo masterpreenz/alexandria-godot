@@ -94,14 +94,15 @@ func _build() -> void:
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			row.add_child(icon)
-			var name := HudStyle.label(UiKit.resource_name(c[0]), 12, "bold")
-			name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(name)
+			var nm := HudStyle.label(UiKit.resource_name(c[0]), 12, "bold")
+			nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(nm)
 			row.add_child(HudStyle.label("%d / %d" % [have, c[1]], 12, "bold", HudStyle.color("green") if enough else HudStyle.color("coral")))
 			line.add_child(row)
 			_box.add_child(line)
 		_box.add_child(HudStyle.label("Counts what you carry and what's in the village chests." if v.in_reach(miko) else "Counts what you carry.", 11, "body", HudStyle.color("faint")))
 		# Grow it: solid amber when it can be paid for.
+		@warning_ignore("incompatible_ternary")
 		var b := HudStyle.button("Choose where to grow" if can else "Not enough yet", 13, "barFill" if can else "pill", HudStyle.color("ink") if can else null)
 		b.custom_minimum_size.y = 36 * k
 		b.disabled = not can

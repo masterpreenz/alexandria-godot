@@ -57,6 +57,7 @@ static func apply_window() -> void:
 	var screen := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
 	var size := Vector2i(mini(resolution.x, screen.size.x), mini(resolution.y, screen.size.y))
 	DisplayServer.window_set_size(size)
+	@warning_ignore("integer_division")
 	DisplayServer.window_set_position(screen.position + (screen.size - size) / 2)
 
 

@@ -166,6 +166,7 @@ func _footer(box: VBoxContainer) -> void:
 
 
 func _button(text: String, main: bool, warn := false) -> Button:
+	@warning_ignore("incompatible_ternary")
 	var b := HudStyle.button(text, 12, "barFill" if main or warn else "pill", HudStyle.color("ink") if main or warn else null)
 	if main:
 		b.add_theme_stylebox_override("normal", HudStyle.piece("barFill", HudStyle.color("accent")))
@@ -179,6 +180,7 @@ func _button(text: String, main: bool, warn := false) -> Button:
 
 static func _played(seconds: float) -> String:
 	var m := int(seconds / 60.0)
+	@warning_ignore("integer_division")
 	return "%dh %02dm played" % [m / 60, m % 60] if m >= 60 else "%dm played" % m
 
 
@@ -213,9 +215,9 @@ func _save_row(slot: String, s: Dictionary) -> Control:
 		top.add_child(field)
 		field.call_deferred("grab_focus")
 	else:
-		var name := HudStyle.label(str(s.get("name", slot)), 14, "bold", HudStyle.color("accentLight") if slot in [SaveSystem.AUTO, SaveSystem.QUICK] else HudStyle.color("text"))
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		top.add_child(name)
+		var nm := HudStyle.label(str(s.get("name", slot)), 14, "bold", HudStyle.color("accentLight") if slot in [SaveSystem.AUTO, SaveSystem.QUICK] else HudStyle.color("text"))
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(nm)
 	top.add_child(HudStyle.label(_when(str(s.get("savedAt", ""))), 11, "bold", HudStyle.color("faint")))
 	col.add_child(top)
 	col.add_child(HudStyle.label("%s, day %d · %s · Lv %d · %s · %s" % [s.get("season", ""), int(s.get("day", 1)), s.get("time", ""), int(s.get("level", 1)),

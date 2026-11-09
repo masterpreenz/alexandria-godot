@@ -259,12 +259,12 @@ func _details() -> void:
 	else:
 		var it := UiKit.item(r.item)
 		_kind.text = str(it.get("label", "")) + ("  ·  for the villagers (goes to storage)" if bool(r.get("toStorage", false)) else "  ·  into your bag")
-		var lines := [str(it.get("description", ""))]
+		var item_lines := [str(it.get("description", ""))]
 		for st in it.get("stats", []):
-			lines.append("+%s%s %s" % [CharacterStats.fmt(float(st[1])), st[2], st[0]])
+			item_lines.append("+%s%s %s" % [CharacterStats.fmt(float(st[1])), st[2], st[0]])
 		if int(it.get("bagSlots", 0)) > 0:
-			lines.append("+%d slots" % int(it.bagSlots))
-		info = "\n".join(lines.filter(func(l): return l != ""))
+			item_lines.append("+%d slots" % int(it.bagSlots))
+		info = "\n".join(item_lines.filter(func(l): return l != ""))
 	_info.text = info
 	# What it takes, and how much she has of each.
 	var green := HudStyle.color("green").to_html(false)

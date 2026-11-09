@@ -196,9 +196,9 @@ func _refresh() -> void:
 			c.tooltip_text = "%s  ·  %d / %d" % [UiKit.resource_name(r), v.stored(r), v.stash_cap(r)]
 			c.on_click = _take.bind(r)
 		else:
-			var name: String = v.items[what[1]]
-			c.show_item(name)
-			c.tooltip_text = str(UiKit.item(name).get("name", name))
+			var nm2: String = v.items[what[1]]
+			c.show_item(nm2)
+			c.tooltip_text = str(UiKit.item(nm2).get("name", nm2))
 			c.on_click = _take_item.bind(int(what[1]))
 	# The bag, in its own layout: its gear and stacks, the slots past what she has shut.
 	var cap := bag.capacity()
@@ -207,9 +207,9 @@ func _refresh() -> void:
 		var c: Cell = _bag_grid.get_child(i)
 		c.shut = i >= cap
 		if bag.items[i] != "":
-			var name: String = bag.items[i]
-			c.show_item(name)
-			c.tooltip_text = str(UiKit.item(name).get("name", name))
+			var nm: String = bag.items[i]
+			c.show_item(nm)
+			c.tooltip_text = str(UiKit.item(nm).get("name", nm))
 			c.on_click = _store_item.bind(i)
 		elif bag.stack_in(i) != "":
 			var r := bag.stack_in(i)
@@ -434,9 +434,9 @@ func show_totals(on: bool) -> void:
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		row.add_child(icon)
-		var name := HudStyle.label(UiKit.resource_name(r), 12, "bold")
-		name.custom_minimum_size.x = 140 * k
-		row.add_child(name)
+		var nm := HudStyle.label(UiKit.resource_name(r), 12, "bold")
+		nm.custom_minimum_size.x = 140 * k
+		row.add_child(nm)
 		var c := HudStyle.label("%d / %d" % [carried, Village.base_cap(r)] if r != "Gold" else str(carried), 12, "pixel", HudStyle.color("muted"))
 		c.custom_minimum_size.x = 70 * k
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -477,13 +477,13 @@ class Cell extends Control:
 		_count = str(n)
 		_count_c = c
 
-	func show_item(name: String) -> void:
+	func show_item(nm: String) -> void:
 		show_nothing()
-		var it := UiKit.item(name)
+		var it := UiKit.item(nm)
 		_icon = UiKit.sprite_texture(int(it.get("icon", -1)))
 		if _icon == null:
 			_tile = UiKit.kind_color(it.get("kind", ""))
-			_initials = UiKit.initials(it.get("name", name))
+			_initials = UiKit.initials(it.get("name", nm))
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)

@@ -175,23 +175,23 @@ class LostBag extends Node2D:
 
 	## Takes this life's loot out of [param from] into a bag at [param at]; replaces any bag already lying out.
 	static func drop(w: World, from: Bag, loot: Dictionary, at: Vector2) -> void:
-		var counts := {}
+		var amounts := {}
 		for r in loot:
 			var n := mini(int(loot[r]), from.count(r))
 			if n > 0 and from.spend(r, n):
-				counts[r] = n
-		make(w, counts, at)
+				amounts[r] = n
+		make(w, amounts, at)
 
 	## A lost bag holding [param counts] at [param at] (a new one, or one from the save); replaces any lying out.
-	static func make(w: World, counts: Dictionary, at: Vector2) -> void:
+	static func make(w: World, amounts: Dictionary, at: Vector2) -> void:
 		if active != null and is_instance_valid(active):
 			active.queue_free()  # the old one is lost
 		active = null
-		if counts.is_empty():
+		if amounts.is_empty():
 			return
 		var b := LostBag.new()
 		b.world = w
-		b.counts = counts
+		b.counts = amounts
 		b.position = at
 		b.phase = randf() * 6.0
 		b.icon = Sprite2D.new()

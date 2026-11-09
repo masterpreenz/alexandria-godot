@@ -26,6 +26,7 @@ var _bar_until := -1.0
 
 func setup(w: World, side: int, hp_max: float, body_radius: float, body_height: float) -> void:
 	world = w
+	@warning_ignore("int_as_enum_without_cast")
 	team = side
 	max_hp = maxf(1.0, hp_max)
 	hp = max_hp

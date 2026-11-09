@@ -160,25 +160,25 @@ func on_floor(p: Vector2) -> bool:
 
 ## Paints ground on [param cell], or lays a laid floor on top (turned a quarter if [param turn] and it can turn); the
 ## base floor (or "") erases the ground.
-func paint(cell: Vector2i, floor: String, turn := false) -> void:
+func paint(cell: Vector2i, floor_name: String, turn := false) -> void:
 	if not in_bounds(cell):
 		return
-	if floor != "" and is_whole(floor):
-		turn = turn and can_turn(floor)
-		if get_laid(cell) == floor and is_turned(cell) == turn:
+	if floor_name != "" and is_whole(floor_name):
+		turn = turn and can_turn(floor_name)
+		if get_laid(cell) == floor_name and is_turned(cell) == turn:
 			return
-		laid[cell] = floor
+		laid[cell] = floor_name
 		laid_version += 1
 		if turn: turned[cell] = true
 		else: turned.erase(cell)
 		_changed(cell)
 		return
-	if floor == "" or floor == base_floor:
+	if floor_name == "" or floor_name == base_floor:
 		erase(cell)
 		return
-	if get_floor(cell) == floor:
+	if get_floor(cell) == floor_name:
 		return
-	cells[cell] = floor
+	cells[cell] = floor_name
 	_changed(cell)
 
 
@@ -358,8 +358,8 @@ func _draw_whole(n: String, cell: Vector2i) -> void:
 	var sprite := -1
 	if get_laid(cell) == n:
 		var edges := (1 if get_laid(cell - Vector2i.RIGHT) != n else 0) | (2 if get_laid(cell - Vector2i(0, 1)) != n else 0)
-		var set: Array = types[n].turned if is_turned(cell) and can_turn(n) else types[n].whole
-		sprite = _sprite_for(set[mini(edges, set.size() - 1)], cell)
+		var seen: Array = types[n].turned if is_turned(cell) and can_turn(n) else types[n].whole
+		sprite = _sprite_for(seen[mini(edges, seen.size() - 1)], cell)
 	_layers[n].put(cell, cell_centre(cell), sprite)
 
 

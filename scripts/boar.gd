@@ -53,10 +53,10 @@ static func spawn(w: World, d: Dictionary, at: Vector2) -> Boar:
 	var tex_size := float(Puffs.TEX.get_width())
 	b.dust.scale_amount_min = 0.25 * w.px / tex_size
 	b.dust.scale_amount_max = 0.5 * w.px / tex_size
-	var grow := Curve.new()
-	grow.add_point(Vector2(0, 0.6))
-	grow.add_point(Vector2(1, 1.8))
-	b.dust.scale_amount_curve = grow
+	var grows := Curve.new()
+	grows.add_point(Vector2(0, 0.6))
+	grows.add_point(Vector2(1, 1.8))
+	b.dust.scale_amount_curve = grows
 	var g := Gradient.new()
 	g.set_color(0, Color(0.72, 0.62, 0.5, 0.75))
 	g.set_color(1, Color(0.55, 0.48, 0.4, 0.0))

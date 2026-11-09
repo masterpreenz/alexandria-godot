@@ -412,9 +412,9 @@ class ItemTile extends Control:
 
 # The picked house (Inspect): what it's given to and its bonus, what's in it, its roof, and saving it.
 func _house_card() -> void:
-	var show: bool = build.tool == "Inspect" and build.picked_room != null
-	_card.visible = show
-	if not show or _card_for == build.picked_room:
+	var shows: bool = build.tool == "Inspect" and build.picked_room != null
+	_card.visible = shows
+	if not shows or _card_for == build.picked_room:
 		return
 	_card_for = build.picked_room
 	for ch in _card_box.get_children():

@@ -73,8 +73,8 @@ func _crop_name(i: int) -> String:
 	return _resources[i - 1] if i > 0 and i - 1 < _resources.size() else ""
 
 
-func _crop_index(name: String) -> int:
-	return _resources.find(name) + 1 if name != "" else 0
+func _crop_index(nm: String) -> int:
+	return _resources.find(nm) + 1 if nm != "" else 0
 
 
 func _hours() -> float:
@@ -183,9 +183,9 @@ func _show(p: Dictionary) -> void:
 			world.show_frame(sprite, id, Vector2.ONE * scale)
 
 
-func nearest(at: Vector2, range: float) -> Dictionary:
+func nearest(at: Vector2, reach: float) -> Dictionary:
 	var best := {}
-	var best_d := range
+	var best_d := reach
 	for p in plots:
 		var dd: float = p.pos.distance_to(at)
 		if dd < best_d:
@@ -233,11 +233,11 @@ func _process_timed(_delta: float) -> void:
 		0:
 			var pick := _pick(p)
 			var c: String = pick[1]
-			var seed: String = CROPS[c].seed
-			var have := world.village.have(miko.bag, miko, seed)
-			_say("E plant %s  ·  %d %s  ·  R %s" % [CROPS[c].plural, have, UiKit.resource_name(seed).to_lower(), set_to] if pick[0]
-				else "Bare plot  ·  needs %s to plant  ·  R %s" % [UiKit.resource_name(seed).to_lower(), set_to])
-			if keys.has("e") and pick[0] and world.village.take(miko.bag, miko, seed, 1):
+			var got_seed: String = CROPS[c].seed
+			var have := world.village.have(miko.bag, miko, got_seed)
+			_say("E plant %s  ·  %d %s  ·  R %s" % [CROPS[c].plural, have, UiKit.resource_name(got_seed).to_lower(), set_to] if pick[0]
+				else "Bare plot  ·  needs %s to plant  ·  R %s" % [UiKit.resource_name(got_seed).to_lower(), set_to])
+			if keys.has("e") and pick[0] and world.village.take(miko.bag, miko, got_seed, 1):
 				st.sown = true
 				st.sownAt = _hours()
 				st.crop = c
@@ -250,8 +250,8 @@ func _process_timed(_delta: float) -> void:
 				LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 		1:
 			var h := hours_left(p)
-			var name: String = CROPS[crop(p)].plural.capitalize()
-			_say(("%s growing  ·  %d h to go" % [name, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % name) + "  ·  R " + set_to)
+			var nm: String = CROPS[crop(p)].plural.capitalize()
+			_say(("%s growing  ·  %d h to go" % [nm, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % nm) + "  ·  R " + set_to)
 		_:
 			_say("Press E to harvest the " + CROPS[crop(p)].plural)
 			if keys.has("e"):

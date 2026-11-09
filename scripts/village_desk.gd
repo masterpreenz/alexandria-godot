@@ -62,9 +62,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func _nearest_chest(range: float) -> Variant:
+func _nearest_chest(reach: float) -> Variant:
 	var best: Variant = null
-	var best_d := range * world.px
+	var best_d := reach * world.px
 	for at in world.props_named("Chest"):
 		var d: float = miko.position.distance_to(at)
 		if d < best_d:

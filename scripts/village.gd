@@ -344,6 +344,7 @@ func cant_add(rect: Rect2i) -> String:
 					break
 	if touching < 3:
 		return "Put it against the village's edge"
+	@warning_ignore("integer_division")
 	if fresh < rect.size.x * rect.size.y / 2:
 		return "Most of it is village already"
 	return ""

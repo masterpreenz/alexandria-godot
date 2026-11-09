@@ -135,9 +135,10 @@ func effects() -> Array:
 	return list
 
 
-func _timed(name: String, until: float) -> String:
+func _timed(nm: String, until: float) -> String:
 	var secs := maxi(0, ceili(until - _now()))
-	return "%s %d:%02d" % [name, secs / 60, secs % 60]
+	@warning_ignore("integer_division")
+	return "%s %d:%02d" % [nm, secs / 60, secs % 60]
 
 
 # A stat block as a short line: "+0.5 HP regen, +1 mana regen, +5% speed".
@@ -338,9 +339,9 @@ func _frames() -> Array:
 
 
 ## The nearest bed within [param range] px: {pos, e (its prop entry), type, settings, points}, or {}.
-func nearest_bed(at: Vector2, range: float) -> Dictionary:
+func nearest_bed(at: Vector2, reach: float) -> Dictionary:
 	var best := {}
-	var best_d := range
+	var best_d := reach
 	for type in data.get("beds", {}):
 		for b in world.props.entries_named(type):
 			var d: float = b.pos.distance_to(at)

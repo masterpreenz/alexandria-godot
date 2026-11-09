@@ -18,7 +18,7 @@ var seconds_per_day := 720.0
 var days_per_season := 7
 var start_season := Season.SPRING
 var weather_hours := 6.0
-var seed := 1234
+var weather_seed := 1234
 ## How many times faster than usual the day passes (faster while sleeping).
 var speed := 1.0
 ## Game hours since midnight of day 1.
@@ -39,6 +39,7 @@ func hour() -> float:
 
 
 func season() -> int:
+	@warning_ignore("integer_division")
 	return (start_season + (day() - 1) / maxi(1, days_per_season)) % 4
 
 
@@ -63,6 +64,7 @@ func daylight() -> float:
 ## The time as "8:30 AM".
 func time_text() -> String:
 	var total := floori(hour() * 60.0)
+	@warning_ignore("integer_division")
 	var h := total / 60
 	var h12 := 12 if h % 12 == 0 else h % 12
 	return "%d:%02d %s" % [h12, total % 60, "AM" if h < 12 else "PM"]
@@ -99,6 +101,7 @@ func _update_weather() -> void:
 		return
 	_slot = slot
 	var before := weather()
+	@warning_ignore("int_as_enum_without_cast")
 	_rolled = _roll(slot)
 	if weather() != before:
 		weather_changed.emit(weather())
@@ -106,7 +109,7 @@ func _update_weather() -> void:
 
 # The weather for one stretch of hours, from how likely each kind is this season.
 func _roll(slot: int) -> int:
-	var h := hash(seed * 7919 + slot)
+	var h := hash(weather_seed * 7919 + slot)
 	var r := float(h & 0xFFFFFF) / float(0x1000000)
 	match season():
 		Season.SPRING: return Weather.CLEAR if r < 0.5 else Weather.CLOUDY if r < 0.75 else Weather.RAIN if r < 0.92 else Weather.STORM

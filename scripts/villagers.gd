@@ -207,7 +207,7 @@ func _newcomer() -> Dictionary:
 	var pool: Array = NAMES[mini(look, NAMES.size() - 1)]
 	var nm := ""
 	for n in pool:
-		if not people.any(func(p): return p.name == n):
+		if not people.any(func(q): return q.name == n):
 			nm = n
 			break
 	if nm == "":

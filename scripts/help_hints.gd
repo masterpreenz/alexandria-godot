@@ -134,11 +134,11 @@ func _watch() -> void:
 		_last[r] = n
 		return more
 	var potato: bool = got.call("Potato")
-	var seed: bool = got.call("Seed")
+	var got_seed: bool = got.call("Seed")
 	var meat: bool = got.call("Food")
 	if potato:
 		hint("potato", UiKit.resource_icon("Potato"), "Potatoes", "A potato is its own seed. Build a Farm Plot (B, Farming), then press E on it to plant one: it grows into 3 to 5 more. Or bake it at a bonfire.")
-	if seed:
+	if got_seed:
 		hint("seed", UiKit.resource_icon("Seed"), "A tree seed", "Felled trees sometimes drop a seed. Press T to plant it, and a new tree grows there.")
 	var fires: Fires = miko.get_node_or_null("Fires")
 	var at_fire := fires != null and not fires.nearest(miko.position, 2.5 * world.px, true, true).is_empty()

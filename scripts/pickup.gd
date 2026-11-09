@@ -31,7 +31,7 @@ var shadow: Sprite2D
 
 
 ## Throws sprite [param sprite_id] out of [param from] in a random direction, worth [param amt] of [param res].
-static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector2, scale := 0.35, throw_speed := 1.0) -> Pickup:
+static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector2, sc := 0.35, throw_speed := 1.0) -> Pickup:
 	var p := Pickup.new()
 	p.world = w
 	p.resource = res
@@ -45,11 +45,11 @@ static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector
 	p.shadow = Sprite2D.new()
 	p.shadow.texture = _shadow()
 	p.shadow.modulate = Color(0, 0, 0, 0.3)
-	p.shadow.scale = Vector2(0.28, 0.14) * (scale / 0.35) * w.px / 32.0
+	p.shadow.scale = Vector2(0.28, 0.14) * (sc / 0.35) * w.px / 32.0
 	p.add_child(p.shadow)
 	p.art = Sprite2D.new()
 	if sprite_id >= 0:
-		w.show_frame(p.art, sprite_id, Vector2(scale, scale))
+		w.show_frame(p.art, sprite_id, Vector2(sc, sc))
 		# Centred on the spot, not standing on its pivot.
 		p.art.centered = true
 		p.art.offset = Vector2.ZERO
@@ -90,10 +90,11 @@ static func launch_icon(w: World, res: String, amt: int, from: Vector2, throw_sp
 
 
 ## Drops [param amount] of [param res] at [param at] in up to three pieces (Unity's Village.Drop: coins from a monster).
-static func drop(w: World, res: String, amount: int, at: Vector2) -> void:
-	var pieces := clampi(amount, 1, 3)
+static func drop(w: World, res: String, amt: int, at: Vector2) -> void:
+	var pieces := clampi(amt, 1, 3)
 	for i in pieces:
-		var share := amount / pieces + (1 if i < amount % pieces else 0)
+		@warning_ignore("integer_division")
+		var share := amt / pieces + (1 if i < amt % pieces else 0)
 		if share > 0:
 			launch_icon(w, res, share, at + Vector2(0, -0.3 * w.px))
 

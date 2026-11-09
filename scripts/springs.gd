@@ -259,6 +259,7 @@ func _build(sp: Dictionary, radius: float) -> void:
 		var i := k % POINTS
 		var before := (i + POINTS - 1) % POINTS
 		var step: float = (rim[i] as Vector2).distance_to(rim[before]) if k > 0 else 0.0
+		@warning_ignore("integer_division")
 		var at := cv.size() / 2
 		var top := _world(rim[i])
 		var sk: float = sink.call(i)

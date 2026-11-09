@@ -72,9 +72,9 @@ func hours_to_litter(p: Pen) -> float:
 
 
 ## The nearest pen within [param range] px of [param at], or null.
-func nearest(at: Vector2, range: float) -> Pen:
+func nearest(at: Vector2, reach: float) -> Pen:
 	var best: Pen = null
-	var best_d := range
+	var best_d := reach
 	for p in pens.values():
 		var d: float = p.at.distance_to(at)
 		if d < best_d:

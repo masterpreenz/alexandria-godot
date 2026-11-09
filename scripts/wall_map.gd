@@ -116,8 +116,8 @@ func set_kept_open(start: Edge, on: bool) -> void:
 
 
 ## The door (a wall with a toggle) whose middle is nearest [param p], within [param range]: [edge, type] or [].
-func nearest_door(p: Vector2, range: float) -> Array:
-	var best := range
+func nearest_door(p: Vector2, reach: float) -> Array:
+	var best := reach
 	var found := []
 	var around := vertex_at(p)
 	for x in range(around.x - 3, around.x + 4):

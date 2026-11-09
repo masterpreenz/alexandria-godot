@@ -263,9 +263,9 @@ func _process_timed(delta: float) -> void:
 
 # ---- Teleport ----
 
-func _at_crystal(range: float) -> Dictionary:
+func _at_crystal(reach: float) -> Dictionary:
 	for c in teleports:
-		if c.pos.distance_to(miko.position) <= range * _px():
+		if c.pos.distance_to(miko.position) <= reach * _px():
 			return c
 	return {}
 
@@ -378,6 +378,7 @@ func _check_edge(wd: Dictionary) -> void:
 	m.position = wd.pos
 	m.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINTS
 	m.emission_points = pts
+	@warning_ignore("integer_division")
 	m.amount = clampi(pts.size() / 3, 1, 60)
 	m.emitting = not pts.is_empty()
 
@@ -398,6 +399,7 @@ func _curtain(wd: Dictionary, delta: float) -> void:
 
 # One half of the curtain: a band round the ellipse, from the ground up, its brightness rippling round.
 func _half(wd: Dictionary, mi: MeshInstance2D, back_half: bool) -> void:
+	@warning_ignore("integer_division")
 	var n := SEGMENTS / 2
 	var px := _px()
 	var r := WARD_RADIUS * px

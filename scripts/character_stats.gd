@@ -88,8 +88,8 @@ func set_hp(v: float) -> void:
 	changed.emit()
 
 
-func stat(name: String) -> float:
-	return float(total().get(name, 0.0))
+func stat(nm: String) -> float:
+	return float(total().get(nm, 0.0))
 
 
 ## A stat that's a percentage bonus, as a multiplier (10 -> 1.1).
@@ -196,11 +196,11 @@ func shield() -> float:
 	return t
 
 
-func set_guard(source, percent: float) -> void:
-	if percent <= 0.0:
+func set_guard(source, pct: float) -> void:
+	if pct <= 0.0:
 		guards.erase(source)
 	else:
-		guards[source] = percent
+		guards[source] = pct
 
 
 func guard() -> float:

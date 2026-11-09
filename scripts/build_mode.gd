@@ -130,9 +130,9 @@ func status_of(it: Dictionary) -> String:
 	return "Ready" if world.village.can_afford(miko.bag, miko, it.cost) else "Short"
 
 
-func item_for(kind: String, name: String) -> Dictionary:
+func item_for(kind: String, nm: String) -> Dictionary:
 	for it in items:
-		if it.name == name and (it.kind == kind or (kind == "Floor" and it.kind == "Ground") or (kind == "Ground" and it.kind == "Floor")):
+		if it.name == nm and (it.kind == kind or (kind == "Floor" and it.kind == "Ground") or (kind == "Ground" and it.kind == "Floor")):
 			return it
 	return {}
 
@@ -340,12 +340,12 @@ func main_road(cell: Vector2i) -> bool:
 	return _road_floors().has(world.floors.original.get(cell, world.floors.base_floor))
 
 
-static func _paving(floor: String) -> bool:
-	return floor.begins_with("Path")
+static func _paving(floor_name: String) -> bool:
+	return floor_name.begins_with("Path")
 
 
-func _paving_road(cell: Vector2i, floor: String) -> bool:
-	return _paving(floor) and world.floors.is_whole(floor) and main_road(cell)
+func _paving_road(cell: Vector2i, floor_name: String) -> bool:
+	return _paving(floor_name) and world.floors.is_whole(floor_name) and main_road(cell)
 
 
 func _wall_no_build(e: WallMap.Edge, type: String) -> bool:
@@ -441,9 +441,11 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	var prop_scale: float = float(settings.get("propScales", [1, 1.5, 2])[mini(brush, 2)]) if placing_prop and _sizable(selected) else 1.0
 	var painting := not clear and (k == "Ground" or k == "Floor")
 	var size := brush_size() if painting or clear else 1
+	@warning_ignore("integer_division")
 	var low := cell - Vector2i.ONE * ((size - 1) / 2)
-	var visible := not over_ui and f.in_bounds(cell)
+	var shown := not over_ui and f.in_bounds(cell)
 	var edge: WallMap.Edge = world.walls.edge_at(point, _wall_along_y if wall_mode else null, 0.2) if world.walls != null else null
+	@warning_ignore("incompatible_ternary")
 	_wall_along_y = edge.along_y if wall_mode else null
 	var status := "Ready" if clear else status_of(selected)
 	var laid_floor := painting and f.is_whole(selected.name)
@@ -459,7 +461,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		can_here = can_here and world.walls.can_place(edge, selected.name) and not _wall_no_build(edge, selected.name)
 	# What the cursor would do, for the bar's tooltip.
 	if clear:
-		hover = _demolish_hover(cell, visible)
+		hover = _demolish_hover(cell, shown)
 	elif selected.is_empty():
 		hover = {}
 	else:
@@ -470,14 +472,14 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		elif building and no_build(cell): note = "Can't build on the road"
 		elif why != "": note = why
 		elif wall_mode and not world.walls.can_place(edge, selected.name): note = "Doors and windows keep off corners"
-		hover = {"show": visible, "title": selected.display, "tier": int(selected.get("tier", 1)), "status": status, "costs": selected.cost, "note": note,
+		hover = {"show": shown, "title": selected.display, "tier": int(selected.get("tier", 1)), "status": status, "costs": selected.cost, "note": note,
 			"plan": blueprint and (wall_mode or laid_floor)}
 	# The feedback in the world.
 	_cells.clear()
 	_wall_ghost = null
 	_prop_ghost = {}
 	_ring = 0.0
-	if visible and not selected.is_empty() or (visible and clear):
+	if shown and not selected.is_empty() or (shown and clear):
 		if wall_mode:
 			_wall_ghost = [world.walls.vertex_position(edge.vertex), world.walls.vertex_position(world.walls.span_end(edge, selected.name))]
 		elif not placing_free:
@@ -541,6 +543,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 
 func _stamp(centre: Vector2i, clear: bool) -> void:
 	var size := brush_size()
+	@warning_ignore("integer_division")
 	var low := centre - Vector2i.ONE * ((size - 1) / 2)
 	var placed := false
 	for x in size:
@@ -565,28 +568,28 @@ func _stamp(centre: Vector2i, clear: bool) -> void:
 		turn = not turn
 
 
-func _paint(cell: Vector2i, floor: String, turned: bool) -> void:
+func _paint(cell: Vector2i, floor_name: String, is_turned: bool) -> void:
 	var f := world.floors
-	var laid := f.is_whole(floor)
-	var paving := _paving_road(cell, floor)
+	var laid := f.is_whole(floor_name)
+	var paving := _paving_road(cell, floor_name)
 	if laid and no_build(cell) and not paving:
 		return
 	# The main road stays a road: no grass over it.
-	if not laid and floor == f.base_floor and main_road(cell):
+	if not laid and floor_name == f.base_floor and main_road(cell):
 		_say("The main road stays: pave it instead", f.cell_centre(cell))
 		return
-	var changes := (f.get_laid(cell) != floor) if laid else (f.get_floor(cell) != floor)
+	var changes := (f.get_laid(cell) != floor_name) if laid else (f.get_floor(cell) != floor_name)
 	if laid and changes and blueprint and Construction.active != null:
 		if paving or not _outside(f.cell_centre(cell), true):
-			Construction.active.plan_floor(cell, floor, turned and f.can_turn(floor))
+			Construction.active.plan_floor(cell, floor_name, is_turned and f.can_turn(floor_name))
 		return
 	if changes and laid and not paving and _outside(f.cell_centre(cell), true):
 		return
-	if changes and not _pay(item_for("Floor", floor), f.cell_centre(cell)):
+	if changes and not _pay(item_for("Floor", floor_name), f.cell_centre(cell)):
 		return
-	f.paint(cell, floor, turned)
+	f.paint(cell, floor_name, is_turned)
 	if changes:
-		drop_sound("land" if laid else ("grass" if floor.contains("Grass") else "land"), f.cell_centre(cell))
+		drop_sound("land" if laid else ("grass" if floor_name.contains("Grass") else "land"), f.cell_centre(cell))
 
 
 func _place_wall(e: WallMap.Edge, type: String) -> void:
@@ -607,7 +610,7 @@ func _place_wall(e: WallMap.Edge, type: String) -> void:
 	_drop_in(w.nodes_of(e))
 
 
-func _place_prop(cell: Vector2i, scale: float) -> void:
+func _place_prop(cell: Vector2i, sc: float) -> void:
 	var at := world.floors.cell_centre(cell)
 	if no_build(cell) or why_not(selected, at) != "":
 		return
@@ -617,7 +620,7 @@ func _place_prop(cell: Vector2i, scale: float) -> void:
 	if not _pay(selected, at):
 		return
 	var turns := int(world.props._turns(world.props.types[selected.name]))
-	world.props.place(cell, selected.name, scale, prop_turn % turns if turns > 1 else -1)
+	world.props.place(cell, selected.name, sc, prop_turn % turns if turns > 1 else -1)
 	_drop_in([world.props.node_at(cell, slot)], 0.0, _prop_sound(selected.name))
 
 
@@ -648,33 +651,33 @@ func _clear_one(cell: Vector2i) -> void:
 
 
 # What demolishing here would take, and give back.
-func _demolish_hover(cell: Vector2i, visible: bool) -> Dictionary:
+func _demolish_hover(cell: Vector2i, shown: bool) -> Dictionary:
 	var it := {}
-	var name := ""
+	var nm := ""
 	var top := world.props.peek_top(cell)
 	if top != "":
 		it = item_for("Prop", top)
-		name = str(world.props.types.get(top, {}).get("display", top))
-	if name == "":
+		nm = str(world.props.types.get(top, {}).get("display", top))
+	if nm == "":
 		for e in world.walls.edges_in(cell):
 			var w := world.walls.get_wall(e)
 			if w != "":
 				it = item_for("Wall", w)
-				name = str(world.walls.types[w].get("display", w))
+				nm = str(world.walls.types[w].get("display", w))
 				break
-	if name == "":
+	if nm == "":
 		var laid := world.floors.get_laid(cell)
 		if laid != "":
 			it = item_for("Floor", laid)
-			name = str(world.floors.types.get(laid, {}).get("display", laid))
-	if name == "":
+			nm = str(world.floors.types.get(laid, {}).get("display", laid))
+	if nm == "":
 		return {}
 	var refund := []
 	if not it.is_empty():
 		for c in Village.sum(it.cost):
 			if c[1] / 2 > 0:
 				refund.append([c[0], c[1] / 2])
-	return {"show": visible, "title": "Remove " + name, "demolish": true, "refund": refund}
+	return {"show": shown, "title": "Remove " + nm, "demolish": true, "refund": refund}
 
 
 # ---- Undo and redo: whole snapshots of the floors, props, walls, plans, the bag and the stash ----
@@ -783,11 +786,12 @@ var _hidden: Array = []
 
 ## A size x size room of [param floor] (laid alternately turned), walled all round, a door in the middle of the front
 ## right side and windows in the middle of the others (Unity's HousePreset.Square).
-static func square(name: String, size: int, floor: String, wall: String, door: String, window: String) -> Dictionary:
-	var p := {"name": name, "width": size, "height": size, "cells": [], "walls": [], "props": [], "free": []}
+static func square(nm: String, size: int, floor_name: String, wall: String, door: String, window: String) -> Dictionary:
+	var p := {"name": nm, "width": size, "height": size, "cells": [], "walls": [], "props": [], "free": []}
 	for x in size:
 		for y in size:
-			p.cells.append({"x": x, "y": y, "floor": floor, "turned": (x + y) % 2 == 0, "roof": ""})
+			p.cells.append({"x": x, "y": y, "floor": floor_name, "turned": (x + y) % 2 == 0, "roof": ""})
+	@warning_ignore("integer_division")
 	var mid := size / 2
 	for i in size:
 		var middle := i == mid
@@ -832,13 +836,13 @@ func _wall_named(n: String, fallback := "BarnWall") -> String:
 
 # The houses in the catalogue: the squares, then what's been saved.
 func _add_houses() -> void:
-	var floor := _first_laid_floor()
+	var floor_name := _first_laid_floor()
 	var wall := _wall_named("BarnWall", world.walls.types.keys()[0])
 	var door := _wall_named("WallDoorClosed", wall)
 	var window := _wall_named("WallWindow", wall)
 	var houses := []
 	for s in SQUARES:
-		houses.append(_house_item(square(s[0], s[1], floor, wall, door, window), "%s %dx%d" % [s[0], s[1], s[1]]))
+		houses.append(_house_item(square(s[0], s[1], floor_name, wall, door, window), "%s %dx%d" % [s[0], s[1], s[1]]))
 	if FileAccess.file_exists(PRESETS_FILE):
 		var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(PRESETS_FILE))
 		if d is Dictionary:
@@ -947,13 +951,13 @@ func save_picked_house() -> void:
 
 
 ## A house as a preset: its cells' floors and roofs, every wall round or through them, and what's inside.
-func capture_house(cells: Dictionary, name: String) -> Dictionary:
+func capture_house(cells: Dictionary, nm: String) -> Dictionary:
 	var lo := Vector2i(1 << 30, 1 << 30)
 	var hi := -lo
 	for c in cells:
 		lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
 		hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
-	var p := {"name": name, "width": hi.x - lo.x + 1, "height": hi.y - lo.y + 1, "cells": [], "walls": [], "props": [], "free": []}
+	var p := {"name": nm, "width": hi.x - lo.x + 1, "height": hi.y - lo.y + 1, "cells": [], "walls": [], "props": [], "free": []}
 	var seen := {}
 	for c in cells:
 		p.cells.append({"x": c.x - lo.x, "y": c.y - lo.y, "floor": world.floors.get_laid(c), "turned": world.floors.is_turned(c), "roof": world.roofs.roof_floors.get(c, "")})
@@ -978,6 +982,7 @@ func capture_house(cells: Dictionary, name: String) -> Dictionary:
 # ---- Placing a house ----
 
 func _house_low(p: Dictionary, cell: Vector2i) -> Vector2i:
+	@warning_ignore("integer_division")
 	return cell - Vector2i((int(p.width) - 1) / 2, (int(p.height) - 1) / 2)
 
 
@@ -1037,7 +1042,7 @@ func _place_house(p: Dictionary, low: Vector2i) -> void:
 	_drop_in(dropped, 0.1)
 
 
-func _house_cursor(cell: Vector2i, over_ui: bool, visible: bool) -> void:
+func _house_cursor(cell: Vector2i, over_ui: bool, shown: bool) -> void:
 	var p := turned(selected.house, preset_turn)
 	var low := _house_low(p, cell)
 	var status := status_of(selected)
@@ -1045,7 +1050,7 @@ func _house_cursor(cell: Vector2i, over_ui: bool, visible: bool) -> void:
 	var blocked := _house_no_build(p, low)
 	var ok := status == "Ready" or blueprint
 	_house_ghost = {}
-	if visible:
+	if shown:
 		var cells := []
 		for c in p.cells:
 			cells.append(low + Vector2i(int(c.x), int(c.y)))
@@ -1058,13 +1063,13 @@ func _house_cursor(cell: Vector2i, over_ui: bool, visible: bool) -> void:
 	if outside: note = _village_note()
 	elif blocked: note = "Can't build on the road"
 	elif status == "Short" and not blueprint: note = missing(selected.cost)
-	hover = {"show": visible, "title": selected.display, "tier": 1, "status": "Ready" if blueprint else status, "costs": selected.cost, "note": note, "plan": blueprint}
+	hover = {"show": shown, "title": selected.display, "tier": 1, "status": "Ready" if blueprint else status, "costs": selected.cost, "note": note, "plan": blueprint}
 	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	var click := down and not _move_down and not over_ui and not _tool_clicked
 	_move_down = down
 	if not down:
 		_tool_clicked = false
-	if not click or not visible:
+	if not click or not shown:
 		return
 	if blocked:
 		_say("Can't build on the road", world.floors.cell_centre(cell))
@@ -1086,14 +1091,14 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	_wall_ghost = null
 	_prop_ghost = {}
 	_ring = 0.0
-	var visible := not over_ui and world.floors.in_bounds(cell)
+	var shown := not over_ui and world.floors.in_bounds(cell)
 	var top := world.props.peek_top(cell)
 	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	var click := down and not _move_down and not over_ui and not _tool_clicked
 	_move_down = down
 	if not down:
 		_tool_clicked = false
-	if visible:
+	if shown:
 		_cells.append(cell)
 	if tool == "Move":
 		if not carried.is_empty():
@@ -1106,11 +1111,11 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 			if free:
 				_cells.clear()
 			_prop_ghost = {"sprite": world.props.sprite_for(carried.prop, int(carried.turn)), "at": at, "scale": float(carried.scale), "colour": BLOCKED if blocked else Color(1, 1, 1, 0.6)}
-			hover = {"show": visible, "title": "Move " + str(world.props.types.get(carried.prop, {}).get("display", carried.prop)), "move": true, "note": why}
+			hover = {"show": shown, "title": "Move " + str(world.props.types.get(carried.prop, {}).get("display", carried.prop)), "move": true, "note": why}
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 				put_back_carried()
 				return
-			if click and not blocked and visible:
+			if click and not blocked and shown:
 				var turns := world.props._turns(world.props.types[carried.prop])
 				var t := int(carried.turn) if turns > 1 else -1
 				if free:
@@ -1124,7 +1129,7 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 				changed.emit()
 			return
 		_cell_colour = HudStyle.color("accent") if top != "" else Color(1, 1, 1, 0.35)
-		hover = {"show": visible and top != "", "title": "Move " + str(world.props.types.get(top, {}).get("display", top)), "move": true, "note": ""}
+		hover = {"show": shown and top != "", "title": "Move " + str(world.props.types.get(top, {}).get("display", top)), "move": true, "note": ""}
 		if click and top != "":
 			_stroke_start = _capture()
 			carried = world.props.take_top(cell)
@@ -1145,7 +1150,7 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		var laid := world.floors.get_laid(cell)
 		found = item_for("Floor", laid) if laid != "" else item_for("Ground", world.floors.get_floor(cell))
 	_cell_colour = HudStyle.color("accent") if not found.is_empty() else Color(1, 1, 1, 0.35)
-	hover = {"show": visible and not found.is_empty(), "title": "Copy " + str(found.get("display", "")), "move": true, "note": ""}
+	hover = {"show": shown and not found.is_empty(), "title": "Copy " + str(found.get("display", "")), "move": true, "note": ""}
 	if click and not found.is_empty():
 		select(found)
 
@@ -1195,12 +1200,12 @@ func blocks_way_in(e: WallMap.Edge) -> bool:
 
 
 # Whether a prop's footing at [param at] has a solid wall running through it.
-func _across_wall(prop: String, at: Vector2, t: int, scale: float) -> bool:
+func _across_wall(prop: String, at: Vector2, t: int, sc: float) -> bool:
 	var id := world.props.sprite_for(prop, t)
 	if id < 0:
 		return false
 	var info: Dictionary = world.sprites[id]
-	var k := scale * world.px / float(info.ppu)
+	var k := sc * world.px / float(info.ppu)
 	var w: float = float(info.rect[2]) * k * 0.8
 	var h: float = float(info.rect[3]) * k
 	var below: float = (float(info.rect[3]) - float(info.pivot[1])) * k   # how far its picture reaches below its spot

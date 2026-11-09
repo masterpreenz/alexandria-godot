@@ -65,6 +65,7 @@ static func bed_cell(w: World, bed: Dictionary) -> Vector2i:
 ## Where to stand to use a bed: the middle of its way-in tile, or null if that can't be stood on.
 static func bed_spot(w: World, bed: Dictionary) -> Variant:
 	var p := w.floors.cell_centre(bed_cell(w, bed))
+	@warning_ignore("incompatible_ternary")
 	return null if _solid(w, p) else p
 
 

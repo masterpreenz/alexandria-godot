@@ -219,9 +219,9 @@ static func _glow() -> Texture2D:
 	return g
 
 
-func nearest(at: Vector2, range: float, want_lit: bool, cook: bool) -> Dictionary:
+func nearest(at: Vector2, reach: float, want_lit: bool, cook: bool) -> Dictionary:
 	var best := {}
-	var best_d := range
+	var best_d := reach
 	for f in fires:
 		if lit(f) != want_lit or (cook and bool(f.s.torch)):
 			continue

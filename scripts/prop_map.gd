@@ -72,17 +72,17 @@ func at(cell: Vector2i) -> Array:
 
 
 ## Whether a prop named [param name] (its asset or display name) stands anywhere.
-func has(name: String) -> bool:
-	return not cached("has", name, _has_list).is_empty()
+func has(nm: String) -> bool:
+	return not cached("has", nm, _has_list).is_empty()
 
 
-func _has_list(name: String) -> Array:
-	return [true] if _has(name) else []
+func _has_list(nm: String) -> Array:
+	return [true] if _has(nm) else []
 
 
-func _has(name: String) -> bool:
+func _has(nm: String) -> bool:
 	for e in cells.values() + free:
-		if e.prop == name or types[e.prop].display == name:
+		if e.prop == nm or types[e.prop].display == nm:
 			return true
 	return false
 
@@ -218,43 +218,43 @@ var _named := {}
 var _named_version := -1
 
 
-func cached(kind: String, name: String, build: Callable) -> Array:
+func cached(kind: String, nm: String, build: Callable) -> Array:
 	if _named_version != version:
 		_named_version = version
 		_named.clear()
-	var key := kind + ":" + name
+	var key := kind + ":" + nm
 	if not _named.has(key):
-		_named[key] = build.call(name)
+		_named[key] = build.call(nm)
 	return (_named[key] as Array).duplicate()
 
 
-func entries_named(name: String) -> Array:
-	return cached("entries", name, _entries_named)
+func entries_named(nm: String) -> Array:
+	return cached("entries", nm, _entries_named)
 
 
-func _entries_named(name: String) -> Array:
+func _entries_named(nm: String) -> Array:
 	var out := []
 	for k in cells:
-		if cells[k].prop == name:
+		if cells[k].prop == nm:
 			out.append({"pos": floors.cell_centre(Vector2i(k.x, k.y)), "e": cells[k]})
 	for e in free:
-		if e.prop == name:
+		if e.prop == nm:
 			out.append({"pos": e.pos, "e": e})
 	return out
 
 
 ## Every placed [param name] with the node it's drawn as: [{pos, e, node}] (a holder whose first child is its sprite).
-func drawn_named(name: String) -> Array:
-	return cached("drawn", name, _drawn_named)
+func drawn_named(nm: String) -> Array:
+	return cached("drawn", nm, _drawn_named)
 
 
-func _drawn_named(name: String) -> Array:
+func _drawn_named(nm: String) -> Array:
 	var out := []
 	for k in cells:
-		if cells[k].prop == name and _drawn.has(k):
+		if cells[k].prop == nm and _drawn.has(k):
 			out.append({"pos": floors.cell_centre(Vector2i(k.x, k.y)), "e": cells[k], "node": _drawn[k]})
 	for i in free.size():
-		if free[i].prop == name and i < _free_drawn.size() and _free_drawn[i] != null:
+		if free[i].prop == nm and i < _free_drawn.size() and _free_drawn[i] != null:
 			out.append({"pos": free[i].pos, "e": free[i], "node": _free_drawn[i]})
 	return out
 
@@ -278,25 +278,25 @@ func _turns(t: Dictionary) -> int:
 	return (t.turnSprites as Array).size() if (t.turnSprites as Array).size() > 0 else maxi(1, int(t.turns))
 
 
-func _show(at: Vector2, e: Dictionary, bias: float) -> Node2D:
+func _show(where: Vector2, e: Dictionary, bias: float) -> Node2D:
 	var t: Dictionary = types[e.prop]
 	var flipped: bool = e.flipped
 	if _turns(t) > 1:
 		flipped = (t.turnSprites as Array).is_empty() and e.turn % 2 == 1
 	var scale := _scale(e.scale)
-	var sort := at.y + bias
+	var sort := where.y + bias
 	# Kept behind any wall standing in front of it (a wide bed set against a wall would otherwise draw over it).
 	if world.walls != null:
-		var sorted: float = world.walls.sort_against_walls(at, 0.1 * world.px, sort)
+		var sorted: float = world.walls.sort_against_walls(where, 0.1 * world.px, sort)
 		sort = sorted - 1.28 if sorted < sort else sorted
 	var holder := Node2D.new()
-	holder.position = Vector2(at.x, sort)
+	holder.position = Vector2(where.x, sort)
 	var sprite := Sprite2D.new()
 	var id := sprite_for(e.prop, e.turn)
 	if id >= 0:
 		world.show_frame(sprite, id, Vector2(-scale if flipped else scale, scale))
 		sprite.material = world.snow_material(0)
-	sprite.position = Vector2(0, at.y - sort)
+	sprite.position = Vector2(0, where.y - sort)
 	holder.add_child(sprite)
 	if t.solid:
 		# A rounded footprint at its base: much flatter and characters slide round it instead of stopping.
@@ -310,7 +310,7 @@ func _show(at: Vector2, e: Dictionary, bias: float) -> Node2D:
 		shape.rotation = PI / 2.0
 		shape.position = Vector2(0, -r * 0.25)
 		body.add_child(shape)
-		body.position = Vector2(0, at.y - sort)
+		body.position = Vector2(0, where.y - sort)
 		holder.add_child(body)
 	world.things.add_child(holder)
 	if String(world.sprites[id].name).contains("tree") if id >= 0 else false:

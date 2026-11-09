@@ -114,14 +114,14 @@ func _notification(what: int) -> void:
 # ---- Saving ----
 
 ## Saves into [param slot] ([param quiet]: an autosave, just the corner); named [param name] (null keeps its name).
-func save(slot: String, quiet := false, name: Variant = null) -> bool:
+func save(slot: String, quiet := false, nm: Variant = null) -> bool:
 	if testing():
 		return false
 	# Not in a run's first seconds: some parts of the game (the farms, the fires, the forest) are still being put back.
 	if _now() - _started < 3.0:
 		return false
 	var summary := summarise()
-	var given: String = str(name).strip_edges().left(32) if name != null else ""
+	var given: String = str(nm).strip_edges().left(32) if nm != null else ""
 	if given == "" and SaveSystem.exists(slot):
 		given = str(SaveSystem.peek(slot).get("name", ""))
 	summary.name = given if given != "" else SaveSystem.default_name(slot, summary)
@@ -215,6 +215,7 @@ func capture() -> Dictionary:
 	var put := func(key: String, node: Variant, f: Callable) -> void:
 		if node != null:
 			s[key] = f.call(node)
+	@warning_ignore("incompatible_ternary")
 	s["world.clock"] = world.clock.to_json() if world.clock != null else null
 	put.call("world.explored", at.call("Exploration"), func(n): return n.to_json())
 	s["world.floors"] = world.floors.to_json()

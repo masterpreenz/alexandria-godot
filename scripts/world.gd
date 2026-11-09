@@ -343,7 +343,7 @@ func _water_material(m: Dictionary) -> ShaderMaterial:
 
 ## Shows sprite [param id] from the table on [param sprite] (its image, slice and pivot), at [param scale] on top of the
 ## world's pixels-per-unit; a negative x scale mirrors it about its pivot.
-func show_frame(sprite: Sprite2D, id: int, scale: Vector2 = Vector2.ONE) -> void:
+func show_frame(sprite: Sprite2D, id: int, sc: Vector2 = Vector2.ONE) -> void:
 	var info: Dictionary = sprites[id]
 	sprite.set_meta("sprite", id)
 	sprite.texture = _texture(info.tex)
@@ -351,14 +351,14 @@ func show_frame(sprite: Sprite2D, id: int, scale: Vector2 = Vector2.ONE) -> void
 	sprite.region_enabled = true
 	sprite.region_rect = Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
 	sprite.offset = Vector2(-info.pivot[0], -info.pivot[1])
-	sprite.scale = scale * (px / info.ppu)
+	sprite.scale = sc * (px / info.ppu)
 
 
 ## Whether a placed sprite can hide someone (as OccludedOutline decided): not the ground clutter under Props (bushes,
 ## flowers, grass, small rocks), except trees among them; not a bridge's railings.
 func _hides(s: Dictionary) -> bool:
-	var name: String = sprites[int(s.s)].name
-	if s.kind == "Props" and not name.contains("tree"):
+	var nm: String = sprites[int(s.s)].name
+	if s.kind == "Props" and not nm.contains("tree"):
 		return false
 	return s.kind != "River"
 
@@ -498,28 +498,28 @@ func add_ground_layer(node: Node2D, order: float) -> void:
 
 
 ## Where every prop of the type [param name] stands (on cells and free), px.
-func props_named(name: String) -> Array:
+func props_named(nm: String) -> Array:
 	if props == null:
 		return []
-	return props.cached("positions", name, _props_named)
+	return props.cached("positions", nm, _props_named)
 
 
-func _props_named(name: String) -> Array:
+func _props_named(nm: String) -> Array:
 	var out := []
 	for k in props.cells:
-		if props.cells[k].prop == name:
+		if props.cells[k].prop == nm:
 			out.append(floors.cell_centre(Vector2i(k.x, k.y)))
 	for e in props.free:
-		if e.prop == name:
+		if e.prop == nm:
 			out.append(e.pos)
 	return out
 
 
 ## A Unity material's colours, numbers and textures (data/materials.json).
-func material_settings(name: String) -> Dictionary:
+func material_settings(nm: String) -> Dictionary:
 	if _materials.is_empty():
 		_materials = _load_json("res://data/materials.json") if FileAccess.file_exists("res://data/materials.json") else {}
-	return _materials.get(name, {})
+	return _materials.get(nm, {})
 
 
 var _snow_mats := {}

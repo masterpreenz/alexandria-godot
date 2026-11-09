@@ -226,9 +226,9 @@ func _process_timed(_delta: float) -> void:
 
 func _text(at: Vector2, s: String, px: float, c: Color, kind := "bold", align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
 	var f := HudStyle.font(kind)
-	var size := roundi(px * HudStyle.SCALE)
-	draw_string_outline(f, at, s, align, width, size, 4, Color(0, 0, 0, 0.75))
-	draw_string(f, at, s, align, width, size, c)
+	var sz := roundi(px * HudStyle.SCALE)
+	draw_string_outline(f, at, s, align, width, sz, 4, Color(0, 0, 0, 0.75))
+	draw_string(f, at, s, align, width, sz, c)
 
 
 func _draw() -> void:

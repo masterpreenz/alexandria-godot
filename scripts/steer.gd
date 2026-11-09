@@ -53,11 +53,11 @@ func _around(velocity: Vector2, delta: float) -> Vector2:
 		side = 1 if randf() < 0.5 else -1
 	for a in ANGLES:
 		for s in 2:
-			var sign := side if s == 0 else -side
-			var turned := dir.rotated(deg_to_rad(a * sign))
+			var sgn := side if s == 0 else -side
+			var turned := dir.rotated(deg_to_rad(a * sgn))
 			if not _clear(turned):
 				continue
-			side = sign
+			side = sgn
 			side_until = _now() + 1.2
 			return turned * speed
 	# Boxed in on every side ahead: back off a little.

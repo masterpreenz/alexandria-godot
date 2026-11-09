@@ -152,11 +152,11 @@ func distance_to(p: Vector2) -> float:
 
 
 ## The nearest one with something left within [param range] of [param p], or null.
-static func nearest(p: Vector2, range: float) -> Gatherable:
+static func nearest(p: Vector2, reach: float) -> Gatherable:
 	var best: Gatherable = null
-	var best_d := range
+	var best_d := reach
 	for g in all:
-		if g.depleted() or g.foot.distance_squared_to(p) > (range + 200.0) * (range + 200.0):
+		if g.depleted() or g.foot.distance_squared_to(p) > (reach + 200.0) * (reach + 200.0):
 			continue
 		var d := g.distance_to(p)
 		if d < best_d:

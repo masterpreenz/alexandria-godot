@@ -65,13 +65,13 @@ func _physics_process_timed(delta: float) -> void:
 	# Only once it's been hit: then it goes for whoever's nearest, Miko or a villager (into the village too: it's no
 	# safe place now), giving up past its leash.
 	var angry := t < angry_until
-	var range := float(s.sight) * (1.25 if large else 1.0) * world.px
+	var reach := float(s.sight) * (1.25 if large else 1.0) * world.px
 	var leash := float(s.leash) * world.px
 	var seen := false
 	var prey: Node2D = null
 	var prey_body: Damageable = null
 	if angry:
-		var best := range
+		var best := reach
 		if p != null and p.stats.hp > 0.0 and p.position.distance_to(at) < best and p.position.distance_to(home) < leash:
 			best = p.position.distance_to(at)
 			prey = p

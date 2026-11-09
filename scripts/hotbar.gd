@@ -153,11 +153,13 @@ func _show_rows() -> void:
 
 static func key_name(i: int) -> String:
 	var n := i % COLUMNS + 1
+	@warning_ignore("integer_division")
 	return [str(n), "S" + str(n), "C" + str(n)][i / COLUMNS]
 
 
 static func key_long(i: int) -> String:
 	var n := i % COLUMNS + 1
+	@warning_ignore("integer_division")
 	return [str(n), "Shift+" + str(n), "Ctrl+" + str(n)][i / COLUMNS]
 
 
@@ -330,7 +332,7 @@ func _open_picker(i: int) -> void:
 	_picker.move_to_front()
 
 
-func _card(icon: Texture2D, name: String, sub: String, on: bool, what: String) -> Button:
+func _card(icon: Texture2D, nm: String, sub: String, on: bool, what: String) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size.y = _k(40)
@@ -352,7 +354,7 @@ func _card(icon: Texture2D, name: String, sub: String, on: bool, what: String) -
 	var names := VBoxContainer.new()
 	names.add_theme_constant_override("separation", 0)
 	names.alignment = BoxContainer.ALIGNMENT_CENTER
-	names.add_child(HudStyle.label(name, 13, "bold"))
+	names.add_child(HudStyle.label(nm, 13, "bold"))
 	names.add_child(HudStyle.label(sub, 11, "bold", HudStyle.color("muted")))
 	row.add_child(names)
 	b.add_child(row)
@@ -375,11 +377,11 @@ func _describe(i: int) -> String:
 		var r := s.substr(5)
 		return "[color=#%s]%s[/color]  [color=#%s][%s][/color]\n[font_size=%d][color=#%s]%d in the bag · press to %s one[/color][/font_size]" % [
 			accent, UiKit.resource_name(r), muted, key_long(i), small, muted, bag.count(r), "drink" if r == "Tea" or r.ends_with("Potion") else "eat"]
-	var name := s.substr(6)
-	var sp: Dictionary = caster.spells.get(name, {})
+	var nm := s.substr(6)
+	var sp: Dictionary = caster.spells.get(nm, {})
 	var cd := " · Cooldown %ss" % CharacterStats.fmt(float(sp.get("cooldown", 0))) if float(sp.get("cooldown", 0)) > 0 else ""
 	var text := "[color=#%s]%s[/color]  [color=#%s][%s][/color]\n[font_size=%d][color=#%s]%s · %s[/color]\n[color=#%s]%s mana[/color] · Cast %ss%s\nRange %s · Area %s[/font_size]" % [
-		accent, sp.get("name", name), muted, key_long(i), small, muted, sp.get("element", ""), sp.get("delivery", ""),
+		accent, sp.get("name", nm), muted, key_long(i), small, muted, sp.get("element", ""), sp.get("delivery", ""),
 		HudStyle.color("mana").to_html(false), CharacterStats.fmt(float(sp.get("manaCost", 0))), CharacterStats.fmt(float(sp.get("castTime", 0))), cd,
 		CharacterStats.fmt(float(sp.get("range", 0))), CharacterStats.fmt(float(sp.get("aoeRadius", 0)))]
 	if str(sp.get("description", "")) != "":
@@ -418,23 +420,23 @@ class HotCell extends Control:
 		var s: String = bar.slots[index]
 		var inner := r.grow(-6 * k)
 		if s.begins_with("spell:"):
-			var name := s.substr(6)
-			var spell: Dictionary = bar.caster.spells.get(name, {})
-			var known := bar.stats.known_spells().has(name)
+			var nm := s.substr(6)
+			var spell: Dictionary = bar.caster.spells.get(nm, {})
+			var known := bar.stats.known_spells().has(nm)
 			var icon := UiKit.sprite_texture(int(spell.get("icon", -1)))
 			var dim := not known or bar.stats.mana + 0.001 < float(spell.get("manaCost", 0.0))
 			if icon != null:
 				draw_texture_rect(icon, inner, false, Color(0.45, 0.45, 0.5) if dim else Color.WHITE)
 			# The cooldown: a dark sweep shrinking as it comes back.
-			var left := bar.caster.cooldown_left(name)
+			var left := bar.caster.cooldown_left(nm)
 			if is_inf(left):
 				draw_rect(inner, Color(0, 0, 0, 0.55))
 			elif left > 0.0:
-				var share := left / maxf(0.01, bar.caster.cooldown_total(name))
+				var share := left / maxf(0.01, bar.caster.cooldown_total(nm))
 				draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * share)), Color(0, 0, 0, 0.55))
 				_text(Vector2(0, size.y * 0.62), "%d" % ceili(left), roundi(16 * k), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size.x)
 			_text(Vector2(0, size.y - 4), str(int(spell.get("manaCost", 0))), roundi(11 * k), HudStyle.color("mana"), HORIZONTAL_ALIGNMENT_RIGHT, size.x - 4)
-			if bar.caster.aiming == name:
+			if bar.caster.aiming == nm:
 				draw_style_box(HudStyle.piece("slotOn"), r)
 				draw_rect(r.grow(-1), HudStyle.color("accent"), false, 3.0)
 		elif s.begins_with("food:"):

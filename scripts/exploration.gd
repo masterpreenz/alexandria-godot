@@ -53,7 +53,9 @@ func from_json(json: String) -> void:
 		seen = bytes
 		return
 	# The map grew (or shrank) round the same middle: what was seen goes over the middle of the new one.
+	@warning_ignore("integer_division")
 	var ox := (width - w) / 2
+	@warning_ignore("integer_division")
 	var oy := (height - h) / 2
 	for y in h:
 		for x in w:
@@ -137,6 +139,7 @@ func _fog_untimed() -> ImageTexture:
 		if not _changed_cells.is_empty() and t - _updated_at > 0.2:
 			_updated_at = t
 			for i in _changed_cells:
+				@warning_ignore("integer_division")
 				_img.set_pixel(i % width, height - 1 - i / width, Color8(18, 14, 12, 0 if show_all else 255 - seen[i]))
 			_changed_cells.clear()
 			_fog.update(_img)

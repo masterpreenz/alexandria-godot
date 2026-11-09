@@ -188,10 +188,10 @@ func _person_row(p: Dictionary) -> void:
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 0)
-	var name := HudStyle.label("", 13, "bold")
-	name.clip_text = true
-	name.custom_minimum_size.x = _k(40)
-	col.add_child(name)
+	var nm := HudStyle.label("", 13, "bold")
+	nm.clip_text = true
+	nm.custom_minimum_size.x = _k(40)
+	col.add_child(nm)
 	var skills := HudStyle.label("", 9, "body", HudStyle.color("muted"))
 	skills.clip_text = true
 	skills.custom_minimum_size.x = _k(40)
@@ -222,7 +222,7 @@ func _person_row(p: Dictionary) -> void:
 	on.pressed.connect(_step_job.bind(p, 1))
 	row.add_child(on)
 	_people_box.add_child(row)
-	_rows.append({"who": p, "name": name, "skills": skills, "activity": activity, "job": job, "bars": bars})
+	_rows.append({"who": p, "name": nm, "skills": skills, "activity": activity, "job": job, "bars": bars})
 
 
 func _step_job(p: Dictionary, by: int) -> void:

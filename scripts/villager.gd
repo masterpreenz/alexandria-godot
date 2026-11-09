@@ -955,7 +955,15 @@ func _emote_frame(e: String) -> int:
 
 
 # An emote over their head (its art, bubble and all); for eating with no art of its own, the food in a plain bubble.
+const EATING_SHEET := "res://assets/Resources/Emotes/Emote_eating.png"
+const EATING_FRAMES := 8
+static var _eating_tex: Texture2D
+
+
 func _emote(e: String) -> void:
+	if e == "eating" and ResourceLoader.exists(EATING_SHEET):
+		_eating_emote()
+		return
 	var id := _emote_frame(e) if e != "" else -1
 	var food := -1
 	if e == "eating" and id < 0:
@@ -990,6 +998,33 @@ func _emote(e: String) -> void:
 		inner.centered = true
 		inner.offset = Vector2.ZERO
 		inner.position = Vector2(0, -float(info.rect[3]) * 0.6 + float(info.pivot[1]) * 0.0) + Vector2(0, 3.0 * chew)
+
+
+# The eating emote (its own art: a happy face with a spoon), 160 ms a frame, its tail towards their head.
+func _eating_emote() -> void:
+	if _eating_tex == null:
+		_eating_tex = load(EATING_SHEET)
+	if emote == null:
+		emote = Sprite2D.new()
+		emote.z_as_relative = false
+		emote.z_index = 3998
+		emote.add_child(Sprite2D.new())
+		add_child(emote)
+	emote.visible = true
+	(emote.get_child(0) as Sprite2D).visible = false
+	@warning_ignore("integer_division")
+	var fw := _eating_tex.get_width() / EATING_FRAMES
+	var fh := _eating_tex.get_height()
+	var frame := int(now() / 0.16) % EATING_FRAMES
+	emote.texture = _eating_tex
+	emote.region_enabled = true
+	emote.region_rect = Rect2(frame * fw, 0, fw, fh)
+	emote.centered = false
+	emote.offset = Vector2(-fw / 2.0, -fh)
+	emote.scale = Vector2.ONE * EMOTE_WIDTH * world.px / float(fw)
+	emote.flip_h = not facing_right
+	var bob := sin(now() * BOB_SPEED) * BOB_HEIGHT * world.px
+	emote.position = Vector2((0.24 if facing_right else -0.24) * world.px, -_top() - 0.06 * world.px + bob)
 
 
 # How tall their standing art is above their feet, px.
@@ -1232,6 +1267,7 @@ func _let_go() -> void:
 
 # Strength lets them carry more: one more for every two levels past the first, and a bag more again.
 func _carry_most() -> int:
+	@warning_ignore("integer_division")
 	return int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0))
 
 
@@ -1599,18 +1635,18 @@ func _go_farm() -> bool:
 		elif st == 0 and dd < bare_d:
 			bare_d = dd
 			bare = p
-	var target := ripe
+	var goal := ripe
 	planting = false
-	if target.is_empty() and not bare.is_empty():
+	if goal.is_empty() and not bare.is_empty():
 		var pick := farm.pick_from_storage(bare)
 		if not pick[0]:
 			VillageLog.problem("no-seed", "No %s in storage to plant the bare farm plots" % UiKit.resource_name(Farming.CROPS[pick[1]].seed).to_lower())
 			return false
-		target = bare
+		goal = bare
 		planting = true
-	if target.is_empty():
+	if goal.is_empty():
 		return false
-	_go_to_plot(target)
+	_go_to_plot(goal)
 	return true
 
 

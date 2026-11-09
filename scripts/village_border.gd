@@ -36,15 +36,15 @@ func _process_timed(_delta: float) -> void:
 # The village's tiles, from the banner's tile.
 func _cells() -> Dictionary:
 	var v := world.village
-	var set := {}
+	var seen := {}
 	var r := roundi(float(v.radii[clampi(v.tier, 0, v.radii.size() - 1)]))
 	var rects: Array = [Rect2i(-r, -r, 2 * r + 1, 2 * r + 1)]
 	rects.append_array(v.blocks)
 	for rc in rects:
 		for x in range(rc.position.x, rc.end.x):
 			for y in range(rc.position.y, rc.end.y):
-				set[Vector2i(x, y)] = true
-	return set
+				seen[Vector2i(x, y)] = true
+	return seen
 
 
 # The loops round the tiles' edges, as their turning corners (Unity's Village.Loops).

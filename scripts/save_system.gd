@@ -196,11 +196,11 @@ static func _whole(v: Variant) -> Variant:
 
 ## Saves [param sections] ({key: json}) with [param summary] into [param slot]; "" when it worked, else why not.
 static func write(slot: String, summary: Dictionary, sections: Dictionary) -> String:
-	var list := []
+	var entries := []
 	for k in sections:
 		if sections[k] != null:
-			list.append({"key": k, "json": sections[k]})
-	var file := {"version": DATA_VERSION, "game": "Alexandria", "summary": summary, "sections": list}
+			entries.append({"key": k, "json": sections[k]})
+	var file := {"version": DATA_VERSION, "game": "Alexandria", "summary": summary, "sections": entries}
 	var bytes := seal(JSON.stringify(file).to_utf8_buffer())
 	return _write_safely(path_of(slot), bytes)
 
