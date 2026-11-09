@@ -279,6 +279,12 @@ func _display(box: VBoxContainer) -> void:
 	r.add_child(_choice("Windowed", not Settings.borderless, _set_borderless.bind(false)))
 	r.add_child(_choice("Borderless fullscreen", Settings.borderless, _set_borderless.bind(true)))
 	col.add_child(r)
+	if Engine.is_embedded_in_editor() or Shots.arg("embednote") != "":
+		# Run from the editor with the game in its Game tab, the window is the editor's: no fullscreen or size there.
+		var note := HudStyle.label("Running inside the editor's Game tab: the window can't change there. Turn off the tab's embedding (or run an export) and it takes effect.", 11, "body", HudStyle.color("coral"))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.custom_minimum_size.x = _k(300)
+		col.add_child(note)
 	r = _row("Resolution")
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", int(_k(6)))

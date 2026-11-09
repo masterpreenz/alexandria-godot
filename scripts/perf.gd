@@ -35,6 +35,20 @@ var _sub_viewports: Array = []
 var _particles := {}
 var _lights := {}
 var _sounds := {}
+# The frame's timeline (usec): where each part of the engine's loop began and ended, so a slow frame can be split into
+# them: physics (scripts, then the physics engine's own step), process (scripts), what comes before drawing, drawing,
+# and the wait after it (handing the picture to the screen, the OS, input).
+var _first: FirstStamp
+var _phys_start := 0
+var _phys_end := 0
+var _ticks := 0
+var _proc_start := 0
+var _prev_proc_start := 0
+var _proc_end := 0
+var _pre_draw := 0
+var _post_draw := 0
+var _phases := {}               ## the last frame's split: name -> ms
+var _last_frame := {}           ## the last frame's script timers (its process half is in a spike's span)
 
 
 ## Times one call: [code]var t := Time.get_ticks_usec()[/code] ... [code]Perf.add(&"name", t)[/code].
@@ -54,6 +68,7 @@ func _ready() -> void:
 	active = self
 	layer = 120
 	process_priority = 1000000          # last of all: the frame's work is in by then
+	process_physics_priority = 1000000
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -76,6 +91,11 @@ func _ready() -> void:
 	_panel.visible = Shots.arg("perf") == "show"
 	add_child(_panel)
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	_first = FirstStamp.new()
+	_first.perf = self
+	add_child(_first)
+	RenderingServer.frame_pre_draw.connect(func() -> void: _pre_draw = Time.get_ticks_usec())
+	RenderingServer.frame_post_draw.connect(func() -> void: _post_draw = Time.get_ticks_usec())
 	get_tree().node_added.connect(_added)
 	get_tree().node_removed.connect(_removed)
 	for n in get_tree().root.find_children("*", "", true, false):
@@ -92,6 +112,11 @@ func watch_viewport(vp: SubViewport, nm: String) -> void:
 	_sub_viewports.append([vp, nm])
 
 
+# Last in each physics tick: where its scripts end (the physics engine's own step comes after).
+func _physics_process(_delta: float) -> void:
+	_phys_end = Time.get_ticks_usec()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
 		_panel.visible = not _panel.visible
@@ -99,14 +124,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	_split()
 	var ms := delta * 1000.0
 	_all_frames.append(ms)
 	_frames += 1
 	_frame_ms_sum += ms
 	_worst_frame = maxf(_worst_frame, ms)
-	# A spike: logged with what took the time.
-	if _all_frames.size() > 30 and (ms > SPIKE_MS or ms > _avg_ms * SPIKE_FACTOR):
-		_spike(ms)
+	# A spike: logged with what took the time. Judged by the clock from the last frame's process to this one's (the
+	# span the timeline splits), not by delta: the engine's delta tells of a slow frame one frame late.
+	var wall := (_proc_start - _prev_proc_start) / 1000.0
+	if _all_frames.size() > 30 and _prev_proc_start > 0 and (wall > SPIKE_MS or wall > _avg_ms * SPIKE_FACTOR):
+		_spike(wall)
 	_avg_ms = lerpf(_avg_ms, ms, 0.05)
 	for k in _frame:
 		var e: Array = _frame[k]
@@ -124,6 +152,7 @@ func _process(delta: float) -> void:
 		else:
 			tt[0] += e[0]
 			tt[1] += e[1]
+	_last_frame = _frame.duplicate(true)
 	_frame.clear()
 	var t := Time.get_ticks_msec() / 1000.0
 	if t - _shown_at >= 0.5:
@@ -134,6 +163,24 @@ func _process(delta: float) -> void:
 		_frames = 0
 		_frame_ms_sum = 0.0
 		_worst_frame = 0.0
+	_proc_end = Time.get_ticks_usec()
+
+
+# From the last frame's process to this one's: [the rest of last frame's process, before drawing, drawing, after
+# drawing (to the screen; the OS), physics scripts (n ticks), the physics engine's step].
+func _split() -> void:
+	if _prev_proc_start == 0 or _proc_end == 0:
+		return
+	var after_draw_until := _phys_start if _ticks > 0 else _proc_start
+	_phases = {
+		"process": (_proc_end - _prev_proc_start) / 1000.0,
+		"before draw": maxi(0, _pre_draw - _proc_end) / 1000.0,
+		"draw": maxi(0, _post_draw - _pre_draw) / 1000.0,
+		"after draw": maxi(0, after_draw_until - _post_draw) / 1000.0,
+		"physics scripts": (_phys_end - _phys_start) / 1000.0 if _ticks > 0 else 0.0,
+		"physics step": maxi(0, _proc_start - _phys_end) / 1000.0 if _ticks > 0 else 0.0,
+		"ticks": _ticks,
+	}
 
 
 func _added(n: Node) -> void:
@@ -257,11 +304,16 @@ func _show(_seconds: float) -> void:
 func _spike(ms: float) -> void:
 	_spikes += 1
 	var e := _engine()
-	var rows := _sorted(_frame, 1.0)
+	# The span's scripts: the last frame's process, and this frame's physics ticks.
+	var span := _last_frame.duplicate(true)
+	for k in _frame:
+		if String(k).ends_with(".physics") or String(k).begins_with("AI:"):
+			span[k] = _frame[k]
+	var rows := _sorted(span, 1.0)
 	var th := engine_things()
-	var sc := _script_ms(_frame)
-	var line := "SPIKE %.1f ms (avg %.1f) at %.2fs | scripts %.1f, outside scripts %.1f | process %.1f physics %.1f render cpu %.1f gpu %.1f | draw %d objects %d nodes %d | effects %d (%d particles) lights %d sounds %d | " % [
-		ms, _avg_ms, Time.get_ticks_msec() / 1000.0, sc, maxf(0.0, ms - sc - e["render cpu ms"]), e["process ms"], e["physics ms"], e["render cpu ms"], e["render gpu ms"],
+	var sc := _script_ms(span)
+	var line := "SPIKE %.1f ms (avg %.1f) at %.2fs | scripts %.1f, outside scripts %.1f | %s | render cpu %.1f gpu %.1f | draw %d objects %d nodes %d | effects %d (%d particles) lights %d sounds %d | " % [
+		ms, _avg_ms, Time.get_ticks_msec() / 1000.0, sc, maxf(0.0, ms - sc - e["render cpu ms"]), _phase_text(), e["render cpu ms"], e["render gpu ms"],
 		e["draw calls"], e.objects, e.nodes, th.effects, th.particles, th.lights, th.sounds]
 	var parts := []
 	for i in mini(8, rows.size()):
@@ -295,3 +347,34 @@ func summary() -> String:
 		_log.store_line(s)
 		_log.flush()
 	return s
+
+
+func _phase_text() -> String:
+	if _phases.is_empty():
+		return "phases ?"
+	var ph := _phases
+	return "wall %.1f: process %.1f, before draw %.1f, draw %.1f, after draw %.1f, physics %d ticks: scripts %.1f step %.1f" % [(_proc_start - _prev_proc_start) / 1000.0, ph.process,
+		ph["before draw"], ph.draw, ph["after draw"], ph.ticks, ph["physics scripts"], ph["physics step"]]
+
+
+## Runs first in each physics tick and each process step, to mark where they begin for the frame's timeline.
+class FirstStamp extends Node:
+	var perf: Perf
+
+	func _ready() -> void:
+		process_priority = -1000000
+		process_physics_priority = -1000000
+		process_mode = Node.PROCESS_MODE_ALWAYS
+
+	func _physics_process(_delta: float) -> void:
+		var now := Time.get_ticks_usec()
+		if perf._phys_start < perf._post_draw:   # the first tick since the last frame was drawn
+			perf._phys_start = now
+			perf._ticks = 0
+		perf._ticks += 1
+
+	func _process(_delta: float) -> void:
+		if perf._phys_start < perf._post_draw:
+			perf._ticks = 0         # no physics tick this frame
+		perf._prev_proc_start = perf._proc_start
+		perf._proc_start = Time.get_ticks_usec()

@@ -32,6 +32,8 @@ func setup(w: World, who: Miko, card: TimeCard) -> void:
 	_crystals = get_tree().current_scene.get_node_or_null("Crystals")
 	size = Vector2(MAP + 12, MAP + 12) * HudStyle.SCALE
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	# Placed and drawn while the game is paused too (a window open first thing would leave it blank otherwise).
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_vp = SubViewport.new()
 	_vp.size = Vector2i(roundi(RES * PAD), roundi(RES * PAD))
