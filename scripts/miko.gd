@@ -21,6 +21,13 @@ var art_scale := Vector2.ONE
 var locked := false
 ## Slows her down (or speeds her up) on top of everything else: wading sets it below 1.
 var speed_scale := 1.0
+## What she carries.
+var bag := Bag.new()
+# An action looping instead of walking (mining, chopping): its frames facing down and up, and how fast.
+var _action_down: Array = []
+var _action_up: Array = []
+var _action_fps := 0.0
+var _action_clock := -1.0
 # Where she was at the last two physics ticks: she's drawn between them (physics interpolation).
 var _was := Vector2.ZERO
 var _now := Vector2.ZERO
@@ -123,8 +130,35 @@ func _process(delta: float) -> void:
 	_animate(delta)
 
 
+## Turns towards [param direction] and loops the given frames (drawn facing left) until [method end_action].
+func play_action(down: Array, up: Array, fps: float, direction: Vector2) -> void:
+	_action_down = down
+	_action_up = up
+	_action_fps = fps
+	facing_up = direction.y < 0.0
+	facing_right = direction.x > 0.0
+	_action_clock = 0.0
+
+
+func end_action() -> void:
+	_action_down = []
+	_action_clock = -1.0
+	clock = 0.0
+
+
+## Frames played since the action started (counts up); -1 when none.
+func action_frame() -> int:
+	return int(_action_clock * _action_fps) if _action_clock >= 0.0 else -1
+
+
 func _animate(delta: float) -> void:
 	clock += delta
+	if not _action_down.is_empty():
+		_action_clock += delta
+		var set: Array = _action_up if facing_up and not _action_up.is_empty() else _action_down
+		var frame := int(set[action_frame() % set.size()])
+		world.show_frame(art, frame, Vector2(-art_scale.x if facing_right else art_scale.x, art_scale.y))
+		return
 	var frames: Array
 	var right_frames: Array = []
 	var fps: float

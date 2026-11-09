@@ -24,6 +24,14 @@ func _ready() -> void:
 	world.things.add_child(miko)
 	miko.setup(world, data)
 	world.player = miko
+	# Gathering, and her bag from the save.
+	var miner := Miner.new()
+	miner.name = "Miner"
+	miko.add_child(miner)
+	miner.setup(world, miko, world._load_json("res://data/gather.json").miner, $Hud)
+	var sv: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	if sv.get("sections", {}).has("player.bag"):
+		miko.bag.from_json(sv.sections["player.bag"])
 	var at := Shots.arg("at")
 	if at != "":
 		var p := at.split(",")
@@ -72,6 +80,16 @@ func _ready() -> void:
 				miko.move_and_slide()
 				await get_tree().physics_frame
 			print("Miko at ", miko.position)
+		if Shots.arg("gather") != "":
+			# Start gathering from the nearest tree or rock, and keep at it this many frames (for testing).
+			var gathering: Miner = miko.get_node("Miner")
+			var spot := Gatherable.nearest(miko.position, 2.0 * world.px)
+			print("Gathering from ", spot.resource if spot else "nothing", ", holding ", spot.remaining() if spot else 0)
+			if spot:
+				gathering._begin(spot)
+				for i in int(Shots.arg("gather")):
+					await get_tree().process_frame
+				print("Left ", spot.remaining(), "; bag wood ", miko.bag.count("Wood"), " stone ", miko.bag.count("Stone"))
 		camera.position = miko.position + follow_offset
 		camera.reset_smoothing()
 		var saved := camera.position
@@ -83,7 +101,8 @@ func _process(delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
 	camera.position = miko.drawn_position() + follow_offset
-	time_label.text = "%s · %s, day %d · %s" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()]]
+	time_label.text = "%s · %s, day %d · %s
+Wood %d · Stone %d" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()], miko.bag.count("Wood"), miko.bag.count("Stone")]
 
 
 func _unhandled_input(event: InputEvent) -> void:

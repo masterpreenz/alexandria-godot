@@ -22,6 +22,7 @@ var roofs: RoofMap        ## the roofs over closed, floored rooms
 var player: Node2D        ## who the roofs fade for (set by the game)
 var village: Village      ## the village's extent (its banner, square and blocks)
 var mist: Mist            ## the purple mist over the wild
+var gatherables: Array[Gatherable] = []  ## every tree and rock to gather from
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
 ## The rivers' flow, vertex by vertex: [position, one cell downstream (px), one cell across (px), speed (cells/s)],
 ## bucketed by area for finding the nearest.
@@ -60,7 +61,7 @@ func _ready() -> void:
 		layers.append([mesh.order, _mesh(mesh)])
 	var placed := 0
 	for s in world.sprites:
-		if s.get("kind", "") in LIVE_KINDS:
+		if s.get("kind", "") in LIVE_KINDS or s.has("gather"):
 			continue
 		var order: float = s.sort / px * 100.0
 		if order <= GROUND_ORDER:
@@ -76,8 +77,16 @@ func _ready() -> void:
 		l[1].set_meta("order", l[0])
 		ground.add_child(l[1])
 	for c in world.get("colliders", []):
-		if c.get("kind", "") not in LIVE_KINDS:
+		if c.get("kind", "") not in LIVE_KINDS and not c.has("gather"):
 			_collider(c)
+	# The trees and rocks, live: they can be chopped, mined, felled, and grow back.
+	if FileAccess.file_exists("res://data/gather.json"):
+		var gd: Dictionary = _load_json("res://data/gather.json")
+		for d in gd.spots:
+			var g := Gatherable.new()
+			things.add_child(g)
+			g.setup(self, d, int(gd.miner.treeWood))
+			gatherables.append(g)
 	walls = WallMap.new()
 	walls.name = "Walls"
 	add_child(walls)
@@ -140,6 +149,11 @@ func _ready() -> void:
 
 ## A blocker: a circle, a closed polygon, or a chain of segments (a wall, a shore).
 func _collider(c: Dictionary) -> void:
+	_collider_into(solids, c)
+
+
+## The shapes of collider [param c] (world coordinates), added to [param into].
+func _collider_into(into: Node, c: Dictionary) -> void:
 	var p: Array = c.get("p", [])
 	var pts := PackedVector2Array()
 	for i in range(0, p.size(), 2):
@@ -151,11 +165,11 @@ func _collider(c: Dictionary) -> void:
 			circle.radius = c.r
 			shape.shape = circle
 			shape.position = Vector2(c.c[0], c.c[1])
-			solids.add_child(shape)
+			into.add_child(shape)
 		"poly":
 			var poly := CollisionPolygon2D.new()
 			poly.polygon = pts
-			solids.add_child(poly)
+			into.add_child(poly)
 		"chain":
 			for i in pts.size() - 1:
 				var shape := CollisionShape2D.new()
@@ -163,7 +177,7 @@ func _collider(c: Dictionary) -> void:
 				seg.a = pts[i]
 				seg.b = pts[i + 1]
 				shape.shape = seg
-				solids.add_child(shape)
+				into.add_child(shape)
 
 
 func _load_json(path: String) -> Variant:
