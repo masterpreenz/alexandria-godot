@@ -156,7 +156,7 @@ func _process(_delta: float) -> void:
 		reset_size()
 		position = ((get_viewport_rect().size - size) / 2.0).round() + Vector2(0, 20)
 		return
-	var near := [] if miko.locked else _nearest()
+	var near := [] if miko.locked or CharacterPanel.up() else _nearest()
 	prompt.visible = not near.is_empty()
 	if near.is_empty():
 		return
@@ -253,7 +253,7 @@ func _details() -> void:
 		_kind.text = str(it.get("label", "")) + ("  ·  for the villagers (goes to storage)" if bool(r.get("toStorage", false)) else "  ·  into your bag")
 		var lines := [str(it.get("description", ""))]
 		for st in it.get("stats", []):
-			lines.append("+%s%s %s" % [BagWindow._num(st[1]), st[2], st[0]])
+			lines.append("+%s%s %s" % [CharacterStats.fmt(float(st[1])), st[2], st[0]])
 		if int(it.get("bagSlots", 0)) > 0:
 			lines.append("+%d slots" % int(it.bagSlots))
 		info = "\n".join(lines.filter(func(l): return l != ""))

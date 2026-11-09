@@ -234,7 +234,329 @@ func from_json(json: String) -> void:
 		if t.kind == "Start" and not ranks.has(t.id):
 			ranks[t.id] = 1
 	equipped = d.get("equipped", [])
+	wear_saved()
 	var tot := total()
 	hp = clampf(float(d.get("hp", tot.get("maxHp", 100.0))), 1.0, tot.get("maxHp", 100.0))
 	mana = clampf(float(d.get("mana", 0.0)), 0.0, tot.get("maxMana", 50.0))
 	changed.emit()
+
+
+# ---- What's worn, slot by slot (Unity's EquipSlot) ----
+
+const SLOTS := ["LeftHand", "RightHand", "Armor", "Gloves", "Pants", "Shoes", "Necklace", "Ring1", "Ring2", "Bag"]
+
+var worn := {}                     ## slot -> item name
+
+
+## Puts the saved gear on, slot by slot (after [method from_json]).
+func wear_saved() -> void:
+	worn.clear()
+	for n in equipped:
+		var clear := []
+		var slot := slot_for(n, clear)
+		for s in clear:
+			worn.erase(s)
+		worn[slot] = n
+	_sync_equipped()
+
+
+func _sync_equipped() -> void:
+	var list := []
+	for s in SLOTS:
+		if worn.has(s) and not list.has(worn[s]):
+			list.append(worn[s])
+	equipped = list
+
+
+func worn_in(slot: String) -> String:
+	return str(worn.get(slot, ""))
+
+
+## Whether the right hand is taken up by a two-handed weapon in the left.
+func right_hand_blocked() -> bool:
+	return worn.has("LeftHand") and str(UiKit.item(worn.LeftHand).get("kind", "")) == "TwoHanded"
+
+
+## The slot an item of its kind goes in, and (in [param clear]) what it pushes out of the way.
+func slot_for(item: String, clear: Array) -> String:
+	var kind := str(UiKit.item(item).get("kind", ""))
+	match kind:
+		"OneHanded":
+			clear.append("LeftHand")
+			return "LeftHand"
+		"TwoHanded":
+			clear.append_array(["LeftHand", "RightHand"])
+			return "LeftHand"
+		"Shield":
+			clear.append("RightHand")
+			if right_hand_blocked():
+				clear.append("LeftHand")
+			return "RightHand"
+		"Bag":
+			clear.append("Bag")
+			return "Bag"
+		"Ring":
+			var ring := "Ring1" if not worn.has("Ring1") else ("Ring2" if not worn.has("Ring2") else "Ring1")
+			clear.append(ring)
+			return ring
+	var slot: String = kind if kind in ["Armor", "Gloves", "Pants", "Shoes"] else "Necklace"
+	clear.append(slot)
+	return slot
+
+
+func _say(text: String, c := Color(1, 0.6, 0.5)) -> void:
+	var who := get_parent() as Node2D
+	if who != null and UiKit._world != null:
+		FloatingText.spawn(UiKit._world, text, who.position + Vector2(0, -1.2 * UiKit._world.px), c)
+
+
+## Wears the gear in bag slot [param from], putting what it pushes off back in the bag (the first into the slot it came
+## from). Nothing changes if the bag can't take what comes off.
+func equip(bag: Bag, from: int) -> void:
+	var item: String = bag.items[from]
+	if item == "":
+		return
+	var it := UiKit.item(item)
+	var kind := str(it.get("kind", ""))
+	if not bool(it.get("wearable", true)) or kind == "Tools":
+		_say("Tools are for the villagers: put them in storage" if kind == "Tools" else "Not something to wear", Color(0.9, 0.85, 0.7))
+		return
+	var clear := []
+	var slot := slot_for(item, clear)
+	var off := []
+	for s in clear:
+		if worn.has(s) and not off.has(worn[s]):
+			off.append(worn[s])
+	# A smaller bag than the one on: only if what's in the old bag's slots fits.
+	if kind == "Bag" and worn.has("Bag") and int(it.get("bagSlots", 0)) < int(UiKit.item(worn.Bag).get("bagSlots", 0)):
+		if _used_past(bag, Bag.BASE_SLOTS + int(it.get("bagSlots", 0)), from) > 0:
+			_say("Empty the bag's slots first")
+			return
+	var free := 0
+	for i in bag.capacity():
+		if bag.items[i] == "" and bag.stack_in(i) == "":
+			free += 1
+	if off.size() > free + 1:
+		return
+	bag.items[from] = ""
+	for s in clear:
+		worn.erase(s)
+	worn[slot] = item
+	_sync_equipped()
+	bag.worn = equipped
+	for i in off.size():
+		var to := from if i == 0 else bag.free_slot()
+		if to >= 0:
+			bag.items[to] = off[i]
+	bag.changed.emit()
+	_clamp()
+	changed.emit()
+
+
+# How many things sit in bag slots at or past [param past] (other than slot [param skip]).
+func _used_past(bag: Bag, past: int, skip := -1) -> int:
+	var n := 0
+	for i in range(past, Bag.SIZE):
+		if i != skip and (bag.items[i] != "" or bag.stack_in(i) != ""):
+			n += 1
+	return n
+
+
+## Takes off what's in [param slot], into the bag.
+func unequip(bag: Bag, slot: String) -> void:
+	if not worn.has(slot):
+		return
+	if slot == "Bag":
+		var used := 0
+		for i in Bag.BASE_SLOTS:
+			if bag.items[i] != "" or bag.stack_in(i) != "":
+				used += 1
+		var past := _used_past(bag, Bag.BASE_SLOTS)
+		if past > 0 or used >= Bag.BASE_SLOTS:
+			_say("No room for the bag" if past == 0 else "Empty the bag's slots first")
+			return
+	var item: String = worn[slot]
+	worn.erase(slot)
+	_sync_equipped()
+	bag.worn = equipped
+	var to := bag.free_slot()
+	if to < 0:
+		worn[slot] = item
+		_sync_equipped()
+		bag.worn = equipped
+		_say("The bag is full")
+		return
+	bag.items[to] = item
+	bag.changed.emit()
+	_clamp()
+	changed.emit()
+
+
+func _clamp() -> void:
+	var t := total()
+	hp = minf(hp, float(t.get("maxHp", hp)))
+	mana = minf(mana, float(t.get("maxMana", mana)))
+
+
+# ---- The talent web: learning a path out from what's learnt, and giving talents back ----
+
+func talent(id: String) -> Dictionary:
+	return _talents.get(id, {})
+
+
+func rank(id: String) -> int:
+	return int(ranks.get(id, 0))
+
+
+func unlocked(id: String) -> bool:
+	return rank(id) > 0
+
+
+## The talents [param id] connects to, both ways.
+func neighbours(id: String) -> Array:
+	if _links.is_empty():
+		for t in character.talents:
+			for l in t.links:
+				if not _talents.has(l):
+					continue
+				if not _links.has(t.id): _links[t.id] = []
+				if not _links.has(l): _links[l] = []
+				if not _links[t.id].has(l): _links[t.id].append(l)
+				if not _links[l].has(t.id): _links[l].append(t.id)
+	return _links.get(id, [])
+
+
+var _links := {}
+
+
+## The cheapest run of locked talents from what's learnt out to [param id] (ending with it), [] when it's learnt, or
+## null when it can't be reached. Its length is the points it costs.
+func path_to(id: String) -> Variant:
+	if unlocked(id):
+		return []
+	var from := {}
+	var queue := []
+	for t in character.talents:
+		if unlocked(t.id):
+			from[t.id] = ""
+			queue.append(t.id)
+	while not queue.is_empty():
+		var n: String = queue.pop_front()
+		if n == id:
+			break
+		for nx in neighbours(n):
+			if not from.has(nx):
+				from[nx] = n
+				queue.append(nx)
+	if not from.has(id):
+		return null
+	var path := []
+	var at := id
+	while at != "" and not unlocked(at):
+		path.push_front(at)
+		at = from[at]
+	return path
+
+
+## Learns the whole path out to [param id] if there are the points for it.
+func learn_path(id: String) -> bool:
+	var path: Variant = path_to(id)
+	if path == null or path.is_empty() or path.size() > talent_points:
+		return false
+	for n in path:
+		ranks[n] = 1
+	talent_points -= path.size()
+	changed.emit()
+	return true
+
+
+## Whether [param id] can be given back: learnt, not the start, and everything else learnt still joins up to the start
+## without it.
+func can_refund(id: String) -> bool:
+	if not unlocked(id) or str(talent(id).get("kind", "")) == "Start":
+		return false
+	var start := ""
+	for t in character.talents:
+		if t.kind == "Start":
+			start = t.id
+	if start == "":
+		return true
+	var seen := {start: true}
+	var queue := [start]
+	while not queue.is_empty():
+		for nx in neighbours(queue.pop_front()):
+			if nx != id and unlocked(nx) and not seen.has(nx):
+				seen[nx] = true
+				queue.append(nx)
+	for t in character.talents:
+		if unlocked(t.id) and t.id != id and not seen.has(t.id):
+			return false
+	return true
+
+
+func refund_cost() -> int:
+	return int(character.get("refundCost", 10))
+
+
+## Gives back [param id]'s point, for gold from [param bag]; false if it can't.
+func refund(id: String, bag: Bag) -> bool:
+	if not can_refund(id):
+		return false
+	if bag != null and not bag.spend("Gold", refund_cost()):
+		return false
+	ranks.erase(id)
+	talent_points += 1
+	_clamp()
+	changed.emit()
+	return true
+
+
+## The skills known, each with where it comes from: [[spell, from]] (gear first, then talents).
+func spell_sources() -> Array:
+	var out := []
+	for n in equipped:
+		var g: String = item_stats.get(n, {}).get("grantsSpell", "")
+		if g != "":
+			out.append([g, str(UiKit.item(n).get("name", n))])
+	for t in character.talents:
+		if unlocked(t.id) and str(t.get("grantsSpell", "")) != "":
+			out.append([t.grantsSpell, str(t.name)])
+	return out
+
+
+# ---- Stats as words ----
+
+## Each stat's name and unit, in Unity's StatBlock order.
+const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["attack", "Attack", ""], ["defense", "Defense", ""],
+	["magic", "Magic", ""], ["hpRegen", "HP Regen", "/s"], ["manaRegen", "Mana Regen", "/s"], ["castSpeed", "Cast Speed", "%"],
+	["spellDamage", "Spell Damage", "%"], ["cooldownReduction", "Cooldown Reduction", "%"], ["summonEffect", "Summon Effect", "%"],
+	["summonDuration", "Summon Duration", "%"], ["summonDamage", "Summon Damage", "%"], ["summonHp", "Summon HP", "%"],
+	["maxSummons", "Max Shikigami", ""], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
+	["stoneYield", "Stone Yield", "%"], ["growthSpeed", "Tree Growth", "%"], ["moveSpeed", "Move Speed", "%"]]
+
+
+static func fmt(v: float) -> String:
+	if is_equal_approx(v, roundf(v)):
+		return str(roundi(v))
+	return ("%.1f" % v).trim_suffix(".0")
+
+
+## A stat block in words: "+5 Magic, +3% Cast Speed".
+static func describe(block: Dictionary) -> String:
+	var parts := []
+	for s in STAT_NAMES:
+		var v := float(block.get(s[0], 0.0))
+		if absf(v) > 0.001:
+			parts.append("%s%s%s %s" % ["+" if v > 0 else "", fmt(v), s[2], s[1]])
+	return ", ".join(parts)
+
+
+## What gear and talents add (no base, no level, no buffs).
+func bonuses() -> Dictionary:
+	var t := {}
+	for n in equipped:
+		_add(t, item_stats.get(n, {}).get("stats", {}))
+	for id in ranks:
+		if _talents.has(id):
+			_add(t, _talents[id].perRank, ranks[id])
+	return t

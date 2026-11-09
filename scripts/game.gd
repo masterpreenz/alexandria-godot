@@ -52,6 +52,7 @@ func _ready() -> void:
 	caster.name = "Caster"
 	world.add_child(caster)
 	caster.setup(world, miko, miko.stats, combat.spells, combat.caster)
+	HudStyle.setup(world)
 	var hotbar := Hotbar.new()
 	hotbar.name = "Hotbar"
 	hotbar.theme = UiKit.theme
@@ -59,7 +60,6 @@ func _ready() -> void:
 	hotbar.setup(world, caster, miko.bag, miko.stats)
 	if sv.get("sections", {}).has("player.hotbar"):
 		hotbar.from_json(sv.sections["player.hotbar"])
-	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 14)
 	# Her card, top left: portrait, level, coins, HP, mana, hunger and rest, her effects and skills cooling down.
 	HudStyle.setup(world)
 	var bars := PlayerCard.new()
@@ -189,14 +189,15 @@ func _ready() -> void:
 			for a in JSON.parse_string(sv.sections["player.life"]).get("looted", []):
 				if int(a.amount) > 0:
 					Fainting.looted[a.resource] = int(a.amount)
-	# The bag window (I).
-	var bag_window := BagWindow.new()
-	bag_window.name = "BagWindow"
-	bag_window.theme = UiKit.theme
-	$Hud.add_child(bag_window)
-	bag_window.setup(world, miko.bag)
-	bag_window.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
-	bag_window.visible = Shots.arg("bag") != ""
+	# The Character & Bag window (C or I) and the talents (P).
+	var char_panel := CharacterPanel.new()
+	char_panel.name = "CharacterPanel"
+	char_panel.theme = UiKit.theme
+	$Hud.add_child(char_panel)
+	char_panel.setup(world, miko, $Hud)
+	($Hud/Hotbar as Hotbar).panel = char_panel
+	if Shots.arg("bag") != "":
+		char_panel.toggle()
 	# The village's windows: chests and the town banner (E), the jobs (J), and the workbenches (E at one).
 	var desk := VillageDesk.new()
 	desk.name = "VillageDesk"
@@ -378,7 +379,7 @@ func _ready() -> void:
 					await get_tree().process_frame
 				print("Left ", spot.remaining(), "; bag wood ", miko.bag.count("Wood"), " stone ", miko.bag.count("Stone"))
 		if Shots.arg("window") != "":
-			# Open one of the village's windows for the shot: chest, totals, ask, banner, grow, jobs, bench.
+			# Open one of the windows for the shot: chest, totals, ask, banner, grow, jobs, bench, character, talents, picker.
 			var vd: VillageDesk = get_node("VillageDesk")
 			match Shots.arg("window"):
 				"chest", "totals", "ask":
@@ -392,6 +393,9 @@ func _ready() -> void:
 					vd.growth.begin()
 					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(0.75, 0.3))
 				"jobs": ($Hud/JobsWindow as JobsWindow).visible = true
+				"character": ($Hud/CharacterPanel as CharacterPanel).toggle()
+				"talents": ($Hud/CharacterPanel as CharacterPanel).toggle_talents()
+				"picker": ($Hud/Hotbar as Hotbar).clicked(0)
 				"bench":
 					var wb: WorkbenchWindow = $Hud/WorkbenchWindow
 					for prop in wb.benches:

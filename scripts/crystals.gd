@@ -294,7 +294,7 @@ func _travel(pressed: bool) -> void:
 			panel.visible = false
 		prompt.visible = false
 		return
-	var c := {} if miko.locked else _at_crystal(RANGE)
+	var c := {} if miko.locked or CharacterPanel.up() else _at_crystal(RANGE)
 	prompt.visible = not c.is_empty()
 	if c.is_empty():
 		return
