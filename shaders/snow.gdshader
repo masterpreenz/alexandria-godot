@@ -1,12 +1,15 @@
 // Snow settling on the world (from Unity's SnowCommon.hlsl). snow_cover (a global, 0 to 1, set by SnowCover) is how
 // much has fallen. mode 0: standing things get a cap of snow along every edge that faces up, deeper as it builds, and
 // a light frost; 1: the ground whitens in patches that spread until it's all white; 2: roofs, a fine speckle filling
-// in quickly to a white blanket.
+// in quickly to a white blanket; 3: the grass, as 1, and (grass_variety) varied across the world by a noise map:
+// broad lusher and drier patches and a finer mottling, so the grass picture's repeat (every 8 x 16 cells) doesn't show.
 shader_type canvas_item;
 
 global uniform float snow_cover;
 uniform int mode = 0;
 uniform float unit = 128.0;
+uniform sampler2D variety : filter_linear, repeat_enable;  // FastNoiseLite, seamless (World.grass_variety)
+uniform float grass_variety = 0.0;                          // 0 plain .. 1 fully varied
 
 varying vec2 world;
 
@@ -36,9 +39,20 @@ void vertex() {
 
 void fragment() {
 	vec4 c = texture(TEXTURE, UV) * COLOR;
+	if (mode == 3 && grass_variety > 0.0) {
+		// Broad patches (about 30 units across): lush and dark one way, sunned and drier the other; then a finer
+		// mottle (about 7 units) a little lighter or darker.
+		float broad = texture(variety, world / 34.0).r;
+		float fine = texture(variety, world / 7.5 + vec2(0.37, 0.61)).r;
+		vec3 lush = vec3(0.84, 0.92, 0.82);
+		vec3 dry = vec3(1.1, 1.05, 0.8);
+		vec3 tint = mix(lush, dry, smoothstep(0.25, 0.75, broad));
+		tint *= 0.94 + 0.12 * fine;
+		c.rgb = mix(c.rgb, c.rgb * tint, grass_variety);
+	}
 	if (snow_cover > 0.001 && c.a > 0.01) {
 		vec3 rgb = c.rgb;
-		if (mode == 1) {
+		if (mode == 1 || mode == 3) {
 			// Ground: patches settling first where the noise is high, spreading until all is white.
 			vec2 p = floor(world * 32.0) / 32.0;
 			float patch = noise(p * 0.45) * 0.6 + noise(p * 1.9 + 7.1) * 0.3 + noise(p * 6.0 + 3.3) * 0.1;

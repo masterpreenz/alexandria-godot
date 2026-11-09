@@ -374,7 +374,8 @@ class FloorLayer extends Node2D:
 		name = n
 		# The ground and ground floors settle snow; boards (mostly indoors) don't.
 		if not m.is_whole(n.trim_prefix("Floor_")):
-			material = m.world.snow_material(1)
+			# The grass gets its own: snow as the other ground, and the noise that varies it.
+			material = m.world.snow_material(3 if n == "Floor_" + m.base_floor else 1)
 
 	func clear() -> void:
 		for c in chunks.values():

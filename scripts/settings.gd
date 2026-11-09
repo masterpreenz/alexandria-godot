@@ -11,6 +11,7 @@ static var resolution := Vector2i(1600, 900)
 static var borderless := false
 static var ui_size := 1.0
 static var show_fps := true
+static var varied_grass := true   ## the grass varied by noise (lusher and drier patches), or the plain repeat
 static var soft_picture := true    ## Unity's look: a little softer, less saturated, a slight vignette
 static var master := 1.0
 static var sfx := 1.0
@@ -30,6 +31,7 @@ static func load_settings() -> void:
 	ui_size = float(cfg.get_value("display", "ui_size", ui_size))
 	show_fps = bool(cfg.get_value("display", "show_fps", show_fps))
 	soft_picture = bool(cfg.get_value("display", "soft_picture", soft_picture))
+	varied_grass = bool(cfg.get_value("display", "varied_grass", varied_grass))
 	master = float(cfg.get_value("sound", "master", master))
 	sfx = float(cfg.get_value("sound", "sfx", sfx))
 	bgm = float(cfg.get_value("sound", "bgm", bgm))
@@ -42,6 +44,7 @@ static func save_settings() -> void:
 	cfg.set_value("display", "ui_size", ui_size)
 	cfg.set_value("display", "show_fps", show_fps)
 	cfg.set_value("display", "soft_picture", soft_picture)
+	cfg.set_value("display", "varied_grass", varied_grass)
 	cfg.set_value("sound", "master", master)
 	cfg.set_value("sound", "sfx", sfx)
 	cfg.set_value("sound", "bgm", bgm)

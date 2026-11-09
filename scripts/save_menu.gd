@@ -302,6 +302,10 @@ func _display(box: VBoxContainer) -> void:
 	r.add_child(_choice("Soft", Settings.soft_picture, _set_picture.bind(true)))
 	r.add_child(_choice("Vivid", not Settings.soft_picture, _set_picture.bind(false)))
 	col.add_child(r)
+	r = _row("Grass")
+	r.add_child(_choice("Varied", Settings.varied_grass, _set_grass.bind(true)))
+	r.add_child(_choice("Plain", not Settings.varied_grass, _set_grass.bind(false)))
+	col.add_child(r)
 	r = _row("FPS meter")
 	r.add_child(_choice("Show", Settings.show_fps, _set_fps.bind(true)))
 	r.add_child(_choice("Hide", not Settings.show_fps, _set_fps.bind(false)))
@@ -318,6 +322,14 @@ func _set_resolution(res: Vector2i) -> void:
 	Settings.resolution = res
 	Settings.borderless = false
 	_apply()
+
+
+func _set_grass(varied: bool) -> void:
+	Settings.varied_grass = varied
+	if UiKit._world != null:
+		UiKit._world.set_grass_variety(varied)
+	Settings.save_settings()
+	_build()
 
 
 func _set_picture(soft: bool) -> void:

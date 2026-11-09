@@ -531,5 +531,29 @@ func snow_material(mode: int) -> ShaderMaterial:
 		m.shader = preload("res://shaders/snow.gdshader")
 		m.set_shader_parameter("mode", mode)
 		m.set_shader_parameter("unit", px)
+		if mode == 3:
+			m.set_shader_parameter("variety", grass_variety())
+			m.set_shader_parameter("grass_variety", 1.0 if Settings.varied_grass else 0.0)
 		_snow_mats[mode] = m
 	return _snow_mats[mode]
+
+
+static var _variety: Texture2D
+
+## The noise the grass is varied by (snow.gdshader mode 3): Godot's FastNoiseLite, simplex with a few octaves, made
+## once into a seamless 512 x 512 picture that the ground's shader samples across the world.
+static func grass_variety() -> Texture2D:
+	if _variety == null:
+		var n := FastNoiseLite.new()
+		n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		n.seed = 7
+		n.frequency = 0.008
+		n.fractal_type = FastNoiseLite.FRACTAL_FBM
+		n.fractal_octaves = 3
+		_variety = ImageTexture.create_from_image(n.get_seamless_image(512, 512))
+	return _variety
+
+
+## Grass varied (Settings) or plain: the ground's shader, at once.
+func set_grass_variety(on: bool) -> void:
+	snow_material(3).set_shader_parameter("grass_variety", 1.0 if on else 0.0)

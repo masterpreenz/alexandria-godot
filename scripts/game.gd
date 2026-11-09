@@ -20,6 +20,7 @@ var follow_offset := Vector2.ZERO
 func _ready() -> void:
 	# The player's settings: sound, and the window (size, borderless fullscreen) once a run.
 	Settings.load_settings()
+	if Shots.arg("grass") != "": Settings.varied_grass = Shots.arg("grass") == "varied"
 	Settings.apply_sound()
 	Settings.route_sounds(get_tree())
 	MapMarks.hide_particles(get_tree())
@@ -590,6 +591,8 @@ func _ready() -> void:
 						miko.stats.wear["CrystalNecklace"] = 899.0
 					for i in 120:
 						await get_tree().process_frame
+					if Shots.arg("zoom") != "":
+						camera.zoom *= float(Shots.arg("zoom"))
 					print("After: worn ", miko.stats.worn_in("Necklace"), " durability ", miko.stats.durability_left("CrystalNecklace"), " tier here ", world.mist.tier_at(miko.position))
 				"ward":
 					# Beside a cleansing crystal, inside its clearing: its curtain and the ring on the ground.
