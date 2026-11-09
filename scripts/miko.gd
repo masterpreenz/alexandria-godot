@@ -46,7 +46,10 @@ var pose_mirror := false
 var _knock := Vector2.ZERO
 var _knock_left := 0.0
 var _knock_time := 1.0
-# Thrown up off her feet (Unity's CharacterJump.Toss): how high (units), how long, and how far through (-1: not).
+const JUMP_HEIGHT := 0.7       ## units (Unity's CharacterJump)
+const JUMP_TIME := 0.5          ## seconds
+# Off her feet, jumping (Space) or thrown (Unity's CharacterJump.Toss): how high (units), how long, and how far through
+# (-1: on the ground). Only her body rises; where she stands (sorting, collisions, the shadow) stays put.
 var _toss_height := 0.0
 var _toss_time := 0.5
 var _toss_clock := -1.0
@@ -167,15 +170,16 @@ func _process(delta: float) -> void:
 func _process_timed(delta: float) -> void:
 	_animate(delta)
 	var extra := Vector2.ZERO
-	# Thrown: up and down in an arc.
+	# Off her feet: up and down in an arc, her shadow shrinking and fading under her as she rises.
 	if _toss_clock >= 0.0:
 		_toss_clock += delta
 		var t := clampf(_toss_clock / _toss_time, 0.0, 1.0)
-		extra.y = -4.0 * _toss_height * t * (1.0 - t) * world.px
-		if shadow != null:
-			shadow.scale = Vector2(data.shadow.sx, data.shadow.sy) * (world.px / float(world.sprites[int(data.shadow.s)].ppu)) * lerpf(1.0, 0.7, -extra.y / maxf(1.0, _toss_height * world.px))
+		var lift := 4.0 * _toss_height * t * (1.0 - t)
+		extra.y = -lift * world.px
+		_shadow_lift(lift)
 		if t >= 1.0:
 			_toss_clock = -1.0
+			_shadow_lift(0.0)
 			Puffs.burst(world, position, 0.6, 6)
 	# Hit: two red blinks, fading, and a jolt side to side, settling.
 	if _hit_since >= 0.0:
@@ -199,6 +203,32 @@ func knock(v: Vector2, time: float) -> void:
 
 
 ## Throws her up off her feet, [param height] units high, landing after [param time] seconds.
+## Whether she's off her feet (jumping or thrown).
+func airborne() -> bool:
+	return _toss_clock >= 0.0
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
+		jump()
+
+
+## A hop (Space), unless she's already off her feet or can't move (casting, in a window, asleep...).
+func jump() -> void:
+	if airborne() or locked:
+		return
+	toss(JUMP_HEIGHT, JUMP_TIME)
+
+
+# The shadow under her as she's [param lift] units up: smaller and fainter (Unity's 45% at a jump's top).
+func _shadow_lift(lift: float) -> void:
+	if shadow == null:
+		return
+	var ground := 1.0 - 0.45 * clampf(lift / JUMP_HEIGHT, 0.0, 1.0)
+	shadow.scale = Vector2(data.shadow.sx, data.shadow.sy) * (world.px / float(world.sprites[int(data.shadow.s)].ppu)) * ground
+	shadow.modulate.a = float(data.shadow.a) * ground
+
+
 func toss(height: float, time: float) -> void:
 	_toss_height = maxf(0.05, height)
 	_toss_time = maxf(0.1, time)

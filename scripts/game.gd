@@ -558,6 +558,19 @@ func _ready() -> void:
 							mm._step(1 if i % 240 < 120 else -1)
 						await get_tree().process_frame
 					print("MMPHASE end ", Time.get_ticks_msec() - t0)
+				"jump":
+					# Space: she hops; the picture at the top of the arc.
+					var ev := InputEventKey.new()
+					ev.keycode = KEY_SPACE
+					ev.pressed = true
+					Input.parse_input_event(ev)
+					await get_tree().process_frame
+					await get_tree().process_frame
+					var t0 := Time.get_ticks_msec()
+					while Time.get_ticks_msec() - t0 < int(Shots.arg("jumpms", "250")):
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_air.png")
+					print("Jump: airborne ", miko.airborne(), " body lift ", miko.wading.extra.y, " shadow ", miko.shadow.scale, " a ", snappedf(miko.shadow.modulate.a, 0.01))
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

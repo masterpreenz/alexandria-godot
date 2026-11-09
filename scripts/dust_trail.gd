@@ -31,7 +31,9 @@ func _process_timed(delta: float) -> void:
 	var moved := feet.distance_to(_last) / unit
 	_last = feet
 	var running: bool = target.get("running") and target.get("moving")
-	_owed += moved * (run_rate if running else walk_rate)
+	# None kicked up while off the ground (a jump).
+	if not (target.has_method("airborne") and target.airborne()):
+		_owed += moved * (run_rate if running else walk_rate)
 	while _owed >= 1.0 and puffs.size() < 60:
 		_owed -= 1.0
 		var a := randf() * TAU

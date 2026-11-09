@@ -195,6 +195,9 @@ func _cast(spell: String, target: Vector2) -> void:
 	_set_aiming("")
 	casting = true
 	miko.locked = true
+	# A spell starts once she's landed (Unity's SpellCaster).
+	while miko.airborne():
+		await get_tree().process_frame
 	var c := SpellEffects.color(s)
 	_bar_color = c
 	_bar_fill = 0.0

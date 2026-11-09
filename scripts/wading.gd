@@ -57,6 +57,7 @@ func _process_timed(delta: float) -> void:
 	if depth <= 0.01 or not body.visible:
 		if wading:
 			_dry()
+		body.position = _rest + extra   # a jump, a toss or a hit's jolt, on dry land too
 		return
 	if not wading:
 		_wet(feet)
