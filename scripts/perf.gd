@@ -49,6 +49,8 @@ var _pre_draw := 0
 var _post_draw := 0
 var _phases := {}               ## the last frame's split: name -> ms
 var _last_frame := {}           ## the last frame's script timers (its process half is in a spike's span)
+var _added_now := {}            ## nodes added since the last frame, by class (what spawned in a slow frame)
+var _added_last := {}
 
 
 ## Times one call: [code]var t := Time.get_ticks_usec()[/code] ... [code]Perf.add(&"name", t)[/code].
@@ -153,6 +155,8 @@ func _process(delta: float) -> void:
 			tt[0] += e[0]
 			tt[1] += e[1]
 	_last_frame = _frame.duplicate(true)
+	_added_last = _added_now
+	_added_now = {}
 	_frame.clear()
 	var t := Time.get_ticks_msec() / 1000.0
 	if t - _shown_at >= 0.5:
@@ -184,6 +188,8 @@ func _split() -> void:
 
 
 func _added(n: Node) -> void:
+	var k := n.get_class() + ("(" + _owner_of(n) + ")" if n is CPUParticles2D or n is AudioStreamPlayer2D else "")
+	_added_now[k] = int(_added_now.get(k, 0)) + 1
 	if n is CPUParticles2D or n is GPUParticles2D:
 		_particles[n] = true
 	elif n is PointLight2D:
@@ -315,6 +321,11 @@ func _spike(ms: float) -> void:
 	var line := "SPIKE %.1f ms (avg %.1f) at %.2fs | scripts %.1f, outside scripts %.1f | %s | render cpu %.1f gpu %.1f | draw %d objects %d nodes %d | effects %d (%d particles) lights %d sounds %d | " % [
 		ms, _avg_ms, Time.get_ticks_msec() / 1000.0, sc, maxf(0.0, ms - sc - e["render cpu ms"]), _phase_text(), e["render cpu ms"], e["render gpu ms"],
 		e["draw calls"], e.objects, e.nodes, th.effects, th.particles, th.lights, th.sounds]
+	var added := _added_last.duplicate()
+	for k in _added_now:
+		added[k] = int(added.get(k, 0)) + int(_added_now[k])
+	if not added.is_empty():
+		line += "added " + ", ".join(added.keys().map(func(k): return "%s×%d" % [k, added[k]])) + " | "
 	var parts := []
 	for i in mini(8, rows.size()):
 		parts.append("%s %.2f×%d" % [rows[i][0], rows[i][1], rows[i][2]])
