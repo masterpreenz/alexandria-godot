@@ -9,6 +9,7 @@ signal changed
 signal hurt(amount: float)
 signal downed
 signal out_of_mana
+signal leveled_up(level: int)
 
 const REGEN_TICK := 5.0
 const REGEN_PAUSE_AFTER_HIT := 5.0
@@ -214,6 +215,7 @@ func gain_xp(amount: int) -> void:
 		xp -= xp_to_next()
 		level += 1
 		talent_points += 1
+		leveled_up.emit(level)
 	changed.emit()
 
 

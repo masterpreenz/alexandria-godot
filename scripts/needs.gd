@@ -101,16 +101,54 @@ func hunger_state() -> String:
 	return "Starving" if starving() else ("Hungry" if hungry() else "")
 
 
-## The effects on her now, for the HUD: [name, good].
+## The effects on her now, for the HUD: [name (with any time left), good, what it does].
 func effects() -> Array:
 	var list := []
-	if hunger_state() != "": list.append([hunger_state(), false])
-	if exhausted(): list.append(["Exhausted", false])
-	if mist_sickness > 0.01: list.append(["Mist sick %d%%" % roundi(mist_sickness * 50.0), false])
-	if comfort != "": list.append([comfort, comfort_good])
+	var pct := func(share: float) -> int: return roundi(share * 100.0)
+	if starving():
+		list.append(["Starving", false, "No HP regen, %d%% slower, attack, defense and magic -%d%%. Lose %s HP every %ss. Eat something (F)."
+			% [roundi(float(s.starveSlow)), pct.call(float(s.starvingWeaker)), str(s.starvePang), str(s.starveEvery)]])
+	elif hungry():
+		list.append(["Hungry", false, "HP regen -%d%%, attack, defense and magic -%d%%. Eat something (F)." % [pct.call(1.0 - float(s.hungryRegen)), pct.call(float(s.hungryWeaker))]])
+	if exhausted():
+		list.append(["Exhausted", false, "Can't run, 25% slower, mana regen -50%. Rest, sleep (Z) or drink tea (G)."])
+	var tier := world.mist.tier_at(miko.position) if world.mist != null else Mist.Tier.CLEAR
+	if mist_sickness > 0.01:
+		var k := minf(1.0, mist_sickness)
+		var deep := clampf(mist_sickness - 1.0, 0.0, 1.0)
+		var weaker := roundi(lerpf(float(s.mistWeaker), float(s.strongMistWeaker), deep) * k * 100.0)
+		var regen := roundi(lerpf(float(s.mistRegen), float(s.strongMistRegen), deep) * k * 100.0)
+		var slow := roundi(float(s.strongMistSlow) * deep)
+		var what := "Attack, defense and magic -%d%%, HP and mana regen -%d%%" % [weaker, regen] + (", %d%% slower" % slow if slow > 0 else "") + ". "
+		what += "Worse the longer she stays in the mist (faster in strong mist). Place a cleansing crystal to clear ground, or step out to recover." if tier != Mist.Tier.CLEAR else "Wearing off now she's out of the mist."
+		list.append(["Mist sick %d%%" % roundi(mist_sickness * 50.0), false, what])
+	if tier != Mist.Tier.CLEAR:
+		var strong := tier == Mist.Tier.STRONG
+		var mp := roundi(((Mist.STRONG_POWER if strong else Mist.NORMAL_POWER) - 1.0) * 100.0)
+		list.append(["Strong mist" if strong else "Mist", false, "Monsters keep coming out of it, %d%% stronger, and it makes her mist sick. " % mp
+			+ ("Plain crystals and the village can't clear it." if strong else "Grow the village or place a cleansing crystal to clear it.")])
+	if comfort != "":
+		list.append([_timed(comfort, _comfort_until), comfort_good, _describe(stats.buffs.get("comfort", {})) + (" From a night in a bed." if comfort_good else " From sleeping on the ground.")])
 	for dish in _food_until:
-		list.append([UiKit.resource_name(dish), true])
+		list.append([_timed(UiKit.resource_name(dish), _food_until[dish]), true, _describe(FOOD_BUFFS.get(dish, {})) + " From a good meal."])
 	return list
+
+
+func _timed(name: String, until: float) -> String:
+	var secs := maxi(0, ceili(until - _now()))
+	return "%s %d:%02d" % [name, secs / 60, secs % 60]
+
+
+# A stat block as a short line: "+0.5 HP regen, +1 mana regen, +5% speed".
+static func _describe(b: Dictionary) -> String:
+	var parts := []
+	var names := {"hpRegen": "HP regen", "manaRegen": "mana regen", "moveSpeed": "% speed", "attack": "attack", "defense": "defense", "magic": "magic", "gatherSpeed": "% gathering speed"}
+	for k in names:
+		var v := float(b.get(k, 0.0))
+		if absf(v) > 0.001:
+			var n: String = names[k]
+			parts.append(("+" if v >= 0.0 else "") + str(snappedf(v, 0.01)) + ("" if n.begins_with("%") else " ") + n)
+	return ", ".join(parts) + "." if not parts.is_empty() else ""
 
 
 static func _now() -> float:

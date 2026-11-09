@@ -77,6 +77,17 @@ In steps (about 7,600 lines of Unity code):
 - HUD, character panel, talent web, build mode and build bar, world map and minimap, chest and workbench windows, save menu.
 - Godot `Control` nodes with a shared theme, ported from UiKit and UiTheme.
 
+In steps (about 10,000 lines of Unity code):
+1. **HUD**: the HUD style (HudStyle), the player card (portrait, level, coins, HP with shield, mana, hunger, rest),
+   the effect tags with their tips, the cooldown rack, the time and weather card; doors opening for Miko (and O to keep
+   a house's doors open); the level-up effect; help hints.
+2. **Village windows**: the chest window, the banner's panel and growing the village, the jobs window, the workbench
+   window.
+3. **Character**: the character panel (gear, stats, life skills), the talent web, the hotbar's picker and rows.
+4. **Maps**: the minimap and the world map (M), with markers and the explored fog.
+5. **Building**: build mode, the build bar and catalog, house presets, blueprints.
+(The save menu comes with the saves in phase 6.)
+
 ### Phase 6: Saves, polish, switch-over
 - Save system with the same sections, autosave, slots.
 - Sound, particles (puffs, sparks, motes), level-up effects.
@@ -183,7 +194,9 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
 - [x] Phase 4, step 5: **Crystals and exploration** (`crystals.gd`, `exploration.gd`), ported from Unity's TeleportCrystal, MistWard, WardBarrier, the travel part of VillageInteractor, and Exploration. Teleport crystals glow and pulse with motes and sparkles; E at one lists the others (named by hand from the save, the village's, or by where they lie) and travels there in a flash. Cleansing crystals glow violet; the edge of their clearing is a low rippling curtain of light with motes drifting up, only where there's mist beyond (shared edges fade), and a soft ring marks their reach while Miko is inside. What she's seen of the map is tracked round her and the village and loads from the save, for the maps in phase 5.
   - Not yet: growing the village and the banner's window, the chest window, recruiting villagers in the wild (design only in Unity so far): phase 5 with the UI. The travel list is a plain panel until then.
 - [x] Phase 4 done.
-- [ ] Phase 5 next: the UI.
+- [x] Phase 5, step 1: **HUD** (`hud_style.gd`, `player_card.gd`, `time_card.gd`, `doors.gd`, `level_up.gd`, `help_hints.gd`), ported from Unity's HudStyle, PlayerHud, the clock half of WorldHud, DoorInteractor, LevelUpEffect and HelpHints, the HUD's look in `data/hud.json`. Miko's card top left in the dark-ink style (portrait with a level badge, name, coins carried and stored, HP with a blue shield band, mana flashing red when short, hunger and rest turning coral when low), her effect tags under it (green or red, with time left; hovering one says what it does) and the rack of skills cooling down; the weather, time and season card top right (click the weather to cycle it, the season to skip on). Doors open for Miko as she comes up and shut behind her; doors left open swing shut; O at a house's door keeps its doors open or lets them close; the door sounds. The golden level-up moment. Help hints above the hotbar, once each (which were seen loads from the save).
+  - Not yet: the level-up chime (Unity made it in code; to come with the sounds in phase 6); the minimap over the time card (step 4).
+- [ ] Phase 5 next: village windows.
 - [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
 - [ ] Phase 2: World systems
 

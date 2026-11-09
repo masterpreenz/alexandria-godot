@@ -60,10 +60,26 @@ func _ready() -> void:
 	if sv.get("sections", {}).has("player.hotbar"):
 		hotbar.from_json(sv.sections["player.hotbar"])
 	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 14)
-	var bars := StatusBars.new()
-	bars.stats = miko.stats
-	bars.position = Vector2(16, 84)
+	# Her card, top left: portrait, level, coins, HP, mana, hunger and rest, her effects and skills cooling down.
+	HudStyle.setup(world)
+	var bars := PlayerCard.new()
+	bars.name = "PlayerCard"
 	$Hud.add_child(bars)
+	bars.setup(world, miko, caster)
+	# Levelling up: a golden moment over her.
+	miko.stats.leveled_up.connect(func(lv): LevelUp.play(world, miko, lv))
+	# Help hints, once each, above the hotbar.
+	var hints := HelpHints.new()
+	hints.name = "HelpHints"
+	$Hud.add_child(hints)
+	hints.setup(world, miko)
+	if sv.get("sections", {}).has("help.shown"):
+		HelpHints.from_json(sv.sections["help.shown"])
+	# Doors open for her as she comes up to them (O keeps a house's open).
+	var doors := Doors.new()
+	doors.name = "Doors"
+	add_child(doors)
+	doors.setup(world, miko, (world._load_json("res://data/hud.json") if FileAccess.file_exists("res://data/hud.json") else {}).get("doors", {}), $Hud)
 	# Her hunger, energy and sleep (F eats, G drinks tea, Z sleeps), and her life skills.
 	if sv.get("sections", {}).has("player.skills"):
 		LifeSkills.from_json(sv.sections["player.skills"])
@@ -226,6 +242,12 @@ func _ready() -> void:
 	hands.name = "RabbitHands"
 	miko.add_child(hands)
 	hands.setup(world, miko, pens, $Hud)
+	# The time, the season and day, and the weather, top right.
+	time_label.visible = false
+	var time_card := TimeCard.new()
+	time_card.name = "TimeCard"
+	$Hud.add_child(time_card)
+	time_card.setup(world, clock)
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -310,6 +332,9 @@ func _ready() -> void:
 				await get_tree().process_frame
 			for vg in Villager.all:
 				print("Villager ", vg.name, " state ", Villager.State.keys()[vg.state], " at ", vg.position, " hunger ", int(vg.person.hunger), " energy ", int(vg.person.energy), " in bed ", vg.in_bed, " carrying ", vg.carrying, " ", vg.carry_kind, " job ", vg.job != null)
+			var nd: Array = world.walls.nearest_door(miko.position, 3.0 * world.px)
+			if not nd.is_empty():
+				print("Nearest door ", world.walls.edge_middle(nd[0]), " open ", world.walls.is_open(nd[0]), " Miko at ", miko.position)
 			var cr: Crystals = get_node_or_null("Crystals")
 			if cr != null:
 				print("Teleports ", cr.teleports.map(func(c): return [cr.name_of(c.pos), c.pos]), " wards ", cr.wards.map(func(c): return c.pos))
