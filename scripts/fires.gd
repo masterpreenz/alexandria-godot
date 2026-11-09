@@ -322,10 +322,10 @@ func _begin(fire: Dictionary) -> void:
 	cooking = true
 	_cook_clock = 0.0
 	miko.locked = true
-	# The sizzle runs while she cooks: looped, from a random point so no two sound the same.
+	# The sizzle runs while she cooks: looped, picking up where it left off last time (so no two sound the same).
 	if _sizzle.stream != null:
 		_sizzle.pitch_scale = randf_range(0.95, 1.05)
-		_sizzle.play(randf_range(0.0, maxf(0.0, _sizzle.stream.get_length() - 3.0)))
+		Sfx.keep_going(_sizzle, true)
 
 
 func _cook(pressed: bool, delta: float) -> void:
@@ -361,7 +361,7 @@ func _cook(pressed: bool, delta: float) -> void:
 
 func _stop() -> void:
 	cooking = false
-	_sizzle.stop()
+	Sfx.keep_going(_sizzle, false)
 	miko.pose = -1
 	miko.locked = false
 	_say("")

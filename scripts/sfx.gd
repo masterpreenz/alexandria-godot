@@ -24,6 +24,18 @@ static func preload_all() -> int:
 	return _streams.size()
 
 
+## Keeps a looping sound player ([param p], 2D or not) going while [param on], and paused (not stopped) while not,
+## so coming back to it never seeks. (Starting an MP3 part-way in decodes it from the start up to there, about a
+## millisecond per second in: a long river loop started at a random point stalled the game for up to 150 ms.)
+static func keep_going(p: Variant, on: bool) -> void:
+	if on:
+		if not p.playing:
+			p.play()
+		p.stream_paused = false
+	elif p.playing:
+		p.stream_paused = true
+
+
 static func play(owner: Node, clip: AudioStream, at: Vector2, volume := 1.0, jitter := 0.0) -> void:
 	if clip == null or owner == null or not owner.is_inside_tree():
 		return

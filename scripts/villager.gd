@@ -370,8 +370,8 @@ func _physics_process_timed(delta: float) -> void:
 		State.CRAFT:
 			_crafting(t, delta)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
-	if state != State.COOK and _sizzle != null and _sizzle.playing:
-		_sizzle.stop()
+	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
+		Sfx.keep_going(_sizzle, false)
 	if not in_bed:
 		_keep_out_of_mist(t, delta)
 		move_and_slide()
@@ -1899,14 +1899,14 @@ func _sizzle_on() -> void:
 		_sizzle.max_distance = 3000.0
 		_sizzle.finished.connect(func(): if state == State.COOK: _sizzle.play())
 		add_child(_sizzle)
-	if not _sizzle.playing:
+	if not _sizzle.playing or _sizzle.stream_paused:
 		_sizzle.pitch_scale = randf_range(0.95, 1.05)
-		_sizzle.play(randf_range(0.0, maxf(0.0, _sizzle.stream.get_length() - 3.0)))
+		Sfx.keep_going(_sizzle, true)   # on from where it last stopped (no seeking into the MP3)
 
 
 func _done_cooking(t: float) -> void:
 	if _sizzle != null:
-		_sizzle.stop()
+		Sfx.keep_going(_sizzle, false)
 	if not stove.is_empty():
 		cooking_at.erase(stove.key)
 	stove = {}

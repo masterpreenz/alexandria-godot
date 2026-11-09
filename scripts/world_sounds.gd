@@ -45,6 +45,10 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 		p.max_distance = 1.0e6
 		p.volume_db = -80.0
 		add_child(p)
+		# Started once here (behind the loading screen; a random point costs a moment for an MP3), then only paused
+		# and resumed as she comes and goes, never sought again.
+		p.play(randf() * p.stream.get_length() * 0.9)
+		p.stream_paused = true
 		_rivers.append({"player": p, "samples": r.samples, "volume": float(r.flowVolume), "loud": float(r.loudWithin), "hear": float(r.hearFrom)})
 	_wind_settings = d.get("wind", {})
 	_wind = AudioStreamPlayer2D.new()
@@ -100,10 +104,7 @@ func _flow() -> void:
 		var water := world.floors.corner(nearest)
 		var side := clampf((water.x - miko.position.x) / (6.0 * world.px), -0.5, 0.5) * clampf(best / 3.0, 0.0, 1.0)
 		p.global_position = miko.position + Vector2(side * 4.0 * world.px, 0)
-		if vol > 0.001 and not p.playing:
-			p.play(randf() * p.stream.get_length() * 0.9)
-		elif vol <= 0.001 and p.playing:
-			p.stop()
+		Sfx.keep_going(p, vol > 0.001)
 
 
 # ---- Wind gusts ----
