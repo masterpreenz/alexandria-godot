@@ -21,6 +21,10 @@ var props: PropMap        ## furniture, decorations, crops, the grass and bushes
 var roofs: RoofMap        ## the roofs over closed, floored rooms
 var player: Node2D        ## who the roofs fade for (set by the game)
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
+## The rivers' flow, vertex by vertex: [position, one cell downstream (px), one cell across (px), speed (cells/s)],
+## bucketed by area for finding the nearest.
+var _flow_points := {}
+const FLOW_CELL := 256.0
 ## What live maps draw themselves: the exported snapshot's sprites and colliders of these kinds are left out.
 const LIVE_KINDS := ["Walls", "Props"]
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
@@ -88,6 +92,11 @@ func _ready() -> void:
 		for k in water.depth:
 			var xy: PackedStringArray = k.split(",")
 			_depths[Vector2i(int(xy[0]), int(xy[1]))] = float(water.depth[k])
+		# The river splitting round the bridge's pilings.
+		for wk in water.get("wakes", []):
+			var wake := WaterWake.make(self, null, Vector2(wk.x, wk.y), wk.width)
+			wake.flow_lift = wk.flowLift
+			wake.foam_lift = wk.foamLift
 	# The saved game's world over the scene's (the village as it stands).
 	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	var sections: Dictionary = save.get("sections", {})
@@ -204,6 +213,8 @@ func _mesh(m: Dictionary) -> Node2D:
 		arrays[Mesh.ARRAY_COLOR] = colors
 	if m.material == "River" and uvs.size() == verts.size():
 		arrays[Mesh.ARRAY_COLOR] = _flow_directions(verts, uvs, PackedInt32Array(m.t))
+		if float(m.get("flow", 0.0)) > 0.3:
+			_note_flow(verts, uvs, PackedInt32Array(m.t), float(m.flow))
 	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array(m.t)
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -216,10 +227,12 @@ func _mesh(m: Dictionary) -> Node2D:
 	return node
 
 
-## Which way the water runs at each vertex (where UV.x, cells along the river, grows), averaged over the triangles
-## round it so it turns smoothly round bends: packed into the vertex colour (rg: direction * 0.5 + 0.5; b: 1 where it
-## runs at all). Still water (UV.x all 0) gets none.
-static func _flow_directions(verts: PackedVector2Array, uvs: PackedVector2Array, tris: PackedInt32Array) -> PackedColorArray:
+## Which way the water runs at each vertex, a cell's length downstream in the grid's own (square) cell space: where
+## UV.x (cells along the river) grows, averaged over the triangles round the vertex so it turns smoothly round bends.
+## On screen the iso grid is squashed, so this has to be worked out in cell space, not from the screen. Still water
+## (UV.x all 0) gets none.
+func _along_cells(verts: PackedVector2Array, uvs: PackedVector2Array, tris: PackedInt32Array) -> Array:
+	var to_cells := Transform2D(floors.ex, floors.ey, Vector2.ZERO).affine_inverse()
 	var sum := []
 	sum.resize(verts.size())
 	sum.fill(Vector2.ZERO)
@@ -227,20 +240,27 @@ static func _flow_directions(verts: PackedVector2Array, uvs: PackedVector2Array,
 		var a := tris[i]
 		var b := tris[i + 1]
 		var c := tris[i + 2]
-		var e1 := verts[b] - verts[a]
-		var e2 := verts[c] - verts[a]
+		var e1 := to_cells.basis_xform(verts[b] - verts[a])
+		var e2 := to_cells.basis_xform(verts[c] - verts[a])
 		var du1 := uvs[b].x - uvs[a].x
 		var du2 := uvs[c].x - uvs[a].x
 		var det := e1.x * e2.y - e1.y * e2.x
-		if absf(det) < 1e-6:
+		if absf(det) < 1e-9:
 			continue
 		# The gradient of u over the triangle: solves grad . e1 = du1, grad . e2 = du2.
 		var grad := Vector2((du1 * e2.y - du2 * e1.y) / det, (du2 * e1.x - du1 * e2.x) / det)
 		for v in [a, b, c]:
 			sum[v] += grad
+	return sum.map(func(g): return g.normalized() if g.length() > 1e-9 else Vector2.ZERO)
+
+
+## The flow on screen at each vertex, for the water shader: packed into the vertex colour (rg: direction * 0.5 + 0.5;
+## b: 1 where it runs at all).
+func _flow_directions(verts: PackedVector2Array, uvs: PackedVector2Array, tris: PackedInt32Array) -> PackedColorArray:
+	var basis := Transform2D(floors.ex, floors.ey, Vector2.ZERO)
 	var out := PackedColorArray()
-	for v in sum:
-		var d: Vector2 = v.normalized() if v.length() > 1e-9 else Vector2.ZERO
+	for along in _along_cells(verts, uvs, tris):
+		var d: Vector2 = basis.basis_xform(along).normalized() if along != Vector2.ZERO else Vector2.ZERO
 		out.append(Color(d.x * 0.5 + 0.5, d.y * 0.5 + 0.5, 1.0 if d != Vector2.ZERO else 0.0, 1.0))
 	return out
 
@@ -382,3 +402,50 @@ func water_depth(p: Vector2) -> float:
 	var d01: float = _depths.get(i + Vector2i(0, 1), 0.0)
 	var d11: float = _depths.get(i + Vector2i(1, 1), 0.0)
 	return lerpf(lerpf(d00, d10, f.x), lerpf(d01, d11, f.x), f.y)
+
+
+## The layer drawing on the water (ripples, wakes): over the water and its banks, under everything standing.
+func water_fx() -> Node2D:
+	var fx: Node2D = get_node_or_null("WaterFx")
+	if fx == null:
+		fx = Node2D.new()
+		fx.name = "WaterFx"
+		add_child(fx)
+		move_child(fx, things.get_index())
+	return fx
+
+
+# Each river vertex's flow, as Unity's River.FlowAt gives it: one cell downstream and one cell across (normalised in
+# cell space, then into the world), from the way UV.x (cells along) grows over the triangles round it.
+func _note_flow(verts: PackedVector2Array, uvs: PackedVector2Array, tris: PackedInt32Array, speed: float) -> void:
+	var basis := Transform2D(floors.ex, floors.ey, Vector2.ZERO)
+	var alongs := _along_cells(verts, uvs, tris)
+	for i in verts.size():
+		var along: Vector2 = alongs[i]
+		if along == Vector2.ZERO:
+			continue
+		# Downstream a cell long, and across it a cell long (in cell space), both into the world.
+		var down := basis.basis_xform(along)
+		var side := basis.basis_xform(Vector2(-along.y, along.x))
+		var key := Vector2i(floori(verts[i].x / FLOW_CELL), floori(verts[i].y / FLOW_CELL))
+		if not _flow_points.has(key):
+			_flow_points[key] = []
+		_flow_points[key].append([verts[i], down, side, speed])
+
+
+## The river's flow at [param p]: {down, side (px: a cell downstream, a cell across), speed (cells/s)}, or {} where
+## there's no running water (a pond, dry land).
+func flow_at(p: Vector2) -> Dictionary:
+	var k := Vector2i(floori(p.x / FLOW_CELL), floori(p.y / FLOW_CELL))
+	var best: Array = []
+	var best_d := 1.5 * px
+	for x in range(k.x - 1, k.x + 2):
+		for y in range(k.y - 1, k.y + 2):
+			for pt in _flow_points.get(Vector2i(x, y), []):
+				var d: float = (pt[0] as Vector2).distance_to(p)
+				if d < best_d:
+					best_d = d
+					best = pt
+	if best.is_empty():
+		return {}
+	return {"down": best[1], "side": best[2], "speed": best[3]}

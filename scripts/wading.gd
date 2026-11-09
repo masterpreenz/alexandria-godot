@@ -20,6 +20,7 @@ var _height := 0.0
 var _last_ripple := Vector2.ZERO
 var _next_ripple := 0.0
 var _mat: ShaderMaterial
+var _wake: WaterWake
 
 
 func setup(w: World, who: Node2D, art: Sprite2D, ground_shadow: Sprite2D) -> void:
@@ -31,6 +32,9 @@ func setup(w: World, who: Node2D, art: Sprite2D, ground_shadow: Sprite2D) -> voi
 	_mat = ShaderMaterial.new()
 	_mat.shader = preload("res://shaders/wading.gdshader")
 	body.material = _mat
+	# The river splitting round them while they stand in a current.
+	_wake = WaterWake.make(world, who, Vector2.ZERO, 0.4 * world.px)
+	_wake.strength = 0.0
 
 
 func _process(delta: float) -> void:
@@ -39,6 +43,8 @@ func _process(delta: float) -> void:
 	var feet: Vector2 = walker.global_position
 	var target := clampf(world.water_depth(feet) / FULL_DEPTH, 0.0, 1.0)
 	depth = move_toward(depth, target, delta * 3.0)
+	_wake.strength = depth if body.visible else 0.0
+	_wake.width = maxf(0.3 * world.px, World.sprite_rect(body).size.x * 0.35)
 	if walker.get("speed_scale") != null:
 		walker.set("speed_scale", 1.0 - SLOW_SHARE * depth)
 	if depth <= 0.01 or not body.visible:
@@ -98,13 +104,12 @@ class Ripples extends Node2D:
 	var rings := []  # [position, width, strength, age]
 
 	static func spawn(w: World, at: Vector2, width: float, strength: float) -> void:
-		var r: Ripples = w.get_node_or_null("Ripples")
+		var fx := w.water_fx()
+		var r: Ripples = fx.get_node_or_null("Ripples")
 		if r == null:
 			r = Ripples.new()
 			r.name = "Ripples"
-			w.add_child(r)
-			# Over the water and its banks, under everything standing.
-			w.move_child(r, w.things.get_index())
+			fx.add_child(r)
 		r.rings.append([at, width, strength, 0.0])
 
 	func _process(delta: float) -> void:
