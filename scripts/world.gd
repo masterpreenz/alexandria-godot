@@ -558,6 +558,8 @@ static func grass_variety() -> Texture2D:
 
 ## The trees' material: swaying, with snow settling on them (or, [param snowy] art with its snow drawn, without).
 func tree_material(snowy := false) -> ShaderMaterial:
+	if Shots.arg("nosway") != "":
+		return snow_material(0)
 	return snow_material(5 if snowy else 4)
 
 
