@@ -271,6 +271,13 @@ func _ready() -> void:
 	build_bar.name = "BuildBar"
 	$Hud.add_child(build_bar)
 	build_bar.setup(build_mode, world, miko)
+	# The world's own sounds (rivers, wind, villagers' steps) and build mode's drop-in sounds.
+	var sounds_data: Dictionary = world._load_json("res://data/sounds.json") if FileAccess.file_exists("res://data/sounds.json") else {}
+	build_mode.drop_sounds = sounds_data.get("drop", {})
+	var world_sounds := WorldSounds.new()
+	world_sounds.name = "WorldSounds"
+	world.add_child(world_sounds)
+	world_sounds.setup(world, miko, sounds_data)
 	# The minimap over it, and the world map (M).
 	var minimap := Minimap.new()
 	minimap.name = "Minimap"
@@ -451,6 +458,13 @@ func _ready() -> void:
 						($SaveGame as SaveGame).restart(Shots.arg("slot2"))
 						return
 					print("Reloaded from ", SaveSystem.loaded_slot, ": villagers ", Villager.all.size(), " creatures ", Creature.all.size(), " gatherables ", Gatherable.all.size(), " Miko at ", miko.position)
+				"gust":
+					var ws: WorldSounds = world.get_node("WorldSounds")
+					ws.gust_now()
+					var ch := WorldSounds.chime()
+					print("Chime ", ch.get_length(), " s; rivers ", ws._rivers.size(), " river volumes ", ws._rivers.map(func(r): return snappedf(db_to_linear(r.player.volume_db), 0.001)), " playing ", ws._rivers.map(func(r): return r.player.playing), " villager steps ", ws._steps.size())
+					for i in 60:
+						await get_tree().process_frame
 				"saves":
 					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
 					($Hud/SaveMenu as SaveMenu).open()

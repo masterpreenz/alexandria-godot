@@ -45,6 +45,7 @@ static func play(w: World, who: Node2D, level: int) -> void:
 	p.material = add
 	p.emitting = true
 	fx.add_child(p)
+	Sfx.play(w, WorldSounds.chime(), who.position, 0.7)
 	FloatingText.spawn(w, "LEVEL UP!", who.position + Vector2(0, -1.7 * w.px), GOLD)
 	FloatingText.spawn(w, "Lv %d" % level, who.position + Vector2(0, -1.25 * w.px), PALE)
 

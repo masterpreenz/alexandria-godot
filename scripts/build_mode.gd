@@ -517,7 +517,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 			if not no_build(f.cell_at(point)) and why_not(selected, point) == "" and _pay(selected, point):
 				var turns := int(world.props._turns(world.props.types[selected.name]))
 				world.props.place_free(point, selected.name, prop_scale, prop_turn % turns if turns > 1 else -1)
-				_drop_in([world.props.last_free_node()])
+				_drop_in([world.props.last_free_node()], 0.0, _prop_sound(selected.name))
 			_last_free = point
 		return
 	# Fill the cells between this frame and the last, so fast strokes don't skip.
@@ -577,6 +577,8 @@ func _paint(cell: Vector2i, floor: String, turned: bool) -> void:
 	if changes and not _pay(item_for("Floor", floor), f.cell_centre(cell)):
 		return
 	f.paint(cell, floor, turned)
+	if changes:
+		drop_sound("land" if laid else ("grass" if floor.contains("Grass") else "land"), f.cell_centre(cell))
 
 
 func _place_wall(e: WallMap.Edge, type: String) -> void:
@@ -608,7 +610,7 @@ func _place_prop(cell: Vector2i, scale: float) -> void:
 		return
 	var turns := int(world.props._turns(world.props.types[selected.name]))
 	world.props.place(cell, selected.name, scale, prop_turn % turns if turns > 1 else -1)
-	_drop_in([world.props.node_at(cell, slot)])
+	_drop_in([world.props.node_at(cell, slot)], 0.0, _prop_sound(selected.name))
 
 
 func _clear_one(cell: Vector2i) -> void:
@@ -1261,8 +1263,47 @@ func _hide_buildings() -> void:
 
 
 ## Drops freshly built pieces into place: from a little above, fading in, with a small squash as they land.
-func _drop_in(nodes: Array, spread := 0.0) -> void:
+## Build mode's drop-in sounds (sounds.json's drop: a thud, grass rustling, leaves for plants).
+var drop_sounds: Dictionary = {}
+var _last_thud := -1.0
+var _last_rustle := -1.0
+
+
+## A thud as something lands ([param kind] "land"), or grass ("grass") or leaves ("leaf") rustling; a burst shares a few.
+func drop_sound(kind: String, at: Vector2) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	var key: String = {"land": "landSound", "grass": "grassSound", "leaf": "leafSound"}[kind]
+	var vol := float(drop_sounds.get({"land": "volume", "grass": "grassVolume", "leaf": "leafVolume"}[kind], 0.7))
+	if kind == "land":
+		if t - _last_thud < float(drop_sounds.get("soundGap", 0.06)):
+			return
+		_last_thud = t
+	else:
+		if t - _last_rustle < float(drop_sounds.get("grassGap", 0.09)):
+			return
+		_last_rustle = t
+	var path: Variant = drop_sounds.get(key)
+	if path is String and ResourceLoader.exists(path):
+		Sfx.play(world, load(path), at, vol, 0.06)
+
+
+# Which sound a prop makes landing: grass rustles, plants rustle their leaves, the rest thud.
+func _prop_sound(prop: String) -> String:
+	var cat := str(world.props.types.get(prop, {}).get("category", ""))
+	if prop.contains("Grass"):
+		return "grass"
+	if cat == "Decorations" or cat == "Trees" or prop.contains("Leaf"):
+		return "leaf"
+	return "land"
+
+
+func _drop_in(nodes: Array, spread := 0.0, sound := "land") -> void:
+	var sounded := false
 	for n in nodes:
+		if not sounded and n != null and is_instance_valid(n):
+			sounded = true
+			var where: Vector2 = (n as Node2D).global_position
+			get_tree().create_timer(0.2 + spread * 0.5).timeout.connect(func(): drop_sound(sound, where))
 		if n == null or not is_instance_valid(n):
 			continue
 		var node: Node2D = n
