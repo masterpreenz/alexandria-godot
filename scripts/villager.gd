@@ -373,6 +373,7 @@ func _physics_process_timed(delta: float) -> void:
 	if state != State.COOK and _sizzle != null and _sizzle.playing:
 		_sizzle.stop()
 	if not in_bed:
+		_keep_out_of_mist(t, delta)
 		move_and_slide()
 
 
@@ -660,6 +661,20 @@ func _pick_spot() -> bool:
 
 
 ## Whether [param at] is clear of the mist (villagers keep to cleared ground).
+# Villagers live on cleared ground (the village, a crystal's clearing): a step from there into the mist isn't taken,
+# and whatever they were walking to is given up. Caught out in it (the mist came back over them), they may walk out.
+func _keep_out_of_mist(t: float, delta: float) -> void:
+	if velocity == Vector2.ZERO or world.mist == null or not safe_ground(world, position):
+		return
+	var ahead := position + velocity * maxf(delta, 0.016) * 4.0
+	if safe_ground(world, ahead):
+		return
+	velocity = Vector2.ZERO
+	# A stroll or a chat is just given up; a job is left to its own "stuck" handling (it lets go of what it claimed).
+	if state == State.WALK or state == State.TO_CHAT:
+		_stand(t, randf_range(0.5, 1.5))
+
+
 static func safe_ground(w: World, at: Vector2) -> bool:
 	return w.mist == null or w.mist.tier_at(at) == Mist.Tier.CLEAR
 

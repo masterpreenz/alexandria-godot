@@ -292,6 +292,10 @@ func _display(box: VBoxContainer) -> void:
 	for s in Settings.UI_SIZES:
 		r.add_child(_choice("%d%%" % roundi(s * 100), is_equal_approx(Settings.ui_size, s), _set_ui_size.bind(s)))
 	col.add_child(r)
+	r = _row("Picture")
+	r.add_child(_choice("Soft", Settings.soft_picture, _set_picture.bind(true)))
+	r.add_child(_choice("Vivid", not Settings.soft_picture, _set_picture.bind(false)))
+	col.add_child(r)
 	r = _row("FPS meter")
 	r.add_child(_choice("Show", Settings.show_fps, _set_fps.bind(true)))
 	r.add_child(_choice("Hide", not Settings.show_fps, _set_fps.bind(false)))
@@ -308,6 +312,13 @@ func _set_resolution(res: Vector2i) -> void:
 	Settings.resolution = res
 	Settings.borderless = false
 	_apply()
+
+
+func _set_picture(soft: bool) -> void:
+	Settings.soft_picture = soft
+	Settings.apply_picture()
+	Settings.save_settings()
+	_build()
 
 
 func _set_fps(on: bool) -> void:

@@ -18,20 +18,23 @@ var follow_offset := Vector2.ZERO
 
 
 func _ready() -> void:
-	# The player's window (size, borderless fullscreen), once a run.
-	# The performance logger (F3), first so everything after can be measured.
-	var prompts := WorldPrompts.new()
-	prompts.name = "WorldPrompts"
-	add_child(prompts)
-	var perf := Perf.new()
-	perf.name = "Perf"
-	add_child(perf)
+	# The player's settings: sound, and the window (size, borderless fullscreen) once a run.
 	Settings.load_settings()
 	Settings.apply_sound()
 	Settings.route_sounds(get_tree())
 	if not _window_set and Shots.arg("shot") == "":
 		_window_set = true
 		Settings.apply_window()
+	# Unity's post-processing (its scene volume) toned the picture down a little, with a slight vignette: the "Soft"
+	# picture (Settings), on by default.
+	_post_processing()
+	# The key prompts beside what they're about, and the performance logger (F3), first so the rest can be measured.
+	var prompts := WorldPrompts.new()
+	prompts.name = "WorldPrompts"
+	add_child(prompts)
+	var perf := Perf.new()
+	perf.name = "Perf"
+	add_child(perf)
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/player.json"))
 	miko = Miko.new()
 	($WorldPrompts as WorldPrompts).setup(miko)
@@ -541,6 +544,17 @@ func _ready() -> void:
 					for i in 20:
 						v.state = Villager.State.EATING
 						await get_tree().process_frame
+				"mistcheck":
+					# Watches the villagers a while: how often any of them stands in the mist.
+					var out := 0
+					var looks := 0
+					for i in int(Shots.arg("watch", "1500")):
+						await get_tree().physics_frame
+						for v in Villager.all:
+							if v.visible:
+								looks += 1
+								if not Villager.safe_ground(world, v.position): out += 1
+					print("Villagers in the mist: ", out, " of ", looks, " looks")
 				"saves":
 					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
 					($Hud/SaveMenu as SaveMenu).open()
@@ -565,6 +579,31 @@ func _ready() -> void:
 
 
 static var _window_set := false
+
+
+func _post_processing() -> void:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CANVAS
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 0.93
+	env.adjustment_contrast = 0.94
+	env.adjustment_saturation = 0.9
+	var we := WorldEnvironment.new()
+	we.name = "PostProcessing"
+	we.environment = env
+	add_child(we)
+	var layer := CanvasLayer.new()
+	layer.name = "Vignette"
+	layer.layer = 0
+	var rect := ColorRect.new()
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/vignette.gdshader")
+	rect.material = mat
+	layer.add_child(rect)
+	add_child(layer)
+	Settings.set_picture(env, rect)
 
 
 func _window_up() -> bool:

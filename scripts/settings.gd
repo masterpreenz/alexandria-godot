@@ -11,6 +11,7 @@ static var resolution := Vector2i(1600, 900)
 static var borderless := false
 static var ui_size := 1.0
 static var show_fps := true
+static var soft_picture := true    ## Unity's look: a little softer, less saturated, a slight vignette
 static var master := 1.0
 static var sfx := 1.0
 static var bgm := 0.8
@@ -28,6 +29,7 @@ static func load_settings() -> void:
 	borderless = bool(cfg.get_value("display", "borderless", borderless))
 	ui_size = float(cfg.get_value("display", "ui_size", ui_size))
 	show_fps = bool(cfg.get_value("display", "show_fps", show_fps))
+	soft_picture = bool(cfg.get_value("display", "soft_picture", soft_picture))
 	master = float(cfg.get_value("sound", "master", master))
 	sfx = float(cfg.get_value("sound", "sfx", sfx))
 	bgm = float(cfg.get_value("sound", "bgm", bgm))
@@ -39,6 +41,7 @@ static func save_settings() -> void:
 	cfg.set_value("display", "borderless", borderless)
 	cfg.set_value("display", "ui_size", ui_size)
 	cfg.set_value("display", "show_fps", show_fps)
+	cfg.set_value("display", "soft_picture", soft_picture)
 	cfg.set_value("sound", "master", master)
 	cfg.set_value("sound", "sfx", sfx)
 	cfg.set_value("sound", "bgm", bgm)
@@ -122,3 +125,25 @@ static func _on_node_added(n: Node) -> void:
 	if n is AudioStreamPlayer or n is AudioStreamPlayer2D:
 		if n.bus == &"Master":
 			n.bus = &"SFX"
+
+
+# ---- The picture ----
+
+static var _env: Environment
+static var _vignette: CanvasItem
+
+
+## The game's post-processing, to switch with the setting.
+static func set_picture(env: Environment, vignette: CanvasItem) -> void:
+	_env = env
+	_vignette = vignette
+	apply_picture()
+
+
+## Soft (Unity's post-processing: brightness, contrast and saturation toned down a little, and a slight vignette) or
+## vivid (the art's own colours).
+static func apply_picture() -> void:
+	if _env != null:
+		_env.adjustment_enabled = soft_picture
+	if _vignette != null and is_instance_valid(_vignette):
+		_vignette.visible = soft_picture
