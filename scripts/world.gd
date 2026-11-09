@@ -16,6 +16,9 @@ var ground: Node2D  ## everything at ground level, drawn under the rest
 var things: Node2D  ## everything standing, y-sorted
 var solids: StaticBody2D  ## the colliders
 var floors: FloorMap      ## the floors (ground, paths, boards)
+var walls: WallMap        ## the walls, doors and fences
+## What live maps draw themselves: the exported snapshot's sprites and colliders of these kinds are left out.
+const LIVE_KINDS := ["Walls"]
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
 var occluders := {}  # Vector2i (OCC_CELL px squares) -> Array[Sprite2D]
 const OCC_CELL := 512.0
@@ -47,6 +50,8 @@ func _ready() -> void:
 		layers.append([mesh.order, _mesh(mesh)])
 	var placed := 0
 	for s in world.sprites:
+		if s.get("kind", "") in LIVE_KINDS:
+			continue
 		var order: float = s.sort / px * 100.0
 		if order <= GROUND_ORDER:
 			layers.append([order, _sprite_node(s, false)])
@@ -54,13 +59,18 @@ func _ready() -> void:
 			var holder := _sprite_node(s, true)
 			things.add_child(holder)
 			if _hides(s):
-				_add_occluder(holder.get_child(0))
+				add_occluder(holder.get_child(0))
 		placed += 1
 	layers.sort_custom(func(a, b): return a[0] < b[0])
 	for l in layers:
 		ground.add_child(l[1])
 	for c in world.get("colliders", []):
-		_collider(c)
+		if c.get("kind", "") not in LIVE_KINDS:
+			_collider(c)
+	walls = WallMap.new()
+	walls.name = "Walls"
+	add_child(walls)
+	walls.setup(self, floors, _load_json("res://data/walls.json"))
 	# The saved game's world over the scene's (the village as it stands).
 	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	var sections: Dictionary = save.get("sections", {})
@@ -68,8 +78,12 @@ func _ready() -> void:
 		floors.from_json(sections["world.floors"])
 	else:
 		floors.redraw()
-	print("World: %d floor types, %d meshes, %d sprites, %d textures in %d ms" % [
-		floors.types.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
+	if sections.has("world.walls"):
+		walls.from_json(sections["world.walls"])
+	else:
+		walls.rebuild()
+	print("World: %d floor types, %d walls, %d meshes, %d sprites, %d textures in %d ms" % [
+		floors.types.size(), walls.walls.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
 	built.emit()
 
 
@@ -185,7 +199,7 @@ func _hides(s: Dictionary) -> bool:
 	return s.kind != "River"
 
 
-func _add_occluder(sprite: Sprite2D) -> void:
+func add_occluder(sprite: Sprite2D) -> void:
 	var r := sprite_rect(sprite)
 	for x in range(floori(r.position.x / OCC_CELL), floori(r.end.x / OCC_CELL) + 1):
 		for y in range(floori(r.position.y / OCC_CELL), floori(r.end.y / OCC_CELL) + 1):
@@ -200,8 +214,13 @@ func occluders_near(rect: Rect2) -> Array:
 	var found := {}
 	for x in range(floori(rect.position.x / OCC_CELL), floori(rect.end.x / OCC_CELL) + 1):
 		for y in range(floori(rect.position.y / OCC_CELL), floori(rect.end.y / OCC_CELL) + 1):
-			for sprite in occluders.get(Vector2i(x, y), []):
-				found[sprite] = true
+			var here: Array = occluders.get(Vector2i(x, y), [])
+			# Gone ones (a wall taken down) drop out as they're met.
+			for i in range(here.size() - 1, -1, -1):
+				if not is_instance_valid(here[i]):
+					here.remove_at(i)
+				else:
+					found[here[i]] = true
 	return found.keys()
 
 
