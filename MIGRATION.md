@@ -124,6 +124,8 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
   - A clock in the corner.
 - [x] Phase 1: when she's hidden behind something, her outline (the Unity shader, ported) and the trees in front fading see-through, by the same 90% rule as Unity; footsteps (grass, or paths and floors) and dust puffs at her feet.
   - Changed from Unity: when two trees together hide her, both fade (Unity faded only the first it found).
+- [x] Phase 2: **FloorMap** live (`scripts/floor_map.gd`), ported from Unity: ground floors on a dual grid (the 16 corner cases), periodic tiles, laid floors with front edges, turning, paint/erase/unlay/restore, save to and load from JSON (with Unity's rules for reshaped land). The world loads your latest save's floors (`data/save.json`, exported with the rest).
+- [ ] Phase 2 next: WallMap (walls, doors), PropMap, RoofMap; then water shaders and wading, mist, weather, world chunks.
 - [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
 - [ ] Phase 2: World systems
 

@@ -7,7 +7,6 @@ extends Node2D
 signal built
 
 const GROUND_ORDER := -9000  ## Unity sorting orders at or below this are ground level (drawn under everything standing)
-const CHUNK := 2048.0        ## ground tiles are drawn in chunks this many px across
 
 var sprites: Array = []           ## the sprite table: tex, rect, pivot, ppu
 var textures := {}                ## res path -> Texture2D
@@ -16,12 +15,10 @@ var px := 128.0
 var ground: Node2D  ## everything at ground level, drawn under the rest
 var things: Node2D  ## everything standing, y-sorted
 var solids: StaticBody2D  ## the colliders
+var floors: FloorMap      ## the floors (ground, paths, boards)
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
 var occluders := {}  # Vector2i (OCC_CELL px squares) -> Array[Sprite2D]
 const OCC_CELL := 512.0
-## Floor cells laid over the grass (paths, stone, boards): for footsteps and the like.
-var _floor_cells := {}
-var _cell_offset := Vector2.ZERO
 var _images := {}  # Texture2D -> Image, read back for pixel tests
 
 
@@ -41,10 +38,11 @@ func _ready() -> void:
 	var world: Dictionary = _load_json("res://data/world.json")
 	px = world.get("px", 128.0)
 	var layers := []  # [order, node] for everything drawn at ground level
-	for map in world.tilemaps:
-		layers.append([map.order, _tile_layer(map)])
-		if map.name != "Ground":
-			_note_floor(map)
+	floors = FloorMap.new()
+	floors.name = "Floors"
+	add_child(floors)
+	floors.setup(self, _load_json("res://data/floors.json"))
+	layers.append_array(floors.layer_nodes())
 	for mesh in world.meshes:
 		layers.append([mesh.order, _mesh(mesh)])
 	var placed := 0
@@ -63,8 +61,15 @@ func _ready() -> void:
 		ground.add_child(l[1])
 	for c in world.get("colliders", []):
 		_collider(c)
-	print("World: %d tile layers, %d meshes, %d sprites, %d textures in %d ms" % [
-		world.tilemaps.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
+	# The saved game's world over the scene's (the village as it stands).
+	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	var sections: Dictionary = save.get("sections", {})
+	if sections.has("world.floors"):
+		floors.from_json(sections["world.floors"])
+	else:
+		floors.redraw()
+	print("World: %d floor types, %d meshes, %d sprites, %d textures in %d ms" % [
+		floors.types.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
 	built.emit()
 
 
@@ -134,26 +139,6 @@ func _sprite_node(s: Dictionary, sorted: bool) -> Node2D:
 	return holder
 
 
-## A tilemap layer, cut into chunks that each draw their tiles in one go (and are culled when off screen).
-func _tile_layer(map: Dictionary) -> Node2D:
-	var layer := Node2D.new()
-	layer.name = map.name
-	if map.has("color"):
-		layer.modulate = Color(map.color[0], map.color[1], map.color[2], map.color[3])
-	var chunks := {}
-	var tiles: Array = map.tiles
-	for i in range(0, tiles.size(), 4):
-		var key := Vector2i(floori(tiles[i] / CHUNK), floori(tiles[i + 1] / CHUNK))
-		if not chunks.has(key):
-			var c := TileChunk.new()
-			c.viewer = self
-			chunks[key] = c
-		(chunks[key] as TileChunk).add(tiles[i], tiles[i + 1], int(tiles[i + 2]), int(tiles[i + 3]))
-	for c in chunks.values():
-		layer.add_child(c)
-	return layer
-
-
 ## A water (or other) mesh, plain-coloured for now (its shader comes over in phase 2).
 func _mesh(m: Dictionary) -> Node2D:
 	var verts := PackedVector2Array()
@@ -177,35 +162,6 @@ func _mesh(m: Dictionary) -> Node2D:
 	node.mesh = mesh
 	node.modulate = Color(0.32, 0.58, 0.72, 0.95) if m.material != "Waterfall" else Color(0.75, 0.9, 1.0, 0.85)
 	return node
-
-
-## A chunk of one tile layer: its tiles drawn straight from the sprite table.
-class TileChunk extends Node2D:
-	var viewer
-	var entries := PackedFloat32Array()  # x, y, sprite, flip
-
-	func add(x: float, y: float, s: int, flip: int) -> void:
-		entries.append_array([x, y, s, flip])
-
-	func _draw() -> void:
-		for i in range(0, entries.size(), 4):
-			var info: Dictionary = viewer.sprites[int(entries[i + 2])]
-			var tex: Texture2D = viewer._texture(info.tex)
-			if tex == null:
-				continue
-			var k: float = viewer.px / info.ppu
-			var size := Vector2(info.rect[2], info.rect[3]) * k
-			var at := Vector2(entries[i], entries[i + 1]) - Vector2(info.pivot[0], info.pivot[1]) * k
-			var flip := int(entries[i + 3])
-			if flip == 0:
-				draw_texture_rect_region(tex, Rect2(at, size), Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3]))
-			else:
-				# Mirrored about its pivot.
-				var sx := -1.0 if flip & 1 else 1.0
-				var sy := -1.0 if flip & 2 else 1.0
-				draw_set_transform(Vector2(entries[i], entries[i + 1]), 0.0, Vector2(sx, sy))
-				draw_texture_rect_region(tex, Rect2(-Vector2(info.pivot[0], info.pivot[1]) * k, size), Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3]))
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Shows sprite [param id] from the table on [param sprite] (its image, slice and pivot), at [param scale] on top of the
@@ -281,21 +237,6 @@ func drawn_at(sprite: Sprite2D, p: Vector2) -> bool:
 	return img.get_pixel(px_at.x, px_at.y).a > 0.4
 
 
-func _note_floor(map: Dictionary) -> void:
-	var tiles: Array = map.tiles
-	for i in range(0, tiles.size(), 4):
-		var p := Vector2(tiles[i], tiles[i + 1])
-		if _floor_cells.is_empty() and _cell_offset == Vector2.ZERO:
-			var uv := _iso(p)
-			_cell_offset = uv - uv.round()
-		_floor_cells[Vector2i((_iso(p) - _cell_offset).round())] = true
-
-
-## Iso cell coordinates of a world point (cells are 1 x 0.5 units: px wide, px/2 tall).
-func _iso(p: Vector2) -> Vector2:
-	return Vector2(p.x / px + p.y / (px * 0.5), p.y / (px * 0.5) - p.x / px)
-
-
 ## Whether something's laid over the grass at [param p] (a path, stone, boards).
 func on_floor(p: Vector2) -> bool:
-	return _floor_cells.has(Vector2i((_iso(p) - _cell_offset).round()))
+	return floors.on_floor(p)
