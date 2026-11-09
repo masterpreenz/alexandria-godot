@@ -317,6 +317,7 @@ func lie_down() -> void:
 		miko.facing_up = turn >= 2
 		_facing_up = miko.facing_up
 		miko.place(_sleep_point(_bed))
+		occupants[bed_key(_bed.pos)] = miko
 		# Lying on it, not bumping into it (a raised bed is solid), and drawn over it.
 		for c in miko.get_children():
 			if c is CollisionShape2D:
@@ -329,15 +330,22 @@ func lie_down() -> void:
 	miko.locked = true
 
 
-# Where she goes so her lying pose has its head on the pillow and its middle on the mattress's middle (Unity's
-# Bed.SleepPoint and Place, from the points exported for the bed's art and her pose).
+# Where she goes so her lying pose has its head on the pillow and its middle on the mattress's middle.
 func _sleep_point(bed: Dictionary) -> Vector2:
+	var lying: Variant = data.get("lying", {}).get("sleepUp" if _facing_up else "sleepDown")
+	return fit_on_bed(world, bed, lying, miko.facing_right != bool(s.artFacesRight), absf(miko.art_scale.x))
+
+
+## Where a sleeper goes on [param bed] (nearest_bed's dictionary) so their lying pose [param lying] ({middle, head},
+## px from their pivot) has its head on the pillow and its middle on the mattress's middle (Unity's Bed.SleepPoint and
+## Place, from the points exported for the bed's art and the pose's); [param mirrored]: the pose is shown flipped;
+## [param k]: the art's scale.
+static func fit_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool, k: float) -> Vector2:
 	var e: Dictionary = bed.e
 	var turn := int(e.turn)
-	var id := world.props.sprite_for(e.prop, turn)
-	var flipped := world.props.shown_flipped(e)
+	var id := w.props.sprite_for(e.prop, turn)
+	var flipped := w.props.shown_flipped(e)
 	var pts: Dictionary = bed.points.get(str(id), {})
-	var lying: Variant = data.get("lying", {}).get("sleepUp" if _facing_up else "sleepDown")
 	if pts.is_empty() or lying == null:
 		return bed.pos
 	var feet_right := turn == 1 or turn == 2
@@ -348,15 +356,32 @@ func _sleep_point(bed: Dictionary) -> Vector2:
 	if flipped:
 		centre.x = -centre.x
 		pillow.x = -pillow.x
-	var k := PropMap._scale(float(e.scale))
-	centre = bed.pos + centre * k
-	pillow = bed.pos + pillow * k
-	var middle := Vector2(lying.middle[0], lying.middle[1]) * absf(miko.art_scale.x)
-	var head := Vector2(lying.head[0], lying.head[1]) * absf(miko.art_scale.x)
-	if miko.facing_right != bool(s.artFacesRight):
+	var bk := PropMap._scale(float(e.scale))
+	centre = bed.pos + centre * bk
+	pillow = bed.pos + pillow * bk
+	var middle := Vector2(lying.middle[0], lying.middle[1]) * k
+	var head := Vector2(lying.head[0], lying.head[1]) * k
+	if mirrored:
 		middle.x = -middle.x
 		head.x = -head.x
 	return ((centre - middle) + (pillow - head)) / 2.0
+
+
+## Every bed in the world: [{pos, e, type, settings, points}].
+static func all_beds(w: World, beds: Dictionary) -> Array:
+	var out := []
+	for type in beds:
+		for b in w.props.entries_named(type):
+			out.append({"pos": b.pos, "e": b.e, "type": type, "settings": beds[type].settings, "points": beds[type].points})
+	return out
+
+
+## Who lies in each bed now (Miko or a villager), by where the bed stands.
+static var occupants := {}
+
+
+static func bed_key(pos: Vector2) -> Vector2i:
+	return Vector2i(roundi(pos.x), roundi(pos.y))
 
 
 func get_up() -> void:
@@ -385,6 +410,8 @@ func end_sleep_now() -> void:
 func _off_bed() -> void:
 	if _bed.is_empty():
 		return
+	if occupants.get(bed_key(_bed.pos)) == miko:
+		occupants.erase(bed_key(_bed.pos))
 	for c in miko.get_children():
 		if c is CollisionShape2D:
 			c.set_deferred("disabled", false)

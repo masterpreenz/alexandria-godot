@@ -136,7 +136,9 @@ func _clear() -> void:
 			roof.smoke.get_parent().remove_child(roof.smoke)
 			_kept_smoke[roof.chimney] = roof.smoke
 		for h in roof.holders:
-			h.queue_free()
+			# The smoke is kept for the rebuilt roof (it goes on puffing); everything else goes.
+			if h != roof.smoke and is_instance_valid(h):
+				h.queue_free()
 	roofs.clear()
 
 

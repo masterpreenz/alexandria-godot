@@ -117,6 +117,22 @@ func _ready() -> void:
 	spoilage.name = "Spoilage"
 	add_child(spoilage)
 	spoilage.setup(world, miko)
+	# The villagers: who lives in which bed, and their days (Alt shows who's who).
+	if FileAccess.file_exists("res://data/villagers.json"):
+		var needs_data: Dictionary = world._load_json("res://data/needs.json") if FileAccess.file_exists("res://data/needs.json") else {}
+		var villagers := Villagers.new()
+		villagers.name = "Villagers"
+		add_child(villagers)
+		villagers.setup(world, world._load_json("res://data/villagers.json"), needs_data.get("beds", {}), needs_data.get("eatSound"))
+		if sv.get("sections", {}).has("village.people"):
+			villagers.from_json(sv.sections["village.people"])
+		var tags := Villagers.Tags.new()
+		tags.people = villagers
+		tags.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tags.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tags.visible = Shots.arg("tags") != ""
+		$Hud.add_child(tags)
+		villagers.tags = tags
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
@@ -266,6 +282,8 @@ func _ready() -> void:
 			# Let the world run this many frames before the shot (rabbits coming out, monsters about), for testing.
 			for i in int(Shots.arg("wait")):
 				await get_tree().process_frame
+			for vg in Villager.all:
+				print("Villager ", vg.name, " state ", Villager.State.keys()[vg.state], " at ", vg.position, " hunger ", int(vg.person.hunger), " energy ", int(vg.person.energy), " in bed ", vg.in_bed)
 			var v := world.village
 			print("Village chests ", v.chests().size(), ", wood ", v.stored("Wood"), "/", v.stash_cap("Wood"), ", potatoes ", v.stored("Potato"), "/", v.stash_cap("Potato"), ", items ", v.items.size(), "/", v.item_slots(), ", Miko has wood ", v.have(miko.bag, miko, "Wood"))
 			if Shots.arg("log") != "":
