@@ -28,6 +28,12 @@ static func hide(root: Node) -> void:
 		hide(ch)
 
 
+## What the maps' pictures show of the land, as one number that changes whenever it does: floors laid, walls and
+## fences built, props placed, trees felled or regrown. A map redraws its picture when this changes.
+static func land_stamp(w: World) -> int:
+	return hash([w.floors.version, w.walls.rooms_version, w.props.version, Gatherable.version])   # (rooms: a door swinging is left out)
+
+
 ## Keeps every particle effect (smoke, sparks, sparkles, splashes) off the maps: they're drawn now and then, not every
 ## frame, so moving things would jump about there.
 static func hide_particles(tree: SceneTree) -> void:

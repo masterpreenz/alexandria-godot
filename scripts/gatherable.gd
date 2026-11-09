@@ -9,6 +9,7 @@ extends Node2D
 ## The node sits at its sort point (for the y-sort); its art and collider at its foot.
 
 static var all: Array[Gatherable] = []
+static var version := 0          ## counts every change in how one looks (felled, regrown, new, gone): the maps redraw
 
 ## Played when a tree crashes down, and the log's art (from the miner's settings).
 static var fall_sound: AudioStream
@@ -69,6 +70,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 	_scale = Vector2(d.sx, d.sy)
 	art = Sprite2D.new()
 	world.show_frame(art, _whole, _scale)
+	version += 1
 	art.position = foot - position
 	_rest = art.position
 	art.material = world.snow_material(0)
@@ -83,6 +85,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 
 func _exit_tree() -> void:
 	all.erase(self)
+	version += 1
 
 
 func depleted() -> bool:
@@ -188,6 +191,7 @@ func set_corrupted(on: bool, look: int) -> void:
 	_whole = look if on else healthy
 	if stage == 0 and _fall < 0.0 and not depleted():
 		world.show_frame(art, _whole, _scale)
+		version += 1
 
 
 ## Brings it down at once (attacks took it down): it falls and bursts into logs as if chopped through.
@@ -221,6 +225,7 @@ func strike() -> int:
 		stage += 1
 		left = int(next[1])
 		world.show_frame(art, int(next[0]), _scale)
+		version += 1
 		_shake = 0.3
 	elif depleted():
 		_topple()
@@ -237,6 +242,7 @@ func _topple() -> void:
 		_regrow_at = _now() + float(data.regrow)
 	if int(data.rubble) >= 0:
 		world.show_frame(art, int(data.rubble), _scale)
+		version += 1
 	else:
 		_fall = 0.0
 		_burst = false
@@ -341,6 +347,7 @@ func regrow() -> void:
 	left = stone
 	stage = 0
 	world.show_frame(art, _whole, _scale)
+	version += 1
 	art.set_meta("full_scale", art.scale)
 	art.visible = true
 	art.rotation = 0.0

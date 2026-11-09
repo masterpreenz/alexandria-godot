@@ -67,13 +67,10 @@ func close() -> void:
 	visible = false
 
 
-# The land changes (floors laid, props placed, trees felled): the kept picture is drawn again, or every 30 seconds.
+# The land changes (floors laid, walls and props placed, trees felled): the kept picture is drawn again, or every 30
+# seconds.
 func _stamp() -> String:
-	var depleted := 0
-	for g in Gatherable.all:
-		if is_instance_valid(g) and g.left <= 0:
-			depleted += 1
-	return "%d|%d|%d|%d" % [world.floors.version, world.props.version, Gatherable.all.size(), depleted]
+	return str(MapMarks.land_stamp(world))
 
 
 func _redraw_picture(force := false) -> void:

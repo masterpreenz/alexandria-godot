@@ -7,8 +7,8 @@ extends Control
 
 const MAP := 228.0
 const RES := 256                ## map pixels across what it shows
-const PAD := 1.5                ## the picture is this much wider, so it can slide between redraws
-const REDRAW_EVERY := 0.5       ## seconds (things move on it); sooner when she nears its edge
+const PAD := 2.0                ## the picture is this much wider, so it can slide between redraws
+const REFRESH_EVERY := 3.0      ## seconds: for what changes slowly (daylight, the mist clearing, crops growing)
 const ZOOM_STEPS := [6.0, 10.0, 16.0, 24.0]   ## units from the middle to the edge
 
 var world: World
@@ -22,6 +22,7 @@ var _fps: Label
 var _fps_smoothed := 60.0
 var _fps_shown_at := 0.0
 var _drawn_at := -INF
+var _drawn_stamp := 0
 
 
 func setup(w: World, who: Miko, card: TimeCard) -> void:
@@ -88,13 +89,17 @@ func _process_timed(_delta: float) -> void:
 	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, 16.0)
 	MapMarks.hide_characters(world)
 	_meter(_delta)
-	# Drawn again twice a second, or when she's walked a third of the way to the picture's edge.
+	# Drawn again when the land changes (built on, felled), when she nears the picture's edge, and every few seconds.
+	# Nothing on it moves (characters and effects are left off, water and mist stand still), so in between it's only
+	# slid along under her.
 	var half := float(ZOOM_STEPS[step]) * world.px
 	var at := miko.drawn_position()
 	var now := Time.get_ticks_msec() / 1000.0
 	var off := (at - _cam.position).abs()
-	if now > _drawn_at + REDRAW_EVERY or maxf(off.x, off.y) > half * (PAD - 1.0) * 0.66:
+	var stamp := MapMarks.land_stamp(world)
+	if stamp != _drawn_stamp or now > _drawn_at + REFRESH_EVERY or maxf(off.x, off.y) > half * (PAD - 1.0) * 0.8:
 		_drawn_at = now
+		_drawn_stamp = stamp
 		# Whole map pixels only, so the pixel art doesn't shimmer as it slides.
 		var texel := 2.0 * half / RES
 		_cam.position = (at / texel).round() * texel
