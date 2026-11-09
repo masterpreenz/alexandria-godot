@@ -37,6 +37,30 @@ func _ready() -> void:
 		if sv.sections.has("player.stats"):
 			equipped = JSON.parse_string(sv.sections["player.stats"]).get("equipped", [])
 		miko.bag.from_json(sv.sections["player.bag"], equipped)
+	# Her stats and combat: casting from the hotbar, and HP and mana bars.
+	var combat: Dictionary = world._load_json("res://data/combat.json")
+	miko.stats = CharacterStats.new()
+	miko.stats.name = "Stats"
+	miko.add_child(miko.stats)
+	miko.stats.setup(combat.character, combat.items)
+	if sv.get("sections", {}).has("player.stats"):
+		miko.stats.from_json(sv.sections["player.stats"])
+	var caster := SpellCaster.new()
+	caster.name = "Caster"
+	world.add_child(caster)
+	caster.setup(world, miko, miko.stats, combat.spells, combat.caster)
+	var hotbar := Hotbar.new()
+	hotbar.name = "Hotbar"
+	hotbar.theme = UiKit.theme
+	$Hud.add_child(hotbar)
+	hotbar.setup(world, caster, miko.bag, miko.stats)
+	if sv.get("sections", {}).has("player.hotbar"):
+		hotbar.from_json(sv.sections["player.hotbar"])
+	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 14)
+	var bars := StatusBars.new()
+	bars.stats = miko.stats
+	bars.position = Vector2(16, 84)
+	$Hud.add_child(bars)
 	# The bag window (I).
 	var bag_window := BagWindow.new()
 	bag_window.name = "BagWindow"
@@ -98,6 +122,21 @@ func _ready() -> void:
 				miko.move_and_slide()
 				await get_tree().physics_frame
 			print("Miko at ", miko.position)
+		if Shots.arg("cast") != "":
+			# Cast a spell at a spot (dx,dy px from her) for testing, with a practice dummy standing there.
+			var parts := Shots.arg("cast").split("@")
+			var off := parts[1].split(",")
+			var spot := miko.position + Vector2(float(off[0]), float(off[1]))
+			var dummy := Damageable.new()
+			dummy.position = spot
+			world.things.add_child(dummy)
+			dummy.setup(world, Damageable.Team.ENEMY, 200.0, 0.35 * world.px, 1.2 * world.px)
+			dummy.dummy = true
+			var caster_node: SpellCaster = world.get_node("Caster")
+			caster_node.cast_at(parts[0], spot)
+			for i in int(Shots.arg("castframes", "60")):
+				await get_tree().process_frame
+			print("Mana ", miko.stats.mana, ", dummy hp ", dummy.hp)
 		if Shots.arg("gather") != "":
 			# Start gathering from the nearest tree or rock, and keep at it this many frames (for testing).
 			var gathering: Miner = miko.get_node("Miner")

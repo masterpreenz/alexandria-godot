@@ -23,6 +23,8 @@ var locked := false
 var speed_scale := 1.0
 ## What she carries.
 var bag := Bag.new()
+## Her stats: HP, mana, level, gear, talents.
+var stats: CharacterStats
 # An action looping instead of walking (mining, chopping): its frames facing down and up, and how fast.
 var _action_down: Array = []
 var _action_up: Array = []
@@ -130,6 +132,20 @@ func _process(delta: float) -> void:
 	_animate(delta)
 
 
+var _casting := false
+
+## Turns towards [param direction] and holds the cast pose, until [method end_cast].
+func hold_cast(direction: Vector2) -> void:
+	_casting = true
+	facing_up = direction.y < 0.0
+	facing_right = direction.x > 0.0
+
+
+func end_cast() -> void:
+	_casting = false
+	clock = 0.0
+
+
 ## Turns towards [param direction] and loops the given frames (drawn facing left) until [method end_action].
 func play_action(down: Array, up: Array, fps: float, direction: Vector2) -> void:
 	_action_down = down
@@ -153,6 +169,11 @@ func action_frame() -> int:
 
 func _animate(delta: float) -> void:
 	clock += delta
+	if _casting:
+		var pose: Array = data.frames.castUpLeft if facing_up else data.frames.castDownLeft
+		if not pose.is_empty():
+			world.show_frame(art, int(pose[0]), Vector2(-art_scale.x if facing_right else art_scale.x, art_scale.y))
+			return
 	if not _action_down.is_empty():
 		_action_clock += delta
 		var set: Array = _action_up if facing_up and not _action_up.is_empty() else _action_down

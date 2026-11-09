@@ -3310,5 +3310,16 @@
 {"name":"CandiedJelly","tex":"res://assets/Art/UI/Icons/CandiedJelly.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
 {"name":"Potato","tex":"res://assets/Art/UI/Icons/Potato.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
 {"name":"BakedPotato","tex":"res://assets/Art/UI/Icons/BakedPotato.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
-{"name":"Rabbit","tex":"res://assets/Art/UI/Icons/Rabbit.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":128}
+{"name":"Rabbit","tex":"res://assets/Art/UI/Icons/Rabbit.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":128},
+{"name":"Circle_Fire","tex":"res://assets/Art/Effects/Circles/Circle_Fire.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"Circle_Ice","tex":"res://assets/Art/Effects/Circles/Circle_Ice.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"attack_shikigami_downright_0","tex":"res://assets/Resources/Shikigami/attack_shikigami_downright.png","rect":[0,0,256,256],"pivot":[128,128],"ppu":270},
+{"name":"shield_shikigami_left_0","tex":"res://assets/Resources/Shikigami/shield_shikigami_left.png","rect":[0,0,256,256],"pivot":[128,128],"ppu":270},
+{"name":"healing_shikigami_left_0","tex":"res://assets/Resources/Shikigami/healing_shikigami_left.png","rect":[0,0,256,256],"pivot":[128,128],"ppu":270},
+{"name":"Circle_Lightning","tex":"res://assets/Art/Effects/Circles/Circle_Lightning.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"Circle_Water","tex":"res://assets/Art/Effects/Circles/Circle_Water.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"Circle_Wind","tex":"res://assets/Art/Effects/Circles/Circle_Wind.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"Circle_Light","tex":"res://assets/Art/Effects/Circles/Circle_Light.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"Circle_Dark","tex":"res://assets/Art/Effects/Circles/Circle_Dark.png","rect":[0,0,512,512],"pivot":[256,256],"ppu":284},
+{"name":"TargetCircle","tex":"res://assets/Art/Effects/TargetCircle.png","rect":[0,0,128,64],"pivot":[64,32],"ppu":64}
 ]
