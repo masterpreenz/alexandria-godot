@@ -148,6 +148,17 @@ func _ready() -> void:
 		tags.visible = Shots.arg("tags") != ""
 		$Hud.add_child(tags)
 		villagers.tags = tags
+	# The crystals (teleporting, the cleansing crystals' clearings) and what of the world she's seen.
+	var crystals := Crystals.new()
+	crystals.name = "Crystals"
+	add_child(crystals)
+	crystals.setup(world, miko, $Hud)
+	var explored := Exploration.new()
+	explored.name = "Exploration"
+	add_child(explored)
+	explored.setup(world)
+	if sv.get("sections", {}).has("world.explored"):
+		explored.from_json(sv.sections["world.explored"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
@@ -299,6 +310,9 @@ func _ready() -> void:
 				await get_tree().process_frame
 			for vg in Villager.all:
 				print("Villager ", vg.name, " state ", Villager.State.keys()[vg.state], " at ", vg.position, " hunger ", int(vg.person.hunger), " energy ", int(vg.person.energy), " in bed ", vg.in_bed, " carrying ", vg.carrying, " ", vg.carry_kind, " job ", vg.job != null)
+			var cr: Crystals = get_node_or_null("Crystals")
+			if cr != null:
+				print("Teleports ", cr.teleports.map(func(c): return [cr.name_of(c.pos), c.pos]), " wards ", cr.wards.map(func(c): return c.pos))
 			if Construction.active != null:
 				print("Blueprint pieces left ", Construction.active.pieces.size())
 			var v := world.village
