@@ -13,6 +13,8 @@ static var _pick_sound: AudioStream
 static var _last_sound := -1.0
 static var _full_said := -10.0
 static var _shadow_tex: Texture2D
+## Every bit lying about (villagers clear them up).
+static var all: Array[Pickup] = []
 
 var world: World
 var resource := "Stone"
@@ -56,6 +58,24 @@ static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector
 	w.things.add_child(p)
 	p.position = from
 	return p
+
+
+func _enter_tree() -> void:
+	all.append(self)
+
+
+func _exit_tree() -> void:
+	all.erase(self)
+
+
+## Settled on the ground (landed a moment ago), to be picked up.
+func settled() -> bool:
+	return landed_at >= 0.0 and age - landed_at > SETTLE
+
+
+## Taken away whole (a villager picked it up).
+func take_away() -> void:
+	queue_free()
 
 
 ## Throws [param amt] of [param res] out of [param from], its icon sized to fit (Unity's ResourcePickup.Fit).

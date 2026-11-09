@@ -13,9 +13,34 @@ extends CharacterBody2D
 ## doing shows over their head (eating, hungry, sleepy, sick...), and chats are little picture bubbles.
 ##
 ## Art: idle is one frame each facing down-left and up-left; the walk a strip each way; drawn facing left, mirrored for
-## the right. (Their work comes in the next step.)
+## the right.
+##
+## They work by day (6 to 18), as set in the jobs window (any work, or one kind): farming (harvesting ripe plots and
+## carrying the crop to storage, planting bare ones from the seed in storage), cooking at a fire in the village from
+## the raw food in storage until the kitchen's targets are met (lighting it from storage first), clearing up logs and
+## stones left lying in the village and the work areas, and felling trees and mining rocks inside the areas marked with
+## a sign (on cleared ground), until storage holds the wood and stone it's set to keep. What they gather goes into
+## their arms, and to the nearest chest when they're full. Tools from storage make them quicker (and wear out); a bag
+## lets them carry more. At dusk they light the fires and torches from storage.
 
-enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR }
+enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT }
+
+enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
+
+const BAG_TRIPS := 40             ## trips to storage a bag lasts
+const TOOL_USES := 150            ## uses a set of tools lasts
+const TOOL_BOOST := 1.35          ## how much quicker tools make the work
+const WORK_PACE := 0.6            ## how fast they chop and mine, against their animations' own pace
+const NO_SWING_FRAMES := 6
+const NO_SWING_STRIKES := [3]
+
+static var claimed := {}          ## Gatherable -> true: rocks and trees being worked, so two don't crowd one
+static var gathering := {}        ## Pickup -> true: being fetched
+static var out_of_reach := {}     ## Pickup -> until when it's left alone
+static var tending := {}          ## plot key -> true
+static var cooking_at := {}       ## fire key -> true
+static var lighting := {}         ## fire key -> true
 
 const FOODS := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
 	["Candy", 35.0], ["Food", 20.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
@@ -77,6 +102,18 @@ var _trying_for := 0.0
 var _last_stuck := -999.0
 var _stuck_times := 0
 var _next_wall_check := 0.0
+var job: Gatherable                ## the rock or tree they're at (or heading to)
+var carry_kind := ""
+var carrying := 0
+var loose: Pickup
+var plot: Dictionary = {}
+var planting := false
+var stove: Dictionary = {}        ## the fire they cook at
+var dish := ""
+var dishes := 0
+var fire: Dictionary = {}         ## the fire or torch they're off to light
+var _next_till := 0.0
+var _sizzle: AudioStreamPlayer2D
 
 
 static func now() -> float:
@@ -144,6 +181,7 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	all.erase(self)
+	_let_go()
 	if partner != null and is_instance_valid(partner) and partner.partner == self:
 		partner.partner = null
 	if door_keeper == self:
@@ -214,9 +252,18 @@ func _physics_process(delta: float) -> void:
 			if _night() and not home.is_empty():
 				_go_home()
 			elif t >= state_until:
+				var chance := float(s.workChance)
 				if _hungry() and _go_eat(): pass
 				elif _go_door_duty(): pass
+				elif _hour(world) >= 17.5 and _go_light(): pass
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
+				elif _work_hours() and randf() < chance and _go_farm(): pass
+				elif _work_hours() and randf() < chance and _go_cook(): pass
+				elif _work_hours() and _go_pick_up(): pass
+				elif _work_hours() and randf() < chance and _find_work():
+					state = State.TO_WORK
+					clock = 0.0
+					state_until = t + 30.0
 				elif _pick_spot():
 					state = State.WALK
 					clock = 0.0
@@ -254,6 +301,32 @@ func _physics_process(delta: float) -> void:
 			else: _face_partner()
 		State.CHAT:
 			_chatting(t)
+		State.TO_WORK:
+			if _night() or not _workable(job) or t >= state_until: _stop_work(t)
+			else: _walk(t, delta)
+		State.WORK:
+			_work(t, delta)
+		State.TO_STORE:
+			_walk(t, delta)
+		State.TO_PICKUP:
+			if loose == null or not is_instance_valid(loose) or not loose.settled(): _done_pick_up(t)
+			else: _walk(t, delta)
+		State.TO_FARM:
+			if plot.is_empty() or _night(): _done_farming(t)
+			else: _walk(t, delta)
+		State.FARM:
+			_farming(t)
+		State.TO_COOK:
+			if stove.is_empty() or _night() or t > state_until: _done_cooking(t)
+			else: _walk(t, delta)
+		State.COOK:
+			_cooking(t, delta)
+		State.TO_LIGHT:
+			if fire.is_empty() or _fires().lit(fire): _done_lighting(t)
+			else: _walk(t, delta)
+	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
+	if state != State.COOK and _sizzle != null and _sizzle.playing:
+		_sizzle.stop()
 	if not in_bed:
 		move_and_slide()
 
@@ -389,8 +462,17 @@ func _walk(t: float, delta: float) -> void:
 		if state == State.WALK and not _pick_spot():
 			_stand(t, 1.0)
 			return
+		if state == State.TO_WORK:
+			if last and dir.length() < 0.8 * world.px: _arrive(t)
+			else: _stop_work(t)
+			return
+		# Up against it on the way to a chest, a fire or a plot, a step short: close enough.
 		if last and dir.length() < 0.6 * world.px and state != State.WALK:
 			_arrive(t)
+			return
+		if state == State.TO_COOK:
+			if not stove.is_empty() and position.distance_to(stove.pos) < 1.3 * world.px: _arrive(t)
+			else: _done_cooking(t)
 			return
 	velocity = v
 
@@ -402,6 +484,12 @@ func _arrive(t: float) -> void:
 		State.TO_MEAL: _start_eating(t)
 		State.TO_DOOR: _see_to_door(t)
 		State.TO_CHAT: _start_chat(t)
+		State.TO_WORK: _start_work(t)
+		State.TO_STORE: _unload(t)
+		State.TO_PICKUP: _pick_up(t)
+		State.TO_FARM: _start_farming(t)
+		State.TO_COOK: _start_cooking(t)
+		State.TO_LIGHT: _light_it(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
 			if not home.is_empty() and not Needs.occupants.has(Needs.bed_key(home.pos)):
@@ -413,7 +501,8 @@ func _arrive(t: float) -> void:
 
 
 func _going() -> bool:
-	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR]
+	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -445,10 +534,7 @@ func _unstick(t: float, delta: float) -> void:
 		else:
 			_set_goal(_door())
 		return
-	if state == State.TO_CHAT:
-		_end_chat(t)
-	else:
-		_stand(t, randf_range(0.5, 1.5))
+	_abandon(t)
 	if _stuck_times >= 2 or walled_in:
 		_hop_to(_clear_spot_by_banner())
 
@@ -792,6 +878,9 @@ func _status() -> void:
 		State.EATING: e = "eating"
 		State.TO_EAT: e = "hungry"
 		State.HOME: e = "sleepy"
+		State.TO_STORE: e = "transporting" if carrying > 0 else ""
+		State.TO_PICKUP: e = "gathering"
+		State.COOK: e = "cooking"
 		_:
 			if state != State.ASLEEP and hit.hp < hit.max_hp * 0.35:
 				e = "sick"
@@ -991,6 +1080,9 @@ func _threat() -> Damageable:
 func _fight(threat: Damageable) -> void:
 	if partner != null:
 		_end_chat(now())
+	if job != null:
+		claimed.erase(job)
+		job = null
 	foe = threat
 	state = State.FIGHT
 	clock = 0.0
@@ -1032,3 +1124,719 @@ func _fighting(t: float, delta: float) -> void:
 				foe.hurt(float(person.get("atk", s.stabDamage)) * strength)
 				people.practise(person, LifeSkills.Skill.STRENGTH)
 	last_frame = frame
+
+
+
+# ---- Work ----
+
+func _job() -> int:
+	return int(person.get("job", Job.ANY))
+
+
+func _fires() -> Fires:
+	return world.player.get_node_or_null("Fires") as Fires
+
+
+func _farming_node() -> Farming:
+	return world.player.get_node_or_null("Farming") as Farming
+
+
+# Lets go of whatever they were on the way to (so someone else can take it), and stands a moment.
+func _abandon(t: float) -> void:
+	match state:
+		State.TO_WORK: _stop_work(t)
+		State.TO_COOK: _done_cooking(t)
+		State.TO_FARM: _done_farming(t)
+		State.TO_LIGHT: _done_lighting(t)
+		State.TO_CHAT: _end_chat(t)
+		State.TO_PICKUP:
+			if loose != null:
+				out_of_reach[loose] = t + 60.0
+			_done_pick_up(t)
+		_: _stand(t, randf_range(0.5, 1.5))
+
+
+# Everything they'd claimed, let go (leaving, or dying).
+func _let_go() -> void:
+	if job != null: claimed.erase(job)
+	if loose != null: gathering.erase(loose)
+	if not plot.is_empty(): tending.erase(plot.key)
+	if not stove.is_empty(): cooking_at.erase(stove.key)
+	if not fire.is_empty(): lighting.erase(fire.key)
+
+
+# Strength lets them carry more: one more for every two levels past the first, and a bag more again.
+func _carry_most() -> int:
+	return int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0))
+
+
+func _has_tools() -> bool:
+	return int(person.get("toolsLeft", 0)) > 0
+
+
+func _tool_pace() -> float:
+	return TOOL_BOOST if _has_tools() else 1.0
+
+
+# Tools and a bag from storage, picked up when they start on work that wants them.
+func _kit() -> void:
+	var v := world.village
+	if not v.founded():
+		return
+	if not _has_tools():
+		for i in v.items.size():
+			if UiKit.item(v.items[i]).get("kind", "") == "Tools":
+				var nm: String = v.items[i]
+				v.items.remove_at(i)
+				v.changed.emit()
+				person.toolsLeft = TOOL_USES
+				VillageLog.event("tools:" + name, "%s took a set of %s from storage" % [name, str(UiKit.item(nm).get("name", nm)).to_lower()])
+				break
+	if str(person.get("bag", "")) != "" and int(person.get("bagLeft", 0)) <= 0:
+		person.bagLeft = BAG_TRIPS
+	if str(person.get("bag", "")) == "":
+		for i in v.items.size():
+			if UiKit.item(v.items[i]).get("kind", "") == "Bag":
+				var nm: String = v.items[i]
+				v.items.remove_at(i)
+				v.changed.emit()
+				person.bag = nm
+				person.bagSlots = int(UiKit.item(nm).get("bagSlots", 0))
+				person.bagLeft = BAG_TRIPS
+				VillageLog.event("bag:" + name, "%s took a %s from storage: carries %d more" % [name, str(UiKit.item(nm).get("name", nm)).to_lower(), person.bagSlots])
+				break
+
+
+# One use of their tools; worn out, they're gone.
+func _wear_tools() -> void:
+	if not _has_tools():
+		return
+	person.toolsLeft = int(person.toolsLeft) - 1
+	if int(person.toolsLeft) == 0:
+		VillageLog.event("tools:" + name, "%s's tools wore out: make more at the workbench" % name, VillageLog.Kind.WARNING)
+
+
+func _workable(g: Gatherable) -> bool:
+	return g != null and is_instance_valid(g) and not g.depleted()
+
+
+## The work areas (the signs' areas) for [param kind] ("Lumbering", "Mining"): [[centre, radius px]].
+func _areas(kind: String) -> Array:
+	var out := []
+	var defs: Dictionary = people.d.get("workAreas", {})
+	for prop in defs:
+		if defs[prop].kind == kind:
+			for at in world.props_named(prop):
+				out.append([at, float(defs[prop].radius) * world.px])
+	return out
+
+
+func _in_area(areas: Array, at: Vector2) -> bool:
+	for a in areas:
+		if a[0].distance_to(at) <= a[1]:
+			return true
+	return false
+
+
+# A rock or a tree (a coin toss which they'd rather; the other if there's none), the nearest to home in a work area,
+# on cleared ground, nobody else's; not while storage holds the wood or stone it's set to keep.
+func _find_work() -> bool:
+	var choice := _job()
+	if choice in [Job.REST, Job.FARMING, Job.BUILDING, Job.COOKING, Job.CRAFTING]:
+		return false
+	var chop := not Kitchen.stocked(world.village, "Wood")
+	var mine := not Kitchen.stocked(world.village, "Stone")
+	var spot: Gatherable = null
+	if choice == Job.MINING:
+		spot = _nearest_work(false) if mine else null
+	elif choice == Job.LUMBERING:
+		spot = _nearest_work(true) if chop else null
+	else:
+		var first := randf() < 0.5
+		if (chop if first else mine): spot = _nearest_work(first)
+		if spot == null and (mine if first else chop): spot = _nearest_work(not first)
+	if spot == null:
+		return false
+	job = spot
+	claimed[job] = true
+	_set_goal(_work_spot(job))
+	return true
+
+
+func _nearest_work(axe: bool) -> Gatherable:
+	var kind := "Lumbering" if axe else "Mining"
+	var areas := _areas(kind)
+	if areas.is_empty():
+		VillageLog.problem("no-area:" + kind, ("No lumbering area: place a Lumbering Sign where the villagers may fell trees" if axe
+			else "No mining area: place a Mining Sign where the villagers may mine"), VillageLog.Kind.NEWS)
+		return null
+	var home_at := _home_at()
+	var candidates := []
+	var in_mist := false
+	for g in Gatherable.all:
+		if g.axe != axe or not _workable(g) or claimed.has(g) or not _in_area(areas, g.foot):
+			continue
+		if not safe_ground(world, g.foot):
+			in_mist = true
+			continue
+		candidates.append([g, g.foot.distance_to(home_at)])
+	candidates.sort_custom(func(a, b): return a[1] < b[1])
+	for i in mini(candidates.size(), 8):
+		if _safe_way_to(_work_spot(candidates[i][0])):
+			return candidates[i][0]
+	if candidates.is_empty() and in_mist:
+		VillageLog.problem("mist-area:" + kind, "The %s area is in the mist: clear it with a cleansing crystal, or put the sign on cleared ground" % kind.to_lower())
+	return null
+
+
+# Just off its edge, on this side of it.
+func _work_spot(g: Gatherable) -> Vector2:
+	var away := position - g.foot
+	if away.length_squared() < 1.0:
+		away = Vector2(0, 1)
+	var dir := away.normalized()
+	# Step in from here until the edge is a third of a unit off.
+	var p := g.foot + dir * 0.5 * world.px
+	for i in 12:
+		var q := g.foot + dir * (0.2 + i * 0.1) * world.px
+		if g.distance_to(q) >= 0.3 * world.px:
+			p = q
+			break
+	return p
+
+
+func _start_work(t: float) -> void:
+	_kit()
+	state = State.WORK
+	clock = 0.0
+	last_frame = -1
+	state_until = t + randf_range(float(s.shift[0]), float(s.shift[1]))
+	var toward: Vector2 = job.foot - position if _workable(job) else Vector2(0, 1)
+	facing_up = toward.y < 0.0
+	facing_right = toward.x > 0.0
+
+
+func _work(t: float, delta: float) -> void:
+	velocity = Vector2.ZERO
+	if _night() or not _workable(job) or t >= state_until:
+		_stop_work(t)
+		return
+	var axe := job.axe
+	var down: Array = s.chopDown if axe else s.mineDown
+	var up: Array = s.chopUp if axe else s.mineUp
+	var use_up := facing_up and not up.is_empty()
+	var frames := up if use_up else down
+	var animated := not frames.is_empty()
+	var strikes: Array = NO_SWING_STRIKES
+	if animated:
+		if axe: strikes = s.chopStrikesUp if use_up else s.chopStrikesDown
+		else: strikes = s.mineStrikesUp if use_up else s.mineStrikesDown
+	clock += delta
+	# Skill quickens the swing: a master works twice as fast as a novice. All of it at WORK_PACE: slow, heavy work.
+	var skill := Villagers.skill(person, LifeSkills.Skill.LUMBERING if axe else LifeSkills.Skill.MINING)
+	var fps := float(s.chopFps) if axe else float(s.mineFps)
+	var frame := int(clock * fps * (0.8 + 0.12 * skill) * WORK_PACE * _tool_pace())
+	var length := frames.size() if animated else NO_SWING_FRAMES
+	if animated:
+		_show(int(frames[frame % frames.size()]))
+	else:
+		_show_idle()
+	for f in range(last_frame + 1, frame + 1):
+		for st in strikes:
+			if f % length == int(st):
+				_strike()
+	last_frame = frame
+
+
+func _strike() -> void:
+	if not _workable(job):
+		return
+	_wear_tools()
+	var path: Variant = s.axeSound if job.axe else s.pickaxeSound
+	if path is String and ResourceLoader.exists(path):
+		Sfx.play(world, load(path), job.foot, float(s.toolVolume), 0.08)
+	var spot := job
+	var got := spot.strike()
+	# Felling a tree: now and then a seed, brought home for planting.
+	if spot.axe and spot.depleted() and randf() < 0.35:
+		world.village.deposit("Seed", 1, spot.foot)
+	if got > 0:
+		people.practise(person, LifeSkills.Skill.LUMBERING if spot.axe else LifeSkills.Skill.MINING)
+		# Into their arms (one kind at a time); full arms, off to storage.
+		if carrying > 0 and carry_kind != spot.resource:
+			_unload(now(), false)
+		carry_kind = spot.resource
+		carrying += got
+		if carrying >= _carry_most():
+			_stop_work(now())
+
+
+func _stop_work(t: float) -> void:
+	if job != null:
+		claimed.erase(job)
+	job = null
+	if carrying > 0 and _go_store():
+		return
+	_stand(t, randf_range(2.0, 5.0))
+
+
+# ---- Clearing up: logs, stones and crops left lying, taken to storage ----
+
+func _gatherable(r: String) -> bool:
+	return r == "Wood" or r == "Stone" or Farming.CROPS.has(r)
+
+
+func _nearest_loose(within: float) -> Pickup:
+	var best: Pickup = null
+	var best_d := within
+	var lumber := _areas("Lumbering")
+	var mining := _areas("Mining")
+	var t := now()
+	for p in Pickup.all:
+		if not p.settled() or gathering.has(p) or not _gatherable(p.resource):
+			continue
+		if carrying > 0 and p.resource != carry_kind:
+			continue
+		# Storage full of it: carrying it back would only see it dropped again.
+		if world.village.stored(p.resource) >= world.village.stash_cap(p.resource):
+			continue
+		if t < float(out_of_reach.get(p, -1.0)):
+			continue
+		var at := p.ground
+		if not world.village.contains(at, 1.0) and not _in_area(lumber, at) and not _in_area(mining, at):
+			continue
+		var dd := at.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = p
+	return best
+
+
+func _go_pick_up() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.LUMBERING and choice != Job.MINING:
+		return false
+	if carrying >= _carry_most():
+		return false
+	var p := _nearest_loose(25.0 * world.px)
+	if p == null:
+		return false
+	var walled := world.walls != null and VillagerRoute.find(world, position, p.ground) == null and position.distance_to(p.ground) > 1.2 * world.px
+	if not safe_ground(world, p.ground) or walled:
+		out_of_reach[p] = now() + 60.0
+		return false
+	loose = p
+	gathering[p] = true
+	state = State.TO_PICKUP
+	clock = 0.0
+	_set_goal(p.ground)
+	return true
+
+
+# Into their arms; more lying close by of the same, on to that; arms full (or nothing near), off to storage.
+func _pick_up(t: float) -> void:
+	if loose != null and is_instance_valid(loose) and loose.settled():
+		if carrying == 0:
+			carry_kind = loose.resource
+		carrying += loose.amount
+		gathering.erase(loose)
+		loose.take_away()
+		people.practise(person, LifeSkills.Skill.STRENGTH)
+	elif loose != null:
+		gathering.erase(loose)
+	loose = null
+	if carrying < _carry_most():
+		var nxt := _nearest_loose(3.0 * world.px)
+		if nxt != null:
+			loose = nxt
+			gathering[nxt] = true
+			state = State.TO_PICKUP
+			_set_goal(nxt.ground)
+			return
+	if carrying > 0 and _go_store():
+		return
+	_stand(t, randf_range(0.5, 1.5))
+
+
+func _done_pick_up(t: float) -> void:
+	if loose != null:
+		gathering.erase(loose)
+	loose = null
+	if carrying > 0 and _go_store():
+		return
+	_stand(t, randf_range(0.5, 1.5))
+
+
+# ---- Carrying to storage ----
+
+func _go_store() -> bool:
+	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
+	if spot == null:
+		VillageLog.problem("no-storage", "No storage: build a chest in the village for the villagers' haul")
+		return false
+	state = State.TO_STORE
+	clock = 0.0
+	_set_goal(spot)
+	return true
+
+
+# Puts down what they carry: into the stash as far as it holds, the rest on the ground beside them.
+func _unload(t: float, stand := true) -> void:
+	if carrying > 0:
+		var v := world.village
+		v.deposit(carry_kind, carrying, position + Vector2(0, -0.3 * world.px))
+		if carrying >= 4:
+			people.practise(person, LifeSkills.Skill.STRENGTH)
+		# Their bag wears with each trip; worn through, it's gone.
+		if str(person.get("bag", "")) != "":
+			person.bagLeft = int(person.bagLeft) - 1
+			if int(person.bagLeft) <= 0:
+				VillageLog.event("bag:" + name, "%s's bag wore through: make more at the workbench" % name, VillageLog.Kind.WARNING)
+				person.bag = ""
+				person.bagSlots = 0
+				person.bagLeft = 0
+		var cap := v.stash_cap(carry_kind)
+		var have := v.stored(carry_kind)
+		var what := UiKit.resource_name(carry_kind).to_lower()
+		if cap > 0 and have >= cap:
+			VillageLog.problem("storage-full", "Storage is full of %s: build more chests (the rest is left on the ground)" % what, VillageLog.Kind.DANGER)
+		elif cap > 0 and have >= cap * 0.85:
+			VillageLog.problem("storage-nearly", "Storage is nearly full of %s" % what)
+		carrying = 0
+	if stand:
+		_stand(t, randf_range(2.0, 4.0))
+
+
+# ---- Farming: ripe plots first (the crop carried to storage), then bare ones planted from storage ----
+
+func _go_farm() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.FARMING:
+		return false
+	if carrying > 0 and not Farming.CROPS.has(carry_kind):
+		return false
+	var farm := _farming_node()
+	if farm == null:
+		return false
+	farm._give_starter()
+	var ripe: Dictionary = {}
+	var bare: Dictionary = {}
+	var ripe_d := INF
+	var bare_d := INF
+	for p in farm.plots:
+		if tending.has(p.key) or not world.village.contains(p.pos, 3.0):
+			continue
+		var dd: float = p.pos.distance_to(position)
+		var st := farm.stage(p)
+		if st == 2 and dd < ripe_d:
+			ripe_d = dd
+			ripe = p
+		elif st == 0 and dd < bare_d:
+			bare_d = dd
+			bare = p
+	var target := ripe
+	planting = false
+	if target.is_empty() and not bare.is_empty():
+		var pick := farm.pick_from_storage(bare)
+		if not pick[0]:
+			VillageLog.problem("no-seed", "No %s in storage to plant the bare farm plots" % UiKit.resource_name(Farming.CROPS[pick[1]].seed).to_lower())
+			return false
+		target = bare
+		planting = true
+	if target.is_empty():
+		return false
+	_go_to_plot(target)
+	return true
+
+
+func _go_to_plot(p: Dictionary) -> void:
+	plot = p
+	tending[p.key] = true
+	state = State.TO_FARM
+	clock = 0.0
+	var away: Vector2 = position - p.pos
+	var dir := away.normalized() if away.length_squared() > 1.0 else Vector2(0, 1)
+	_set_goal(p.pos + dir * 0.45 * world.px)
+
+
+func _start_farming(t: float) -> void:
+	state = State.FARM
+	clock = 0.0
+	var toward: Vector2 = plot.pos - position if not plot.is_empty() else Vector2(0, 1)
+	facing_up = toward.y < 0.0
+	facing_right = toward.x > 0.0
+	_kit()
+	var skill := Villagers.skill(person, LifeSkills.Skill.FARMING)
+	state_until = t + lerpf(3.0, 1.2, (skill - 1) / float(LifeSkills.MOST - 1)) / _tool_pace()
+
+
+# Working the soil a moment, then the crop up, or a seed in.
+func _farming(t: float) -> void:
+	velocity = Vector2.ZERO
+	var farm := _farming_node()
+	if plot.is_empty() or farm == null:
+		_done_farming(t)
+		return
+	_show_idle()
+	if t >= _next_till:
+		_next_till = t + maxf(0.6, farm.till(plot)) + randf_range(0.1, 0.3)
+	if t < state_until:
+		return
+	_wear_tools()
+	if planting:
+		if farm.stage(plot) == 0:
+			var pick := farm.pick_from_storage(plot)
+			if pick[0] and world.village.take_from_stash(Farming.CROPS[pick[1]].seed, 1):
+				farm.sow(plot, pick[1])
+				people.practise(person, LifeSkills.Skill.FARMING)
+	else:
+		var kind := farm.crop(plot)
+		# Arms full of another crop: that goes to storage first.
+		if carrying > 0 and carry_kind != kind:
+			_done_farming(t, true)
+			return
+		var got := farm.harvest(plot)
+		if int(got[2]) > 0:
+			world.village.deposit(Farming.CROPS[kind].seed, int(got[2]), plot.pos)
+		if int(got[1]) > 0:
+			carry_kind = kind
+			carrying += int(got[1])
+			people.practise(person, LifeSkills.Skill.FARMING)
+	var had_load := carrying > 0 and not planting
+	# Room in their arms and more ripe close by: on to it before the trip to storage.
+	if had_load and carrying < _carry_most():
+		var nxt := _next_ripe(farm)
+		if not nxt.is_empty():
+			tending.erase(plot.key)
+			_go_to_plot(nxt)
+			return
+	_done_farming(t, had_load)
+
+
+func _next_ripe(farm: Farming) -> Dictionary:
+	var best := {}
+	var best_d := 6.0 * world.px
+	for p in farm.plots:
+		if p == plot or tending.has(p.key) or farm.stage(p) != 2 or farm.crop(p) != carry_kind:
+			continue
+		var dd: float = p.pos.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = p
+	return best
+
+
+func _done_farming(t: float, store := false) -> void:
+	if not plot.is_empty():
+		tending.erase(plot.key)
+	plot = {}
+	if store and _go_store():
+		return
+	_stand(t, randf_range(1.0, 2.0))
+
+
+# ---- Cooking: at a fire in the village, from the raw food in storage, until the kitchen's targets are met ----
+
+func _cook_skill() -> int:
+	return Villagers.skill(person, LifeSkills.Skill.COOKING)
+
+
+func _go_cook() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.COOKING:
+		return false
+	if _cook_skill() <= 0 or Kitchen.next(world.village).is_empty():
+		return false
+	var fires := _fires()
+	if fires == null:
+		return false
+	var best := {}
+	var best_d := INF
+	var any_fire := false
+	for f in fires.fires:
+		if bool(f.s.torch) or not world.village.contains(f.pos, 1.0):
+			continue
+		any_fire = true
+		if cooking_at.has(f.key):
+			continue
+		var dd: float = f.pos.distance_to(position) + (0.0 if fires.lit(f) else 6.0 * world.px)
+		if dd < best_d:
+			best_d = dd
+			best = f
+	if best.is_empty():
+		if not any_fire:
+			VillageLog.problem("no-kitchen", "Food to cook but no fire in the village: build a bonfire")
+		return false
+	if not fires.lit(best) and not _can_pay(best):
+		VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light a fire for cooking")
+		return false
+	stove = best
+	cooking_at[stove.key] = true
+	state = State.TO_COOK
+	clock = 0.0
+	state_until = now() + 40.0
+	_set_goal(_beside(stove.pos, 0.7))
+	return true
+
+
+func _can_pay(f: Dictionary) -> bool:
+	return world.village.stored("Wood") >= int(f.s.woodToLight) and world.village.stored("Stone") >= int(f.s.stoneToLight)
+
+
+func _pay(f: Dictionary) -> bool:
+	if not _can_pay(f):
+		return false
+	world.village.take_from_stash("Wood", int(f.s.woodToLight))
+	world.village.take_from_stash("Stone", int(f.s.stoneToLight))
+	return true
+
+
+# Where to stand beside something: the nearest clear spot round it with a way there.
+func _beside(at: Vector2, reach: float) -> Vector2:
+	var best := at + Vector2(0, reach * world.px)
+	var best_d := INF
+	for i in 16:
+		if i == 8 and best_d < INF:
+			break
+		var a := (i % 8) * PI / 4.0
+		var r := (reach if i < 8 else reach + 0.3) * world.px
+		var p := at + Vector2(cos(a) * r, sin(a) * r * 0.5)
+		if UseSpots._solid(world, p):
+			continue
+		if world.walls != null and VillagerRoute.find(world, position, p) == null:
+			continue
+		var dd := position.distance_to(p)
+		if dd < best_d:
+			best_d = dd
+			best = p
+	return best
+
+
+func _start_cooking(t: float) -> void:
+	var fires := _fires()
+	if stove.is_empty() or fires == null:
+		_done_cooking(t)
+		return
+	# A fire gone out is lit again first, from storage.
+	if not fires.lit(stove):
+		if _pay(stove):
+			fires.light(stove)
+		else:
+			VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light a fire for cooking")
+			_done_cooking(t)
+			return
+	var nxt := Kitchen.next(world.village)
+	if nxt.is_empty():
+		_done_cooking(t)
+		return
+	dish = nxt[1]
+	state = State.COOK
+	clock = 0.0
+	dishes = 0
+	var to: Vector2 = stove.pos - position
+	facing_up = to.y < -0.02 * world.px
+	facing_right = to.x > 0.0
+	velocity = Vector2.ZERO
+
+
+# One dish per run through the sheet (or 2 seconds without one); on to the next while the kitchen wants more, up to a
+# batch, then off to do something else.
+func _cooking(t: float, delta: float) -> void:
+	velocity = Vector2.ZERO
+	var fires := _fires()
+	if stove.is_empty() or fires == null or not _work_hours() or _hungry():
+		_done_cooking(t)
+		return
+	fires.keep_burning(stove)
+	_sizzle_on()
+	clock += delta
+	var up: Array = s.cookUp
+	var frames: Array = up if facing_up and not up.is_empty() else s.cookDown
+	var fps := float(s.cookFps) * (1.0 + 0.06 * (maxi(1, _cook_skill()) - 1))
+	var length := frames.size() / fps if not frames.is_empty() else 2.0
+	if not frames.is_empty():
+		_show(int(frames[mini(frames.size() - 1, int(clock * fps))]))
+	else:
+		_show_idle()
+	if clock < length:
+		return
+	clock = 0.0
+	var nxt := Kitchen.next(world.village)
+	if not nxt.is_empty() and world.village.take_from_stash(nxt[0], 1):
+		world.village.deposit(nxt[1], 1, position)
+		FloatingText.spawn(world, "+1 " + UiKit.resource_name(nxt[1]), position + Vector2(0, -1.4 * world.px), Color(0.96, 0.68, 0.32))
+		people.practise(person, LifeSkills.Skill.COOKING)
+		dishes += 1
+	if dishes >= 8 or Kitchen.next(world.village).is_empty():
+		_done_cooking(t)
+
+
+# The pan sizzling while they cook (Miko's own recording), softer than hers.
+func _sizzle_on() -> void:
+	if _sizzle == null:
+		var path: Variant = (_fires().d.get("cooking", {}) as Dictionary).get("sizzle")
+		if not (path is String and ResourceLoader.exists(path)):
+			return
+		_sizzle = AudioStreamPlayer2D.new()
+		_sizzle.stream = load(path)
+		_sizzle.volume_db = linear_to_db(0.45)
+		_sizzle.max_distance = 3000.0
+		_sizzle.finished.connect(func(): if state == State.COOK: _sizzle.play())
+		add_child(_sizzle)
+	if not _sizzle.playing:
+		_sizzle.pitch_scale = randf_range(0.95, 1.05)
+		_sizzle.play(randf_range(0.0, maxf(0.0, _sizzle.stream.get_length() - 3.0)))
+
+
+func _done_cooking(t: float) -> void:
+	if _sizzle != null:
+		_sizzle.stop()
+	if not stove.is_empty():
+		cooking_at.erase(stove.key)
+	stove = {}
+	_stand(t, randf_range(1.0, 2.0))
+
+
+# ---- Lighting the fires and torches at dusk, from storage ----
+
+func _go_light() -> bool:
+	var fires := _fires()
+	if fires == null:
+		return false
+	var best := {}
+	var best_d := INF
+	for f in fires.fires:
+		if fires.lit(f) or lighting.has(f.key) or not world.village.contains(f.pos, 2.0):
+			continue
+		var dd: float = f.pos.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = f
+	if best.is_empty():
+		return false
+	if not _can_pay(best):
+		VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light the %s" % ("torches" if bool(best.s.torch) else "fires"))
+		return false
+	fire = best
+	lighting[fire.key] = true
+	state = State.TO_LIGHT
+	clock = 0.0
+	_set_goal(_beside(fire.pos, 0.5))
+	return true
+
+
+func _light_it(t: float) -> void:
+	var fires := _fires()
+	if not fire.is_empty() and fires != null and not fires.lit(fire):
+		if _pay(fire):
+			fires.light(fire)
+		else:
+			VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light the fires")
+	_done_lighting(t)
+
+
+func _done_lighting(t: float) -> void:
+	if not fire.is_empty():
+		lighting.erase(fire.key)
+	fire = {}
+	_stand(t, randf_range(1.0, 2.0))

@@ -56,13 +56,28 @@ func _physics_process(delta: float) -> void:
 	var t := now()
 	var p := player()
 	var at := position
-	# Only once it's been hit: then it goes for Miko, giving up past its leash.
-	# (Villagers come with the village: then it goes for whoever's nearest.)
+	# Only once it's been hit: then it goes for whoever's nearest, Miko or a villager (into the village too: it's no
+	# safe place now), giving up past its leash.
 	var angry := t < angry_until
 	var range := float(s.sight) * (1.25 if large else 1.0) * world.px
+	var leash := float(s.leash) * world.px
 	var seen := false
-	if angry and p != null and p.position.distance_to(at) < range and p.position.distance_to(home) < float(s.leash) * world.px and p.stats.hp > 0.0:
-		seen = true
+	var prey: Node2D = null
+	var prey_body: Damageable = null
+	if angry:
+		var best := range
+		if p != null and p.stats.hp > 0.0 and p.position.distance_to(at) < best and p.position.distance_to(home) < leash:
+			best = p.position.distance_to(at)
+			prey = p
+		for v in Villager.all:
+			if not v.visible or not v.hit.alive():
+				continue
+			var dd := v.position.distance_to(at)
+			if dd < best and v.position.distance_to(home) < leash:
+				best = dd
+				prey = v
+				prey_body = v.hit
+		seen = prey != null
 	if seen:
 		angry_until = maxf(angry_until, t + float(s.calmAfter))
 	if seen != chasing:
@@ -70,11 +85,13 @@ func _physics_process(delta: float) -> void:
 		if not seen:
 			_pick_wander()
 	if chasing:
-		target = p.position
+		target = prey.position
 	elif at.distance_to(home) > float(s.leash) * world.px:
 		target = home
 	_animate(t, delta)
-	if p != null:
+	if prey_body != null:
+		_bite_villager(t, prey_body, prey.position - at)
+	elif p != null:
 		_bite(t, p.position - at)
 	move_and_slide()
 	paint_flash()
@@ -147,6 +164,25 @@ func _bite(t: float, to_player: Vector2) -> void:
 	var away := to_player / d if d > 0.01 else (Vector2.RIGHT if flip else Vector2.LEFT)
 	hurt_player(float(s.damage) * (2.5 if large else 1.0) * power, away * (3.2 if large else 2.2) * world.px, 0.16)
 	# Bounces off her: the hop backwards, back to where it jumped from (or a little way back if it was sitting).
+	if not hopping or hop_from.distance_to(position) < 0.2 * world.px:
+		hop_from = position - away * 0.55 * _scale() * world.px
+		clock = 4.0
+	hopping = false
+	bouncing = true
+	clock = clampf(clock, 1.0, 4.99)
+
+
+# Touching a villager hurts them, now and then.
+func _bite_villager(t: float, villager: Damageable, to_them: Vector2) -> void:
+	if t - last_hit < float(s.hitEvery):
+		return
+	var reach := (0.26 * _scale() + 0.22) * world.px
+	var d := to_them.length()
+	if d > reach:
+		return
+	last_hit = t
+	villager.hurt(float(s.damage) * (2.5 if large else 1.0) * power)
+	var away := to_them / d if d > 0.01 else (Vector2.RIGHT if flip else Vector2.LEFT)
 	if not hopping or hop_from.distance_to(position) < 0.2 * world.px:
 		hop_from = position - away * 0.55 * _scale() * world.px
 		clock = 4.0

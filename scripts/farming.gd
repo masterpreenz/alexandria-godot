@@ -251,6 +251,56 @@ func _process(_delta: float) -> void:
 				_harvest(p)
 
 
+# ---- For the villagers ----
+
+## The crop for a bare plot, with seed for it in storage: [ok, crop].
+func pick_from_storage(p: Dictionary) -> Array:
+	var st := _state(p)
+	var v := world.village
+	if st.setTo != "":
+		return [v.stored(CROPS[st.setTo].seed) > 0, st.setTo]
+	for i in rotation.size():
+		var c: String = rotation[(_next + i) % rotation.size()]
+		if v.stored(CROPS[c].seed) > 0:
+			return [true, c]
+	return [false, rotation[_next % rotation.size()]]
+
+
+## Sows a bare plot with [param c] (the seed is the caller's to take).
+func sow(p: Dictionary, c: String) -> bool:
+	if stage(p) != 0:
+		return false
+	var st := _state(p)
+	st.sown = true
+	st.sownAt = _hours()
+	st.crop = c
+	if st.setTo == "":
+		var i := rotation.find(c)
+		if i >= 0:
+			_next = (i + 1) % rotation.size()
+	return true
+
+
+## Harvests a ripe plot: [crop, how many, seeds back] ([crop, 0, 0] if it wasn't ripe).
+func harvest(p: Dictionary) -> Array:
+	var c := crop(p)
+	if stage(p) != 2:
+		return [c, 0, 0]
+	var info: Dictionary = CROPS[c]
+	var y: Array = p.s.yield if c == "Potato" else info.yield
+	var n := randi_range(int(y[0]), int(y[1]))
+	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
+	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo}
+	return [c, n, seeds]
+
+
+## The sound of working the soil at a plot; how long it lasts.
+func till(p: Dictionary) -> float:
+	_till(p)
+	var path: Variant = p.s.get("tillSound")
+	return (load(path) as AudioStream).get_length() if path is String and ResourceLoader.exists(path) else 0.0
+
+
 # The first seeds: some for each new crop in storage, once (a passing farmer's gift), so there's something to plant.
 func _give_starter() -> void:
 	if Kitchen.seeds_given or not world.village.founded():

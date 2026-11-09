@@ -111,6 +111,7 @@ func _look_for(p: Dictionary) -> Dictionary:
 func _process(_delta: float) -> void:
 	if d.get("looks", []).is_empty() or world.player == null:
 		return
+	_quarry()
 	var t := Villager.now()
 	if t < _next_check:
 		return
@@ -280,6 +281,33 @@ func _notice(beds: Array) -> void:
 	for p in people:
 		if not _living(p):
 			VillageLog.problem("homeless:" + p.name, "%s has no bed: build another, in a house" % p.name)
+
+
+# ---- The quarry (from Unity's Quarry): its rocks don't grow back one by one but all at once, each morning ----
+
+var _quarry_day := -2
+
+
+func _quarry() -> void:
+	var q: Dictionary = d.get("quarry", {})
+	if q.is_empty() or world.clock == null:
+		return
+	var hour := float(q.regrowHour)
+	# The latest morning that has passed; a new one brings the rock back.
+	var day: int = world.clock.day() if world.clock.hour() >= hour else world.clock.day() - 1
+	if _quarry_day == -2:
+		_quarry_day = day
+		return
+	if day <= _quarry_day:
+		return
+	_quarry_day = day
+	var a: Array = q.area
+	var area := Rect2(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
+	for g in Gatherable.all:
+		if g.axe or not area.has_point(world.floors.fractional_cell(g.foot)):
+			continue
+		if g.depleted() or g.stage > 0 or g.left < g.stone:
+			g.regrow()
 
 
 # ---- Alt: who's who ----
