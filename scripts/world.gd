@@ -596,6 +596,16 @@ static func grass_variety() -> Texture2D:
 	return _variety
 
 
+## The colour that undoes the day's light on something that shouldn't be dimmed by it (emotes: speech-bubble art,
+## always shown as drawn): the night's tint (Daylight) inverted, to multiply it by.
+func daylight_undo() -> Color:
+	var daylight := get_tree().current_scene.get_node_or_null("Daylight") as CanvasModulate
+	if daylight == null:
+		return Color.WHITE
+	var c := daylight.color
+	return Color(1.0 / maxf(c.r, 0.05), 1.0 / maxf(c.g, 0.05), 1.0 / maxf(c.b, 0.05), 1.0)
+
+
 ## The trees' material: swaying, with snow settling on them (or, [param snowy] art with its snow drawn, without).
 func tree_material(snowy := false) -> ShaderMaterial:
 	if Shots.arg("nosway") != "":

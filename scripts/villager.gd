@@ -996,6 +996,7 @@ func _emote(e: String) -> void:
 		emote.add_child(Sprite2D.new())
 		add_child(emote)
 	emote.visible = true
+	emote.modulate = world.daylight_undo()   # as drawn, whatever the hour (the evening's tint would grey it)
 	var info: Dictionary = world.sprites[id]
 	var k := EMOTE_WIDTH * world.px / float(info.rect[2])
 	world.show_frame(emote, id, Vector2.ONE * k * float(info.ppu) / world.px)
@@ -1026,6 +1027,7 @@ func _eating_emote() -> void:
 		emote.add_child(Sprite2D.new())
 		add_child(emote)
 	emote.visible = true
+	emote.modulate = world.daylight_undo()   # as drawn, whatever the hour (the evening's tint would grey it)
 	(emote.get_child(0) as Sprite2D).visible = false
 	@warning_ignore("integer_division")
 	var fw := _eating_tex.get_width() / EATING_FRAMES

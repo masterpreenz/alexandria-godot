@@ -831,6 +831,7 @@ func _ready() -> void:
 					for c in get_tree().root.find_children("*", "Camera2D", true, false):
 						print("Camera ", c.get_path(), " callback ", c.process_callback, " interp ", c.is_physics_interpolated())
 				"eat":
+					if Shots.arg("hour") != "": clock.hours = float(Shots.arg("hour"))
 					while Villager.all.is_empty():
 						await get_tree().process_frame
 					var v: Villager = Villager.all[0]
