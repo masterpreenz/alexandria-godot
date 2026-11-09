@@ -719,10 +719,10 @@ func _ready() -> void:
 						var spot_at := world.floors.corner(Vector2(smp[0], smp[1])) + Vector2(randf_range(-4, 4), randf_range(-2, 2)) * world.px
 						if Wilds.open(world, spot_at, 0.5):
 							taken += 1
-							var near_water := world.water_depth(spot_at) > 0.0
+							var near_water := world.wet(spot_at)
 							for k in 8:
 								var ang := k * TAU / 8.0
-								if world.water_depth(spot_at + Vector2(cos(ang), sin(ang) * 0.5) * 0.5 * world.px) > 0.0:
+								if world.wet(spot_at + Vector2(cos(ang), sin(ang) * 0.5) * 0.5 * world.px):
 									near_water = true
 							if near_water:
 								wet += 1
@@ -765,6 +765,48 @@ func _ready() -> void:
 						mv.state_until = MutatedVillager.now() + 10.0
 					for i in int(Shots.arg("mframes", "25")):
 						await get_tree().process_frame
+				"chase":
+					# In the mist with a mutated villager 4 units off: it comes after her and hits her; back home, it gives up.
+					var md: Dictionary = world._load_json("res://data/monsters.json")
+					var home_at := miko.position
+					# Somewhere in the mist with dry ground all round (no river between them).
+					for k in 400:
+						var spot := home_at + Vector2.from_angle(randf() * TAU) * randf_range(14.0, 30.0) * world.px
+						if world.mist.tier_at(spot) != Mist.Tier.CLEAR and Wilds.dry(world, spot, 5.0):
+							miko.place(spot)
+							break
+					var mv := MutatedVillager.spawn(world, md.mutatedVillager, miko.position + Vector2(4.0, 0.0) * world.px)
+					var hp0: float = miko.stats.hp
+					var track := []
+					for i in 360:
+						await get_tree().process_frame
+						if i % 60 == 0:
+							track.append([snappedf(mv.position.distance_to(miko.position) / world.px, 0.1), MutatedVillager.State.keys()[mv.state]])
+					print("Chase: distance/state each second ", track, ", her HP ", hp0, " -> ", miko.stats.hp)
+					miko.place(home_at)
+					for i in 30:
+						await get_tree().process_frame
+					print("Chase: after she's back home: ", MutatedVillager.State.keys()[mv.state])
+				"watercover":
+					# Every water mesh: how much of it (triangle middles) the depth map, and so the spawners, know is water.
+					for n in get_tree().root.find_children("*", "MeshInstance2D", true, false):
+						var mi := n as MeshInstance2D
+						if mi.mesh == null or not (mi.material is ShaderMaterial) or str(mi.name).begins_with("Cliffs"):
+							continue
+						var arr := mi.mesh.surface_get_arrays(0)
+						var v: PackedVector2Array = arr[Mesh.ARRAY_VERTEX]
+						var t: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+						var known := 0
+						var tris := 0
+						var dry_at := []
+						for k in range(0, t.size(), 3):
+							var c := mi.global_transform * ((v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3.0)
+							tris += 1
+							if world.wet(c):
+								known += 1
+							elif dry_at.size() < 3:
+								dry_at.append(world.floors.cell_at(c))
+						print("Water ", mi.name, ": ", known, " of ", tris, " known as water; not: ", dry_at)
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

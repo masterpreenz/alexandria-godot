@@ -1,13 +1,16 @@
 class_name MutatedVillager
 extends Creature
-## A villager the mist has taken, early on (one arm swollen purple): it shambles about the mist, standing a while, then
-## walking a little way to somewhere dry nearby, and back towards where it started when it strays. No attack yet. Hit,
-## it flashes pale and is knocked back a little; when it falls it gives Miko some XP and drops a few coins.
+## A villager the mist has taken, early on (one arm swollen purple): it shambles slowly about the mist, standing a
+## while, then walking a little way to somewhere dry nearby, and back towards where it started when it strays. While
+## Miko is in the mist and it sees her (sight), it comes after her, a little quicker but far slower than she walks, and
+## hits her if it reaches her (a touch, for now: it has no attack of its own yet); out of the mist, or far enough off
+## (giveUpAt), and it gives up. Hit, it flashes pale and is knocked back a little; when it falls it gives Miko some XP and
+## drops a few coins.
 ##
 ## Its sheets (front: facing south-west, back: north-west; mirrored for the east) are 16 walking frames; standing still
 ## shows one of them (standFrame).
 
-enum State { STAND, WALK }
+enum State { STAND, WALK, CHASE }
 
 var state := State.STAND
 var home := Vector2.ZERO
@@ -16,6 +19,7 @@ var state_until := 0.0
 var clock := 0.0
 var _last_pos := Vector2.ZERO
 var _stuck := 0.0
+var _next_touch := 0.0
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedVillager:
@@ -44,11 +48,30 @@ func _physics_process_timed(delta: float) -> void:
 		return
 	var t := now()
 	clock += delta
+	# Miko in the mist and in sight: after her. Out of the mist, or got away: back to its wandering.
+	var p := player()
+	var hunting := _hunting(p)
+	if hunting and state != State.CHASE:
+		state = State.CHASE
+	elif not hunting and state == State.CHASE:
+		home = position
+		_stand(t)
 	match state:
 		State.STAND:
 			velocity = Vector2.ZERO
 			if t >= state_until:
 				_pick_walk()
+		State.CHASE:
+			var to := p.position - position
+			var reach := float(s.touchReach) * world.px
+			face(to, 0.1)
+			if to.length() > reach:
+				velocity = to.normalized() * float(s.chaseSpeed) * world.px
+			else:
+				velocity = Vector2.ZERO
+				if t >= _next_touch:
+					_next_touch = t + float(s.touchEvery)
+					hurt_player(float(s.touchDamage), to.normalized() * float(s.knockback) * world.px, 0.2)
 		State.WALK:
 			var to := target - position
 			if to.length() < 0.15 * world.px or t >= state_until:
@@ -63,12 +86,23 @@ func _physics_process_timed(delta: float) -> void:
 					_stand(t)
 	_last_pos = position
 	# Never into the water: a step that would end in the river stops at the bank.
-	if velocity != Vector2.ZERO and world.water_depth(position + velocity * delta * 4.0) > 0.0:
+	if velocity != Vector2.ZERO and world.wet(position + velocity * delta * 4.0):
 		velocity = Vector2.ZERO
 		_stand(t)
 	move_and_slide()
 	_show()
 	paint_flash()
+
+
+# Whether it's after Miko: she's up, in the mist (not on cleared ground), within its sight (and once after her, not yet
+# got away).
+func _hunting(p: Miko) -> bool:
+	if p == null or p.stats == null or p.stats.hp <= 0.0:
+		return false
+	if world.mist == null or world.mist.tier_at(p.position) == Mist.Tier.CLEAR:
+		return false
+	var far := float(s.giveUpAt if state == State.CHASE else s.sight) * world.px
+	return p.position.distance_to(position) <= far
 
 
 func _stand(t: float) -> void:
@@ -96,8 +130,9 @@ func _pick_walk() -> void:
 
 func _show() -> void:
 	var sheet: Array = s.back if facing_back else s.front
-	if state == State.WALK:
-		show_art(int(sheet[int(clock * float(s.walkFps)) % sheet.size()]))
+	if velocity.length_squared() > 1.0:
+		var fps := float(s.chaseFps if state == State.CHASE else s.walkFps)
+		show_art(int(sheet[int(clock * fps) % sheet.size()]))
 	else:
 		show_art(int(sheet[int(s.standFrame)]))
 

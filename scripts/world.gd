@@ -27,6 +27,7 @@ var clock: GameClock      ## the time of day (set by the game)
 var village: Village      ## the village's extent (its banner, square and blocks)
 var mist: Mist            ## the purple mist over the wild
 var gatherables: Array[Gatherable] = []  ## every tree and rock to gather from
+var _wet := {}            # Vector2i (half-cell) -> true: under a water or bank mesh, edges and all (wet())
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
 ## The rivers' flow, vertex by vertex: [position, one cell downstream (px), one cell across (px), speed (cells/s)],
 ## bucketed by area for finding the nearest.
@@ -252,6 +253,8 @@ func _mesh(m: Dictionary) -> Node2D:
 		if float(m.get("flow", 0.0)) > 0.3:
 			_note_flow(verts, uvs, PackedInt32Array(m.t), float(m.flow))
 	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array(m.t)
+	if m.material in ["River", "Cliff", "Waterfall"]:
+		_mark_wet(verts, PackedInt32Array(m.t))
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	var node := MeshInstance2D.new()
@@ -426,6 +429,40 @@ func drawn_at(sprite: Sprite2D, p: Vector2) -> bool:
 ## Whether something's laid over the grass at [param p] (a path, stone, boards).
 func on_floor(p: Vector2) -> bool:
 	return floors.on_floor(p)
+
+
+## Whether [param p] is in the water or on its banks: anywhere a water or bank mesh is drawn, right to its edge. (The
+## depth map below only starts some way in from the edge, so on its own it takes the water's margins for dry land.)
+func wet(p: Vector2) -> bool:
+	var g := floors.fractional_cell(p) * 2.0
+	return _wet.has(Vector2i(floori(g.x), floori(g.y))) or water_depth(p) > 0.0
+
+
+# Every half-cell a water or bank mesh's triangles cover (sampled every quarter of a cell's width and height).
+func _mark_wet(verts: PackedVector2Array, tris: PackedInt32Array) -> void:
+	var step := Vector2(floors.ex.x, -floors.ex.y) / 2.0
+	for k in range(0, tris.size(), 3):
+		var a := verts[tris[k]]
+		var b := verts[tris[k + 1]]
+		var c := verts[tris[k + 2]]
+		var lo := Vector2(minf(a.x, minf(b.x, c.x)), minf(a.y, minf(b.y, c.y)))
+		var hi := Vector2(maxf(a.x, maxf(b.x, c.x)), maxf(a.y, maxf(b.y, c.y)))
+		var y := lo.y
+		while y <= hi.y + step.y:
+			var x := lo.x
+			while x <= hi.x + step.x:
+				var q := Vector2(minf(x, hi.x), minf(y, hi.y))
+				if Geometry2D.point_is_inside_triangle(q, a, b, c) or q.distance_to(a) < 1.0:
+					var g := floors.fractional_cell(q) * 2.0
+					_wet[Vector2i(floori(g.x), floori(g.y))] = true
+				x += step.x
+			y += step.y
+		# Thin triangles (a bank's slivers) can fall between those samples: along their edges too.
+		for e in [[a, b], [b, c], [c, a]]:
+			var n := maxi(1, ceili((e[0] as Vector2).distance_to(e[1]) / 16.0))
+			for i in n + 1:
+				var g := floors.fractional_cell((e[0] as Vector2).lerp(e[1], float(i) / n)) * 2.0
+				_wet[Vector2i(floori(g.x), floori(g.y))] = true
 
 
 ## How far into the water [param p] is, in cells in from its edge (0 on dry land): blended between the depth map's

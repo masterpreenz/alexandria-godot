@@ -35,11 +35,11 @@ static func open(w: World, at: Vector2, village_margin := 0.5, clearance := 0.35
 
 ## No water at [param at] nor within [param margin] units round it: off the river and back from its banks.
 static func dry(w: World, at: Vector2, margin := 0.7) -> bool:
-	if w.water_depth(at) > 0.0:
+	if w.wet(at):
 		return false
 	for i in 8:
 		var a := i * TAU / 8.0
-		if w.water_depth(at + Vector2(cos(a), sin(a) * 0.5) * margin * w.px) > 0.0:
+		if w.wet(at + Vector2(cos(a), sin(a) * 0.5) * margin * w.px):
 			return false
 	return true
 
@@ -48,7 +48,7 @@ static func dry(w: World, at: Vector2, margin := 0.7) -> bool:
 static func dry_way(w: World, from: Vector2, to: Vector2) -> bool:
 	var steps := maxi(1, ceili(from.distance_to(to) / (0.5 * w.px)))
 	for i in steps + 1:
-		if w.water_depth(from.lerp(to, float(i) / steps)) > 0.0:
+		if w.wet(from.lerp(to, float(i) / steps)):
 			return false
 	return true
 
