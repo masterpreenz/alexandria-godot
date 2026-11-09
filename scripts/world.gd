@@ -20,6 +20,8 @@ var walls: WallMap        ## the walls, doors and fences
 var props: PropMap        ## furniture, decorations, crops, the grass and bushes
 var roofs: RoofMap        ## the roofs over closed, floored rooms
 var player: Node2D        ## who the roofs fade for (set by the game)
+var village: Village      ## the village's extent (its banner, square and blocks)
+var mist: Mist            ## the purple mist over the wild
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
 ## The rivers' flow, vertex by vertex: [position, one cell downstream (px), one cell across (px), speed (cells/s)],
 ## bucketed by area for finding the nearest.
@@ -71,6 +73,7 @@ func _ready() -> void:
 		placed += 1
 	layers.sort_custom(func(a, b): return a[0] < b[0])
 	for l in layers:
+		l[1].set_meta("order", l[0])
 		ground.add_child(l[1])
 	for c in world.get("colliders", []):
 		if c.get("kind", "") not in LIVE_KINDS:
@@ -117,6 +120,19 @@ func _ready() -> void:
 		roofs.from_json(sections["world.roofs"])
 	else:
 		roofs.rebuild()
+	village = Village.new(self)
+	if sections.has("village"):
+		village.from_json(sections["village"])
+	# The mist, once the village and the crystals stand.
+	if FileAccess.file_exists("res://data/mist.json"):
+		var md: Dictionary = _load_json("res://data/mist.json")
+		village.radii = md.get("villageRadii", village.radii)
+		mist = Mist.new()
+		mist.name = "Mist"
+		add_child(mist)
+		mist.setup(self, md)
+		add_ground_layer(mist.ground_layer, -9994)
+		add_child(mist.veil_layer)
 	print("World: %d floor types, %d walls, %d props, %d roofs, %d meshes, %d sprites, %d textures in %d ms" % [
 		floors.types.size(), walls.walls.size(), props.cells.size() + props.free.size(), roofs.roofs.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
 	built.emit()
@@ -449,3 +465,36 @@ func flow_at(p: Vector2) -> Dictionary:
 	if best.is_empty():
 		return {}
 	return {"down": best[1], "side": best[2], "speed": best[3]}
+
+
+## Puts [param node] among the ground layers by its Unity sorting [param order].
+func add_ground_layer(node: Node2D, order: float) -> void:
+	node.set_meta("order", order)
+	var at := ground.get_child_count()
+	for i in ground.get_child_count():
+		if float(ground.get_child(i).get_meta("order", -1e9)) > order:
+			at = i
+			break
+	ground.add_child(node)
+	ground.move_child(node, at)
+
+
+## Where every prop of the type [param name] stands (on cells and free), px.
+func props_named(name: String) -> Array:
+	var out := []
+	if props == null:
+		return out
+	for k in props.cells:
+		if props.cells[k].prop == name:
+			out.append(floors.cell_centre(Vector2i(k.x, k.y)))
+	for e in props.free:
+		if e.prop == name:
+			out.append(e.pos)
+	return out
+
+
+## A Unity material's colours, numbers and textures (data/materials.json).
+func material_settings(name: String) -> Dictionary:
+	if _materials.is_empty():
+		_materials = _load_json("res://data/materials.json") if FileAccess.file_exists("res://data/materials.json") else {}
+	return _materials.get(name, {})
