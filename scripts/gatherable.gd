@@ -42,6 +42,16 @@ var _regrow_at := -1.0
 var _landed := false
 var _burst := false
 var _rest := Vector2.ZERO
+# A planted tree growing up (from Unity's TreeGrowth): a sapling (too small to chop, nothing in the way), then a young
+# tree giving a little wood, then a mature one giving the full amount, steadily with game time. Felled, it's gone.
+const YOUNG_AFTER := 8.0          ## game hours
+const MATURE_AFTER := 24.0
+const SAPLING_SIZE := 0.25
+const YOUNG_SIZE := 0.6
+const YOUNG_WOOD := 3
+const MATURE_WOOD := 8
+var planted_at := -1.0            ## game hours it was planted (-1: not planted)
+var _tree_wood := 5
 
 
 func setup(w: World, d: Dictionary, tree_wood: int) -> void:
@@ -51,6 +61,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 	resource = d.resource
 	foot = Vector2(d.x, d.y)
 	position = Vector2(d.x, d.sort)
+	_tree_wood = tree_wood
 	stone = int(d.stone) * (tree_wood if axe else 1)
 	left = stone
 	_whole = int(d.s)
@@ -75,7 +86,42 @@ func _exit_tree() -> void:
 
 
 func depleted() -> bool:
-	return left <= 0
+	return left <= 0 or sapling()
+
+
+## A planted tree's age in game hours (faster with the Tree Growth talent).
+func age() -> float:
+	if planted_at < 0.0 or world.clock == null:
+		return INF
+	var growth := 1.0
+	if world.player != null and world.player.get("stats") != null:
+		growth = CharacterStats.percent(world.player.stats.stat("growthSpeed"))
+	return (world.clock.hours - planted_at) * growth
+
+
+## Still a sapling: too small to chop.
+func sapling() -> bool:
+	return age() < YOUNG_AFTER
+
+
+## Game hours until it reaches its next stage (0 once mature).
+func hours_to_next() -> float:
+	var a := age()
+	return YOUNG_AFTER - a if a < YOUNG_AFTER else (MATURE_AFTER - a if a < MATURE_AFTER else 0.0)
+
+
+# Grows steadily: sapling size up to young size, then up to its full size; choppable (and in the way) once young.
+func _grow_up() -> void:
+	var a := age()
+	var factor := lerpf(SAPLING_SIZE, YOUNG_SIZE, a / YOUNG_AFTER) if a < YOUNG_AFTER else lerpf(YOUNG_SIZE, 1.0, clampf((a - YOUNG_AFTER) / (MATURE_AFTER - YOUNG_AFTER), 0.0, 1.0))
+	art.scale = (art.get_meta("full_scale", art.scale) as Vector2) * factor
+	var young := a >= YOUNG_AFTER
+	if body != null:
+		body.process_mode = Node.PROCESS_MODE_INHERIT if young else Node.PROCESS_MODE_DISABLED
+	var wood := (MATURE_WOOD if a >= MATURE_AFTER else YOUNG_WOOD) * _tree_wood
+	if wood > stone:
+		left += wood - stone
+		stone = wood
 
 
 ## Stone still in it, counting the smaller rocks it will break into.
@@ -187,7 +233,7 @@ func strike() -> int:
 func _topple() -> void:
 	if body != null:
 		body.process_mode = Node.PROCESS_MODE_DISABLED
-	if float(data.regrow) > 0.0:
+	if float(data.regrow) > 0.0 and planted_at < 0.0:
 		_regrow_at = _now() + float(data.regrow)
 	if int(data.rubble) >= 0:
 		world.show_frame(art, int(data.rubble), _scale)
@@ -204,6 +250,8 @@ static func _now() -> float:
 
 
 func _process(delta: float) -> void:
+	if planted_at >= 0.0 and _fall < 0.0 and left > 0 and Engine.get_process_frames() % 30 == 0:
+		_grow_up()
 	if _shake > 0.0:
 		_shake -= delta
 		art.position = _rest + Vector2(sin(_now() * 90.0) * 0.03 * world.px * (_shake / 0.18), 0)
@@ -294,3 +342,38 @@ func regrow() -> void:
 	if body != null:
 		body.process_mode = Node.PROCESS_MODE_INHERIT
 	_grow = 0.0
+
+
+## Plants a sapling of the tree kind [param kind] (a spot from gather.json) at [param at] (px), [param hours] game
+## hours ago; it grows into a tree to chop.
+static func plant(w: World, kind: Dictionary, at: Vector2, tree_wood: int, hours: float) -> Gatherable:
+	var d := kind.duplicate(true)
+	var shift := at - Vector2(float(kind.x), float(kind.y))
+	d.x = at.x
+	d.y = at.y
+	d.sort = float(kind.sort) + shift.y
+	d.stone = YOUNG_WOOD
+	if d.has("collider"):
+		var c: Dictionary = d.collider
+		if c.has("c"):
+			c.c = [float(c.c[0]) + shift.x, float(c.c[1]) + shift.y]
+		if c.has("p"):
+			var pts := []
+			for i in range(0, c.p.size(), 2):
+				pts.append_array([float(c.p[i]) + shift.x, float(c.p[i + 1]) + shift.y])
+			c.p = pts
+	if randf() < 0.5:
+		d.sx = -float(d.sx)
+	var full := randf_range(0.9, 1.1)
+	d.sx = float(d.sx) * full
+	d.sy = float(d.sy) * full
+	var g := Gatherable.new()
+	w.things.add_child(g)
+	g.setup(w, d, tree_wood)
+	g.planted_at = hours
+	g.art.set_meta("full_scale", g.art.scale)
+	g.left = 0
+	g.stone = 0
+	g._grow_up()
+	w.gatherables.append(g)
+	return g

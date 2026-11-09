@@ -66,6 +66,15 @@ func room_on(p: Vector2) -> Variant:
 	return null
 
 
+## How solid the roof over [param p] is drawn now (1 shown, 0 faded away while Miko's inside), or 0 with no roof.
+func alpha_over(p: Vector2) -> float:
+	var cell := floors.cell_at(p)
+	for roof in roofs:
+		if roof.cells.has(cell):
+			return float(roof.alpha)
+	return 0.0
+
+
 ## Every closed room's cells.
 func rooms() -> Array:
 	return roofs.map(func(r): return r.cells)

@@ -28,7 +28,6 @@ var _bar: PanelContainer
 var _grid: GridContainer
 var _cells: Array = []
 var _side: VBoxContainer
-var _quick: VBoxContainer
 var _picker: PanelContainer
 var _tip: PanelContainer
 var _tip_text: RichTextLabel
@@ -77,14 +76,22 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 		_grid.add_child(cell)
 		_cells.append(cell)
 	# Bag and Character.
-	_quick = VBoxContainer.new()
-	_quick.alignment = BoxContainer.ALIGNMENT_END
-	for q in [["Build", "B"], ["Bag", "I"], ["Character", "C"]]:
-		var btn := HudStyle.button("%s  %s" % [q[0], q[1]], 11, "pill")
-		btn.custom_minimum_size = Vector2(_k(96), _k(22))
-		btn.pressed.connect(_toggle_build if q[0] == "Build" else _toggle_panel)
-		_quick.add_child(btn)
-	row.add_child(_quick)
+	# Build, Bag and Character: a slot each, its icon and its key in the corner.
+	var quick := PanelContainer.new()
+	quick.add_theme_stylebox_override("panel", HudStyle.piece("panel"))
+	quick.size_flags_vertical = Control.SIZE_SHRINK_END
+	var qrow := HBoxContainer.new()
+	qrow.add_theme_constant_override("separation", int(_k(GAP)))
+	for q in [["build", "B", "Build"], ["bagButton", "I", "Bag"], ["characterButton", "C", "Character"]]:
+		var qb := QuickButton.new()
+		qb.icon_name = q[0]
+		qb.key = q[1]
+		qb.tooltip_text = "%s  (%s)" % [q[2], q[1]]
+		qb.custom_minimum_size = Vector2(_k(CELL), _k(CELL))
+		qb.pressed.connect(_toggle_build if q[0] == "build" else _toggle_panel)
+		qrow.add_child(qb)
+	quick.add_child(qrow)
+	row.add_child(quick)
 	_picker = PanelContainer.new()
 	_picker.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
 	_picker.visible = false
@@ -433,3 +440,29 @@ class HotCell extends Control:
 			_text(Vector2(0, size.y - 4), str(n), roundi(11 * k), HudStyle.color("text"), HORIZONTAL_ALIGNMENT_RIGHT, size.x - 4)
 		# Its key, top left.
 		_text(Vector2(4, 13 * k), Hotbar.key_name(index), roundi(10 * k), HudStyle.color("muted"))
+
+
+## One of the Build, Bag and Character buttons: a slot with its icon, and its key bottom right.
+class QuickButton extends Button:
+	var icon_name := ""
+	var key := ""
+
+	func _init() -> void:
+		focus_mode = Control.FOCUS_NONE
+		flat = true
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var k := HudStyle.SCALE
+		var r := Rect2(Vector2.ZERO, size)
+		draw_style_box(HudStyle.piece("slotOn" if is_hovered() else "slot"), r)
+		var tex := HudStyle.icon(icon_name)
+		if tex != null:
+			var s := 28.0 * k
+			draw_texture_rect(tex, Rect2((size - Vector2(s, s)) / 2.0, Vector2(s, s)), false, Color(1, 1, 1, 0.85) if button_pressed else Color.WHITE)
+		var f := HudStyle.font("bold")
+		var px := roundi(10 * k)
+		draw_string_outline(f, Vector2(0, size.y - 4 * k), key, HORIZONTAL_ALIGNMENT_RIGHT, size.x - 5 * k, px, 4, Color(0, 0, 0, 0.8))
+		draw_string(f, Vector2(0, size.y - 4 * k), key, HORIZONTAL_ALIGNMENT_RIGHT, size.x - 5 * k, px, HudStyle.color("muted"))

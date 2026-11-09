@@ -18,6 +18,13 @@ var follow_offset := Vector2.ZERO
 
 
 func _ready() -> void:
+	# The player's window (size, borderless fullscreen), once a run.
+	Settings.load_settings()
+	Settings.apply_sound()
+	Settings.route_sounds(get_tree())
+	if not _window_set and Shots.arg("shot") == "":
+		_window_set = true
+		Settings.apply_window()
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://data/player.json"))
 	miko = Miko.new()
 	miko.name = "Miko"
@@ -287,6 +294,13 @@ func _ready() -> void:
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
 	world_map.setup(world, miko)
+	# Planting trees (T), and the trees planted before.
+	var planter := TreePlanter.new()
+	planter.name = "TreePlanter"
+	miko.add_child(planter)
+	planter.setup(world, miko, $Hud)
+	if save.get("sections", {}).has("world.planted"):
+		planter.from_json(save.sections["world.planted"])
 	# What was lying on the ground; saving (F5, F8, autosaves) and the save menu (Esc).
 	if save.get("sections", {}).has("world.ground"):
 		Pickup.from_json(world, save.sections["world.ground"])
@@ -298,6 +312,11 @@ func _ready() -> void:
 	save_menu.name = "SaveMenu"
 	$Hud.add_child(save_menu)
 	save_menu.setup(saving)
+	# The HUD that's always up goes behind the windows (the bag, talents, maps, chests...) that open over it.
+	for n in ["Minimap", "PlayerCard", "Hotbar", "VillageLog", "HelpHints", "Time"]:
+		var node := $Hud.get_node_or_null(n)
+		if node != null:
+			$Hud.move_child(node, 0)
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -465,6 +484,26 @@ func _ready() -> void:
 					print("Chime ", ch.get_length(), " s; rivers ", ws._rivers.size(), " river volumes ", ws._rivers.map(func(r): return snappedf(db_to_linear(r.player.volume_db), 0.001)), " playing ", ws._rivers.map(func(r): return r.player.playing), " villager steps ", ws._steps.size())
 					for i in 60:
 						await get_tree().process_frame
+				"settings":
+					var sm: SaveMenu = $Hud/SaveMenu
+					sm.open()
+					sm._set_tab(Shots.arg("tab", "Display"))
+				"plant":
+					var tp: TreePlanter = miko.get_node("TreePlanter")
+					miko.bag.add("Seed", 3)
+					miko.facing_right = true
+					miko.facing_up = false
+					var spot := miko.position + Vector2(2.0, 1.0) * world.px
+					print("Plant here? '", tp.why_not(spot), "'")
+					var g := tp.plant_at(spot)
+					print("Planted: sapling ", g.sapling(), " depleted ", g.depleted(), " scale ", g.art.scale, " next in ", g.hours_to_next(), "h")
+					clock.hours += 10.0
+					g._grow_up()
+					print("After 10h: sapling ", g.sapling(), " wood ", g.left, " scale ", g.art.scale, " next in ", g.hours_to_next(), "h")
+					clock.hours += 20.0
+					g._grow_up()
+					print("After 30h: wood ", g.left, " scale ", g.art.scale, " next in ", g.hours_to_next(), "h; saved ", miko.get_node("TreePlanter").to_json().left(120))
+					print("Sleep villagers alpha: ", Villager.all.map(func(v): return [v.in_bed, snappedf(v.modulate.a, 0.01)]))
 				"saves":
 					if Shots.arg("savenow") != "": ($SaveGame as SaveGame).save(Shots.arg("savenow"), false, "Test save")
 					($Hud/SaveMenu as SaveMenu).open()
@@ -488,6 +527,23 @@ func _ready() -> void:
 		camera.position = saved
 
 
+static var _window_set := false
+
+
+func _window_up() -> bool:
+	var over := get_viewport().gui_get_hovered_control()
+	if over != null and over.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		return true
+	if CharacterPanel.up() or BuildMode.is_open():
+		return true
+	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu"]:
+		var n: Control = get_node_or_null(path)
+		if n != null and n.visible:
+			return true
+	var desk: VillageDesk = get_node_or_null("VillageDesk")
+	return desk != null and desk.any_open()
+
+
 func _process(delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
@@ -498,7 +554,9 @@ Wood %d · Stone %d" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	Shots.wheel_zoom(event, camera, 0.25, 3.0)
+	# The wheel zooms the view, but not over a window or while one is open (it scrolls them instead).
+	if not _window_up():
+		Shots.wheel_zoom(event, camera, 0.25, 3.0)
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_BRACKETRIGHT: clock.hours += 1.0
 		elif event.keycode == KEY_BRACKETLEFT: clock.hours = maxf(0.0, clock.hours - 1.0)

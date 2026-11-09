@@ -1,6 +1,7 @@
 class_name SaveMenu
 extends Control
-## The save menu (from Unity's SaveMenu; Esc when nothing else is open, and the game pauses while it's up): a new
+## Settings (Esc when nothing else is open; the game pauses while it's up), with two tabs. Display: the window's
+## resolution, borderless fullscreen, the UI's size and the FPS meter. Saves (from Unity's SaveMenu): a new
 ## named save at the top; below it every save, the autosave and quick save first, each with what it was (season, day,
 ## time, level, place), when it was made and how long was played, and Load, Save over, Rename and Delete. Loading,
 ## saving over, deleting and starting a new game ask once more ("Sure?") before they happen.
@@ -14,6 +15,7 @@ var _name: LineEdit
 var _confirming := ""       ## "load:slot", "save:slot", "delete:slot" or "new" awaiting a second click
 var _confirm_until := 0.0
 var _renaming := ""
+var tab := "Saves"
 
 
 func setup(s: SaveGame) -> void:
@@ -43,8 +45,6 @@ func _k(v: float) -> float:
 
 
 func open() -> void:
-	if SaveGame.testing() and Shots.arg("window") != "saves":
-		return
 	visible = true
 	move_to_front()
 	get_tree().paused = true
@@ -61,6 +61,8 @@ func close() -> void:
 func _process(_delta: float) -> void:
 	if not visible:
 		return
+	position = Vector2.ZERO
+	size = get_viewport_rect().size
 	_panel.reset_size()
 	_panel.position = ((get_viewport_rect().size - _panel.size) / 2.0).round()
 	if _confirming != "" and Time.get_ticks_msec() / 1000.0 > _confirm_until:
@@ -76,12 +78,25 @@ func _build() -> void:
 	box.add_theme_constant_override("separation", int(_k(8)))
 	_panel.add_child(box)
 	var head := HBoxContainer.new()
-	head.add_child(HudStyle.label("Game", 18, "pixel", HudStyle.color("accentLight")))
+	head.add_theme_constant_override("separation", int(_k(8)))
+	head.add_child(HudStyle.label("Settings", 18, "pixel", HudStyle.color("accentLight")))
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	head.add_child(HudStyle.label("Esc  resume  ·  F5 quick save  ·  F8 quick load", 11, "bold", HudStyle.color("faint")))
+	for t in ["Saves", "Display", "Sound"]:
+		var b := _button(t, t == tab)
+		b.pressed.connect(_set_tab.bind(t))
+		head.add_child(b)
 	box.add_child(head)
+	box.add_child(HudStyle.label("Esc  resume  ·  F5 quick save  ·  F8 quick load", 11, "bold", HudStyle.color("faint")))
+	if tab == "Display":
+		_display(box)
+		_footer(box)
+		return
+	if tab == "Sound":
+		_sound(box)
+		_footer(box)
+		return
 	# A new named save.
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_k(6)))
@@ -113,7 +128,18 @@ func _build() -> void:
 		_list.add_child(HudStyle.label("No saves yet.", 12, "body", HudStyle.color("muted")))
 	for e in saves:
 		_list.add_child(_save_row(e[0], e[1]))
-	# New game, resume.
+	_footer(box)
+
+
+func _set_tab(t: String) -> void:
+	tab = t
+	_confirming = ""
+	_renaming = ""
+	_build()
+
+
+# New game, save and quit, resume.
+func _footer(box: VBoxContainer) -> void:
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", int(_k(8)))
 	var fresh := _button("Sure? New game" if _confirming == "new" else "New game", false, _confirming == "new")
@@ -229,6 +255,124 @@ func _new_save() -> void:
 	if saving.save(SaveSystem.new_slot(), false, _name.text):
 		_name.text = ""
 		_build()
+
+
+# ---- Display ----
+
+func _display(box: VBoxContainer) -> void:
+	var well := PanelContainer.new()
+	well.add_theme_stylebox_override("panel", HudStyle.piece("well"))
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(_k(12)))
+	well.add_child(col)
+	box.add_child(well)
+	# Window: windowed at a size, or borderless fullscreen.
+	var r := _row("Window")
+	r.add_child(_choice("Windowed", not Settings.borderless, _set_borderless.bind(false)))
+	r.add_child(_choice("Borderless fullscreen", Settings.borderless, _set_borderless.bind(true)))
+	col.add_child(r)
+	r = _row("Resolution")
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", int(_k(6)))
+	flow.add_theme_constant_override("v_separation", int(_k(6)))
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for res in Settings.resolutions():
+		flow.add_child(_choice("%d × %d" % [res.x, res.y], Settings.resolution == res and not Settings.borderless, _set_resolution.bind(res)))
+	r.add_child(flow)
+	col.add_child(r)
+	r = _row("UI size")
+	for s in Settings.UI_SIZES:
+		r.add_child(_choice("%d%%" % roundi(s * 100), is_equal_approx(Settings.ui_size, s), _set_ui_size.bind(s)))
+	col.add_child(r)
+	r = _row("FPS meter")
+	r.add_child(_choice("Show", Settings.show_fps, _set_fps.bind(true)))
+	r.add_child(_choice("Hide", not Settings.show_fps, _set_fps.bind(false)))
+	col.add_child(r)
+	col.add_child(HudStyle.label("Changing the UI size picks the game up again from where it is.", 11, "body", HudStyle.color("faint")))
+
+
+func _set_borderless(on: bool) -> void:
+	Settings.borderless = on
+	_apply()
+
+
+func _set_resolution(res: Vector2i) -> void:
+	Settings.resolution = res
+	Settings.borderless = false
+	_apply()
+
+
+func _set_fps(on: bool) -> void:
+	Settings.show_fps = on
+	Settings.save_settings()
+	_build()
+
+
+# The HUD is laid out at its size as the game starts: carried on from here (an autosave), at the new size.
+func _set_ui_size(s: float) -> void:
+	if is_equal_approx(Settings.ui_size, s):
+		return
+	Settings.ui_size = s
+	Settings.save_settings()
+	close()
+	var saved := saving.save(SaveSystem.AUTO, true)
+	saving.restart(SaveSystem.AUTO if saved or SaveSystem.exists(SaveSystem.AUTO) else SaveSystem.loaded_slot)
+
+
+# ---- Sound ----
+
+func _sound(box: VBoxContainer) -> void:
+	var well := PanelContainer.new()
+	well.add_theme_stylebox_override("panel", HudStyle.piece("well"))
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(_k(14)))
+	well.add_child(col)
+	box.add_child(well)
+	for v in [["Master", "master"], ["Sound effects", "sfx"], ["Music", "bgm"]]:
+		var r := _row(v[0])
+		var slider := HSlider.new()
+		slider.min_value = 0
+		slider.max_value = 100
+		slider.step = 5
+		slider.value = roundi(Settings.volume(v[1]) * 100.0)
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		slider.custom_minimum_size.x = _k(240)
+		var value := HudStyle.label("%d%%" % roundi(slider.value), 12, "pixel")
+		value.custom_minimum_size.x = _k(48)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		slider.value_changed.connect(_set_volume.bind(v[1], value))
+		r.add_child(slider)
+		r.add_child(value)
+		col.add_child(r)
+	col.add_child(HudStyle.label("There's no music yet: its volume is kept for when there is.", 11, "body", HudStyle.color("faint")))
+
+
+func _set_volume(v: float, which: String, value: Label) -> void:
+	Settings.set_volume(which, v / 100.0)
+	value.text = "%d%%" % roundi(v)
+
+
+func _row(title: String) -> HBoxContainer:
+	var r := HBoxContainer.new()
+	r.add_theme_constant_override("separation", int(_k(6)))
+	var l := HudStyle.label(title, 13, "bold", HudStyle.color("muted"))
+	l.custom_minimum_size.x = _k(110)
+	r.add_child(l)
+	return r
+
+
+func _choice(text: String, on: bool, act: Callable) -> Button:
+	var b := _button(text, on)
+	b.custom_minimum_size.y = _k(28)
+	b.pressed.connect(act)
+	return b
+
+
+func _apply() -> void:
+	Settings.save_settings()
+	Settings.apply_window()
+	_build()
 
 
 ## Hears Esc after everything else (it stands first in the scene): opens or closes the menu.

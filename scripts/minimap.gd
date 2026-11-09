@@ -16,6 +16,9 @@ var step := 1
 var _vp: SubViewport
 var _cam: Camera2D
 var _crystals: Crystals
+var _fps: Label
+var _fps_smoothed := 60.0
+var _fps_shown_at := 0.0
 
 
 func setup(w: World, who: Miko, card: TimeCard) -> void:
@@ -36,14 +39,32 @@ func setup(w: World, who: Miko, card: TimeCard) -> void:
 	_vp.add_child(_cam)
 	_cam.make_current()
 	_zoom()
-	for t in [["+", -1], ["−", 1]]:
-		var b := HudStyle.button(t[0], 12, "pill")
+	# Zoom in and out, in the map's bottom right corner.
+	for t in [["plus", -1], ["minus", 1]]:
+		var b := HudStyle.button("", 12, "key")
+		b.add_theme_stylebox_override("normal", HudStyle.piece("key", Color(0.11, 0.08, 0.07, 0.85)))
+		b.add_theme_stylebox_override("hover", HudStyle.piece("key", Color(0.2, 0.16, 0.13, 0.95)))
+		b.add_theme_stylebox_override("pressed", HudStyle.piece("key", Color(0.06, 0.05, 0.04, 0.95)))
+		b.icon = HudStyle.icon(t[0])
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.add_theme_constant_override("icon_max_width", int(12 * HudStyle.SCALE))
+		for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+			b.add_theme_color_override(st, Color(2.2, 2.1, 1.9) if st != "icon_normal_color" else Color(1.8, 1.7, 1.55))
 		b.custom_minimum_size = Vector2(22, 22) * HudStyle.SCALE
 		b.size = b.custom_minimum_size
+		b.tooltip_text = "Zoom in" if t[1] < 0 else "Zoom out"
 		b.pressed.connect(_step.bind(t[1]))
 		add_child(b)
 		b.position = Vector2(MAP + 6 - 5 - 22, MAP + 6 - 5 - 22 - (25 if t[1] < 0 else 0)) * HudStyle.SCALE
-	card.top = size.y + 16.0 + 6.0
+	# The time card sits in the map's top centre.
+	card.holder = self
+	card.get_parent().remove_child(card)
+	add_child(card)
+	# Frames per second, small, just under the card.
+	_fps = HudStyle.label("", 10, "pixel", HudStyle.color("faint"))
+	_fps.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	add_child(_fps)
 
 
 func _step(by: int) -> void:
@@ -58,6 +79,7 @@ func _zoom() -> void:
 func _process(_delta: float) -> void:
 	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, 16.0)
 	MapMarks.hide_characters(world)
+	_meter(_delta)
 	# Whole map pixels only, so the pixel art doesn't shimmer as it slides; the rest is made up when it's drawn.
 	var texel := 2.0 * float(ZOOM_STEPS[step]) * world.px / RES
 	var at := miko.drawn_position()
@@ -128,3 +150,21 @@ func _diamond(at: Vector2, r: float, c: Color) -> void:
 		outer.append(at + (p - at) * 1.3)
 	draw_colored_polygon(outer, Color(0.1, 0.07, 0.06, 0.9))
 	draw_colored_polygon(pts, c)
+
+
+# Smoothed, and redrawn twice a second so it can be read: green at 55 and over, amber at 30, coral under.
+func _meter(delta: float) -> void:
+	_fps.visible = Settings.show_fps
+	if not _fps.visible:
+		return
+	if delta > 0.0:
+		_fps_smoothed = lerpf(_fps_smoothed, 1.0 / delta, 0.1)
+	var t := Time.get_ticks_msec() / 1000.0
+	if t - _fps_shown_at < 0.5:
+		return
+	_fps_shown_at = t
+	var fps := roundi(_fps_smoothed)
+	_fps.text = "%d FPS" % fps
+	_fps.add_theme_color_override("font_color", HudStyle.color("green") if fps >= 55 else (HudStyle.color("accent") if fps >= 30 else HudStyle.color("coral")))
+	_fps.reset_size()
+	_fps.position = Vector2(size.x - _fps.size.x - 4.0, size.y + 2.0)

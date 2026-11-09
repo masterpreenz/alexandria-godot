@@ -1,9 +1,9 @@
 class_name HudStyle
 ## The HUD's look (from Unity's HudStyle): its dark-ink pieces (panels, slots, pills, bars, badges, the portrait's
 ## frame), its icons (heart, drop, moon, sun, ...), its colours and its three fonts (pixel, body, bold), from
-## data/hud.json. Sizes are Unity's HUD units times [constant SCALE].
+## data/hud.json. Sizes are Unity's HUD units times [member SCALE] (the player's UI size, Settings).
 
-const SCALE := 1.3
+static var SCALE := 1.0
 
 static var data: Dictionary = {}
 static var _world: World
@@ -12,6 +12,8 @@ static var _fonts := {}
 
 static func setup(w: World) -> void:
 	_world = w
+	Settings.load_settings()
+	SCALE = Settings.ui_size
 	if FileAccess.file_exists("res://data/hud.json"):
 		data = w._load_json("res://data/hud.json")
 

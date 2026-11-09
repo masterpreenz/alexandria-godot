@@ -4,12 +4,13 @@ extends Control
 ## icon, the time, and the season and day. Clicking the season and day skips to the next season; clicking the weather
 ## icon cycles the weather (the season's own, then each kind by hand).
 
-const W := 240.0
-const H := 34.0
+const W := 200.0
+const H := 28.0
 
 var world: World
 var clock: GameClock
-var top := 16.0                    ## how far down (the minimap sits above it)
+var top := 16.0                    ## how far down, on its own
+var holder: Control                ## the minimap it sits inside (top centre), or null
 var _weather_rect := Rect2()
 var _season_rect := Rect2()
 
@@ -22,7 +23,10 @@ func setup(w: World, c: GameClock) -> void:
 
 
 func _process(_delta: float) -> void:
-	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, top)
+	if holder != null:
+		position = Vector2((holder.size.x - size.x) / 2.0, 10.0 * HudStyle.SCALE)
+	else:
+		position = Vector2(get_viewport_rect().size.x - size.x - 16.0, top)
 	queue_redraw()
 
 
@@ -43,17 +47,17 @@ func _gui_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	var k := HudStyle.SCALE
-	draw_style_box(HudStyle.piece("panel"), Rect2(Vector2.ZERO, size))
+	draw_style_box(HudStyle.piece("pillPlain", Color(1, 1, 1, 0.92)), Rect2(Vector2.ZERO, size))
 	var icons: Array = UiKit.data.theme.get("weatherIcons", [])
 	var wx := clock.weather()
-	_weather_rect = Rect2(Vector2(8, 5) * k, Vector2(24, 24) * k)
+	_weather_rect = Rect2(Vector2(9, 5) * k, Vector2(18, 18) * k)
 	if wx < icons.size() and int(icons[wx]) >= 0:
 		draw_texture_rect(UiKit.sprite_texture(int(icons[wx])), _weather_rect, false)
 	var f := HudStyle.font("pixel")
 	var b := HudStyle.font("bold")
-	var px := roundi(14 * k)
-	draw_string(f, Vector2(38, 23) * k, clock.time_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, px, HudStyle.color("text"))
+	draw_string(f, Vector2(32, 19) * k, clock.time_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12 * k), HudStyle.color("text"))
 	var season := "%s, day %d" % [GameClock.SEASON_NAMES[clock.season()], clock.day_of_season()]
-	var sw := b.get_string_size(season, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12 * k)).x
-	_season_rect = Rect2(Vector2(size.x - sw - 10 * k, 0), Vector2(sw + 10 * k, size.y))
-	draw_string(b, Vector2(size.x - sw - 10 * k, 22 * k), season, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12 * k), HudStyle.color("accentLight"))
+	var px := roundi(10 * k)
+	var sw := b.get_string_size(season, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+	_season_rect = Rect2(Vector2(size.x - sw - 12 * k, 0), Vector2(sw + 12 * k, size.y))
+	draw_string(b, Vector2(size.x - sw - 11 * k, 18.5 * k), season, HORIZONTAL_ALIGNMENT_LEFT, -1, px, HudStyle.color("accentLight"))

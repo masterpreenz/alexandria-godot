@@ -98,7 +98,7 @@ In steps (about 10,000 lines of Unity code):
 What the port left out or didn't finish, to be built here directly. Unity's scripts (in the Unity project) show how each worked there.
 
 - **Potions**: drinking an HP or mana potion (they're made at the alchemy bench and sit in the bag, but do nothing yet), and their descriptions at the workbench; food buffs described there too.
-- **Planting trees**: T plants a tree seed; saplings growing into trees; villagers replanting felled ones.
+- **Villagers replanting** the trees they fell (Miko's planting, T, is in).
 - **Shelters resting better**: beds in a shelter (a room with beds and no chests) restoring faster and comfier (`Village.SHELTER_REST`, `SHELTER_COMFORT` are there, unused).
 - **Wading in springs**: the water depth map is built once from the exported water, so springs made later aren't waded.
 - **Roofs**: the roof dropping in when a room is closed; trees under the eaves.
@@ -111,6 +111,10 @@ What the port left out or didn't finish, to be built here directly. Unity's scri
 - **Houses saved in Unity**: importing them (they're in Unity's persistent data folder as house_presets.json).
 - **The world map**: the mist as a layer of its own (the live mist shows in the picture instead).
 - **Not yet tried in play**: a rabbit pen in use; the farming skill practised by grabbing rabbits.
+
+## After the switch-over
+
+- 2026-11-09: the HUD a quarter smaller (UI size is a setting now, 80% to 130%); the Build, Bag and Character buttons as icon slots beside the hotbar; the time card inside the minimap's top edge, with plus and minus icons for its zoom and an FPS meter under it; windows (bag, talents, chests, maps...) drawn over the HUD; the wheel only zooms the view when no window is open or under the mouse. Esc opens Settings: Saves (as before), Display (windowed or borderless fullscreen, resolution, UI size, FPS meter) and Sound (master, sound effects and music volumes, on their own audio buses), kept in user://settings.cfg. Planting trees (T): a seed on grass just ahead grows from a sapling into a young tree (8 game hours) and a mature one (a day), faster with the Tree Growth talent, with a label saying how long; planted trees are saved (world.planted). Sleeping villagers no longer show on top of their house's roof.
 
 ## Mapping Unity → Godot
 
