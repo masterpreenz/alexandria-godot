@@ -7,6 +7,10 @@ extends Node
 ## turn: the village's rotation, then each crop. Bare soil lies flat on the ground; sprouts and ripe plants stand up.
 ## The first potatoes come from old overgrown patches in the wild (ripe when first found). What each plot grows is
 ## saved (world.farms).
+##
+## Crops want looking after while they grow. Watered (sowing waters it, and rain), a plot stays wet for a day; dry, it
+## grows at half speed. Now and then pests get into a growing crop and it stops growing until they're cleared. Miko does
+## either with E; villagers on farm duty see to them too. Nothing is ever lost: a neglected crop only comes in later.
 
 const RANGE := 0.7
 const CROPS := {
@@ -17,6 +21,10 @@ const CROPS := {
 	"Cotton": {"seed": "CottonSeed", "hours": 60.0, "yield": [2, 4], "seedBack": [1, 2], "plural": "cotton"},
 }
 const ORDER := ["Potato", "Carrot", "Cabbage", "Wheat", "Cotton"]
+const WET_FOR := 24.0            ## game hours a watering lasts
+const DRY_RATE := 0.5            ## how fast a dry crop grows
+const PEST_PER_HOUR := 0.015     ## the chance a growing crop gets pests, each game hour (about one in three crops a 24 h)
+const PEST_SHEET := "res://assets/Resources/Emotes/Emote_pests.png"
 
 var world: World
 var miko: Miko
@@ -27,6 +35,7 @@ var rotation: Array = ["Potato"]
 var _next := 0
 var _saved: Array = []
 var _looked_at := -1
+var _tended_at := -INF           # the game hour the crops were last grown to
 var _resources: Array = []        ## Unity's Resource enum, in order (the save keeps crops as its index + 1)
 var prompt: Label
 var _keys := {}
@@ -106,16 +115,63 @@ func stage(p: Dictionary) -> int:
 	var st := _state(p)
 	if not st.sown:
 		return 0
-	return 2 if _hours() - float(st.sownAt) >= _grow(p) else 1
+	return 2 if _grown(p) >= _grow(p) else 1
 
 
 func hours_left(p: Dictionary) -> float:
-	return maxf(0.0, _grow(p) - (_hours() - float(_state(p).sownAt))) if stage(p) == 1 else 0.0
+	return maxf(0.0, _grow(p) - _grown(p)) if stage(p) == 1 else 0.0
+
+
+# Hours of growing it's had (an old save's plot: since it was sown).
+func _grown(p: Dictionary) -> float:
+	var st := _state(p)
+	return float(st.get("grown", _hours() - float(st.sownAt)))
+
+
+## Whether a growing crop wants watering.
+func dry(p: Dictionary) -> bool:
+	return stage(p) == 1 and _hours() - float(_state(p).get("wateredAt", -INF)) >= WET_FOR
+
+
+## Whether pests are in a growing crop.
+func pests(p: Dictionary) -> bool:
+	return stage(p) == 1 and bool(_state(p).get("pest", false))
+
+
+## Waters a plot (wet for a day).
+func water(p: Dictionary) -> void:
+	_state(p).wateredAt = _hours()
+
+
+## Clears the pests out of a plot.
+func clear_pests(p: Dictionary) -> void:
+	_state(p).pest = false
+
+
+# Growing crops grow by the game hours gone by: at full speed watered, half dry, not at all with pests in them; pests
+# get in now and then; rain waters everything.
+func _tend(dh: float) -> void:
+	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
+	for p in plots:
+		var st := _state(p)
+		if not st.sown:
+			continue
+		if raining:
+			st.wateredAt = _hours()
+		if stage(p) != 1 or dh <= 0.0:
+			continue
+		if not st.has("grown"):
+			st.grown = _grown(p)
+		var rate := 0.0 if st.get("pest", false) else (DRY_RATE if dry(p) else 1.0)
+		st.grown = float(st.grown) + dh * rate
+		if not st.get("pest", false) and randf() < 1.0 - pow(1.0 - PEST_PER_HOUR, dh):
+			st.pest = true
 
 
 func _look() -> void:
 	for p in plots:
 		if is_instance_valid(p.flat): p.flat.queue_free()
+		if is_instance_valid(p.get("mark")): p.mark.queue_free()
 	plots.clear()
 	for type in d.get("plots", {}):
 		for e in world.props.drawn_named(type):
@@ -141,12 +197,14 @@ func _look() -> void:
 				best = p
 		if not best.is_empty():
 			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo)),
-				"last": _crop_name(int(sv.get("last", 0)))}
+				"last": _crop_name(int(sv.get("last", 0))), "grown": float(sv.get("grown", _hours() - float(sv.sownAt))),
+				"wateredAt": float(sv.get("wateredAt", _hours())), "pest": bool(sv.get("pest", false))}
 	_saved = []
 	# An old wild patch is ripe when first found.
 	for p in plots:
 		if bool(p.s.startsRipe) and not states.has(p.key):
-			states[p.key] = {"sown": true, "sownAt": _hours() - float(p.s.growHours) * 2.0, "crop": "", "setTo": ""}
+			states[p.key] = {"sown": true, "sownAt": _hours() - float(p.s.growHours) * 2.0, "crop": "", "setTo": "",
+				"grown": float(p.s.growHours) * 2.0, "wateredAt": _hours(), "pest": false}
 
 
 func _art(p: Dictionary, st: int) -> int:
@@ -163,6 +221,7 @@ func _art(p: Dictionary, st: int) -> int:
 func _show(p: Dictionary) -> void:
 	var st := stage(p)
 	var id := _art(p, st)
+	_show_care(p)
 	if st == p.shown and id == p.art:
 		return
 	p.shown = st
@@ -183,6 +242,40 @@ func _show(p: Dictionary) -> void:
 		sprite.visible = id >= 0
 		if id >= 0:
 			world.show_frame(sprite, id, Vector2.ONE * scale)
+
+
+static var _pest_tex: Texture2D
+
+# A dry crop looks a little parched; one with pests in it has a small bubble over it (the pest emote) until cleared.
+func _show_care(p: Dictionary) -> void:
+	var holder: Node2D = p.node
+	if not is_instance_valid(holder) or holder.get_child_count() == 0:
+		return
+	(holder.get_child(0) as Sprite2D).self_modulate = Color(1.0, 0.93, 0.78) if dry(p) else Color.WHITE
+	var has_pests := pests(p)
+	var mark: Sprite2D = p.get("mark")
+	if mark == null:
+		if not has_pests or not ResourceLoader.exists(PEST_SHEET):
+			return
+		if _pest_tex == null:
+			_pest_tex = load(PEST_SHEET)
+		mark = Sprite2D.new()
+		mark.texture = _pest_tex
+		mark.region_enabled = true
+		mark.z_as_relative = false
+		mark.z_index = 3998
+		holder.add_child(mark)
+		p.mark = mark
+	mark.visible = has_pests
+	if not has_pests:
+		return
+	@warning_ignore("integer_division")
+	var fw := _pest_tex.get_width() / 8
+	var t := Time.get_ticks_msec() / 1000.0
+	mark.region_rect = Rect2(int(t / 0.16) % 8 * fw, 0, fw, _pest_tex.get_height())
+	mark.scale = Vector2.ONE * 0.5 * world.px / float(fw)
+	mark.modulate = world.daylight_undo()
+	mark.position = p.pos - holder.global_position + Vector2(0, -0.75 * world.px + sin(t * 2.4) * 0.04 * world.px)
 
 
 func nearest(at: Vector2, reach: float) -> Dictionary:
@@ -219,6 +312,10 @@ func _process_timed(_delta: float) -> void:
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version
 		_look()
+	var now := _hours()
+	if _tended_at > -INF:
+		_tend(clampf(now - _tended_at, 0.0, 240.0))
+	_tended_at = now
 	for p in plots:
 		_show(p)
 	var fires: Fires = miko.get_node_or_null("Fires")
@@ -248,7 +345,21 @@ func _process_timed(_delta: float) -> void:
 		1:
 			var h := hours_left(p)
 			var nm: String = CROPS[crop(p)].plural.capitalize()
-			_say(("%s growing  ·  %d h to go" % [nm, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % nm) + "  ·  R " + set_to)
+			if pests(p):
+				_say("Pests in the %s  ·  not growing  ·  E clear them" % CROPS[crop(p)].plural)
+				if keys.has("e"):
+					clear_pests(p)
+					_till(p)
+					FloatingText.spawn(world, "Pests cleared", p.pos + Vector2(0, -0.6 * world.px), Color(0.62, 0.86, 0.5))
+					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
+			elif dry(p):
+				_say("%s dry  ·  growing at half speed  ·  E water" % nm)
+				if keys.has("e"):
+					water(p)
+					FloatingText.spawn(world, "Watered", p.pos + Vector2(0, -0.6 * world.px), Color(0.55, 0.78, 1.0))
+					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
+			else:
+				_say(("%s growing  ·  %d h to go" % [nm, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % nm) + "  ·  R " + set_to)
 		_:
 			_say("Press E to harvest the " + CROPS[crop(p)].plural)
 			if keys.has("e"):
@@ -276,6 +387,9 @@ func sow(p: Dictionary, c: String) -> bool:
 	st.sown = true
 	st.sownAt = _hours()
 	st.crop = c
+	st.grown = 0.0
+	st.wateredAt = _hours()   # sowing waters it
+	st.pest = false
 	return true
 
 
@@ -406,5 +520,6 @@ func to_json() -> String:
 	for p in plots:
 		var st := _state(p)
 		list.append({"x": p.pos.x / world.px, "y": -p.pos.y / world.px, "sown": st.sown, "sownAt": st.sownAt, "crop": _crop_index(st.crop), "setTo": _crop_index(st.setTo),
-			"last": _crop_index(st.get("last", ""))})
+			"last": _crop_index(st.get("last", "")), "grown": _grown(p), "wateredAt": float(st.get("wateredAt", _hours())),
+			"pest": bool(st.get("pest", false))})
 	return JSON.stringify({"plots": list})

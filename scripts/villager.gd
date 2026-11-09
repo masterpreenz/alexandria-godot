@@ -111,6 +111,7 @@ var carrying := 0
 var loose: Pickup
 var plot: Dictionary = {}
 var planting := false
+var farm_task := ""              ## what they're at a plot for: "harvest", "plant", "pests" or "water"
 var stove: Dictionary = {}        ## the fire they cook at
 var dish := ""
 var dishes := 0
@@ -950,6 +951,7 @@ func _status() -> void:
 		State.TO_STORE: e = "transporting" if carrying > 0 else ""
 		State.TO_PICKUP: e = "gathering"
 		State.COOK: e = "cooking"
+		State.TO_FARM, State.FARM: e = {"pests": "pests", "water": "watering"}.get(farm_task, "")
 		State.BUILD: e = "building"
 		State.CRAFT:
 			if craft_bench.get("skill", "") == "Cooking": e = "cooking"
@@ -1625,7 +1627,8 @@ func _unload(t: float, stand := true) -> void:
 		_stand(t, randf_range(2.0, 4.0))
 
 
-# ---- Farming: ripe plots first (the crop carried to storage), then bare ones planted from storage ----
+# ---- Farming: ripe plots first (the crop carried to storage), then pests cleared, then dry crops watered, then bare
+# ones planted from storage ----
 
 func _go_farm() -> bool:
 	var choice := _job()
@@ -1639,8 +1642,12 @@ func _go_farm() -> bool:
 	farm._give_starter()
 	var ripe: Dictionary = {}
 	var bare: Dictionary = {}
+	var pest: Dictionary = {}
+	var dry: Dictionary = {}
 	var ripe_d := INF
 	var bare_d := INF
+	var pest_d := INF
+	var dry_d := INF
 	for p in farm.plots:
 		if tending.has(p.key) or not world.village.contains(p.pos, 3.0):
 			continue
@@ -1652,8 +1659,19 @@ func _go_farm() -> bool:
 		elif st == 0 and dd < bare_d:
 			bare_d = dd
 			bare = p
+		elif st == 1 and farm.pests(p) and dd < pest_d:
+			pest_d = dd
+			pest = p
+		elif st == 1 and farm.dry(p) and dd < dry_d:
+			dry_d = dd
+			dry = p
 	var goal := ripe
 	planting = false
+	farm_task = "harvest"
+	# Tending what's growing (not with a crop in their arms: that goes to storage first).
+	if goal.is_empty() and carrying == 0:
+		goal = pest if not pest.is_empty() else dry
+		farm_task = "pests" if not pest.is_empty() else "water"
 	if goal.is_empty() and not bare.is_empty():
 		var pick := farm.pick_from_storage(bare)
 		if not pick[0]:
@@ -1661,6 +1679,7 @@ func _go_farm() -> bool:
 			return false
 		goal = bare
 		planting = true
+		farm_task = "plant"
 	if goal.is_empty():
 		return false
 	_go_to_plot(goal)
@@ -1701,6 +1720,15 @@ func _farming(t: float) -> void:
 	if t < state_until:
 		return
 	_wear_tools()
+	if farm_task == "pests" or farm_task == "water":
+		if farm_task == "pests" and farm.pests(plot):
+			farm.clear_pests(plot)
+			people.practise(person, LifeSkills.Skill.FARMING)
+		elif farm_task == "water" and farm.dry(plot):
+			farm.water(plot)
+			people.practise(person, LifeSkills.Skill.FARMING)
+		_done_farming(t)
+		return
 	if planting:
 		if farm.stage(plot) == 0:
 			var pick := farm.pick_from_storage(plot)
@@ -2214,8 +2242,8 @@ func activity() -> String:
 		State.CRAFT: return "Making %s" % made.call() if not craft_recipe.is_empty() else "Crafting"
 		State.TO_DOOR: return "Opening up the house for the day" if duty_opens else "Shutting the house for the night"
 		State.TO_LIGHT: return "Going to light the fire"
-		State.TO_FARM: return "Off to plant" if planting else "Off to harvest"
-		State.FARM: return "Planting" if planting else "Harvesting"
+		State.TO_FARM: return {"plant": "Off to plant", "pests": "Off to clear pests", "water": "Off to water the crops"}.get(farm_task, "Off to harvest")
+		State.FARM: return {"plant": "Planting", "pests": "Clearing pests", "water": "Watering"}.get(farm_task, "Harvesting")
 		State.TO_CHAT: return "Going over to chat with %s" % partner.person.name if partner != null else "Off to chat"
 		State.CHAT, State.CHAT_WAIT: return "Chatting with %s" % partner.person.name if partner != null else "Chatting"
 		State.TO_BUILD: return "Off to build " + kind
