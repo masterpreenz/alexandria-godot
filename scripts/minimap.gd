@@ -6,7 +6,9 @@ extends Control
 ## it), and Miko in the middle. + and − in its corner step the zoom. M opens the world map.
 
 const MAP := 228.0
-const RES := 256
+const RES := 256                ## map pixels across what it shows
+const PAD := 1.5                ## the picture is this much wider, so it can slide between redraws
+const REDRAW_EVERY := 0.5       ## seconds (things move on it); sooner when she nears its edge
 const ZOOM_STEPS := [6.0, 10.0, 16.0, 24.0]   ## units from the middle to the edge
 
 var world: World
@@ -19,6 +21,7 @@ var _crystals: Crystals
 var _fps: Label
 var _fps_smoothed := 60.0
 var _fps_shown_at := 0.0
+var _drawn_at := -INF
 
 
 func setup(w: World, who: Miko, card: TimeCard) -> void:
@@ -30,10 +33,12 @@ func setup(w: World, who: Miko, card: TimeCard) -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_vp = SubViewport.new()
-	_vp.size = Vector2i(RES, RES)
+	_vp.size = Vector2i(roundi(RES * PAD), roundi(RES * PAD))
 	_vp.world_2d = get_viewport().world_2d
 	_vp.canvas_cull_mask = 0xFFFFF & ~MapMarks.HIDDEN_LAYER
-	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Not drawn every frame (the whole land round her again, every sprite and effect: as costly as the game's own
+	# view): a wider picture now and then, slid along as she walks.
+	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 	_cam = Camera2D.new()
 	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -66,6 +71,7 @@ func setup(w: World, who: Miko, card: TimeCard) -> void:
 func _step(by: int) -> void:
 	step = clampi(step + by, 0, ZOOM_STEPS.size() - 1)
 	_zoom()
+	_drawn_at = -INF
 
 
 func _zoom() -> void:
@@ -82,10 +88,17 @@ func _process_timed(_delta: float) -> void:
 	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, 16.0)
 	MapMarks.hide_characters(world)
 	_meter(_delta)
-	# Whole map pixels only, so the pixel art doesn't shimmer as it slides; the rest is made up when it's drawn.
-	var texel := 2.0 * float(ZOOM_STEPS[step]) * world.px / RES
+	# Drawn again twice a second, or when she's walked a third of the way to the picture's edge.
+	var half := float(ZOOM_STEPS[step]) * world.px
 	var at := miko.drawn_position()
-	_cam.position = (at / texel).round() * texel
+	var now := Time.get_ticks_msec() / 1000.0
+	var off := (at - _cam.position).abs()
+	if now > _drawn_at + REDRAW_EVERY or maxf(off.x, off.y) > half * (PAD - 1.0) * 0.66:
+		_drawn_at = now
+		# Whole map pixels only, so the pixel art doesn't shimmer as it slides.
+		var texel := 2.0 * half / RES
+		_cam.position = (at / texel).round() * texel
+		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	queue_redraw()
 
 
@@ -113,7 +126,8 @@ func _draw() -> void:
 	var half := float(ZOOM_STEPS[step]) * world.px
 	var shift := (miko.drawn_position() - _cam.position) / (2.0 * half) * RES
 	var inset := 1.0
-	draw_texture_rect_region(_vp.get_texture(), r, Rect2(Vector2(inset, inset) + shift, Vector2(RES - 2 * inset, RES - 2 * inset)))
+	var edge := (RES * PAD - RES) / 2.0
+	draw_texture_rect_region(_vp.get_texture(), r, Rect2(Vector2(edge + inset, edge + inset) + shift, Vector2(RES - 2 * inset, RES - 2 * inset)))
 	# The fog over what she hasn't seen.
 	var ex := Exploration.active
 	if ex != null:
