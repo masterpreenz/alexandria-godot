@@ -11,6 +11,7 @@ const LIFETIME := 600.0
 
 static var _pick_sound: AudioStream
 static var _last_sound := -1.0
+static var _full_said := -10.0
 static var _shadow_tex: Texture2D
 
 var world: World
@@ -82,8 +83,13 @@ func _process(delta: float) -> void:
 		var d := to.length()
 		if d < REACH * px:
 			var bag: Bag = world.player.get("bag")
-			if bag != null:
-				bag.add(resource, amount)
+			# With no room for a new kind of thing it stays on the ground.
+			if bag != null and not bag.add(resource, amount):
+				if Time.get_ticks_msec() / 1000.0 - _full_said > 2.5:
+					_full_said = Time.get_ticks_msec() / 1000.0
+					FloatingText.spawn(world, "Bag full", ground + Vector2(0, -0.6 * px), Color(1, 0.55, 0.45))
+				position = ground
+				return
 			FloatingText.spawn(world, "+%d %s" % [amount, resource], ground + Vector2(0, -0.4 * px), Color(0.85, 0.86, 0.9))
 			_sound()
 			queue_free()

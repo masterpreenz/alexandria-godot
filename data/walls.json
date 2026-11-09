@@ -1,8 +1,8 @@
 {
 "cellsPerWall":1,"thickness":7.68,
 "types":[
-{"name":"BarnWall","display":"Barn Wall","left":651,"right":-1,"leftY":653,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":0,"invisible":false,"keepOffCorners":false,"fence":false,"toggle":""},
-{"name":"WallWindow","display":"Window","left":654,"right":-1,"leftY":3071,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":0,"invisible":false,"keepOffCorners":true,"fence":false,"toggle":""},
+{"name":"BarnWall","display":"Barn Wall","left":651,"right":-1,"leftY":654,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":0,"invisible":false,"keepOffCorners":false,"fence":false,"toggle":""},
+{"name":"WallWindow","display":"Window","left":653,"right":-1,"leftY":3071,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":0,"invisible":false,"keepOffCorners":true,"fence":false,"toggle":""},
 {"name":"WallDoorClosed","display":"Door","left":3072,"right":-1,"leftY":3073,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":0,"invisible":false,"keepOffCorners":true,"fence":false,"toggle":"WallDoor"},
 {"name":"WallDoor","display":"Open Door","left":3074,"right":-1,"leftY":3075,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":1,"invisible":false,"keepOffCorners":true,"fence":false,"toggle":"WallDoorClosed"},
 {"name":"WallDoorway","display":"Doorway","left":3076,"right":-1,"leftY":655,"rightY":-1,"cap":-1,"capY":-1,"panels":true,"length":1,"opening":1,"invisible":false,"keepOffCorners":true,"fence":false,"toggle":""},

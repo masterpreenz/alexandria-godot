@@ -30,8 +30,26 @@ func _ready() -> void:
 	miko.add_child(miner)
 	miner.setup(world, miko, world._load_json("res://data/gather.json").miner, $Hud)
 	var sv: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	UiKit.setup(world)
+	miko.bag.item_data = UiKit.data.items
 	if sv.get("sections", {}).has("player.bag"):
-		miko.bag.from_json(sv.sections["player.bag"])
+		var equipped: Array = []
+		if sv.sections.has("player.stats"):
+			equipped = JSON.parse_string(sv.sections["player.stats"]).get("equipped", [])
+		miko.bag.from_json(sv.sections["player.bag"], equipped)
+	# The bag window (I).
+	var bag_window := BagWindow.new()
+	bag_window.name = "BagWindow"
+	bag_window.theme = UiKit.theme
+	$Hud.add_child(bag_window)
+	bag_window.setup(world, miko.bag)
+	bag_window.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
+	bag_window.visible = Shots.arg("bag") != ""
+	# Where the save left her.
+	var saved_game: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	if saved_game.get("sections", {}).has("player"):
+		var pl: Dictionary = JSON.parse_string(saved_game.sections.player)
+		miko.place(Vector2(float(pl.x) * world.px, -float(pl.y) * world.px))
 	var at := Shots.arg("at")
 	if at != "":
 		var p := at.split(",")
