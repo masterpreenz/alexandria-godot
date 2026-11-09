@@ -18,6 +18,7 @@ var roof_floors := {}      ## Vector2i -> roof look picked for that cell
 
 var roofs := []            # [{cells: Dictionary, holders: [], tiles: [Sprite2D], front: [Edge], chimney: Vector2i, smoke, alpha}]
 var _kept_smoke := {}      # Vector2i (chimney cell) -> smoke node, kept across a rebuild
+var snowed := false        ## settled snow: every roof shows the snowy look (but round the chimney)
 var _wall_version := -1
 var _floor_version := -1
 
@@ -68,6 +69,14 @@ func room_on(p: Vector2) -> Variant:
 ## Every closed room's cells.
 func rooms() -> Array:
 	return roofs.map(func(r): return r.cells)
+
+
+## Turns every roof snowy (settled snow) or back.
+func set_snowed(on: bool) -> void:
+	if on == snowed:
+		return
+	snowed = on
+	rebuild()
 
 
 # ---- Picking a roof ----
@@ -217,7 +226,10 @@ func _build(cells: Dictionary) -> Dictionary:
 		if left: roof.front.append(WallMap.Edge.new(c, true))
 		if front: roof.front.append(WallMap.Edge.new(c, false))
 		var at := root + (floors.cell_centre(c) + Vector2(0, -height) - root) * overhang
-		_tile(roof, _tile_sprite(c, edges), at, _lid_order(c, cells), overhang)
+		# The warm chimney melts the snow off a small patch round its base: the cell it stands on.
+		var tile := _tile(roof, _tile_sprite(c, edges, c == chimney), at, _lid_order(c, cells), overhang)
+		if not (snowed and c != chimney):
+			tile.material = world.snow_material(2)
 	_add_chimney(roof, cells, chimney, root)
 	return roof
 
@@ -267,8 +279,12 @@ func _add_chimney(roof: Dictionary, cells: Dictionary, spot: Vector2i, root: Vec
 
 # The roof look over [param cell]: the house's picked style, else the default look or one of its variants (by a hash
 # of the cell, so it never changes); with front faces on the given edges.
-func _tile_sprite(cell: Vector2i, edges: int) -> int:
+func _tile_sprite(cell: Vector2i, edges: int, melted := false) -> int:
 	var look: String = roof_floors.get(cell, "")
+	if snowed and not melted and looks.has(data.snowRoof):
+		look = data.snowRoof
+		var snow: Array = looks[look].whole
+		return FloorMap._sprite_for(snow[mini(edges, snow.size() - 1)], cell)
 	if look == "" or not (data.styles as Array).has(look):
 		look = _default_look(cell)
 	var set: Array = looks[look].whole

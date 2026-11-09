@@ -231,6 +231,7 @@ func _show(at: Vector2, e: Dictionary, bias: float) -> Node2D:
 	var id := sprite_for(e.prop, e.turn)
 	if id >= 0:
 		world.show_frame(sprite, id, Vector2(-scale if flipped else scale, scale))
+		sprite.material = world.snow_material(0)
 	sprite.position = Vector2(0, at.y - sort)
 	holder.add_child(sprite)
 	if t.solid:

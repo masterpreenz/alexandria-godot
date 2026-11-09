@@ -284,6 +284,7 @@ func _half(into: Array, sprite_id: int, flip: bool, ground_centre: Vector2, mid:
 	holder.position = ground_centre
 	var sprite := Sprite2D.new()
 	world.show_frame(sprite, sprite_id, Vector2(-1 if flip else 1, 1))
+	sprite.material = world.snow_material(0)
 	sprite.position = (ground_centre if centred else mid) - ground_centre
 	holder.add_child(sprite)
 	world.things.add_child(holder)

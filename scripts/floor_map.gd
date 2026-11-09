@@ -366,6 +366,9 @@ class FloorLayer extends Node2D:
 	func _init(m: FloorMap, n: String) -> void:
 		map = m
 		name = n
+		# The ground and ground floors settle snow; boards (mostly indoors) don't.
+		if not m.is_whole(n.trim_prefix("Floor_")):
+			material = m.world.snow_material(1)
 
 	func clear() -> void:
 		for c in chunks.values():
@@ -380,6 +383,7 @@ class FloorLayer extends Node2D:
 				return
 			chunk = Chunk.new()
 			chunk.layer = self
+			chunk.use_parent_material = true
 			chunks[key] = chunk
 			add_child(chunk)
 		if sprite < 0:

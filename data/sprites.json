@@ -619,8 +619,8 @@
 {"name":"ForestShade","tex":"res://assets/Art/Environment/ForestShade.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":100},
 {"name":"bridge_base","tex":"res://assets/Art/Environment/Bridge/bridge_base.png","rect":[0,0,96,91],"pivot":[46,90],"ppu":100},
 {"name":"Planks_r0","tex":"res://assets/Art/Environment/House/Planks/Planks_r0.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
-{"name":"Planks_r1","tex":"res://assets/Art/Environment/House/Planks/Planks_r1.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
 {"name":"Planks_r2","tex":"res://assets/Art/Environment/House/Planks/Planks_r2.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
+{"name":"Planks_r1","tex":"res://assets/Art/Environment/House/Planks/Planks_r1.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
 {"name":"Planks_r3","tex":"res://assets/Art/Environment/House/Planks/Planks_r3.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
 {"name":"tree_1","tex":"res://assets/Art/Environment/Props/tree_1.png","rect":[0,0,708,1074],"pivot":[356.478,1061.971],"ppu":358},
 {"name":"grass_1","tex":"res://assets/Art/Environment/Props/grass_1.png","rect":[0,0,313,386],"pivot":[156.5,376.003],"ppu":768},
@@ -3202,5 +3202,8 @@
 {"name":"RoofBamboo_0","tex":"res://assets/Art/Environment/House/Roof/Styles/RoofBamboo_0.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
 {"name":"RoofBamboo_1","tex":"res://assets/Art/Environment/House/Roof/Styles/RoofBamboo_1.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
 {"name":"RoofBamboo_2","tex":"res://assets/Art/Environment/House/Roof/Styles/RoofBamboo_2.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
-{"name":"RoofBamboo_3","tex":"res://assets/Art/Environment/House/Roof/Styles/RoofBamboo_3.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128}
+{"name":"RoofBamboo_3","tex":"res://assets/Art/Environment/House/Roof/Styles/RoofBamboo_3.png","rect":[0,0,130,73],"pivot":[65,33.003],"ppu":128},
+{"name":"snow_tree_1","tex":"res://assets/Art/Environment/Props/snow_tree_1.png","rect":[0,0,1086,1448],"pivot":[539,1426.272],"ppu":478.342},
+{"name":"snow_tree_2","tex":"res://assets/Art/Environment/Props/snow_tree_2.png","rect":[0,0,1254,1254],"pivot":[604,1233.791],"ppu":339.577},
+{"name":"snow_tree_3","tex":"res://assets/Art/Environment/Props/snow_tree_3.png","rect":[0,0,1086,1448],"pivot":[520,1432.07],"ppu":355.325}
 ]

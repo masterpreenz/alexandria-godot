@@ -194,9 +194,11 @@ func _sprite_node(s: Dictionary, sorted: bool) -> Node2D:
 		sprite.rotation_degrees = s.rot
 	if s.has("color"):
 		sprite.modulate = Color(s.color[0], s.color[1], s.color[2], s.color[3])
+	sprite.set_meta("sprite", int(s.s))
 	if not sorted:
 		sprite.position = Vector2(s.x, s.y)
 		return sprite
+	sprite.material = snow_material(0)
 	var holder := Node2D.new()
 	holder.position = Vector2(s.x, s.sort)
 	sprite.position = Vector2(0, s.y - s.sort)
@@ -328,6 +330,7 @@ func _water_material(m: Dictionary) -> ShaderMaterial:
 ## world's pixels-per-unit; a negative x scale mirrors it about its pivot.
 func show_frame(sprite: Sprite2D, id: int, scale: Vector2 = Vector2.ONE) -> void:
 	var info: Dictionary = sprites[id]
+	sprite.set_meta("sprite", id)
 	sprite.texture = _texture(info.tex)
 	sprite.centered = false
 	sprite.region_enabled = true
@@ -498,3 +501,16 @@ func material_settings(name: String) -> Dictionary:
 	if _materials.is_empty():
 		_materials = _load_json("res://data/materials.json") if FileAccess.file_exists("res://data/materials.json") else {}
 	return _materials.get(name, {})
+
+
+var _snow_mats := {}
+
+## The snow material for [param mode]: 0 caps on things standing, 1 ground patches, 2 roofs (shaders/snow.gdshader).
+func snow_material(mode: int) -> ShaderMaterial:
+	if not _snow_mats.has(mode):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://shaders/snow.gdshader")
+		m.set_shader_parameter("mode", mode)
+		m.set_shader_parameter("unit", px)
+		_snow_mats[mode] = m
+	return _snow_mats[mode]

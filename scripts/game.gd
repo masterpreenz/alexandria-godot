@@ -13,6 +13,7 @@ var miko: Miko
 var data: Dictionary
 var clock: GameClock
 var sky: SkyEffects
+var snow: SnowCover
 var follow_offset := Vector2.ZERO
 
 
@@ -43,6 +44,12 @@ func _ready() -> void:
 	sky.name = "Sky"
 	add_child(sky)
 	sky.setup(world, clock, camera, light, data.sky, $Hud)
+	snow = SnowCover.new()
+	snow.name = "Snow"
+	add_child(snow)
+	snow.setup(world, clock, world._load_json("res://data/snow.json") if FileAccess.file_exists("res://data/snow.json") else {})
+	if Shots.arg("snow") != "":
+		snow.set_cover(float(Shots.arg("snow")))
 	follow_offset = Vector2(data.camera.offset[0], data.camera.offset[1])
 	# Unity's orthographic size is half the view's height, in units: the same view here.
 	var view_h := float(ProjectSettings.get_setting("display/window/size/viewport_height"))

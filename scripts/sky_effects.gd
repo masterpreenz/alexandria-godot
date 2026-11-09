@@ -188,7 +188,7 @@ func _fall(flakes: bool) -> CPUParticles2D:
 	p.name = "Snow" if flakes else "Rain"
 	p.emitting = false
 	p.amount = 100
-	p.local_coords = false
+	p.local_coords = true  # moves with the view (as Unity did): walking never leaves the bottom of the screen dry
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	p.gravity = Vector2.ZERO
 	p.direction = Vector2(0, 1)
