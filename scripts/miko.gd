@@ -57,6 +57,20 @@ func setup(w: World, d: Dictionary) -> void:
 	art_scale = Vector2(d.art[2], d.art[3])
 	add_child(art)
 	_animate(0.0)
+	# Findable behind things (and fading what hides her), her steps, and dust at her feet.
+	var outline := OccludedOutline.new()
+	outline.name = "OccludedOutline"
+	add_child(outline)
+	outline.setup(world, art)
+	var steps := Footsteps.new()
+	steps.name = "Footsteps"
+	add_child(steps)
+	steps.setup(world, self)
+	var dust := DustTrail.new()
+	dust.name = "Dust"
+	dust.target = self
+	dust.unit = world.px
+	world.things.add_child.call_deferred(dust)
 
 
 func _physics_process(_delta: float) -> void:

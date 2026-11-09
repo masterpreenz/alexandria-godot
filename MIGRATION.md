@@ -122,7 +122,9 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
   - **Camera:** follows a little above her, smoothed, at Unity's zoom; the wheel zooms.
   - **Clock and daylight:** 12 minutes a day, night to day through a warm twilight, as SkyEffects did. `[` and `]` move the clock an hour.
   - A clock in the corner.
-- [ ] Phase 1 (rest): trees fading and the outline when she's behind something, wading at the water's edge, footsteps and dust, light from fires and crystals, the cast pose.
+- [x] Phase 1: when she's hidden behind something, her outline (the Unity shader, ported) and the trees in front fading see-through, by the same 90% rule as Unity; footsteps (grass, or paths and floors) and dust puffs at her feet.
+  - Changed from Unity: when two trees together hide her, both fade (Unity faded only the first it found).
+- [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
 - [ ] Phase 2: World systems
 
 To play it: open this project in Godot 4.7 and press Play (WASD or arrows to walk, Shift to run, the wheel to zoom). The free-camera world viewer is `scenes/world_viewer.tscn`. To re-export after changing the Unity world: in Unity, *Tools ▸ Export to Godot*.

@@ -16,6 +16,13 @@ var px := 128.0
 var ground: Node2D  ## everything at ground level, drawn under the rest
 var things: Node2D  ## everything standing, y-sorted
 var solids: StaticBody2D  ## the colliders
+## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
+var occluders := {}  # Vector2i (OCC_CELL px squares) -> Array[Sprite2D]
+const OCC_CELL := 512.0
+## Floor cells laid over the grass (paths, stone, boards): for footsteps and the like.
+var _floor_cells := {}
+var _cell_offset := Vector2.ZERO
+var _images := {}  # Texture2D -> Image, read back for pixel tests
 
 
 func _ready() -> void:
@@ -36,6 +43,8 @@ func _ready() -> void:
 	var layers := []  # [order, node] for everything drawn at ground level
 	for map in world.tilemaps:
 		layers.append([map.order, _tile_layer(map)])
+		if map.name != "Ground":
+			_note_floor(map)
 	for mesh in world.meshes:
 		layers.append([mesh.order, _mesh(mesh)])
 	var placed := 0
@@ -44,7 +53,10 @@ func _ready() -> void:
 		if order <= GROUND_ORDER:
 			layers.append([order, _sprite_node(s, false)])
 		else:
-			things.add_child(_sprite_node(s, true))
+			var holder := _sprite_node(s, true)
+			things.add_child(holder)
+			if _hides(s):
+				_add_occluder(holder.get_child(0))
 		placed += 1
 	layers.sort_custom(func(a, b): return a[0] < b[0])
 	for l in layers:
@@ -206,3 +218,84 @@ func show_frame(sprite: Sprite2D, id: int, scale: Vector2 = Vector2.ONE) -> void
 	sprite.region_rect = Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
 	sprite.offset = Vector2(-info.pivot[0], -info.pivot[1])
 	sprite.scale = scale * (px / info.ppu)
+
+
+## Whether a placed sprite can hide someone (as OccludedOutline decided): not the ground clutter under Props (bushes,
+## flowers, grass, small rocks), except trees among them; not a bridge's railings.
+func _hides(s: Dictionary) -> bool:
+	var name: String = sprites[int(s.s)].name
+	if s.kind == "Props" and not name.contains("tree"):
+		return false
+	return s.kind != "River"
+
+
+func _add_occluder(sprite: Sprite2D) -> void:
+	var r := sprite_rect(sprite)
+	for x in range(floori(r.position.x / OCC_CELL), floori(r.end.x / OCC_CELL) + 1):
+		for y in range(floori(r.position.y / OCC_CELL), floori(r.end.y / OCC_CELL) + 1):
+			var k := Vector2i(x, y)
+			if not occluders.has(k):
+				occluders[k] = []
+			occluders[k].append(sprite)
+
+
+## The sprites that might hide something within [param rect].
+func occluders_near(rect: Rect2) -> Array:
+	var found := {}
+	for x in range(floori(rect.position.x / OCC_CELL), floori(rect.end.x / OCC_CELL) + 1):
+		for y in range(floori(rect.position.y / OCC_CELL), floori(rect.end.y / OCC_CELL) + 1):
+			for sprite in occluders.get(Vector2i(x, y), []):
+				found[sprite] = true
+	return found.keys()
+
+
+## A sprite's box in the world.
+static func sprite_rect(sprite: Sprite2D) -> Rect2:
+	var t := sprite.get_global_transform()
+	var local := Rect2(sprite.offset, sprite.region_rect.size)
+	var r := Rect2(t * local.position, Vector2.ZERO)
+	for c in [local.position + Vector2(local.size.x, 0), local.position + Vector2(0, local.size.y), local.end]:
+		r = r.expand(t * c)
+	return r
+
+
+## Whether [param sprite] draws a (mostly solid) pixel at world point [param p].
+func drawn_at(sprite: Sprite2D, p: Vector2) -> bool:
+	if sprite.texture == null:
+		return false
+	var local := sprite.get_global_transform().affine_inverse() * p - sprite.offset
+	var region := sprite.region_rect
+	if local.x < 0 or local.y < 0 or local.x >= region.size.x or local.y >= region.size.y:
+		return false
+	var img: Image = _images.get(sprite.texture)
+	if img == null:
+		img = sprite.texture.get_image()
+		if img == null:
+			return true
+		if img.is_compressed():
+			img.decompress()
+		_images[sprite.texture] = img
+	var px_at := Vector2i(region.position + local)
+	if px_at.x >= img.get_width() or px_at.y >= img.get_height():
+		return false
+	return img.get_pixel(px_at.x, px_at.y).a > 0.4
+
+
+func _note_floor(map: Dictionary) -> void:
+	var tiles: Array = map.tiles
+	for i in range(0, tiles.size(), 4):
+		var p := Vector2(tiles[i], tiles[i + 1])
+		if _floor_cells.is_empty() and _cell_offset == Vector2.ZERO:
+			var uv := _iso(p)
+			_cell_offset = uv - uv.round()
+		_floor_cells[Vector2i((_iso(p) - _cell_offset).round())] = true
+
+
+## Iso cell coordinates of a world point (cells are 1 x 0.5 units: px wide, px/2 tall).
+func _iso(p: Vector2) -> Vector2:
+	return Vector2(p.x / px + p.y / (px * 0.5), p.y / (px * 0.5) - p.x / px)
+
+
+## Whether something's laid over the grass at [param p] (a path, stone, boards).
+func on_floor(p: Vector2) -> bool:
+	return _floor_cells.has(Vector2i((_iso(p) - _cell_offset).round()))
