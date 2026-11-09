@@ -114,6 +114,15 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
 - [x] Phase 0: Unity exporter + art copy. First export: 659 sprite kinds, 3,016 placed sprites, 85,000 ground and floor tiles, 7 water meshes.
 - [x] Phase 0: World viewer. The whole map draws in Godot: ground, paths, forest, rocks, props, bridge, river and ponds (flat colour until their shaders are ported). It loads in about 0.3 s.
   - Not in the export yet: the village's houses and roofs, and anything else the game builds when it starts (mist, its growth, villagers, creatures). Those come over as live systems in phases 2–4.
-- [ ] Phase 1: Walking around
+- [x] Phase 1 (core): Miko walking around, now the main scene (`scenes/game.tscn`).
+  - **Movement:** 8 directions with the vertical squashed, as in Unity; Shift runs.
+  - **Animation:** idle and the 16-frame run in her two left diagonals, mirrored for the right.
+  - **Collisions:** all 1,136 exported colliders (trees, rocks, props, walls, the river banks and pond shores). Checked: she stops against a trunk and slides along the river bank.
+  - **Draw order:** she sorts behind and in front of trees and props.
+  - **Camera:** follows a little above her, smoothed, at Unity's zoom; the wheel zooms.
+  - **Clock and daylight:** 12 minutes a day, night to day through a warm twilight, as SkyEffects did. `[` and `]` move the clock an hour.
+  - A clock in the corner.
+- [ ] Phase 1 (rest): trees fading and the outline when she's behind something, wading at the water's edge, footsteps and dust, light from fires and crystals, the cast pose.
+- [ ] Phase 2: World systems
 
-To look at it: open this project in Godot 4.7 and press Play (WASD or arrows to pan, the wheel to zoom, drag with the right mouse button). To re-export after changing the Unity world: in Unity, *Tools ▸ Export to Godot*.
+To play it: open this project in Godot 4.7 and press Play (WASD or arrows to walk, Shift to run, the wheel to zoom). The free-camera world viewer is `scenes/world_viewer.tscn`. To re-export after changing the Unity world: in Unity, *Tools ▸ Export to Godot*.

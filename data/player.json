@@ -1,0 +1,16 @@
+{
+"x":-238.08,"y":-458.24,
+"walkSpeed":492.8,
+"runSpeed":896,
+"verticalScale":0.5,
+"art":[0,0,0.7,0.7],
+"idleFps":4,
+"walkFps":8,
+"runFps":12,
+"frames":{"idleDownLeft":[659],"idleUpLeft":[660],"runDownLeft":[661,662,663,664,665,666,667,668,669,670,671,672,673,674,675,676],"runUpLeft":[677,678,679,680,681,682,683,684,685,686,687,688,689,690,691,692],"runDownRight":[693,694,695,696,697,698,699,700,701,702,703,704,705,706,707,708],"runUpRight":[709,710,711,712,713,714,715,716,717,718,719,720,721,722,723,724],"castDownLeft":[725],"castUpLeft":[726]},
+"shadow":{"s":727,"x":0,"y":-3.84,"sx":0.42,"sy":0.42,"a":1},
+"body":{"x":0,"y":-8.064,"w":37.632,"h":16.128,"vertical":false},
+"camera":{"ortho":3.4,"smooth":0.15,"offset":[0,-76.8]},
+"clock":{"secondsPerDay":720,"startHour":8},
+"sky":{"day":[1,1,1],"twilight":[1,0.68,0.5],"night":[0.38,0.45,0.78],"dayIntensity":1,"nightIntensity":0.38}
+}
