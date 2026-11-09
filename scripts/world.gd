@@ -20,6 +20,7 @@ var walls: WallMap        ## the walls, doors and fences
 var props: PropMap        ## furniture, decorations, crops, the grass and bushes
 var roofs: RoofMap        ## the roofs over closed, floored rooms
 var player: Node2D        ## who the roofs fade for (set by the game)
+var clock: GameClock      ## the time of day (set by the game)
 var village: Village      ## the village's extent (its banner, square and blocks)
 var mist: Mist            ## the purple mist over the wild
 var gatherables: Array[Gatherable] = []  ## every tree and rock to gather from

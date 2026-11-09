@@ -235,7 +235,7 @@ func _process(delta: float) -> void:
 	if absf(moved.y) > 0.002 * world.px: facing_up = moved.y < 0.0
 	# Fighting, it keeps its face (and spear) to its target; striking, to the line of its thrust.
 	if kind == "Attacker" and foe != null and is_instance_valid(foe) and not recalled:
-		var to := strike_dir if strike != 0 else foe.position - position
+		var to := strike_dir if strike != 0 else foe.global_position - position
 		facing_right = to.x > 0.0
 		facing_up = to.y < -0.05 * world.px
 	var pose: Array = []
@@ -377,13 +377,13 @@ func _attack(t: float, home: Vector2) -> Vector2:
 		return _striking(t)
 	var a := deg_to_rad((t - born_at) * float(s.hoverSpeed) + slot * 120.0)
 	var ring := foe.radius + _px(s.hoverRadius)
-	var spot := foe.position + Vector2(cos(a) * ring, -sin(a) * ring * 0.5)
+	var spot := foe.global_position + Vector2(cos(a) * ring, -sin(a) * ring * 0.5)
 	if position.distance_to(spot) < 0.4 * world.px and t >= next_act:
 		# Draws back along the line to the target, to charge.
 		strike = 1
 		strike_at = t
 		strike_from = position
-		var to := foe.position - position
+		var to := foe.global_position - position
 		strike_dir = to.normalized() if to.length_squared() > 1.0 else Vector2.RIGHT
 		strike_back = strike_from - strike_dir * _px(s.windBack)
 		stab_sounded = false
@@ -410,10 +410,10 @@ func _striking(t: float) -> Vector2:
 			strike_at = t
 			strike_hit = false
 			# Aimed afresh at where the target is now, carrying through past it.
-			var to := foe.position - strike_back
+			var to := foe.global_position - strike_back
 			if to.length_squared() > 1.0:
 				strike_dir = to.normalized()
-			strike_to = foe.position + strike_dir * (foe.radius + _px(s.followThrough))
+			strike_to = foe.global_position + strike_dir * (foe.radius + _px(s.followThrough))
 			strike_from = strike_back
 			var lift := Vector2(0, -_px(s.floatHeight))
 			SpearThrust.play(world, strike_from + lift, strike_to + lift)
@@ -443,7 +443,7 @@ func heal_around(at: Vector2, r: float) -> void:
 		if is_instance_valid(a) and a.team == Damageable.Team.ALLY and a.alive() and a.ground_distance(at) <= r:
 			var b: float = a.hp
 			a.heal(power)
-			_show_heal(a.hp - b, a.position + Vector2(0, -a.height * 0.6))
+			_show_heal(a.hp - b, a.global_position + Vector2(0, -a.height * 0.6))
 
 
 func _show_heal(healed: float, at: Vector2) -> void:

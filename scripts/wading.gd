@@ -16,6 +16,7 @@ var shadow: Sprite2D
 var depth := 0.0            ## 0 dry .. 1 in to full depth
 var wading := false
 var _rest := Vector2.ZERO   ## the body's place on dry land
+var extra := Vector2.ZERO   ## a lift or jolt on top (thrown in the air, flinching from a hit)
 var _height := 0.0
 var _last_ripple := Vector2.ZERO
 var _next_ripple := 0.0
@@ -56,7 +57,7 @@ func _process(delta: float) -> void:
 	# How tall the body stands (its top above the feet), measured on dry land so sinking doesn't shrink it.
 	if _height <= 0.0:
 		_height = maxf(38.0, -World.sprite_rect(body).position.y + feet.y) * 0.75
-	body.position = _rest + Vector2(0, depth * SINK_SHARE * _height)
+	body.position = _rest + Vector2(0, depth * SINK_SHARE * _height) + extra
 	_mat.set_shader_parameter("waterline", feet.y + 2.0)
 	# Rings spreading behind as it moves through the water.
 	var width := maxf(45.0, World.sprite_rect(body).size.x * 0.42)
@@ -90,7 +91,7 @@ func _wet(feet: Vector2) -> void:
 
 func _dry() -> void:
 	wading = false
-	body.position = _rest
+	body.position = _rest + extra
 	_mat.set_shader_parameter("waterline", 1e9)
 	if shadow != null:
 		shadow.visible = true

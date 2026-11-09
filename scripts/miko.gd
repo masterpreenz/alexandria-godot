@@ -36,6 +36,23 @@ var _now := Vector2.ZERO
 
 var art: Sprite2D
 var shadow: Sprite2D
+var wading: Wading
+## A frame held instead of walking (fainting), or -1; and whether it's mirrored.
+var pose := -1
+var pose_mirror := false
+# Shoved (a slime's bite, a boar's charge): the shove, and how long it has left of how long.
+var _knock := Vector2.ZERO
+var _knock_left := 0.0
+var _knock_time := 1.0
+# Thrown up off her feet (Unity's CharacterJump.Toss): how high (units), how long, and how far through (-1: not).
+var _toss_height := 0.0
+var _toss_time := 0.5
+var _toss_clock := -1.0
+# Flinching from a hit (Unity's HitReaction): two red blinks and a jolt, this long ago (-1: not).
+var _hit_since := -1.0
+const HIT_FOR := 0.32
+const HIT_COLOR := Color(1.0, 0.42, 0.38)
+const HIT_JOLT := 0.06
 
 
 func setup(w: World, d: Dictionary) -> void:
@@ -77,10 +94,10 @@ func setup(w: World, d: Dictionary) -> void:
 	steps.name = "Footsteps"
 	add_child(steps)
 	steps.setup(world, self)
-	var wade := Wading.new()
-	wade.name = "Wading"
-	add_child(wade)
-	wade.setup(world, self, art, shadow)
+	wading = Wading.new()
+	wading.name = "Wading"
+	add_child(wading)
+	wading.setup(world, self, art, shadow)
 	var dust := DustTrail.new()
 	dust.name = "Dust"
 	dust.target = self
@@ -88,7 +105,7 @@ func setup(w: World, d: Dictionary) -> void:
 	world.things.add_child.call_deferred(dust)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var input := Vector2.ZERO
 	if not locked:
 		input = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -108,6 +125,10 @@ func _physics_process(_delta: float) -> void:
 	if input.x > 0.1: facing_right = true
 	elif input.x < -0.1: facing_right = false
 	velocity = Vector2(input.x, input.y * vertical_scale) * (run_speed if running else walk_speed) * speed_scale
+	# Shoved: carried along, easing off, whatever's pressed.
+	if _knock_left > 0.0:
+		velocity = _knock * (_knock_left / _knock_time)
+		_knock_left -= delta
 	_was = position
 	move_and_slide()
 	_now = position
@@ -130,6 +151,48 @@ func place(at: Vector2) -> void:
 
 func _process(delta: float) -> void:
 	_animate(delta)
+	var extra := Vector2.ZERO
+	# Thrown: up and down in an arc.
+	if _toss_clock >= 0.0:
+		_toss_clock += delta
+		var t := clampf(_toss_clock / _toss_time, 0.0, 1.0)
+		extra.y = -4.0 * _toss_height * t * (1.0 - t) * world.px
+		if shadow != null:
+			shadow.scale = Vector2(data.shadow.sx, data.shadow.sy) * (world.px / float(world.sprites[int(data.shadow.s)].ppu)) * lerpf(1.0, 0.7, -extra.y / maxf(1.0, _toss_height * world.px))
+		if t >= 1.0:
+			_toss_clock = -1.0
+			Puffs.burst(world, position, 0.6, 6)
+	# Hit: two red blinks, fading, and a jolt side to side, settling.
+	if _hit_since >= 0.0:
+		_hit_since += delta
+		var t := _hit_since / HIT_FOR
+		if t >= 1.0:
+			_hit_since = -1.0
+			art.self_modulate = Color.WHITE
+		else:
+			var blink := absf(sin(t * PI * 2.0)) * (1.0 - t * 0.5)
+			art.self_modulate = Color.WHITE.lerp(HIT_COLOR, blink)
+			extra.x = sin(t * PI * 6.0) * HIT_JOLT * (1.0 - t) * world.px
+	wading.extra = extra
+
+
+## Shoves her at [param v] px/s, easing off over [param time] seconds.
+func knock(v: Vector2, time: float) -> void:
+	_knock = v
+	_knock_left = maxf(0.05, time)
+	_knock_time = _knock_left
+
+
+## Throws her up off her feet, [param height] units high, landing after [param time] seconds.
+func toss(height: float, time: float) -> void:
+	_toss_height = maxf(0.05, height)
+	_toss_time = maxf(0.1, time)
+	_toss_clock = 0.0
+
+
+## Flinches from a hit (her stats' hurt signal).
+func flinch(_amount := 0.0) -> void:
+	_hit_since = 0.0
 
 
 var _casting := false
@@ -169,6 +232,9 @@ func action_frame() -> int:
 
 func _animate(delta: float) -> void:
 	clock += delta
+	if pose >= 0:
+		world.show_frame(art, pose, Vector2(-art_scale.x if pose_mirror else art_scale.x, art_scale.y))
+		return
 	if _casting:
 		var pose: Array = data.frames.castUpLeft if facing_up else data.frames.castDownLeft
 		if not pose.is_empty():

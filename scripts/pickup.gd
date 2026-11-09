@@ -58,6 +58,26 @@ static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector
 	return p
 
 
+## Throws [param amt] of [param res] out of [param from], its icon sized to fit (Unity's ResourcePickup.Fit).
+static func launch_icon(w: World, res: String, amt: int, from: Vector2, throw_speed := 1.0) -> Pickup:
+	var icon: Variant = UiKit.data.resources.get(res, {}).get("icon")
+	var id := int(icon.s) if icon is Dictionary and icon.has("s") else -1
+	var k := 0.35
+	if id >= 0:
+		var info: Dictionary = w.sprites[id]
+		k = 0.32 / maxf(0.01, maxf(float(info.rect[2]), float(info.rect[3])) / float(info.ppu))
+	return launch(w, res, amt, id, from, k, throw_speed)
+
+
+## Drops [param amount] of [param res] at [param at] in up to three pieces (Unity's Village.Drop: coins from a monster).
+static func drop(w: World, res: String, amount: int, at: Vector2) -> void:
+	var pieces := clampi(amount, 1, 3)
+	for i in pieces:
+		var share := amount / pieces + (1 if i < amount % pieces else 0)
+		if share > 0:
+			launch_icon(w, res, share, at + Vector2(0, -0.3 * w.px))
+
+
 func _process(delta: float) -> void:
 	age += delta
 	if age > LIFETIME:
@@ -90,6 +110,7 @@ func _process(delta: float) -> void:
 					FloatingText.spawn(world, "Bag full", ground + Vector2(0, -0.6 * px), Color(1, 0.55, 0.45))
 				position = ground
 				return
+			Fainting.loot(resource, amount)  # picked up this life: it'd fall with her
 			FloatingText.spawn(world, "+%d %s" % [amount, resource], ground + Vector2(0, -0.4 * px), Color(0.85, 0.86, 0.9))
 			_sound()
 			queue_free()

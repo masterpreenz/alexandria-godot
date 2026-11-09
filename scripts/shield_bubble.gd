@@ -103,7 +103,7 @@ func _process(delta: float) -> void:
 				continue
 			if a is Shikigami and a.kind == "Defender":
 				continue  # not itself
-			if not _inside(a.position):
+			if not _inside(a.global_position):
 				continue
 			var sh := minf(cap, minf(float(allies.get(a, 0.0)), a.shield_from(self)) + rate * delta)
 			allies[a] = sh

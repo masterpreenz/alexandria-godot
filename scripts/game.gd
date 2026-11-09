@@ -24,6 +24,9 @@ func _ready() -> void:
 	world.things.add_child(miko)
 	miko.setup(world, data)
 	world.player = miko
+	# Her own layer: creatures pass by her rather than shove her about (only the fixed world blocks her).
+	miko.collision_layer = 4
+	miko.collision_mask = 1
 	# Gathering, and her bag from the save.
 	var miner := Miner.new()
 	miner.name = "Miner"
@@ -61,6 +64,15 @@ func _ready() -> void:
 	bars.stats = miko.stats
 	bars.position = Vector2(16, 84)
 	$Hud.add_child(bars)
+	# Flinching when hit; fainting at 0 HP.
+	miko.stats.hurt.connect(miko.flinch)
+	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
+	world.set_meta("lost_bag_icon", int(monsters.get("lostBagIcon", -1)))
+	if monsters.has("fainting"):
+		var fainting := Fainting.new()
+		fainting.name = "Fainting"
+		miko.add_child(fainting)
+		fainting.setup(world, miko, monsters.fainting, $Hud)
 	# The bag window (I).
 	var bag_window := BagWindow.new()
 	bag_window.name = "BagWindow"
@@ -90,6 +102,14 @@ func _ready() -> void:
 		clock.set_hour(float(Shots.arg("hour")))
 	if Shots.arg("weather") != "":
 		clock.set_weather(int(Shots.arg("weather")))
+	world.clock = clock
+	# The monsters: slimes out of the mist, boars in the woods.
+	var spawners := Spawners.new()
+	spawners.name = "Spawners"
+	add_child(spawners)
+	spawners.setup(world, world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {})
+	if Shots.arg("nomonsters") != "":
+		spawners.process_mode = Node.PROCESS_MODE_DISABLED
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -142,6 +162,25 @@ func _ready() -> void:
 			for i in int(Shots.arg("castframes", "60")):
 				await get_tree().process_frame
 			print("Mana ", miko.stats.mana, ", dummy hp ", dummy.hp, ", her hp ", miko.stats.hp, ", shield ", miko.stats.shield(), ", shikigami out ", Shikigami.active.size())
+		if Shots.arg("monster") != "":
+			# A monster at a spot (kind@dx,dy px from her: slime, large, boar) for testing; --strike=N: she hits it for
+			# N first; --hurt=N: she's hurt first (N past her HP: she faints); run --frames frames.
+			var mparts := Shots.arg("monster").split("@")
+			var moff := mparts[1].split(",")
+			var mspot := miko.position + Vector2(float(moff[0]), float(moff[1]))
+			var md: Dictionary = world._load_json("res://data/monsters.json")
+			var m: Creature = Boar.spawn(world, md.boar, mspot) if mparts[0] == "boar" else Slime.spawn(world, md.slime, mparts[0] == "large", mspot, world.mist.power(mspot))
+			await get_tree().physics_frame
+			if Shots.arg("strike") != "":
+				m.hit.hurt(float(Shots.arg("strike")), true)
+			if Shots.arg("hurt") != "" and Shots.arg("cast") == "":
+				miko.stats.damage(float(Shots.arg("hurt")))
+			var hp0 := miko.stats.hp
+			for i in int(Shots.arg("frames", "120")):
+				await get_tree().process_frame
+				if Shots.arg("trace") != "" and i % 20 == 0 and is_instance_valid(m):
+					print(i, " ", m.position, " v ", m.velocity, " asleep ", m.asleep, " ", m.get("hopping"), " ", m.get("chasing"), " ", m.get("state"), " target ", m.get("target"), " rest ", m.get("rest_until"), " now ", Creature.now(), " physics ", Engine.get_physics_frames())
+			print("Monster ", m.name if is_instance_valid(m) else "gone", " hp ", m.hit.hp if is_instance_valid(m) else 0.0, "; her hp ", hp0, " -> ", miko.stats.hp, "; creatures ", Creature.all.size(), "; lost bag ", Fainting.LostBag.active != null)
 		if Shots.arg("gather") != "":
 			# Start gathering from the nearest tree or rock, and keep at it this many frames (for testing).
 			var gathering: Miner = miko.get_node("Miner")
