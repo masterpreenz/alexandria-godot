@@ -1,0 +1,17 @@
+{
+"height":179.2,"tint":[0.92,0.88,0.84],"maxRoomCells":400,"minRoomSize":4,"overhang":1.2,"fadeSpeed":4,"frontWallAlpha":0.3,"bigChimneyFrom":7,"chimneySmall":3158,"chimneyBig":3159,
+"defaultRoof":"RoofWood","snowRoof":"RoofSnow","variants":["Shingles","Shingles2"],"styles":["RoofWood","RoofNailedWood","RoofMossyWood","RoofRed","RoofSlate","RoofBlue","RoofThatch","RoofBamboo"],
+"looks":[
+{"name":"RoofWood","display":"Wood","whole":[{"sprite":3160},{"sprite":3161},{"sprite":3162},{"sprite":3163}]},
+{"name":"RoofSnow","display":"Snowy","whole":[{"sprite":3164},{"sprite":3165},{"sprite":3166},{"sprite":3167}]},
+{"name":"Shingles","display":"Shingles","whole":[{"sprite":3168},{"sprite":3169},{"sprite":3170},{"sprite":3171}]},
+{"name":"Shingles2","display":"Shingles 2","whole":[{"sprite":3172},{"sprite":3173},{"sprite":3174},{"sprite":3175}]},
+{"name":"RoofNailedWood","display":"Nailed wood","whole":[{"sprite":3176},{"sprite":3177},{"sprite":3178},{"sprite":3179}]},
+{"name":"RoofMossyWood","display":"Mossy wood","whole":[{"sprite":3180},{"sprite":3181},{"sprite":3182},{"sprite":3183}]},
+{"name":"RoofRed","display":"Red","whole":[{"sprite":3184},{"sprite":3185},{"sprite":3186},{"sprite":3187}]},
+{"name":"RoofSlate","display":"Slate","whole":[{"sprite":3188},{"sprite":3189},{"sprite":3190},{"sprite":3191}]},
+{"name":"RoofBlue","display":"Blue glaze","whole":[{"sprite":3192},{"sprite":3193},{"sprite":3194},{"sprite":3195}]},
+{"name":"RoofThatch","display":"Thatch","whole":[{"sprite":3196},{"sprite":3197},{"sprite":3198},{"sprite":3199}]},
+{"name":"RoofBamboo","display":"Bamboo","whole":[{"sprite":3200},{"sprite":3201},{"sprite":3202},{"sprite":3203}]}
+]
+}

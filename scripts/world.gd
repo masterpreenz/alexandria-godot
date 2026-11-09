@@ -18,6 +18,8 @@ var solids: StaticBody2D  ## the colliders
 var floors: FloorMap      ## the floors (ground, paths, boards)
 var walls: WallMap        ## the walls, doors and fences
 var props: PropMap        ## furniture, decorations, crops, the grass and bushes
+var roofs: RoofMap        ## the roofs over closed, floored rooms
+var player: Node2D        ## who the roofs fade for (set by the game)
 ## What live maps draw themselves: the exported snapshot's sprites and colliders of these kinds are left out.
 const LIVE_KINDS := ["Walls", "Props"]
 ## What can hide someone standing behind it (trees, walls, big props; not bushes, flowers or grass): sprites by area.
@@ -76,6 +78,10 @@ func _ready() -> void:
 	props.name = "Props"
 	add_child(props)
 	props.setup(self, floors, _load_json("res://data/props.json"))
+	roofs = RoofMap.new()
+	roofs.name = "Roofs"
+	add_child(roofs)
+	roofs.setup(self, floors, walls, _load_json("res://data/roofs.json"))
 	# The saved game's world over the scene's (the village as it stands).
 	var save: Dictionary = _load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	var sections: Dictionary = save.get("sections", {})
@@ -92,8 +98,12 @@ func _ready() -> void:
 		props.from_json(sections["world.props"])
 	else:
 		props.rebuild()
-	print("World: %d floor types, %d walls, %d props, %d meshes, %d sprites, %d textures in %d ms" % [
-		floors.types.size(), walls.walls.size(), props.cells.size() + props.free.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
+	if sections.has("world.roofs"):
+		roofs.from_json(sections["world.roofs"])
+	else:
+		roofs.rebuild()
+	print("World: %d floor types, %d walls, %d props, %d roofs, %d meshes, %d sprites, %d textures in %d ms" % [
+		floors.types.size(), walls.walls.size(), props.cells.size() + props.free.size(), roofs.roofs.size(), world.meshes.size(), placed, textures.size(), Time.get_ticks_msec() - t0])
 	built.emit()
 
 

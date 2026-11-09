@@ -326,3 +326,14 @@ func sort_against_walls(foot: Vector2, half_width: float, sort_y: float) -> floa
 	if above > below:
 		return below
 	return clampf(sort_y, above, below)
+
+
+## How see-through the wall covering [param e] is drawn (1 solid), e.g. to show what's inside a room.
+func set_alpha(e: Edge, alpha: float) -> void:
+	var c := covering(e)
+	if c[0] == "":
+		return
+	for h in _drawn.get((c[1] as Edge).key(), {}).get("holders", []):
+		for s in h.get_children():
+			if s is Sprite2D and not is_equal_approx(s.modulate.a, alpha):
+				s.modulate.a = alpha

@@ -22,6 +22,7 @@ func _ready() -> void:
 	miko.name = "Miko"
 	world.things.add_child(miko)
 	miko.setup(world, data)
+	world.player = miko
 	var at := Shots.arg("at")
 	if at != "":
 		var p := at.split(",")
