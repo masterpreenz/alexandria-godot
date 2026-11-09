@@ -1,8 +1,8 @@
 extends Node2D
-## Phase 1: Miko walking about the exported world. The camera follows her (CameraFollow2D: a little above her,
-## smoothed; the wheel zooms). The clock runs (GameClock: 12 minutes a day) and the light follows it (SkyEffects:
-## night to day through a warm twilight). [ and ] move the clock an hour back or on.
-## Command line: [code]-- --hour=h --at=x,y --shot=file.png[/code] (see [Shots]).
+## Miko about the exported world. The camera follows her (CameraFollow2D: a little above her, smoothed; the wheel
+## zooms). The clock runs from the saved game (GameClock: 12 minutes a day, seasons, weather), and the sky follows it
+## (SkyEffects: daylight, cloud shadows, rain, snow, storms). [ and ] move the clock an hour back or on; F6 cycles the weather.
+## Command line: [code]-- --hour=h --weather=n --at=x,y --shot=file.png[/code] (see [Shots]).
 
 @onready var world: World = $World
 @onready var camera: Camera2D = $Camera
@@ -11,8 +11,8 @@ extends Node2D
 
 var miko: Miko
 var data: Dictionary
-var hours := 8.0
-var seconds_per_day := 720.0
+var clock: GameClock
+var sky: SkyEffects
 var follow_offset := Vector2.ZERO
 
 
@@ -27,8 +27,22 @@ func _ready() -> void:
 	if at != "":
 		var p := at.split(",")
 		miko.place(Vector2(float(p[0]), float(p[1])))
-	seconds_per_day = data.clock.secondsPerDay
-	hours = float(Shots.arg("hour", str(data.clock.startHour)))
+	clock = GameClock.new()
+	clock.name = "Clock"
+	add_child(clock)
+	clock.seconds_per_day = data.clock.secondsPerDay
+	clock.hours = data.clock.startHour
+	var save: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
+	if save.get("sections", {}).has("world.clock"):
+		clock.from_json(save.sections["world.clock"])
+	if Shots.arg("hour") != "":
+		clock.set_hour(float(Shots.arg("hour")))
+	if Shots.arg("weather") != "":
+		clock.set_weather(int(Shots.arg("weather")))
+	sky = SkyEffects.new()
+	sky.name = "Sky"
+	add_child(sky)
+	sky.setup(world, clock, camera, light, data.sky, $Hud)
 	follow_offset = Vector2(data.camera.offset[0], data.camera.offset[1])
 	# Unity's orthographic size is half the view's height, in units: the same view here.
 	var view_h := float(ProjectSettings.get_setting("display/window/size/viewport_height"))
@@ -38,7 +52,6 @@ func _ready() -> void:
 	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.position = miko.position + follow_offset
 	camera.reset_smoothing()
-	_daylight()
 	await get_tree().process_frame
 	if Shots.arg("shot") != "":
 		var walk := Shots.arg("walk")
@@ -63,36 +76,12 @@ func _process(delta: float) -> void:
 	# Follow where she's drawn (smoothed between physics ticks), not her last physics step: otherwise, on a screen
 	# faster than the physics rate, she and the world jump unevenly and look blurred while moving.
 	camera.position = miko.drawn_position() + follow_offset
-	hours = fmod(hours + delta * 24.0 / seconds_per_day, 24.0 * 10000.0)
-	_daylight()
+	time_label.text = "%s · %s, day %d · %s" % [clock.time_text(), GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()]]
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	Shots.wheel_zoom(event, camera, 0.25, 3.0)
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_BRACKETRIGHT: hours += 1.0
-		elif event.keycode == KEY_BRACKETLEFT: hours = max(0.0, hours - 1.0)
-
-
-## How light it is outside: 0 at night, 1 in full day, in between at dawn and dusk.
-func daylight() -> float:
-	var h := fmod(hours, 24.0)
-	if h < 5.0 or h >= 20.0: return 0.0
-	if h < 7.0: return smoothstep(0.0, 1.0, (h - 5.0) / 2.0)
-	if h < 18.0: return 1.0
-	return smoothstep(1.0, 0.0, (h - 18.0) / 2.0)
-
-
-func _daylight() -> void:
-	var sky: Dictionary = data.sky
-	var d := daylight()
-	var warm := 1.0 - absf(d * 2.0 - 1.0)  # strongest half way through dawn and dusk
-	var night := Color(sky.night[0], sky.night[1], sky.night[2])
-	var day := Color(sky.day[0], sky.day[1], sky.day[2])
-	var twilight := Color(sky.twilight[0], sky.twilight[1], sky.twilight[2])
-	var c := night.lerp(day, d).lerp(twilight, warm * 0.6)
-	var intensity := lerpf(sky.nightIntensity, sky.dayIntensity, d)
-	light.color = Color(c.r * intensity, c.g * intensity, c.b * intensity, 1.0)
-	var h := fmod(hours, 24.0)
-	var hh := int(h)
-	time_label.text = "%d:%02d %s" % [(hh + 11) % 12 + 1, int((h - hh) * 60.0), "AM" if hh < 12 else "PM"]
+		if event.keycode == KEY_BRACKETRIGHT: clock.hours += 1.0
+		elif event.keycode == KEY_BRACKETLEFT: clock.hours = maxf(0.0, clock.hours - 1.0)
+		elif event.keycode == KEY_F6: clock.set_weather((clock.weather() + 1) % 5)
