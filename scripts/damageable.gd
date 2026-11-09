@@ -18,6 +18,7 @@ var radius := 0.35 * 128.0    ## px: how far from its feet it can be hit (its bo
 var height := 128.0           ## px: where damage numbers rise from, above the feet
 var dummy := false
 var hit_by_player := false
+var shields := {}             ## source -> shield soaking damage first (a shield ward's)
 var world: World
 var _last_hit := -99.0
 var _bar_until := -1.0
@@ -57,6 +58,14 @@ func hurt(amount: float, by_player := false) -> void:
 	if by_player:
 		hit_by_player = true
 	_last_hit = Time.get_ticks_msec() / 1000.0
+	for k in shields.keys():
+		var take := minf(shields[k], amount)
+		shields[k] -= take
+		amount -= take
+		if shields[k] <= 0.01:
+			shields.erase(k)
+	if amount <= 0.0:
+		return
 	FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height), Color(1, 0.82, 0.35))
 	hp = maxf(1.0, hp - amount) if dummy else maxf(0.0, hp - amount)
 	damaged.emit(amount)
@@ -66,6 +75,17 @@ func hurt(amount: float, by_player := false) -> void:
 	if hp <= 0.0:
 		died.emit()
 		queue_free()
+
+
+func set_shield(source, amount: float) -> void:
+	if amount <= 0.0:
+		shields.erase(source)
+	else:
+		shields[source] = amount
+
+
+func shield_from(source) -> float:
+	return float(shields.get(source, 0.0))
 
 
 func heal(amount: float) -> void:

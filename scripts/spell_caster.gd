@@ -18,6 +18,7 @@ var aiming := ""             ## the spell being aimed, or ""
 var casting := false
 var ready_at := {}           ## spell -> when it can be cast again
 var cooldown_of := {}        ## spell -> the whole cooldown it last started
+var shikigami := {}          ## spell -> its shikigami's settings (shikigami.json)
 
 var _marker: Sprite2D
 var _pinned: Sprite2D
@@ -35,15 +36,17 @@ func setup(w: World, who: Miko, st: CharacterStats, sp: Dictionary, d: Dictionar
 	stats = st
 	spells = sp
 	data = d
+	var f := FileAccess.open("res://data/shikigami.json", FileAccess.READ)
+	if f != null:
+		shikigami = JSON.parse_string(f.get_as_text())
 	z_as_relative = false
 	z_index = 3995
 	_marker = _ring()
 	_pinned = _ring()
 	_circle = Sprite2D.new()
 	_circle.visible = false
-	_circle.z_as_relative = false
-	_circle.z_index = -1
-	miko.add_child(_circle)
+	_circle.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # placed by hand each frame
+	world.add_ground_layer(_circle, -9979)  # on the ground under her (following her as she turns)
 	_charge = CPUParticles2D.new()
 	_charge.emitting = false
 	_charge.amount = 30
@@ -79,6 +82,17 @@ func cooldown_total(spell: String) -> float:
 	return cooldown_of.get(spell, float(spells.get(spell, {}).get("cooldown", 0.0)))
 
 
+func _cooldown(spell: String) -> float:
+	var cdr := clampf(stats.stat("cooldownReduction"), 0.0, 60.0)
+	return float(spells[spell].cooldown) * (1.0 - cdr / 100.0)
+
+
+## Starts [param spell]'s cooldown (now, or when its summon has gone).
+func start_cooldown(spell: String) -> void:
+	cooldown_of[spell] = _cooldown(spell)
+	ready_at[spell] = _now() + cooldown_of[spell]
+
+
 func can_cast(spell: String) -> bool:
 	return spells.has(spell) and not casting and cooldown_left(spell) <= 0.0 and stats.mana + 0.001 >= float(spells[spell].manaCost)
 
@@ -99,11 +113,6 @@ func toggle_aiming(spell: String) -> void:
 
 func cast_at(spell: String, target: Vector2) -> void:
 	if casting or cooldown_left(spell) > 0.0:
-		return
-	if spells[spell].effect == "Shikigami":
-		# Summons come over with the shikigami themselves.
-		FloatingText.spawn(world, "Shikigami aren't in the Godot port yet", miko.position + Vector2(0, -1.8 * world.px), UiKit.colors.worldText)
-		_set_aiming("")
 		return
 	if not stats.spend_mana(float(spells[spell].manaCost)):
 		FloatingText.spawn(world, "Not enough mana", miko.position + Vector2(0, -1.8 * world.px), Color(0.6, 0.75, 1.0))
@@ -140,6 +149,7 @@ func _process(delta: float) -> void:
 	if _pinned.visible:
 		_pin_spin += delta
 	if _circle.visible:
+		_circle.position = miko.drawn_position() + Vector2(0, data.circleY)
 		_circle.rotation += deg_to_rad(float(data.spinSpeed)) * delta
 	queue_redraw()
 
@@ -192,7 +202,7 @@ func _cast(spell: String, target: Vector2) -> void:
 		world.show_frame(_circle, int(circles[e]), Vector2.ONE * float(data.circleScale))
 		_circle.centered = true
 		_circle.offset = Vector2.ZERO
-		_circle.position = Vector2(0, data.circleY)
+		_circle.position = miko.drawn_position() + Vector2(0, data.circleY)
 		_circle.visible = true
 	var cast_time := float(s.castTime) / (1.0 + maxf(0.0, stats.stat("castSpeed")) / 100.0)
 	# Ground and sky spells leave their ring where they were aimed, turning until they go off.
@@ -219,10 +229,16 @@ func _cast(spell: String, target: Vector2) -> void:
 			origin = miko.position + Vector2(data.bodyCentre[0], data.bodyCentre[1])
 		"SkyFall":
 			origin = target + Vector2(data.skyOffset[0], data.skyOffset[1])
-	SpellEffects.begin(world, s, stats, origin, ground_origin, target)
-	var cdr := clampf(stats.stat("cooldownReduction"), 0.0, 60.0)
-	cooldown_of[spell] = float(s.cooldown) * (1.0 - cdr / 100.0)
-	ready_at[spell] = _now() + cooldown_of[spell]
+	if s.effect == "Shikigami" and shikigami.has(spell):
+		Shikigami.summon(world, spell, shikigami[spell], miko, stats, self, target)
+	else:
+		SpellEffects.begin(world, s, stats, origin, ground_origin, target)
+	# A summon that cools down only once it's gone waits (ShikigamiHealer); the rest start now.
+	if bool(s.get("cooldownAfterSummon", false)):
+		cooldown_of[spell] = _cooldown(spell)
+		ready_at[spell] = INF
+	else:
+		start_cooldown(spell)
 	cast_done.emit(spell)
 	await get_tree().create_timer(0.25).timeout
 	miko.end_cast()

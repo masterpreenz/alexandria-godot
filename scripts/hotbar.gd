@@ -99,7 +99,10 @@ class HotCell extends Control:
 				draw_texture_rect(icon, inner, false, Color(0.45, 0.45, 0.5) if dim else Color.WHITE)
 			# The cooldown: a dark sweep shrinking as it comes back.
 			var left := bar.caster.cooldown_left(name)
-			if left > 0.0:
+			if is_inf(left):
+				# Out summoned: its cooldown starts once the summon is gone.
+				draw_rect(inner, Color(0, 0, 0, 0.55))
+			elif left > 0.0:
 				var share := left / maxf(0.01, bar.caster.cooldown_total(name))
 				draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * share)), Color(0, 0, 0, 0.55))
 				draw_string_outline(f, Vector2(0, size.y * 0.62), "%d" % ceili(left), HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, 4, Color(0, 0, 0, 0.8))

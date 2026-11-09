@@ -14,6 +14,11 @@ func _draw() -> void:
 		return
 	var t := stats.total()
 	_bar(0, stats.hp, t.get("maxHp", 100.0), UiKit.colors.get("hp", Color(0.85, 0.2, 0.18)), "HP")
+	# A shield shows as a blue band over the top of the HP bar.
+	var sh := stats.shield()
+	if sh > 0.0:
+		var most := maxf(1.0, t.get("maxHp", 100.0))
+		draw_rect(Rect2(2, 2, 216.0 * clampf(sh / most, 0.0, 1.0), 6), Color(0.55, 0.8, 1.0, 0.95))
 	_bar(26, stats.mana, t.get("maxMana", 50.0), UiKit.colors.get("mana", Color(0.25, 0.5, 0.98)), "MP")
 	var f: Font = UiKit.body_font if UiKit.body_font else get_theme_default_font()
 	var line := "Level %d   XP %d / %d" % [stats.level, stats.xp, stats.xp_to_next()]

@@ -24,6 +24,7 @@ var hp := 0.0
 var mana := 0.0
 var buffs := {}                    ## source -> stat dict
 var shields := {}                  ## source -> amount
+var guards := {}                   ## source -> % less damage taken (the strongest counts, at most 90)
 var _regen_clock := 0.0
 var _last_hurt := -99.0
 var _talents := {}                 ## id -> talent
@@ -120,11 +121,11 @@ func spend_mana(amount: float) -> bool:
 
 
 ## Takes damage, softened by defense: a share off rather than a flat amount (5 defense takes 20% off, 20 takes half),
-## never below 1; shields first.
+## less again while guarded (a shield ward), never below 1; shields first.
 func damage(amount: float) -> void:
 	_last_hurt = _now()
 	var defense := maxf(0.0, stat("defense"))
-	var left := maxf(1.0, amount * 20.0 / (20.0 + defense))
+	var left := maxf(1.0, amount * 20.0 / (20.0 + defense) * (1.0 - guard() / 100.0))
 	for k in shields.keys():
 		var take := minf(shields[k], left)
 		shields[k] -= take
@@ -140,6 +141,41 @@ func damage(amount: float) -> void:
 		hurt.emit(left)
 	if was_up and hp <= 0.0:
 		downed.emit()
+
+
+## The shield [param source] gives (0 to take it away).
+func set_shield(source, amount: float) -> void:
+	if amount <= 0.0:
+		if shields.erase(source):
+			changed.emit()
+	elif shields.get(source, -1.0) != amount:
+		shields[source] = amount
+		changed.emit()
+
+
+func shield_from(source) -> float:
+	return float(shields.get(source, 0.0))
+
+
+func shield() -> float:
+	var t := 0.0
+	for v in shields.values():
+		t += v
+	return t
+
+
+func set_guard(source, percent: float) -> void:
+	if percent <= 0.0:
+		guards.erase(source)
+	else:
+		guards[source] = percent
+
+
+func guard() -> float:
+	var g := 0.0
+	for v in guards.values():
+		g = maxf(g, v)
+	return clampf(g, 0.0, 90.0)
 
 
 func heal(amount: float) -> void:

@@ -132,11 +132,16 @@ func _ready() -> void:
 			world.things.add_child(dummy)
 			dummy.setup(world, Damageable.Team.ENEMY, 200.0, 0.35 * world.px, 1.2 * world.px)
 			dummy.dummy = true
+			# --provoke: as if she'd hit it already (an attack shikigami only picks on those); --hurt=N: hurt her first.
+			dummy.hit_by_player = Shots.arg("provoke") != ""
+			dummy.damaged.connect(func(a): print("Dummy hit for ", a))
+			if Shots.arg("hurt") != "":
+				miko.stats.damage(float(Shots.arg("hurt")))
 			var caster_node: SpellCaster = world.get_node("Caster")
 			caster_node.cast_at(parts[0], spot)
 			for i in int(Shots.arg("castframes", "60")):
 				await get_tree().process_frame
-			print("Mana ", miko.stats.mana, ", dummy hp ", dummy.hp)
+			print("Mana ", miko.stats.mana, ", dummy hp ", dummy.hp, ", her hp ", miko.stats.hp, ", shield ", miko.stats.shield(), ", shikigami out ", Shikigami.active.size())
 		if Shots.arg("gather") != "":
 			# Start gathering from the nearest tree or rock, and keep at it this many frames (for testing).
 			var gathering: Miner = miko.get_node("Miner")
