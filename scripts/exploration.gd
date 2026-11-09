@@ -13,10 +13,15 @@ var width := 0
 var height := 0
 var rect := Rect2()                ## the world (units, y up as Unity's) the grid covers
 var _last := Vector2(INF, 0)
+var _fog: ImageTexture
+var _fog_dirty := true
+static var show_all := false        ## F11: the whole map without fog (only what's shown; not saved)
+static var active: Exploration
 
 
 func setup(w: World) -> void:
 	world = w
+	active = self
 	# The ground's cell box, half a cell beyond (in Unity's units, y up, as the save keeps it).
 	var b := world.floors.bounds
 	var lo := Vector2(INF, INF)
@@ -35,6 +40,7 @@ func setup(w: World) -> void:
 
 ## The saved fog (Unity's world.explored: {width, height, seen (base64)}).
 func from_json(json: String) -> void:
+	_fog_dirty = true
 	var d: Variant = JSON.parse_string(json)
 	if not d is Dictionary or int(d.get("width", 0)) <= 0:
 		return
@@ -80,6 +86,7 @@ func reveal(at: Vector2, radius: float) -> void:
 			var i := y * width + x
 			if v > seen[i]:
 				seen[i] = v
+				_fog_dirty = true
 
 
 ## Whether [param at] (px) has been seen (more than half).
@@ -98,3 +105,51 @@ func _process(_delta: float) -> void:
 	reveal(p.position, SIGHT)
 	if world.village.founded():
 		reveal(world.village.centre(), world.village.half_size() + 1.0)
+
+
+const FOG_COLOUR := Color8(18, 14, 12)
+
+
+## The fog as a picture over [member rect] (its top row the world's top): dark where she hasn't been.
+func fog() -> ImageTexture:
+	if _fog != null and not _fog_dirty:
+		return _fog
+	_fog_dirty = false
+	var bytes := PackedByteArray()
+	bytes.resize(width * height * 4)
+	for y in height:
+		var row := (height - 1 - y) * width
+		for x in width:
+			var o := (row + x) * 4
+			bytes[o] = 18
+			bytes[o + 1] = 14
+			bytes[o + 2] = 12
+			bytes[o + 3] = 0 if show_all else 255 - seen[y * width + x]
+	var img := Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, bytes)
+	if _fog == null:
+		_fog = ImageTexture.create_from_image(img)
+	else:
+		_fog.update(img)
+	return _fog
+
+
+## Marks the fog to be drawn again (after showing all, or loading).
+func refog() -> void:
+	_fog_dirty = true
+
+
+## A box of the world (px) as the fog picture's texels.
+func fog_region(box: Rect2) -> Rect2:
+	var px := world.px
+	var x0 := (box.position.x / px - rect.position.x) / CELL
+	var x1 := (box.end.x / px - rect.position.x) / CELL
+	var top := rect.end.y
+	var y0 := (top - (-box.position.y / px)) / CELL
+	var y1 := (top - (-box.end.y / px)) / CELL
+	return Rect2(x0, y0, x1 - x0, y1 - y0)
+
+
+## The world the fog covers, in px (Godot's y down).
+func px_rect() -> Rect2:
+	var px := world.px
+	return Rect2(Vector2(rect.position.x * px, -rect.end.y * px), rect.size * px)

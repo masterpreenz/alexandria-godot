@@ -9,6 +9,7 @@ const H := 34.0
 
 var world: World
 var clock: GameClock
+var top := 16.0                    ## how far down (the minimap sits above it)
 var _weather_rect := Rect2()
 var _season_rect := Rect2()
 
@@ -21,7 +22,7 @@ func setup(w: World, c: GameClock) -> void:
 
 
 func _process(_delta: float) -> void:
-	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, 16.0)
+	position = Vector2(get_viewport_rect().size.x - size.x - 16.0, top)
 	queue_redraw()
 
 

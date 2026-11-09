@@ -264,6 +264,15 @@ func _ready() -> void:
 	time_card.name = "TimeCard"
 	$Hud.add_child(time_card)
 	time_card.setup(world, clock)
+	# The minimap over it, and the world map (M).
+	var minimap := Minimap.new()
+	minimap.name = "Minimap"
+	$Hud.add_child(minimap)
+	minimap.setup(world, miko, time_card)
+	var world_map := WorldMap.new()
+	world_map.name = "WorldMap"
+	$Hud.add_child(world_map)
+	world_map.setup(world, miko)
 	sky = SkyEffects.new()
 	sky.name = "Sky"
 	add_child(sky)
@@ -396,6 +405,10 @@ func _ready() -> void:
 				"character": ($Hud/CharacterPanel as CharacterPanel).toggle()
 				"talents": ($Hud/CharacterPanel as CharacterPanel).toggle_talents()
 				"picker": ($Hud/Hotbar as Hotbar).clicked(0)
+				"map":
+					($Hud/WorldMap as WorldMap).open()
+					if Shots.arg("mapzoom") != "":
+						for i in int(Shots.arg("mapzoom")): ($Hud/WorldMap as WorldMap)._step(1, null)
 				"bench":
 					var wb: WorkbenchWindow = $Hud/WorkbenchWindow
 					for prop in wb.benches:
