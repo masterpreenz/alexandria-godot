@@ -135,4 +135,10 @@ static func forest_floor(w: World, at: Vector2) -> bool:
 ## Healthy forest, where the wildlife lives: forest floor with at least [param min_trees] trees within [param reach]
 ## units (and, once corruption comes over, few of them rotten).
 static func healthy_forest(w: World, at: Vector2, min_trees := 4, reach := 4.5) -> bool:
-	return forest_floor(w, at) and trees_near(at, reach * w.px).size() >= min_trees
+	if not Corruption.ready() or not forest_floor(w, at):
+		return false
+	var trees := trees_near(at, reach * w.px).size()
+	if trees < min_trees:
+		return false
+	var rot := Corruption.active.corrupted_near(at, reach * w.px) if Corruption.active != null else 0
+	return rot <= trees / 4

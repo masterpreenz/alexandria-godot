@@ -29,7 +29,8 @@ static func _now() -> float:
 
 
 func _process(_delta: float) -> void:
-	if world.player == null:
+	# Not before the forest is laid out (which woods are rotten decides where the wildlife goes).
+	if world.player == null or not Corruption.ready():
 		return
 	if d.has("slime") and _now() >= _next_restock:
 		_next_restock = _now() + float(d.slimeSpawner.restockEvery)

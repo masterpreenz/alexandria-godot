@@ -30,6 +30,10 @@ var stage := 0               ## how many crumbles it has broken down through
 var art: Sprite2D
 var body: StaticBody2D
 var _whole := -1
+var healthy := -1            ## its own (healthy) look
+var corrupted := false       ## rotted by the mist: tougher, and less wood in it (Corruption)
+const CORRUPT_GLANCE := 0.4  ## of a corrupted tree's swings, the share that glance off
+const CORRUPT_WOOD := 0.5    ## of the wood it would give, the share it does
 var _scale := Vector2.ONE
 var _shake := 0.0
 var _fall := -1.0
@@ -50,6 +54,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 	stone = int(d.stone) * (tree_wood if axe else 1)
 	left = stone
 	_whole = int(d.s)
+	healthy = _whole
 	_scale = Vector2(d.sx, d.sy)
 	art = Sprite2D.new()
 	world.show_frame(art, _whole, _scale)
@@ -124,9 +129,41 @@ func chunk_point() -> Vector2:
 	return foot + Vector2(0, -float(data.chunkHeight) * ratio)
 
 
+## Standing (not felled or crumbled away).
+func standing() -> bool:
+	return not depleted() and _fall < 0.0
+
+
+## Corrupts it (showing [param look]) or heals it.
+func set_corrupted(on: bool, look: int) -> void:
+	if on and look < 0:
+		return
+	corrupted = on
+	_whole = look if on else healthy
+	if stage == 0 and _fall < 0.0 and not depleted():
+		world.show_frame(art, _whole, _scale)
+
+
+## Brings it down at once (attacks took it down): it falls and bursts into logs as if chopped through.
+func fell() -> void:
+	if depleted() or not axe:
+		return
+	left = 0
+	stage = (data.crumbles as Array).size()
+	_topple()
+
+
+## How tall its art stands, px.
+func tree_height() -> float:
+	return _height()
+
+
 ## One strike: what it gives (0 once it's run out).
 func strike() -> int:
 	if depleted():
+		return 0
+	if corrupted and randf() < CORRUPT_GLANCE:
+		_shake = 0.1
 		return 0
 	var got := mini(left, randi_range(int(data.perStrike[0]), int(data.perStrike[1])))
 	left -= got
@@ -141,6 +178,8 @@ func strike() -> int:
 		_shake = 0.3
 	elif depleted():
 		_topple()
+	if corrupted and got > 0:
+		got = floori(got * CORRUPT_WOOD + randf())
 	return got
 
 
@@ -234,6 +273,8 @@ func _slam() -> void:
 func _burst_into_logs() -> void:
 	var h := _height() / world.px
 	var count := clampi(roundi(h * float(data.logsPerUnit)), int(data.logRange[0]), int(data.logRange[1]))
+	if corrupted:
+		count = maxi(1, roundi(count * CORRUPT_WOOD))
 	var sprite := log_drop if log_drop >= 0 else int(data.chunk)
 	for i in count:
 		var at := foot + Vector2(randf_range(0.15, 0.95) * _height(), (randf_range(-0.12, 0.12) - 0.25) * world.px)
