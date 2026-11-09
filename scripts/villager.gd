@@ -2117,3 +2117,42 @@ func _done_crafting(t: float) -> void:
 	craft_recipe = {}
 	craft_bench = {}
 	_stand(t, randf_range(1.0, 2.0))
+
+
+## What they're doing right now, in a few words (the jobs window shows it).
+func activity() -> String:
+	var lower := func(r: String) -> String: return UiKit.resource_name(r).to_lower()
+	var what := "a tree" if job != null and job.axe else "a rock"
+	var made := func() -> String:
+		if craft_recipe.is_empty(): return ""
+		return lower.call(craft_recipe.resource) if bool(craft_recipe.makesResource) else str(craft_recipe.item).to_lower()
+	var kind := "furniture" if bool(piece.get("prop", false)) else ("a wall" if bool(piece.get("wall", false)) else "a floor")
+	match state:
+		State.ASLEEP: return "Asleep in bed" if in_bed else "Asleep"
+		State.HOME: return "Going home to bed"
+		State.TO_WORK: return ("Off to fell " if what == "a tree" else "Off to mine ") + what if job != null else "Off to work"
+		State.WORK: return (("Felling " if what == "a tree" else "Mining ") + what + (" (carrying %d)" % carrying if carrying > 0 else "")) if job != null else "Working"
+		State.TO_STORE: return "Taking %d %s to storage" % [carrying, lower.call(carry_kind)]
+		State.TO_EAT: return "Going to get something to eat"
+		State.TO_MEAL: return "Taking %s off to eat" % lower.call(meal)
+		State.EATING: return "Eating %s" % lower.call(meal)
+		State.TO_CRAFT: return "Off to make %s" % made.call() if not craft_recipe.is_empty() else "Off to the workbench"
+		State.CRAFT: return "Making %s" % made.call() if not craft_recipe.is_empty() else "Crafting"
+		State.TO_DOOR: return "Opening up the house for the day" if duty_opens else "Shutting the house for the night"
+		State.TO_LIGHT: return "Going to light the fire"
+		State.TO_FARM: return "Off to plant" if planting else "Off to harvest"
+		State.FARM: return "Planting" if planting else "Harvesting"
+		State.TO_CHAT: return "Going over to chat with %s" % partner.person.name if partner != null else "Off to chat"
+		State.CHAT, State.CHAT_WAIT: return "Chatting with %s" % partner.person.name if partner != null else "Chatting"
+		State.TO_BUILD: return "Off to build " + kind
+		State.BUILD: return "Building " + kind
+		State.TO_COOK: return "Off to the fire to cook"
+		State.COOK: return "Cooking %s (%d/%d)" % [lower.call(dish), world.village.stored(dish), Kitchen.target(dish)]
+		State.TO_PICKUP: return "Clearing up"
+		State.FIGHT: return "Fighting a slime"
+		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
+	if _night(): return "Getting ready for bed"
+	if _hungry() and _food_in_storage() == 0: return "Hungry: no food in storage"
+	if not _work_hours(): return "Free time"
+	if _job() == Job.REST: return "Resting (no work set)"
+	return "Idle"

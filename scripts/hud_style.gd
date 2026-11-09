@@ -82,3 +82,25 @@ static func label(text: String, size: float, kind := "body", c: Variant = null) 
 	l.add_theme_constant_override("outline_size", 3)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+## A button in the HUD's look: [param piece_name]'s piece (lighter when hovered, dimmed when disabled), its text in
+## the bold font.
+static func button(text: String, size: float = 12.0, piece_name := "pill", text_c: Variant = null) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_stylebox_override("normal", piece(piece_name))
+	b.add_theme_stylebox_override("hover", piece(piece_name, Color(1.15, 1.12, 1.05)))
+	b.add_theme_stylebox_override("pressed", piece(piece_name, Color(0.85, 0.85, 0.85)))
+	b.add_theme_stylebox_override("disabled", piece(piece_name, Color(1, 1, 1, 0.4)))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var f := font("bold")
+	if f != null:
+		b.add_theme_font_override("font", f)
+	b.add_theme_font_size_override("font_size", roundi(size * SCALE))
+	var c: Color = text_c if text_c is Color else color("text")
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, c)
+	b.add_theme_color_override("font_disabled_color", color("faint", Color(1, 1, 1, 0.4)))
+	return b

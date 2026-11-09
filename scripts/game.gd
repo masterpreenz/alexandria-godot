@@ -197,6 +197,21 @@ func _ready() -> void:
 	bag_window.setup(world, miko.bag)
 	bag_window.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
 	bag_window.visible = Shots.arg("bag") != ""
+	# The village's windows: chests and the town banner (E), the jobs (J), and the workbenches (E at one).
+	var desk := VillageDesk.new()
+	desk.name = "VillageDesk"
+	add_child(desk)
+	desk.setup(world, miko, $Hud)
+	var people: Villagers = get_node_or_null("Villagers")
+	if people != null:
+		var jobs := JobsWindow.new()
+		jobs.name = "JobsWindow"
+		$Hud.add_child(jobs)
+		jobs.setup(world, people, miko.get_node_or_null("Farming"))
+		var bench := WorkbenchWindow.new()
+		bench.name = "WorkbenchWindow"
+		$Hud.add_child(bench)
+		bench.setup(world, miko, people.d.get("workbenches", {}), $Hud)
 	# Where the save left her.
 	var saved_game: Dictionary = world._load_json("res://data/save.json") if FileAccess.file_exists("res://data/save.json") else {}
 	if saved_game.get("sections", {}).has("player"):
@@ -362,6 +377,30 @@ func _ready() -> void:
 				for i in int(Shots.arg("gather")):
 					await get_tree().process_frame
 				print("Left ", spot.remaining(), "; bag wood ", miko.bag.count("Wood"), " stone ", miko.bag.count("Stone"))
+		if Shots.arg("window") != "":
+			# Open one of the village's windows for the shot: chest, totals, ask, banner, grow, jobs, bench.
+			var vd: VillageDesk = get_node("VillageDesk")
+			match Shots.arg("window"):
+				"chest", "totals", "ask":
+					if not world.village.chests().is_empty():
+						miko.place(world.village.chests()[0] + Vector2(0, 0.6 * world.px))
+					vd.chest_window.open()
+					if Shots.arg("window") == "totals": vd.chest_window.show_totals(true)
+					if Shots.arg("window") == "ask": vd.chest_window._ask_for("Wood")
+				"banner": vd.banner_panel.open()
+				"grow":
+					vd.growth.begin()
+					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(0.75, 0.3))
+				"jobs": ($Hud/JobsWindow as JobsWindow).visible = true
+				"bench":
+					var wb: WorkbenchWindow = $Hud/WorkbenchWindow
+					for prop in wb.benches:
+						if not world.props_named(prop).is_empty():
+							miko.place(world.props_named(prop)[0] + Vector2(0, 0.6 * world.px))
+							wb.open(prop, world.props_named(prop)[0])
+							break
+			for i in 10:
+				await get_tree().process_frame
 		camera.position = miko.position + follow_offset
 		camera.reset_smoothing()
 		var saved := camera.position
