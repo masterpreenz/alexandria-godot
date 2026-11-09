@@ -131,12 +131,14 @@ func _gusts() -> void:
 	var u := (t - _gust_start) / _gust_length
 	if u >= 1.0:
 		_gust_start = -1.0
+		world.set_gust(0.0, 0.0)
 		var iv: Array = _wind_settings.get("interval", [20, 45])
 		_next_gust = t + randf_range(float(iv[0]), float(iv[1]))
 		return
 	var front := _gust_from + (t - _gust_start) * _gust_pace
 	var indoors := world.roofs != null and world.roofs.covers(miko.position)
 	var strength := sin(clampf(u, 0.0, 1.0) * PI)
+	world.set_gust(front, strength)   # the trees it passes lean over
 	_wind.volume_db = linear_to_db(maxf(float(_wind_settings.get("volume", 0.55)) * (0.5 if indoors else 1.0), 0.0001))
 	_wind.global_position = Vector2(cam.global_position.x + clampf((front - cam.global_position.x) / half, -0.8, 0.8) * 3.0 * world.px, cam.global_position.y)
 	for m in _motes:

@@ -16,6 +16,8 @@ var world: World
 var floors: FloorMap
 var types := {}          ## name -> prop type
 var version := 0
+## The props that sway in the wind (World.tree_material).
+const SWAYING := ["Pine", "Oak", "Willow", "Bush", "BerryBush", "FlowerBush"]
 
 var cells := {}          # Vector3i (x, y, slot) -> {prop, flipped, turn, scale}
 var free := []           # [{pos (px), prop, flipped, turn, scale}]
@@ -295,7 +297,12 @@ func _show(where: Vector2, e: Dictionary, bias: float) -> Node2D:
 	var id := sprite_for(e.prop, e.turn)
 	if id >= 0:
 		world.show_frame(sprite, id, Vector2(-scale if flipped else scale, scale))
-		sprite.material = world.snow_material(0)
+		# Trees and bushes sway (the taller, the more); everything else stands still.
+		if SWAYING.has(e.prop):
+			sprite.material = world.tree_material()
+			sprite.set_meta("sway", true)
+		else:
+			sprite.material = world.snow_material(0)
 	sprite.position = Vector2(0, where.y - sort)
 	holder.add_child(sprite)
 	if t.solid:

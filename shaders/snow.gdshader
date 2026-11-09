@@ -10,6 +10,12 @@ uniform int mode = 0;
 uniform float unit = 128.0;
 uniform sampler2D variety : filter_linear, repeat_enable;  // FastNoiseLite, seamless (World.grass_variety)
 uniform float grass_variety = 0.0;                          // 0 plain .. 1 fully varied
+// Trees (modes 4 and 5, 5 without snow of its own: the snowy art has it drawn): swaying from the root up, each in its
+// own time, the top of a 4-unit tree [sway] units each way; a wind gust passing (gust_x, its front, px) leans them
+// over as it goes. Only what's drawn is moved: trees off screen aren't drawn, so cost nothing.
+uniform float sway = 0.0;
+uniform float gust = 0.0;
+uniform float gust_x = 0.0;
 
 varying vec2 world;
 
@@ -32,6 +38,17 @@ float noise(vec2 p) {
 float luma(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }
 
 void vertex() {
+	if (sway > 0.0) {
+		vec2 base = MODEL_MATRIX[3].xy;   // the tree's root (its sprite's origin)
+		vec2 at = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+		float h = clamp((base.y - at.y) / unit, 0.0, 8.0);
+		float ph = base.x * 0.011 + base.y * 0.017;
+		float calm = sin(TIME * 1.3 + ph) * 0.55 + sin(TIME * 2.9 + ph * 1.9) * 0.2 + sin(TIME * 0.5 + ph * 0.7) * 0.35;
+		float d = (base.x - gust_x) / (6.0 * unit);
+		float blown = gust * exp(-d * d) * (2.2 + 0.6 * sin(TIME * 4.0 + ph));
+		float off = (calm + blown) * sway * pow(h / 4.0, 1.6) * unit;
+		VERTEX.x += off / max(0.001, length(MODEL_MATRIX[0].xy));
+	}
 	// World position in Unity's units (y up), for patterns pinned to the world.
 	vec2 w = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy / unit;
 	world = vec2(w.x, -w.y);
@@ -71,7 +88,7 @@ void fragment() {
 			vec3 snow = mix(vec3(0.78, 0.84, 0.95), SNOW, 0.35 + 0.65 * drift);
 			snow *= mix(0.8, 1.0, smoothstep(0.1, 0.3, luma(rgb)));
 			rgb = mix(rgb, snow, covered);
-		} else if (c.a >= 0.5) {
+		} else if (c.a >= 0.5 && mode != 5) {
 			// Standing things: a cap along every edge that faces up (nothing of the sprite just above).
 			float wy = dFdy(world.y);
 			vec2 uv_per_up = abs(wy) > 1e-5 ? dFdy(UV) / wy : vec2(0.0);

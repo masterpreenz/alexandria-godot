@@ -531,6 +531,8 @@ func snow_material(mode: int) -> ShaderMaterial:
 		m.shader = preload("res://shaders/snow.gdshader")
 		m.set_shader_parameter("mode", mode)
 		m.set_shader_parameter("unit", px)
+		if mode == 4 or mode == 5:
+			m.set_shader_parameter("sway", 0.045)
 		if mode == 3:
 			m.set_shader_parameter("variety", grass_variety())
 			m.set_shader_parameter("grass_variety", 1.0 if Settings.varied_grass else 0.0)
@@ -552,6 +554,19 @@ static func grass_variety() -> Texture2D:
 		n.fractal_octaves = 3
 		_variety = ImageTexture.create_from_image(n.get_seamless_image(512, 512))
 	return _variety
+
+
+## The trees' material: swaying, with snow settling on them (or, [param snowy] art with its snow drawn, without).
+func tree_material(snowy := false) -> ShaderMaterial:
+	return snow_material(5 if snowy else 4)
+
+
+## A wind gust's front (px across the world) and strength (0 to 1): the trees it passes lean over.
+func set_gust(front_x: float, strength: float) -> void:
+	for mode in [4, 5]:
+		var m := snow_material(mode)
+		m.set_shader_parameter("gust_x", front_x)
+		m.set_shader_parameter("gust", strength)
 
 
 ## Grass varied (Settings) or plain: the ground's shader, at once.

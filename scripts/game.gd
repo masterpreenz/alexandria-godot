@@ -685,6 +685,24 @@ func _ready() -> void:
 					miko.place(fields[0][1].pos + Vector2(0, 0.45) * world.px)
 					for i in 20:
 						await get_tree().process_frame
+				"sway":
+					# Among trees by day: two pictures 0.6 s apart (the sway), then one as a wind gust passes.
+					clock.hours = 12.0
+					miko.place(miko.position + Vector2(float(Shots.arg("dx", "0")), float(Shots.arg("dy", "0"))) * world.px)
+					for i in 30:
+						await get_tree().process_frame
+					var base := Shots.arg("shot").get_basename()
+					get_viewport().get_texture().get_image().save_png(base + "_a.png")
+					var t0 := Time.get_ticks_msec()
+					while Time.get_ticks_msec() - t0 < 600:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(base + "_b.png")
+					var ws: WorldSounds = world.get_node("WorldSounds")
+					ws.gust_now()
+					t0 = Time.get_ticks_msec()
+					while Time.get_ticks_msec() - t0 < int(ws._gust_length * 450.0):
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(base + "_gust.png")
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

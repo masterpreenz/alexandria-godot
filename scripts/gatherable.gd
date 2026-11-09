@@ -73,7 +73,10 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 	version += 1
 	art.position = foot - position
 	_rest = art.position
-	art.material = world.snow_material(0)
+	# Trees sway (their shader; rocks stand still).
+	art.material = world.tree_material() if axe else world.snow_material(0)
+	if axe:
+		art.set_meta("sway", true)
 	add_child(art)
 	if d.has("collider"):
 		body = StaticBody2D.new()

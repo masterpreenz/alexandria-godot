@@ -86,7 +86,10 @@ func _swap() -> void:
 			var size: float = absf(s.scale.x) / (world.px / float(world.sprites[id].ppu))
 			world.show_frame(s, map[id], Vector2(flip * size, size))
 			# The snowy art has its own snow: no caps on top.
-			s.material = null if snowy else world.snow_material(0)
+			if s.get_meta("sway", false):
+				s.material = world.tree_material(snowy)   # still swaying, snowy or not
+			else:
+				s.material = null if snowy else world.snow_material(0)
 
 
 # The old look laid over the new one, fading out: a soft change, not a pop.
