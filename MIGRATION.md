@@ -1,6 +1,6 @@
 # Alexandria: Unity → Godot migration plan
 
-Moving the game from Unity 6 (URP 2D) to **Godot 4.7** (2D, isometric). This repo ([alexandria-godot](https://github.com/masterpreenz/alexandria-godot)) is the Godot project. The Unity project stays in its own repo, untouched and runnable, as the reference until this version matches it. On this machine the Godot project is checked out inside the Unity one, at `My project/godot/` (the Unity repo ignores that folder), so the exporter there can write straight into it.
+Moving the game from Unity 6 (URP 2D) to **Godot 4.7** (2D, isometric). This repo ([alexandria-godot](https://github.com/masterpreenz/alexandria-godot)) is the Godot project. The Unity project stays in its own repo, untouched and runnable, as a reference. **The migration is done (2026-11-09): this Godot project is the game now, and what's missing is built here directly (see the Backlog).** On this machine the Godot project is checked out inside the Unity one, at `My project/godot/` (the Unity repo ignores that folder), so the exporter there can write straight into it.
 
 ## Decisions
 
@@ -29,7 +29,7 @@ Moving the game from Unity 6 (URP 2D) to **Godot 4.7** (2D, isometric). This rep
 
 Each phase ends with something playable in Godot, checked against the Unity build.
 
-### Phase 0: Groundwork *(started)*
+### Phase 0: Groundwork
 - The Godot project (this repo): 2D, isometric units, Forward+, linear filtering, a 1600×900 window that scales.
 - Folder layout: `assets/` (mirrors Unity's `Assets/`), `data/` (exported JSON), `scenes/`, `scripts/`; `shaders/` and `audio/` as they're ported.
 - **Unity exporter** (`Assets/Editor/GodotExport.cs`, menu *Tools ▸ Export to Godot*). It writes:
@@ -92,6 +92,25 @@ In steps (about 10,000 lines of Unity code):
 - Save system with the same sections, autosave, slots.
 - Sound, particles (puffs, sparks, motes), level-up effects.
 - Side-by-side check against Unity, then the Godot build becomes the game. The Unity project is archived and stays in git history.
+
+## Backlog: still to build (in Godot)
+
+What the port left out or didn't finish, to be built here directly. Unity's scripts (in the Unity project) show how each worked there.
+
+- **Potions**: drinking an HP or mana potion (they're made at the alchemy bench and sit in the bag, but do nothing yet), and their descriptions at the workbench; food buffs described there too.
+- **Planting trees**: T plants a tree seed; saplings growing into trees; villagers replanting felled ones.
+- **Shelters resting better**: beds in a shelter (a room with beds and no chests) restoring faster and comfier (`Village.SHELTER_REST`, `SHELTER_COMFORT` are there, unused).
+- **Wading in springs**: the water depth map is built once from the exported water, so springs made later aren't waded.
+- **Roofs**: the roof dropping in when a room is closed; trees under the eaves.
+- **Trees swaying**, and leaning as a wind gust passes.
+- **Fainting**: the worn bag and the gear in its slots falling with her into the lost bag.
+- **Gear on the ground**: dropping gear from the bag (Drop says to store it in a chest for now); gear pickups.
+- **Recruiting villagers in the wild** (rescue, invite, convince): designed in Unity, never built there either.
+- **Room badges**: a house's badge (storage house, shelter) over its roof, and on the world map.
+- **The jobs window**: villagers' portraits.
+- **Houses saved in Unity**: importing them (they're in Unity's persistent data folder as house_presets.json).
+- **The world map**: the mist as a layer of its own (the live mist shows in the picture instead).
+- **Not yet tried in play**: a rabbit pen in use; the farming skill practised by grabbing rabbits.
 
 ## Mapping Unity → Godot
 
@@ -208,8 +227,6 @@ Without the editor open, Godot can still be run directly: `Godot_v4.7.2-stable_w
 - [x] Phase 6, step 1: **Saves** (`save_system.gd`, `save_game.gd`, `save_menu.gd`; a writer for every section: `to_json` in the bag, stats, pickups, the lost bag, hints and kitchen), ported from Unity's SaveSystem, SaveGame, SaveMenu and SaveSections. The same files as Unity's: the sections' JSON gzipped, AES-256-CBC encrypted and HMAC-SHA256 signed under keys from the same secret, so a save made by either game opens in the other (checked both ways), written to a temporary file and swapped in with a .bak kept. Saves live in user://Saves; with none there yet, the Unity game's saves are copied over (and left where they were). The game starts from the latest autosave or quick save, else the bundled start. F5 quick-saves, F8 quick-loads; it autosaves every 5 minutes, as each day starts and on quitting (never in a run's first seconds, while the farms, fires and forest are still being put back). Esc opens the save menu (the game pauses): a new named save, every save with its season, day, time, level, place, when and how long played, and Load, Save over, Rename and Delete ("Sure?" first), New game (clears the autosave and quick save), Save and quit. Loading starts the scene again from the save. The ground's pickups and the lost bag now come back from a save too. Test runs (--shot) never write saves and start from the bundled save unless --slot names one; hooks `--window=saves|roundtrip|reload`, `--allowsave`.
 - [x] Phase 6, step 2: **Sounds** (`world_sounds.gd`; the exporter's new `data/sounds.json` carries each river's sound and line, WindGusts' and PlaceDrop's settings), ported from Unity's River (its sound), WindGusts, VillagerSteps, PlaceDrop's sounds and LevelUpEffect's chime. Each river's water loops, full within two cells of it and trailing off by twelve, from the side it's on. Now and then (20 to 45 seconds; never in rain or storm; softer indoors) a gust of wind sweeps across, its sound panning with the front and a few streaks and leaves blowing over the view. Villagers' footsteps play near them (Miko's recordings, softer and lower). Build mode's pieces thud as they land (grass and plants rustle instead), painting grass rustles. The golden level-up moment plays its four-note chime, made in code as Unity's is. The workbench sounds as something is made (and sizzles at the cooking bench). Unity has no music, so there's none here. Test hook: `--window=gust`.
   - Not yet: trees leaning as a gust passes (Godot's trees don't sway yet).
-- [ ] Phase 6 next: the side-by-side check against Unity and the switch-over.
-- [ ] Moved to the phases where their systems come over: wading (phase 2, water), light from fires and crystals (phase 3, those props), the cast pose (phase 3, spells).
-- [ ] Phase 2: World systems
+- [x] Phase 6, step 3: **Switch-over** (2026-11-09). No side-by-side pass: the Godot project is the game from here, and whatever's missing is built in Godot directly (the backlog above). The Unity project stays as it is, for reference, in its own repository's history.
 
-To play it: open this project in Godot 4.7 and press Play (WASD or arrows to walk, Shift to run, the wheel to zoom). The free-camera world viewer is `scenes/world_viewer.tscn`. To re-export after changing the Unity world: in Unity, *Tools ▸ Export to Godot*.
+To play it: open this project in Godot 4.7 and press Play (WASD or arrows to walk, Shift to run, the wheel to zoom). The free-camera world viewer is `scenes/world_viewer.tscn`. The Unity exporter (*Tools ▸ Export to Godot*) still works, but re-exporting would overwrite `data/` with Unity's world: from the switch-over on, the world is changed in Godot (in game, with build mode, and saved), not re-exported.
