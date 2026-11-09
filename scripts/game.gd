@@ -488,7 +488,25 @@ func _ready() -> void:
 					vd.growth.begin()
 					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(0.75, 0.3))
 				"jobs": ($Hud/JobsWindow as JobsWindow).visible = true
-				"character": ($Hud/CharacterPanel as CharacterPanel).toggle()
+				"character":
+					var cp: CharacterPanel = $Hud/CharacterPanel
+					cp.toggle()
+					# --sizes: the panel's size with each kind of thing picked in turn (it shouldn't change).
+					if Shots.arg("sizes") != "":
+						var sizes := []
+						for nm in ["", "Wood", "Sachet", "CrystalNecklace", "ShrineCharm"]:
+							if nm == "Wood" or nm == "":
+								cp.selected = -1 if nm == "" else miko.bag.stack_slot.get("Wood", -1)
+							else:
+								var slot_at := miko.bag.free_slot()
+								miko.bag.items[slot_at] = nm
+								cp.selected = slot_at
+							cp._dirty = true
+							for i in 3:
+								await get_tree().process_frame
+							var root: Control = cp.get_child(0) if cp.get_child_count() > 0 else cp
+							sizes.append([nm, root.size])
+						print("Panel sizes: ", sizes)
 				"talents": ($Hud/CharacterPanel as CharacterPanel).toggle_talents()
 				"picker": ($Hud/Hotbar as Hotbar).clicked(0)
 				"build":

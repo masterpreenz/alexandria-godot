@@ -54,6 +54,7 @@ var _figure: MikoFigure
 var _stats_text: RichTextLabel
 var _weapon_icon: ChestWindow.Cell
 var _pick_icon: ChestWindow.Cell
+var _info_lines: Label            ## the picked thing's details (three lines, all of it in the tooltip)
 var _action: Button
 var _drop: Button
 var _destroy: Button
@@ -416,11 +417,24 @@ func _build_bag() -> Control:
 	top.add_child(_pick_icon)
 	var texts := VBoxContainer.new()
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	texts.add_child(_label("pick_name", 14, "bold"))
+	# The same size whatever is picked: the name cut short with "…" rather than widening the panel, the details in
+	# three lines (the rest cut with "…", all of it in the tooltip) rather than growing it.
+	var nm := _label("pick_name", 14, "bold")
+	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.custom_minimum_size.x = _k(300)
+	texts.add_child(nm)
 	var info := _label("pick_info", 12, "bold", HudStyle.color("muted"))
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.custom_minimum_size.x = _k(300)
+	info.max_lines_visible = 3
+	info.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	info.mouse_filter = Control.MOUSE_FILTER_PASS
 	texts.add_child(info)
+	_info_lines = info
+	var f := info.get_theme_font("font")
+	var fs := info.get_theme_font_size("font_size")
+	info.custom_minimum_size.y = 3.0 * (f.get_height(fs) + info.get_theme_constant("line_spacing")) if f != null else _k(48)
 	top.add_child(texts)
 	sb.add_child(top)
 	var buttons := HBoxContainer.new()
@@ -436,6 +450,7 @@ func _build_bag() -> Control:
 	_drop.custom_minimum_size = Vector2(_k(70), _k(28))
 	_drop.pressed.connect(_do_drop)
 	buttons.add_child(_drop)
+	buttons.custom_minimum_size.y = _drop.get_combined_minimum_size().y   # its room kept with nothing picked
 	_destroy = HudStyle.button("Destroy", 12, "pill", HudStyle.color("coral"))
 	_destroy.custom_minimum_size = Vector2(_k(84), _k(28))
 	_destroy.pressed.connect(_do_destroy)
@@ -599,12 +614,12 @@ func _picked() -> void:
 		_labels.pick_name.text = "%s  ×%d" % [UiKit.resource_name(r), bag.count(r)]
 		var usable: bool = UiKit.data.resources.get(r, {}).get("usable", false)
 		var kind := "Potion" if r.ends_with("Potion") else ("Drink" if r == "Tea" else ("Seed" if r == "Seed" else ("Food" if UiKit.data.resources.get(r, {}).get("group", "") == "Consumables" else "Material")))
-		_labels.pick_info.text = "%s · %s" % [kind, USES.get(r, "For building.")]
+		_set_info("%s · %s" % [kind, USES.get(r, "For building.")])
 		if usable:
 			action = "Drink" if r == "Tea" or r.ends_with("Potion") else "Eat"
 	else:
 		_labels.pick_name.text = ""
-		_labels.pick_info.text = "Pick something in the bag, or a worn slot."
+		_set_info("Pick something in the bag, or a worn slot.")
 	_pick_icon.queue_redraw()
 	_action.visible = action != ""
 	_action.text = action
@@ -632,7 +647,13 @@ func _show_item(it_name: String) -> void:
 	var left := stats.durability_left(it_name)
 	if left >= 0.0:
 		desc += ("" if desc == "" else ", ") + "%d%% durability" % roundi(left * 100.0)
-	_labels.pick_info.text = "%s%s%s" % [it.get("label", ""), (" · " + desc) if desc != "" else "", (" · grants " + grants) if grants != "" else ""]
+	_set_info("%s%s%s" % [it.get("label", ""), (" · " + desc) if desc != "" else "", (" · grants " + grants) if grants != "" else ""])
+
+
+# The picked thing's details: as many as show in its three lines, and all of them when hovered.
+func _set_info(text: String) -> void:
+	_labels.pick_info.text = text
+	_labels.pick_info.tooltip_text = text
 
 
 func clicked(i: int, double: bool) -> void:
