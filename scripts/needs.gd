@@ -44,7 +44,7 @@ var _next_stir := 0.0
 var _stir_until := 0.0
 var _stir_frame := 0
 var _next_starve := 0.0
-var _bubble_label: Label         ## her own speech bubble over her head (hungry, starving)
+var _bubble_label: SpeechBubble  ## her own bubble over her head (thinking hungry, shouting starving)
 var _bubble_at := 0.0            ## when it next shows
 var _bubble_until := 0.0
 var _last_state := ""
@@ -241,18 +241,8 @@ func _process_timed(dt: float) -> void:
 # Her bubble over her head while she's hungry (every 40 s) or starving (every 15 s, in coral), for 3 seconds.
 func _bubble(t: float, st: String) -> void:
 	if _bubble_label == null:
-		_bubble_label = HudStyle.label("", 15, "bold", HudStyle.color("text"))
-		var pill := HudStyle.piece("pillPlain", Color(1, 1, 1, 0.94))
-		pill.content_margin_left = 10
-		pill.content_margin_right = 10
-		pill.content_margin_top = 3
-		pill.content_margin_bottom = 3
-		_bubble_label.add_theme_stylebox_override("normal", pill)
-		_bubble_label.z_as_relative = false
-		_bubble_label.z_index = 3999
-		_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bubble_label = SpeechBubble.new()
 		_bubble_label.visible = false
-		World.keep_lit(_bubble_label)
 		miko.add_child(_bubble_label)
 	if st == "" or sleeping():
 		_bubble_label.visible = false
@@ -260,12 +250,11 @@ func _bubble(t: float, st: String) -> void:
 	if t >= _bubble_at:
 		_bubble_at = t + (15.0 if st == "Starving" else 40.0)
 		_bubble_until = t + 3.0
-		_bubble_label.text = Loc.pick("miko.starving" if st == "Starving" else "miko.hungry")
-		_bubble_label.add_theme_color_override("font_color", HudStyle.color("coral") if st == "Starving" else HudStyle.color("text"))
-		_bubble_label.reset_size()
+		var key := "miko.starving" if st == "Starving" else "miko.hungry"
+		_bubble_label.say(Loc.pick(key), Villager.bark_kind(key))
 	_bubble_label.visible = t < _bubble_until
 	if _bubble_label.visible:
-		_bubble_label.position = Vector2(-_bubble_label.size.x / 2.0, -2.05 * world.px - _bubble_label.size.y).round()
+		_bubble_label.place(Vector2(0, -1.75 * world.px))
 
 
 # What going without does: half the HP regen while hungry; none, and slower, while starving; slower, with half the

@@ -74,7 +74,7 @@ var state_until := 0.0
 var clock := 0.0
 var facing_up := false
 var talking := false              ## in a conversation with Miko (Talk): standing still, facing her
-var _bark: Label                  ## a short line over their head (barks), shown a moment
+var _bark: SpeechBubble           ## a short line over their head (barks), shown a moment
 var _bark_until := 0.0
 var _bark_next := 0.0
 static var _bark_any := 0.0       ## the village's next moment for a bark (not all at once)
@@ -970,32 +970,30 @@ func bark(key: String, values := {}, force := false) -> void:
 	_bark_next = t + 25.0
 	_bark_any = t + 2.5
 	if _bark == null:
-		_bark = HudStyle.label("", 15, "bold", HudStyle.color("text"))
-		var pill := HudStyle.piece("pillPlain", Color(1, 1, 1, 0.94))
-		pill.content_margin_left = 10
-		pill.content_margin_right = 10
-		pill.content_margin_top = 3
-		pill.content_margin_bottom = 3
-		_bark.add_theme_stylebox_override("normal", pill)
-		_bark.z_as_relative = false
-		_bark.z_index = 3999
-		_bark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		World.keep_lit(_bark)
+		_bark = SpeechBubble.new()
 		add_child(_bark)
-	_bark.text = line
+	_bark.say(line, bark_kind(key))
 	_bark.visible = true
-	_bark.reset_size()
 	_bark_until = t + 2.8
+
+
+## How a line is said: thought (hungry, tired, rain), shouted (hurt, a fight, a raid, no food), else spoken.
+static func bark_kind(key: String) -> int:
+	if key in ["bark.hurt", "bark.fight", "bark.raid", "bark.no_food", "miko.starving"]:
+		return SpeechBubble.Kind.SHOUT
+	if key in ["bark.hungry", "bark.tired", "bark.rain", "miko.hungry"]:
+		return SpeechBubble.Kind.THINK
+	return SpeechBubble.Kind.SAY
 
 
 # What happens to them, said out loud: turning hungry or for bed, pests, a fight; Miko coming by; rain starting.
 func _barks() -> void:
 	var t := now()
 	if _bark != null and _bark.visible:
-		if t >= _bark_until:
+		if t >= _bark_until or talking:   # (talking: the talk bubble says it)
 			_bark.visible = false
 		else:
-			_bark.position = Vector2(-_bark.size.x / 2.0, -_top() - 0.35 * world.px - _bark.size.y).round()
+			_bark.place(Vector2(0, -_top() - 0.1 * world.px))
 	if state != _last_state:
 		_last_state = state
 		match state:

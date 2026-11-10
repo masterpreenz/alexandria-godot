@@ -1193,6 +1193,7 @@ func _ready() -> void:
 					print("Talk: ", v.person.name, " says '", tk._line.text, "', replies ", tk._acts.size())
 					(tk._acts[1] as Callable).call()
 					print("Talk: after food '", tk._line.text, "', hunger ", v.person.hunger)
+					print("Tail: visible ", tk._tail.visible, " from ", tk._tail.from, " tip ", tk._tail.tip, " panel ", tk.position, tk.size, " tail global ", tk._tail.global_position)
 					for i in 8:
 						await get_tree().process_frame
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_panel.png")
@@ -1225,6 +1226,32 @@ func _ready() -> void:
 					nd._bubble_at = 0.0
 					for i in 4:
 						await get_tree().process_frame
+				"bubbles":
+					# Three villagers by Miko, saying, thinking and shouting; Miko starving.
+					while Villager.all.size() < 3:
+						await get_tree().process_frame
+					var keys := ["bark.greet.day", "bark.hungry", "bark.raid"]
+					for k in 3:
+						var v: Villager = Villager.all[k]
+						v.position = miko.position + Vector2(-2.6 + k * 2.6, -0.4) * world.px
+						v.velocity = Vector2.ZERO
+						v.bark(keys[k], {"miko": "Miko", "side": "east"}, true)
+					var nd: Needs = miko.get_node("Needs")
+					nd.hunger = 0.0
+					miko.place(miko.position + Vector2(0, 1.6) * world.px)
+					for i in 12:
+						await get_tree().process_frame
+					for k in 3:
+						var v: Villager = Villager.all[k]
+						if k == 1:
+							camera.position = v.position + Vector2(0, -1.0 * world.px)
+							camera.reset_smoothing()
+							set_meta("warming", true)
+							await get_tree().process_frame
+							await get_tree().process_frame
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_villagers.png")
+							remove_meta("warming")
+						print("Bubble ", k, ": ", v._bark != null, " visible ", v._bark.visible if v._bark else false, " text '", v._bark.text if v._bark else "", "' at ", v._bark.global_position if v._bark else Vector2.ZERO, " villager ", v.global_position, " in tree ", v.is_inside_tree(), " vis ", v.is_visible_in_tree())
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

@@ -1,6 +1,7 @@
 class_name Talk
 extends PanelContainer
-## Talking with a villager (E beside one, when nothing else nearby takes E): a small panel beside them with their face,
+## Talking with a villager (E beside one, when nothing else nearby takes E): a speech bubble over them, its tail
+## pointing down at them, with their face,
 ## name and work, what they say, and Miko's replies (click, or 1 to 4): how things are, giving them something to eat,
 ## what they need, bye. While it's open the game runs slowly and they stand facing her. Every line comes from the
 ## language file (lang/<language>.json's talk.*), picked at random from its pool.
@@ -19,6 +20,7 @@ var _choices: VBoxContainer
 var _acts: Array = []            ## the replies shown: [callable]
 var _pressed := false
 var _speed_before := 1.0
+var _tail: Tail                  ## the bubble's tail, down to their head
 
 
 func setup(w: World, m: Miko, hud: Node) -> void:
@@ -59,6 +61,10 @@ func setup(w: World, m: Miko, hud: Node) -> void:
 	_choices.add_theme_constant_override("separation", int(4 * k))
 	col.add_child(_choices)
 	visible = false
+	_tail = Tail.new()
+	_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tail.visible = false
+	hud.add_child(_tail)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -142,11 +148,14 @@ func open(v: Villager) -> void:
 	_work.text = Loc.t("job.%d" % int(v.person.get("job", 0)))
 	_show(_greeting(v))
 	visible = true
+	_tail.visible = true
 	move_to_front()
+	_tail.move_to_front()
 
 
 func close() -> void:
 	visible = false
+	_tail.visible = false
 	if who != null and is_instance_valid(who):
 		who.talking = false
 	who = null
@@ -236,12 +245,35 @@ func _say_bye() -> void:
 	close()
 
 
-# Beside them on screen, kept within it.
+# Over their head, a little to the side, kept on screen; the tail from its bottom edge down to their head.
 func _place() -> void:
 	reset_size()
+	var k := HudStyle.SCALE
 	var vp := get_viewport_rect().size
-	var s := get_viewport().get_canvas_transform() * who.position
-	var at := s + Vector2(60, -size.y - 40) * HudStyle.SCALE
+	var head := get_viewport().get_canvas_transform() * (who.position + Vector2(0, -who._top() - 0.15 * world.px))
+	var at := head + Vector2(-60 * k, -size.y - 34 * k)
 	at.x = clampf(at.x, 8.0, vp.x - size.x - 8.0)
 	at.y = clampf(at.y, 8.0, vp.y - size.y - 8.0)
 	position = at.round()
+	# The tail's root on the bubble's bottom edge, near the head, its tip at the head.
+	var root_x := clampf(head.x, position.x + 24 * k, position.x + size.x - 40 * k)
+	_tail.from = Vector2(root_x, position.y + size.y - 3 * k)
+	_tail.width = 22 * k
+	_tail.tip = head
+	_tail.queue_redraw()
+
+
+## The bubble's tail: a wedge from the bubble down to the speaker, in the panel's colours.
+class Tail extends Control:
+	var from := Vector2.ZERO
+	var tip := Vector2.ZERO
+	var width := 22.0
+
+	func _draw() -> void:
+		var fill := Color8(28, 20, 16, 244)
+		var edge := Color8(90, 70, 50, 255)
+		var a := from + Vector2(-width / 2.0, 0)
+		var b := from + Vector2(width / 2.0, 0)
+		draw_colored_polygon(PackedVector2Array([a, b, tip]), fill)
+		draw_line(a, tip, edge, 2.0, true)
+		draw_line(b, tip, edge, 2.0, true)
