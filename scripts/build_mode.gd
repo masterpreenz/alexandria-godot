@@ -8,8 +8,8 @@ extends Node2D
 ## refunds half. Floors paint with a 1x1 to 3x3 brush and drag; R turns laid floors that can turn (Shift+R
 ## alternates them); walls go on the grid line nearest the mouse, one length per drag step; props go on the cell
 ## (Alt: exactly where clicked, spaced along a drag), plants at the brush's size. Laid floors, walls and village
-## things only go inside the village; nothing is built on the map's roads or in water (paving the main road is
-## fine). Blueprint mode (N) plans floors and walls for the villagers instead (Start building marks them ready).
+## things only go inside the village; nothing is built on the map's roads or in water. Paths (brick, cobble) go
+## anywhere on dry land, out of the village too, and over the main road. Blueprint mode (N) plans floors and walls for the villagers instead (Start building marks them ready).
 ## Every stroke can be undone and redone (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z). Miko holds still while it's open and
 ## WASD moves the view.
 
@@ -362,8 +362,10 @@ static func _paving(floor_name: String) -> bool:
 	return floor_name.begins_with("Path")
 
 
+# A path (brick or cobble) may be laid anywhere on dry land, in the village or out of it (roads between places), the
+# main road included.
 func _paving_road(cell: Vector2i, floor_name: String) -> bool:
-	return _paving(floor_name) and world.floors.is_whole(floor_name) and main_road(cell)
+	return _paving(floor_name) and world.floors.is_whole(floor_name) and not world.wet(world.floors.cell_centre(cell))
 
 
 func _wall_no_build(e: WallMap.Edge, type: String) -> bool:
