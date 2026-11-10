@@ -345,6 +345,8 @@ func _road_floors() -> Array:
 
 ## Nothing is built on one of the map's roads, or in water.
 func no_build(cell: Vector2i) -> bool:
+	if Mountains.covers(cell):
+		return true
 	if world.water_depth(world.floors.cell_centre(cell)) > 0.0:
 		return true
 	return _road_floors().has(world.floors.original.get(cell, world.floors.base_floor))
@@ -504,6 +506,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		if outside: note = _village_note()
 		elif status == "Locked": note = "Build a %s first" % selected.lockedBy
 		elif status == "Short": note = missing(selected.cost)
+		elif building and Mountains.covers(cell): note = "Mountains in the way"
 		elif building and no_build(cell): note = "Can't build on the road"
 		elif why != "": note = why
 		elif wall_mode and not world.walls.can_place(edge, selected.name): note = "Doors and windows keep off corners"
