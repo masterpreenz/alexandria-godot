@@ -10,9 +10,16 @@ signal hurt(amount: float)
 signal downed
 signal out_of_mana
 signal leveled_up(level: int)
+signal blocked                    ## a hit blocked outright (Bulwark)
+signal second_wind                ## saved from a felling blow (Second Wind)
 
 const REGEN_TICK := 5.0
 const REGEN_PAUSE_AFTER_HIT := 5.0
+const CALM_AFTER := 8.0           ## seconds unhurt before Deep Breath's regen starts
+const WIND_COOLDOWN := 600.0      ## seconds between Second Winds
+const WIND_HEAL := 0.5            ## share of max HP Second Wind mends...
+const WIND_OVER := 3.0            ## ...over this many seconds
+const WIND_SAFE := 1.5            ## seconds nothing can hurt her after it saves her
 
 var character: Dictionary          ## base, perLevel, talents, xpPerLevel (combat.json's character)
 var item_stats: Dictionary         ## item name -> {stats, grantsSpell}
@@ -29,6 +36,9 @@ var shields := {}                  ## source -> amount
 var guards := {}                   ## source -> % less damage taken (the strongest counts, at most 90)
 var _regen_clock := 0.0
 var _last_hurt := -99.0
+var wind_ready_at := 0.0           ## when Second Wind can save her again (_now's clock)
+var _wind_left := 0.0              ## seconds of Second Wind's mending still to come
+var _wind_safe_until := 0.0
 var _talents := {}                 ## id -> talent
 
 
@@ -130,9 +140,18 @@ func _process_timed(delta: float) -> void:
 		_regen_clock -= REGEN_TICK
 		var amount := float(t.get("hpRegen", 0.0)) * REGEN_TICK
 		var calm := _now() - _last_hurt >= REGEN_PAUSE_AFTER_HIT
+		# Deep Breath: more when she's been out of a fight a while.
+		if _now() - _last_hurt >= CALM_AFTER and amount >= 0.0:
+			amount += float(t.get("calmRegen", 0.0)) * REGEN_TICK
 		if hp > 0.0 and (amount < 0.0 or calm):
 			hp = clampf(hp + amount, 0.0, t.get("maxHp", 100.0))
 			changed.emit()
+	# Second Wind's mending, a few seconds of it.
+	if _wind_left > 0.0 and hp > 0.0:
+		var step := minf(delta, _wind_left)
+		_wind_left -= step
+		hp = minf(float(t.get("maxHp", 100.0)), hp + float(t.get("maxHp", 100.0)) * WIND_HEAL * step / WIND_OVER)
+		changed.emit()
 	var m := clampf(mana + float(t.get("manaRegen", 0.0)) * delta, 0.0, t.get("maxMana", 50.0))
 	if m != mana:
 		mana = m
@@ -156,6 +175,13 @@ func spend_mana(amount: float) -> bool:
 ## Takes damage, softened by defense: a share off rather than a flat amount (5 defense takes 20% off, 20 takes half),
 ## less again while guarded (a shield ward), never below 1; shields first.
 func damage(amount: float) -> void:
+	if _now() < _wind_safe_until:
+		return
+	# Bulwark: now and then a hit is blocked outright.
+	var block := stat("blockChance")
+	if block > 0.0 and randf() < block / 100.0:
+		blocked.emit()
+		return
 	_last_hurt = _now()
 	var defense := maxf(0.0, stat("defense"))
 	var left := maxf(1.0, amount * 20.0 / (20.0 + defense) * (1.0 - guard() / 100.0))
@@ -169,6 +195,13 @@ func damage(amount: float) -> void:
 			break
 	var was_up := hp > 0.0
 	hp = maxf(0.0, hp - left)
+	# Second Wind: a felling blow leaves her at 1 HP, mending, once in a long while.
+	if was_up and hp <= 0.0 and stat("secondWind") > 0.0 and _now() >= wind_ready_at:
+		hp = 1.0
+		wind_ready_at = _now() + WIND_COOLDOWN
+		_wind_left = WIND_OVER
+		_wind_safe_until = _now() + WIND_SAFE
+		second_wind.emit()
 	changed.emit()
 	if left > 0.0:
 		hurt.emit(left)
@@ -232,6 +265,7 @@ func from_json(json: String) -> void:
 	level = maxi(1, int(d.get("level", 1)))
 	xp = maxi(0, int(d.get("xp", 0)))
 	talent_points = maxi(0, int(d.get("talentPoints", 0)))
+	wind_ready_at = _now() + maxf(0.0, float(d.get("windIn", 0.0)))   # (Second Wind's wait carries over)
 	ranks.clear()
 	var ids: Array = d.get("talentIds", [])
 	var rs: Array = d.get("talentRanks", [])
@@ -583,7 +617,13 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["shieldPower", "Shield Strength", "%"], ["shieldManaRegen", "Mana Regen inside a Shield", "/s"],
 	["attackerSummons", "Attack Shikigami at once", ""], ["healerSummons", "Healing Shikigami at once", ""],
 	["defenderSummons", "Shield Shikigami at once", ""], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
-	["stoneYield", "Stone Yield", "%"], ["growthSpeed", "Tree Growth", "%"], ["moveSpeed", "Move Speed", "%"]]
+	["stoneYield", "Stone Yield", "%"], ["growthSpeed", "Tree Growth", "%"], ["moveSpeed", "Move Speed", "%"],
+	["harvestBonus", "Chance of an Extra Crop", "%"], ["foodKeeps", "Slower Food Spoiling", "%"], ["cookSpeed", "Cooking Speed", "%"],
+	["cookBonus", "Chance of an Extra Dish", "%"], ["craftBonus", "Chance of an Extra when Making Materials", "%"],
+	["bagSlots", "Bag Slots", ""], ["rabbitBreeding", "Rabbit Breeding Speed", "%"], ["butcherBonus", "Meat from Butchering", ""],
+	["villageWork", "Villager Work Speed", "%"], ["calmRegen", "HP Regen out of a Fight", "/s"],
+	["mistResist", "Slower Mist Sickness", "%"], ["hungerResist", "Less Starving Damage", "%"],
+	["knockResist", "Knockback Resistance", "%"], ["blockChance", "Chance to Block a Hit", "%"]]
 
 
 static func fmt(v: float) -> String:
@@ -620,5 +660,5 @@ func to_json() -> String:
 	for id in ranks:
 		ids.append(id)
 		rs.append(int(ranks[id]))
-	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana, "tree": int(character.get("treeVersion", 1)),
+	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana, "tree": int(character.get("treeVersion", 1)), "windIn": maxf(0.0, wind_ready_at - _now()),
 		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear})

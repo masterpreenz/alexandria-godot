@@ -197,7 +197,8 @@ func _process_timed(delta: float) -> void:
 
 ## Shoves her at [param v] px/s, easing off over [param time] seconds.
 func knock(v: Vector2, time: float) -> void:
-	_knock = v
+	# Firm Footing: shoved less far.
+	_knock = v * clampf(1.0 - (stats.stat("knockResist") if stats != null else 0.0) / 100.0, 0.0, 1.0)
 	_knock_left = maxf(0.05, time)
 	_knock_time = _knock_left
 

@@ -68,7 +68,7 @@ func hours_to_litter(p: Pen) -> float:
 	var st := _state(p)
 	if st.count < 2 or st.count >= MOST:
 		return -1.0
-	return maxf(0.0, float(s.breedHours) - (_hours() - float(st.bredAt)))
+	return maxf(0.0, _breed_hours() - (_hours() - float(st.bredAt)))
 
 
 ## The nearest pen within [param range] px of [param at], or null.
@@ -102,7 +102,18 @@ func butcher(p: Pen) -> int:
 	if st.count <= 0:
 		return 0
 	st.count -= 1
-	return int(s.meat)
+	return int(s.meat) + int(_talent("butcherBonus"))   # (Rabbit Keeper)
+
+
+# Miko's talent stat [param nm] (her Hearth talents reach the pens).
+func _talent(nm: String) -> float:
+	var p := world.player
+	return p.stats.stat(nm) if p != null and p.stats != null else 0.0
+
+
+# Game hours between litters: fewer with Soft Hay and Rabbit Keeper.
+func _breed_hours() -> float:
+	return float(s.breedHours) / CharacterStats.percent(maxf(0.0, _talent("rabbitBreeding")))
 
 
 func _process(delta: float) -> void:
@@ -115,10 +126,11 @@ func _process_timed(delta: float) -> void:
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version
 		_look()
+	var breed_hours := _breed_hours() if not pens.is_empty() else 0.0
 	for p in pens.values():
 		# A litter: one more, every so often, while there are two.
 		var st := _state(p)
-		if st.count >= 2 and st.count < MOST and _hours() - float(st.bredAt) >= float(s.breedHours):
+		if st.count >= 2 and st.count < MOST and _hours() - float(st.bredAt) >= breed_hours:
 			st.count += 1
 			st.bredAt = _hours()
 			FloatingText.spawn(world, "A new rabbit in the pen!", p.at + Vector2(0, -1.0 * world.px), Color(0.9, 0.8, 0.6))

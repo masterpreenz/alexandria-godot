@@ -301,7 +301,11 @@ func _make(r: Dictionary) -> void:
 			FloatingText.spawn(world, "Not enough to make it", at, red)
 			return
 		# Into the bag (a slot of its own if it's new), else storage, else the ground beside her.
-		v.give(bag, miko, r.resource, int(r.amount), miko.position)
+		# Thrifty Hands: now and then one more.
+		var extra := 1 if miko.stats != null and randf() < miko.stats.stat("craftBonus") / 100.0 else 0
+		v.give(bag, miko, r.resource, int(r.amount) + extra, miko.position)
+		if extra > 0:
+			FloatingText.spawn(world, "+1 extra", at + Vector2(0, -0.35 * world.px), Color(0.62, 0.86, 0.45))
 		LifeSkills.practise(_skill(), miko)
 		if str(bench.get("skill", "")) == "Cooking":
 			Sfx.play(world, Sfx.stream("res://assets/Sounds/cooking.mp3"), bench_at, 0.5)

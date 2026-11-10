@@ -116,6 +116,10 @@ func effects() -> Array:
 		list.append(["Hungry", false, "HP regen -%d%%, attack, defense and magic -%d%%. Eat something (F)." % [pct.call(1.0 - float(s.hungryRegen)), pct.call(float(s.hungryWeaker))]])
 	if exhausted():
 		list.append(["Exhausted", false, "Can't run, 25% slower, mana regen -50%. Rest, sleep (Z) or drink tea (G)."])
+	# Second Wind spent: how long till it's back.
+	var wind_in := stats.wind_ready_at - Time.get_ticks_msec() / 1000.0
+	if stats.stat("secondWind") > 0.0 and wind_in > 0.0:
+		list.append(["Second Wind %d:%02d" % [floori(wind_in / 60.0), floori(fmod(wind_in, 60.0))], false, "Second Wind saved her from a felling blow. It can't again until this runs out."])
 	var tier := world.mist.tier_at(miko.position) if world.mist != null else Mist.Tier.CLEAR
 	if mist_sickness > 0.01:
 		var k := minf(1.0, mist_sickness)
@@ -216,7 +220,7 @@ func _process_timed(dt: float) -> void:
 	elif t >= _next_starve:
 		_next_starve = t + float(s.starveEvery)
 		if stats.hp > 1.0:
-			var lost := minf(float(s.starvePang), stats.hp - 1.0)
+			var lost := minf(float(s.starvePang) * clampf(1.0 - stats.stat("hungerResist") / 100.0, 0.0, 1.0), stats.hp - 1.0)   # (Iron Stomach)
 			stats.set_hp(stats.hp - lost)
 			FloatingText.spawn(world, "-%s" % str(snappedf(lost, 0.1)), miko.position + Vector2(0, -1.2 * world.px), Color(1, 0.45, 0.35))
 	# Say so when she becomes hungry or starving, and in a bubble over her head now and then while she is (more often
@@ -290,7 +294,9 @@ func _mist(dt: float) -> void:
 	var cap := 2.0 if tier == Mist.Tier.STRONG else (1.0 if tier == Mist.Tier.NORMAL else 0.0)
 	var was := mist_sickness
 	if mist_sickness < cap:
-		mist_sickness = minf(cap, mist_sickness + dt / (float(s.strongMistBuild) / 2.0 if tier == Mist.Tier.STRONG else float(s.mistBuild)))
+		# (Clear Lungs, Iron Stomach: it builds more slowly)
+		var slower := clampf(1.0 - stats.stat("mistResist") / 100.0, 0.1, 1.0)
+		mist_sickness = minf(cap, mist_sickness + dt * slower / (float(s.strongMistBuild) / 2.0 if tier == Mist.Tier.STRONG else float(s.mistBuild)))
 	elif mist_sickness > cap:
 		mist_sickness = maxf(cap, mist_sickness - dt / float(s.mistRecover))
 	if mist_sickness <= 0.001:

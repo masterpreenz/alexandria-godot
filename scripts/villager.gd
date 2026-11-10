@@ -1530,7 +1530,7 @@ func _has_tools() -> bool:
 
 
 func _tool_pace() -> float:
-	return TOOL_BOOST if _has_tools() else 1.0
+	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart   # (Village Heart: quicker with Miko about)
 
 
 # Tools and a bag from storage, picked up when they start on work that wants them.

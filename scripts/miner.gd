@@ -100,6 +100,8 @@ func _begin(spot: Gatherable) -> void:
 	_started_frame = Engine.get_process_frames()
 	var axe := spot.axe
 	var fps: float = float(data.chopFps) * float(data.chopPace) if axe else float(data.fps) * float(data.minePace)
+	if miko.stats != null:
+		fps *= CharacterStats.percent(miko.stats.stat("gatherSpeed"))   # (Hearth's gathering talents, and a stew's)
 	miko.play_action(data.chopDown if axe else data.mineDown, data.chopUp if axe else data.mineUp, fps, spot.foot - miko.position)
 
 
@@ -116,6 +118,10 @@ func _hit() -> void:
 	var got := target.strike()
 	if got <= 0:
 		return
+	# Wood Yield and Stone Yield: that much more of it (a part of one is a chance of one).
+	if miko.stats != null:
+		var more := float(got) * miko.stats.stat("woodYield" if target.resource == "Wood" else "stoneYield") / 100.0
+		got += floori(more) + (1 if randf() < more - floorf(more) else 0)
 	# Chunks fly off the rock (logs off the tree), to be picked up.
 	var log_drop := int(data.logDrop)
 	var wood := target.resource == "Wood" and log_drop >= 0

@@ -20,6 +20,7 @@ var counts := {}       ## resource -> how many
 var items: Array = []  ## SIZE slots: an item's name, or "" (gear)
 var stack_slot := {}   ## resource -> the slot its stack shows in
 var worn: Array = []   ## what she's wearing (item names): a worn bag adds slots
+var bonus_slots := 0   ## more slots from her talents (Hearth's pockets)
 var item_data := {}    ## item name -> its data (ui.json's items)
 
 
@@ -39,7 +40,7 @@ static func slotted(resource: String) -> bool:
 
 ## How many slots she has: her own, and her worn bag's.
 func capacity() -> int:
-	var extra := 0
+	var extra := bonus_slots
 	for n in worn:
 		extra += int(item_data.get(n, {}).get("bagSlots", 0))
 	return mini(SIZE, BASE_SLOTS + extra)

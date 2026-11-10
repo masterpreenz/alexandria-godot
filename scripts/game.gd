@@ -202,6 +202,14 @@ func _ready() -> void:
 		explored.from_json(sv.sections["world.explored"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
+	# Her talents' pockets, a blocked hit and Second Wind, shown over her.
+	var pockets := func() -> void: miko.bag.bonus_slots = int(miko.stats.stat("bagSlots"))
+	miko.stats.changed.connect(pockets)
+	pockets.call()
+	miko.stats.blocked.connect(func(): FloatingText.spawn(world, "Blocked", miko.position + Vector2(0, -1.6 * world.px), Color(0.7, 0.85, 1.0)))
+	miko.stats.second_wind.connect(func():
+		FloatingText.spawn(world, "Second Wind!", miko.position + Vector2(0, -1.9 * world.px), Color(1.0, 0.9, 0.2), 30, 1.8, Color(0.85, 0.08, 0.05))
+		Puffs.burst(world, miko.position + Vector2(0, -0.5 * world.px), 1.2, 16))
 	var monsters: Dictionary = world._load_json("res://data/monsters.json") if FileAccess.file_exists("res://data/monsters.json") else {}
 	world.set_meta("lost_bag_icon", int(monsters.get("lostBagIcon", -1)))
 	if monsters.has("fainting"):
@@ -1312,6 +1320,48 @@ func _ready() -> void:
 									await get_tree().process_frame
 								get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_crit.png")
 					print("Shiki hits on the dummy: ", hits.size(), " ", hits.slice(0, 16))
+				"hearthbody":
+					# Every Hearth and Body talent learnt: the stats, the bag, the rabbits, the villagers' pace, a shove,
+					# blocked hits, and Second Wind saving her once.
+					var st: CharacterStats = miko.stats
+					var slots0 := miko.bag.capacity()
+					var rpens: RabbitPens = find_child("RabbitPens", true, false)
+					var breed0 := rpens._breed_hours()
+					for tl in st.character.talents:
+						if str(tl.region) in ["Hearth", "Body"]:
+							st.ranks[tl.id] = 1
+					st.changed.emit()
+					var tot := st.total()
+					var shown := []
+					for k in ["gatherSpeed", "woodYield", "stoneYield", "harvestBonus", "foodKeeps", "cookSpeed", "cookBonus", "craftBonus", "bagSlots", "rabbitBreeding", "butcherBonus", "villageWork", "maxHp", "defense", "calmRegen", "mistResist", "hungerResist", "knockResist", "blockChance", "secondWind"]:
+						shown.append("%s %s" % [k, str(tot.get(k, 0))])
+					print("Hearth/Body stats: ", ", ".join(shown))
+					print("Bag slots ", slots0, " -> ", miko.bag.capacity(), "; rabbits breed every ", breed0, " -> ", snappedf(rpens._breed_hours(), 0.1), " h")
+					miko.place(world.village.centre() + Vector2(1, 1) * world.px)
+					for i in 400:
+						await get_tree().process_frame
+					print("Villagers' pace with Miko in the village: ", Villagers.heart)
+					miko.knock(Vector2(100, 0), 0.2)
+					print("A shove of 100 becomes ", snappedf(miko._knock.length(), 0.1))
+					var blocks := [0]
+					st.blocked.connect(func(): blocks[0] += 1)
+					for i in 400:
+						st.hp = float(tot.maxHp)
+						st.damage(1.0)
+					print("Blocked ", blocks[0], " of 400 hits")
+					st.hp = float(tot.maxHp)
+					st.damage(99999.0)
+					print("Second Wind: after a felling blow HP ", st.hp)
+					st.damage(99999.0)
+					print("Second Wind: hit again at once, HP ", st.hp)
+					for i in 60:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_wind.png")
+					for i in 500:
+						await get_tree().process_frame
+					print("Second Wind: a few seconds on HP ", snappedf(st.hp, 0.1), " of ", tot.maxHp, "; statuses ", (miko.get_node("Needs") as Needs).effects().map(func(x): return x[0]))
+					st.damage(99999.0)
+					print("Second Wind: felled again while it waits, HP ", st.hp)
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:

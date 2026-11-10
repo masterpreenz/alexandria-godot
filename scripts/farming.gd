@@ -678,6 +678,9 @@ func _harvest(p: Dictionary) -> void:
 	# Her farming skill: a 6% chance a level (past the first) of one more.
 	if randf() < 0.06 * (LifeSkills.get_level(LifeSkills.Skill.FARMING) - 1):
 		n += 1
+	# Careful Picking, Green Thumb: a chance of one more again.
+	if miko.stats != null and randf() < miko.stats.stat("harvestBonus") / 100.0:
+		n += 1
 	LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 	world.village.give(miko.bag, miko, c, n, p.pos)
 	var text := "+%d %s" % [n, info.plural.capitalize()]

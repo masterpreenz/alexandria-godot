@@ -13,6 +13,8 @@ extends Node2D
 const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"]]
 const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina"]
 
+static var heart := 1.0          ## how much faster the villagers work now (Village Heart, with Miko in the village)
+
 var world: World
 var d: Dictionary                  ## villagers.json, with the eat sound and the beds' data
 var s: Dictionary                  ## Villagers' settings: most, newcomersUpTo, checkEvery
@@ -129,6 +131,9 @@ func _process_timed(_delta: float) -> void:
 	if t < _next_check:
 		return
 	_next_check = t + float(s.get("checkEvery", 2.0))
+	# Village Heart: the villagers work faster while Miko's in the village.
+	var mk := world.player
+	heart = CharacterStats.percent(mk.stats.stat("villageWork")) if mk != null and mk.stats != null and world.village.contains(mk.position) else 1.0
 	var beds := _beds()
 	var by_key := {}
 	for b in beds:

@@ -340,7 +340,7 @@ func _cook(pressed: bool, delta: float) -> void:
 	_cook_clock += delta
 	var frames := _frames()
 	# Her cooking skill quickens it: 6% a level.
-	var f := int(_cook_clock * float(d.cooking.fps) * LifeSkills.factor(LifeSkills.Skill.COOKING, 0.06))
+	var f := int(_cook_clock * float(d.cooking.fps) * LifeSkills.factor(LifeSkills.Skill.COOKING, 0.06) * CharacterStats.percent(miko.stats.stat("cookSpeed") if miko.stats != null else 0.0))
 	var holding := Input.is_key_pressed(KEY_E)
 	WorldPrompts.at(prompt, flame_point(_cook_fire))
 	_say("Cooking…  (hold E to keep cooking)" if holding else "Cooking…")
@@ -351,9 +351,11 @@ func _cook(pressed: bool, delta: float) -> void:
 	# Done: the first thing there is to cook, cooked.
 	for r in RECIPES:
 		if world.village.take(miko.bag, miko, r[0], 1):
-			world.village.give(miko.bag, miko, r[1], 1, miko.position)
+			# Good Cook: now and then it stretches to two.
+			var dishes := 2 if miko.stats != null and randf() < miko.stats.stat("cookBonus") / 100.0 else 1
+			world.village.give(miko.bag, miko, r[1], dishes, miko.position)
 			LifeSkills.practise(LifeSkills.Skill.COOKING, miko)
-			FloatingText.spawn(world, "+1 " + UiKit.resource_name(r[1]), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
+			FloatingText.spawn(world, "+%d %s" % [dishes, UiKit.resource_name(r[1])], miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
 			break
 	# Still holding E with more to cook: straight on to the next one.
 	if holding and RECIPES.any(func(r): return world.village.have(miko.bag, miko, r[0]) > 0):
