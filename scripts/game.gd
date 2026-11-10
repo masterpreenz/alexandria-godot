@@ -399,6 +399,9 @@ func _ready() -> void:
 	snow.name = "Snow"
 	add_child(snow)
 	snow.setup(world, clock, world._load_json("res://data/snow.json") if FileAccess.file_exists("res://data/snow.json") else {})
+	var footprints := SnowFootprints.new()
+	footprints.name = "SnowFootprints"
+	footprints.setup(world, miko, snow)
 	if Shots.arg("snow") != "":
 		snow.set_cover(float(Shots.arg("snow")))
 	follow_offset = Vector2(data.camera.offset[0], data.camera.offset[1])
@@ -1661,6 +1664,47 @@ func _ready() -> void:
 					for i in 5:
 						await get_tree().process_frame
 					print("Winter load: 5 h on, ", GameClock.SEASON_NAMES[clock.season()], " day ", clock.day_of_season(), ", weather ", GameClock.WEATHER_NAMES[clock.weather()], ", pinned ", clock.forced, ", snow ", snappedf(snow.cover, 0.01))
+				"snowmelt":
+					# Deep winter, one bonfire and one torch burning: clear ground round them, none inside the houses.
+					clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4) + 2) * 24.0 + 9.0
+					clock.forced = GameClock.Weather.CLOUDY
+					snow._last_hours = -1.0
+					var fr: Fires = miko.get_node("Fires")
+					for i in 10:
+						await get_tree().process_frame
+					for f in fr.fires:
+						fr.lit_until.erase(f.key)
+					var bon: Dictionary = fr.fires.filter(func(f): return not bool(f.s.torch))[0]
+					fr.light(bon)
+					miko.place(bon.pos + Vector2(-3.0, 1.0) * world.px)
+					camera.zoom *= 0.75
+					for i in 90:
+						await get_tree().process_frame
+					print("Snow melt: snow ", snow.cover, ", lit ", fr.fires.filter(func(f): return fr.lit(f)).size(), ", houses ", world.roofs.roofs.size())
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_fire.png")
+					# Into a house: its roof fades, the floor inside shows.
+					var room: Dictionary = world.roofs.roofs[0].cells
+					var inside: Vector2i = room.keys()[room.size() >> 1]
+					miko.place(world.floors.cell_centre(inside))
+					for i in 120:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_house.png")
+				"footprints":
+					# Deep winter: Miko walked across the snow, her prints behind her.
+					clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4) + 2) * 24.0 + 9.0
+					snow._last_hours = -1.0
+					var from := world.village.centre() + Vector2(6.0, 5.0) * world.px
+					miko.place(from)
+					for i in 20:
+						await get_tree().process_frame
+					for i in 120:
+						miko.position = from + Vector2(i * 0.03, sin(i * 0.05) * 0.4) * world.px
+						await get_tree().process_frame
+					var fp: SnowFootprints = world.find_child("SnowFootprints", true, false)
+					print("Footprints: ", fp._prints.size(), " pressed, snow under her ", snow.ground_snow(miko.position))
+					camera.zoom *= 1.5
+					for i in 5:
+						await get_tree().process_frame
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

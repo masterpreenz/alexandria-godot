@@ -16,8 +16,16 @@ uniform float grass_variety = 0.0;                          // 0 plain .. 1 full
 uniform float sway = 0.0;
 uniform float gust = 0.0;
 uniform float gust_x = 0.0;
+// Where no snow lies (SnowCover's map, a cell a pixel: inside houses, round burning fires): 0 snow as anywhere,
+// 1 none. The ground reads it at each pixel; standing things by where they stand.
+uniform sampler2D clear_map : filter_linear, repeat_disable;
+uniform float clear_on = 0.0;
+uniform vec2 clear_origin = vec2(0.0);   // the map's first cell
+uniform float clear_size = 128.0;        // cells a side
+uniform vec2 floor_origin = vec2(0.0);   // the floor grid's corner (0, 0), in units (y up)
 
 varying vec2 world;
+varying float stands_clear;
 
 const vec3 SNOW = vec3(0.92, 0.95, 1.0);
 
@@ -37,6 +45,17 @@ float noise(vec2 p) {
 
 float luma(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }
 
+// How clear of snow the ground is at w (units, y up): 0 to 1.
+float cleared(vec2 w) {
+	if (clear_on < 0.5) return 0.0;
+	vec2 d = w - floor_origin;
+	float u = d.x / 0.5;
+	float v = d.y / 0.25;
+	vec2 uv = (vec2((u + v) * 0.5, (v - u) * 0.5) - clear_origin) / clear_size;
+	if (uv.x <= 0.0 || uv.y <= 0.0 || uv.x >= 1.0 || uv.y >= 1.0) return 0.0;
+	return textureLod(clear_map, uv, 0.0).r;
+}
+
 void vertex() {
 	if (sway > 0.0) {
 		vec2 base = MODEL_MATRIX[3].xy;   // the tree's root (its sprite's origin)
@@ -52,6 +71,9 @@ void vertex() {
 	// World position in Unity's units (y up), for patterns pinned to the world.
 	vec2 w = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy / unit;
 	world = vec2(w.x, -w.y);
+	// Standing things: by where they stand (their own origin).
+	vec2 foot = MODEL_MATRIX[3].xy / unit;
+	stands_clear = (mode == 1 || mode == 2 || mode == 3) ? 0.0 : smoothstep(0.3, 0.6, cleared(vec2(foot.x, -foot.y)));
 }
 
 void fragment() {
@@ -76,6 +98,9 @@ void fragment() {
 			patch = clamp((patch - 0.28) / 0.44, 0.0, 1.0);
 			float edge = 1.0 - snow_cover * 1.08;
 			float covered = smoothstep(edge, edge + 0.03, patch);
+			// None indoors or by a burning fire: melted back to a ragged edge.
+			float bare = cleared(world) + (noise(p * 5.0 + 11.0) - 0.5) * 0.22;
+			covered *= 1.0 - smoothstep(0.38, 0.52, bare);
 			float shade = clamp(luma(rgb) / 0.55, 0.0, 1.0);
 			vec3 snow = mix(vec3(0.74, 0.8, 0.92), SNOW, 0.55 + 0.45 * shade);
 			rgb = mix(rgb, snow, covered);
@@ -88,21 +113,22 @@ void fragment() {
 			vec3 snow = mix(vec3(0.78, 0.84, 0.95), SNOW, 0.35 + 0.65 * drift);
 			snow *= mix(0.8, 1.0, smoothstep(0.1, 0.3, luma(rgb)));
 			rgb = mix(rgb, snow, covered);
-		} else if (c.a >= 0.5 && mode != 5) {
+		} else if (c.a >= 0.5 && mode != 5 && stands_clear < 0.99) {
 			// Standing things: a cap along every edge that faces up (nothing of the sprite just above).
+			float snow_here = snow_cover * (1.0 - stands_clear);
 			float wy = dFdy(world.y);
 			vec2 uv_per_up = abs(wy) > 1e-5 ? dFdy(UV) / wy : vec2(0.0);
-			float depth = mix(0.03, 0.16, snow_cover) * (0.75 + 0.5 * noise(world * 9.0));
+			float depth = mix(0.03, 0.16, snow_here) * (0.75 + 0.5 * noise(world * 9.0));
 			float open = 0.0;
 			for (int i = 1; i <= 4; i++) {
 				open = max(open, 1.0 - texture(TEXTURE, UV + uv_per_up * depth * (float(i) / 4.0)).a);
 			}
-			float cap = step(0.5, open) * smoothstep(0.0, 0.25, snow_cover);
+			float cap = step(0.5, open) * smoothstep(0.0, 0.25, snow_here);
 			// Snow also settles on the lit tops of things: the brightest pixels, more as it deepens.
 			float l = luma(rgb);
-			float lit = smoothstep(0.72 - 0.3 * snow_cover, 0.8 - 0.3 * snow_cover, l) * smoothstep(0.1, 0.5, snow_cover);
+			float lit = smoothstep(0.72 - 0.3 * snow_here, 0.8 - 0.3 * snow_here, l) * smoothstep(0.1, 0.5, snow_here);
 			float snowy = max(cap, lit * 0.85);
-			vec3 frosted = mix(rgb, SNOW * (0.7 + 0.3 * l), snow_cover * 0.12);
+			vec3 frosted = mix(rgb, SNOW * (0.7 + 0.3 * l), snow_here * 0.12);
 			vec3 snow = mix(vec3(0.78, 0.84, 0.95), SNOW, clamp(l * 1.4, 0.0, 1.0));
 			rgb = mix(frosted, snow, snowy * 0.93);
 		}

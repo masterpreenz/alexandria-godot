@@ -614,8 +614,19 @@ func snow_material(mode: int) -> ShaderMaterial:
 		if mode == 3:
 			m.set_shader_parameter("variety", grass_variety())
 			m.set_shader_parameter("grass_variety", 1.0 if Settings.varied_grass else 0.0)
+		for k in _snow_params:
+			m.set_shader_parameter(k, _snow_params[k])
 		_snow_mats[mode] = m
 	return _snow_mats[mode]
+
+
+var _snow_params := {}
+
+## Sets [param key] on every snow material (the ones made later too).
+func set_snow_param(key: String, value: Variant) -> void:
+	_snow_params[key] = value
+	for m in _snow_mats.values():
+		(m as ShaderMaterial).set_shader_parameter(key, value)
 
 
 static var _variety: Texture2D
