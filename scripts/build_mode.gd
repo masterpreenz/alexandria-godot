@@ -411,12 +411,12 @@ func _wall_outside(e: WallMap.Edge, type: String, say: bool) -> bool:
 
 ## A fireplace stands with its back against a wall and faces out from it: the way it's turned on [param cell] (0 its
 ## back to the wall up and to the right, opening down-left; 1 its back up and to the left, opening down-right), or
-## -1 where there's no wall behind. In a back corner, with both, R picks.
+## -1 where there's no wall behind, -2 in a back corner (a wall both ways: it doesn't go there).
 func hearth_turn(cell: Vector2i) -> int:
 	var right := _solid_wall(WallMap.Edge.new(cell + Vector2i(1, 0), true))
 	var left := _solid_wall(WallMap.Edge.new(cell + Vector2i(0, 1), false))
 	if right and left:
-		return posmod(prop_turn, 2)
+		return -2   # (a back corner: no)
 	return 0 if right else (1 if left else -1)
 
 
@@ -441,8 +441,10 @@ func _turn_on(prop_name: String, cell: Vector2i) -> int:
 func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 	if it.is_empty():
 		return ""
-	if str(it.name) == "Fireplace" and hearth_turn(world.floors.cell_at(at)) < 0:
-		return "A fireplace goes against a back wall"
+	if str(it.name) == "Fireplace":
+		var facing := hearth_turn(world.floors.cell_at(at))
+		if facing < 0:
+			return "Not in a corner" if facing == -2 else "A fireplace goes against a back wall"
 	if _use_cells().has(world.floors.cell_at(at)):
 		return "Keep clear: the way in to a bed or chest"
 	if bool(it.get("indoorsOnly", false)) and (world.roofs == null or not world.roofs.covers(at)):
@@ -454,7 +456,8 @@ func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 	# Furniture stands within one room or yard: never across a wall or fence.
 	var t := int(moving.turn) if not moving.is_empty() else prop_turn
 	var sc := float(moving.scale) if not moving.is_empty() else 1.0
-	if not _sizable(it) and _across_wall(it.name, at, t, sc):
+	# (a fireplace is built into its wall: it's meant to touch it)
+	if not _sizable(it) and str(it.name) != "Fireplace" and _across_wall(it.name, at, t, sc):
 		return "Can't stand across a wall"
 	if bool(it.get("crystal", false)):
 		return _crystal_why(at, moving.pos if not moving.is_empty() else null)

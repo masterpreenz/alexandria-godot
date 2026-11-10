@@ -1862,6 +1862,11 @@ func _ready() -> void:
 								world.props.place(c, "Fireplace", 1.0, want)
 								placed.append(c)
 								break
+					for c in room:
+						if bm.hearth_turn(c) >= 0 or bm.hearth_turn(c) == -2:
+							var why := bm.why_not(bm.item_for("Prop", "Fireplace"), world.floors.cell_centre(c))
+							if why != ("Not in a corner" if bm.hearth_turn(c) == -2 else "") and not why.begins_with("Keep clear"):
+								print("Hearth: cell ", c, " turn ", bm.hearth_turn(c), " refused '", why, "'")
 					print("Hearth: a middle cell refused '", bm.why_not(bm.item_for("Prop", "Fireplace"), world.floors.cell_centre(room.keys().filter(func(c): return bm.hearth_turn(c) < 0)[0])), "'")
 					var fr: Fires = miko.get_node("Fires")
 					for i in 60:
