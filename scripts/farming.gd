@@ -8,7 +8,10 @@ extends Node
 ## Plots joined to one another make a farm group (a field), and a field grows one crop: what's set for it (R, in turn:
 ## the village's rotation, then each crop), its plots all the same. It's planted, grows and is harvested as one: a plot
 ## harvested stays bare until the rest of its field is in, and then the whole field is planted again (the next crop in
-## the rotation, unless it's set to one). Bare soil lies flat on the ground; sprouts and ripe plants stand up.
+## the rotation, unless it's set to one).
+##
+## Winter: nothing can be planted, and frost kills whatever is still growing when it comes (ripe crops can still be
+## harvested). The field goes on to the next crop in spring. Bare soil lies flat on the ground; sprouts and ripe plants stand up.
 ## The first potatoes come from old overgrown patches in the wild (ripe when first found). What each plot grows is
 ## saved (world.farms).
 ##
@@ -27,6 +30,7 @@ const ORDER := ["Potato", "Carrot", "Wheat", "Cotton"]   ## (no cabbages for now
 const WET_FOR := 24.0            ## game hours a watering lasts
 const DRY_RATE := 0.5            ## how fast a dry crop grows
 const PEST_PER_HOUR := 0.015     ## the chance a growing crop gets pests, each game hour (about one in three crops a 24 h)
+const WATER_SOUND := "res://assets/Sounds/watering_sound.mp3"
 const PEST_SHEET := "res://assets/Resources/Emotes/Emote_pests.png"
 
 var world: World
@@ -146,9 +150,10 @@ func pests(p: Dictionary) -> bool:
 	return stage(p) == 1 and bool(_state(p).get("pest", false))
 
 
-## Waters a plot (wet for a day).
+## Waters a plot (wet for a day), with the sound of it.
 func water(p: Dictionary) -> void:
 	_state(p).wateredAt = _hours()
+	Sfx.play(world, Sfx.stream(WATER_SOUND), p.pos, 0.6, 0.08)
 
 
 ## Clears the pests out of a plot.
@@ -160,9 +165,16 @@ func clear_pests(p: Dictionary) -> void:
 # get in now and then; rain waters everything.
 func _tend(dh: float) -> void:
 	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
+	var frost := winter()
+	var killed := 0
 	for p in plots:
 		var st := _state(p)
 		if not st.sown:
+			continue
+		# Winter's frost: what's still growing dies (the field goes on to its next crop in spring).
+		if frost and stage(p) == 1:
+			states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": st.setTo, "last": crop(p), "waiting": false}
+			killed += 1
 			continue
 		if raining:
 			st.wateredAt = _hours()
@@ -174,6 +186,8 @@ func _tend(dh: float) -> void:
 		st.grown = float(st.grown) + dh * rate
 		if not st.get("pest", false) and randf() < 1.0 - pow(1.0 - PEST_PER_HOUR, dh):
 			st.pest = true
+	if killed > 0:
+		VillageLog.event("frost", "Winter's frost killed %d growing plot%s: plant again in spring" % [killed, "" if killed == 1 else "s"])
 
 
 func _look() -> void:
@@ -365,6 +379,9 @@ func _process_timed(_delta: float) -> void:
 	var set_to := "field"   # (R opens the field's panel)
 	match stage(p):
 		0:
+			if winter():
+				_say("Winter  ·  nothing can be planted until spring  ·  R field")
+				return
 			if not plantable(p):
 				_say("Harvested  ·  waiting for the rest of the field (%d still growing)  ·  R %s" % [still_growing(p), set_to])
 				return
@@ -521,7 +538,7 @@ func _field_last(p: Dictionary) -> String:
 ## Whether a bare plot may be planted: not while plots of its field are still waiting for the rest to be harvested.
 ## Once the whole field is in (nothing growing), the field starts over.
 func plantable(p: Dictionary) -> bool:
-	if stage(p) != 0:
+	if stage(p) != 0 or winter():
 		return false
 	var field := field_of(p)
 	var waiting := 0
@@ -540,6 +557,33 @@ func plantable(p: Dictionary) -> bool:
 	for q in field:
 		_state(q).waiting = false
 	return true
+
+
+## Whether it's winter (nothing planted; frost kills what's growing).
+func winter() -> bool:
+	return world.clock != null and world.clock.season() == GameClock.Season.WINTER
+
+
+## Game hours until winter starts (0 in winter), and in winter, until spring.
+func hours_to_winter() -> float:
+	return _hours_to_season(GameClock.Season.WINTER)
+
+
+func hours_to_spring() -> float:
+	return _hours_to_season(GameClock.Season.SPRING)
+
+
+func _hours_to_season(target: int) -> float:
+	var c: GameClock = world.clock
+	if c == null:
+		return INF
+	var dps := maxi(1, c.days_per_season)
+	var seasons := posmod(target - c.season(), 4)
+	if seasons == 0:
+		return 0.0
+	# To the end of this season, then whole seasons.
+	var days_left := dps - c.day_of_season() + (seasons - 1) * dps
+	return float(days_left) * 24.0 + (24.0 - c.hour())
 
 
 ## How many of [param p]'s field are still growing (what a waiting plot waits for).

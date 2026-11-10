@@ -137,6 +137,9 @@ func _refresh() -> void:
 		if pests > 0:
 			care.append("%d with pests (not growing: clear them)" % pests)
 		t.append("Care: " + (", ".join(care) if not care.is_empty() else "all watered, no pests"))
+		# Not ripe before winter: lost to the frost.
+		if growing.size() > 0 and most_left > farm.hours_to_winter() and not farm.winter():
+			t.append("[!] Won't ripen before winter: the frost will kill it")
 		# What it should give.
 		var y: Array = p.s.yield if crop == "Potato" else info.get("yield", [0, 0])
 		var seed_back: Array = info.get("seedBack", [0, 0])
@@ -144,8 +147,26 @@ func _refresh() -> void:
 		if int(seed_back[1]) > 0:
 			line += ", and %d to %d seeds back" % [int(seed_back[0]) * sown.size(), int(seed_back[1]) * sown.size()]
 		t.append(line)
+	t.append(_season_line())
 	_lines.text = "\n".join(t)
 	_show_next(p, crop)
+
+
+# When winter comes (nothing planted then; frost kills what's growing), or in winter, when spring does.
+func _season_line() -> String:
+	if farm.world.clock == null:
+		return ""
+	if farm.winter():
+		return "Winter now: nothing can be planted  ·  spring in %s" % _span(farm.hours_to_spring())
+	return "Next winter in %s (frost kills what's still growing)" % _span(farm.hours_to_winter())
+
+
+static func _span(h: float) -> String:
+	if h >= 48.0:
+		return "%d days" % floori(h / 24.0)
+	if h >= 24.0:
+		return "1 day %d h" % floori(h - 24.0)
+	return "%d h" % ceili(h)
 
 
 # What it grows next, and the choices: Rotation, or one crop for good.
