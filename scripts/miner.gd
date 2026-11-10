@@ -89,7 +89,7 @@ func _process_timed(_delta: float) -> void:
 	if near == null:
 		_show("")
 		return
-	_show("Press E to chop" if near.axe else "Press E to mine")
+	_show("Press E to chop" if near.axe else "Press E to mine", near)
 	if pressed:
 		_begin(near)
 
@@ -127,8 +127,10 @@ func _hit() -> void:
 		Pickup.launch(world, "Seed", 1, sprite, target.foot + Vector2(0, -0.3 * world.px), 0.6)
 
 
-func _show(text: String) -> void:
-	if target != null and is_instance_valid(target):
-		WorldPrompts.at(prompt, target.foot + Vector2(0, -target.tree_height() * 0.5 - 0.3 * world.px) if target.axe else target.foot + Vector2(0, -0.9 * world.px))
+# Shows [param text] by [param thing] (the rock or tree it's about; by default the one she's at): pinned to it, not to her.
+func _show(text: String, thing: Gatherable = null) -> void:
+	var at := thing if thing != null else target
+	if at != null and is_instance_valid(at):
+		WorldPrompts.at(prompt, at.foot + Vector2(0, -at.tree_height() * 0.5 - 0.3 * world.px) if at.axe else at.foot + Vector2(0, -0.9 * world.px))
 	prompt.text = text
 	prompt.visible = text != ""

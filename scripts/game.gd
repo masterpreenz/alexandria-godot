@@ -1147,6 +1147,24 @@ func _ready() -> void:
 							print("Door outline beside ", x[0], ": showing ", (x[1] as OccludedOutline).outline.visible)
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_near.png")
 							break
+				"mineprompt":
+					# Miko by a rock, stepping about beside it: where "Press E to mine" sits from the rock (should stay put).
+					for i in 5:
+						await get_tree().process_frame
+					var rock: Gatherable = null
+					var best := INF
+					for g in Gatherable.all:
+						if is_instance_valid(g) and not g.axe and not g.depleted() and g.foot.distance_to(miko.position) < best:
+							best = g.foot.distance_to(miko.position)
+							rock = g
+					var mn: Node = miko.get_node("Miner")
+					var lbl: Label = mn.prompt
+					for step in [Vector2(-0.5, 0.4), Vector2(0.4, 0.5), Vector2(0.0, 0.7)]:
+						miko.place(rock.foot + step * world.px)
+						for i in 10:
+							await get_tree().process_frame
+						var rock_screen := get_viewport().get_canvas_transform() * rock.foot
+						print("Mine prompt: '", lbl.text, "' at ", (lbl.position - rock_screen).round(), " from the rock")
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:
