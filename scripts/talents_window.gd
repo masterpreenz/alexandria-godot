@@ -262,7 +262,7 @@ static func kind_name(k: String) -> String:
 
 static func region_color(region: String) -> Color:
 	match region:
-		"Flame": return Color(1, 0.5, 0.32)
+		"Spell": return Color(1, 0.5, 0.32)
 		"Shikigami": return Color(0.82, 0.68, 1)
 		"Hearth": return Color(0.62, 0.86, 0.45)
 		"Body": return Color(0.5, 0.74, 1)
