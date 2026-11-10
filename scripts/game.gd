@@ -82,6 +82,18 @@ func _ready() -> void:
 	hotbar.name = "Hotbar"
 	hotbar.theme = UiKit.theme
 	$Hud.add_child(hotbar)
+	# Which build this is, small, at the bottom centre just over the hotbar.
+	var build_line := HudStyle.label(BuildInfo.text(), 11, "bold", Color(HudStyle.color("accentLight"), 0.8))
+	build_line.name = "BuildLine"
+	build_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	build_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	build_line.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	build_line.add_theme_constant_override("outline_size", 4)
+	build_line.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	build_line.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	build_line.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	build_line.offset_bottom = -74   # (just over the hotbar)
+	$Hud.add_child(build_line)
 	hotbar.setup(world, caster, miko.bag, miko.stats)
 	if sv.get("sections", {}).has("player.hotbar"):
 		hotbar.from_json(sv.sections["player.hotbar"])
