@@ -202,6 +202,11 @@ func _ready() -> void:
 		$Hud.add_child(tags)
 		villagers.tags = tags
 	# The crystals (teleporting, the cleansing crystals' clearings) and what of the world she's seen.
+	# The land past the map's edges (forest and undergrowth, for looks).
+	var outskirts := Outskirts.new()
+	outskirts.name = "Outskirts"
+	add_child(outskirts)
+	outskirts.setup(world)
 	# The mountains along the north-east edge, and the cave in them.
 	var mountains := Mountains.new()
 	mountains.name = "Mountains"
@@ -1537,6 +1542,18 @@ func _ready() -> void:
 					for i in 90:
 						await get_tree().process_frame
 					print("Mountains: out again, in the cave ", Mountains.in_cave(miko.position), ", at cell ", world.floors.cell_at(miko.position))
+				"edges":
+					# The map's four edges and where the river leaves it, zoomed out: what shows past them.
+					camera.zoom *= float(Shots.arg("zoom", "0.35"))
+					var spots := {"sw": Vector2(-138, 0), "se": Vector2(0, -138), "nw": Vector2(0, 138), "south": Vector2(-138, -138), "west": Vector2(-138, 138), "east": Vector2(138, -138)}
+					if Shots.arg("at") != "":
+						var xy := Shots.arg("at").split(",")
+						spots = {"at": Vector2(float(xy[0]), float(xy[1]))}
+					for k in spots:
+						miko.place(world.floors.corner(spots[k]))
+						for i in 40:
+							await get_tree().process_frame
+						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_" + k + ".png")
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:

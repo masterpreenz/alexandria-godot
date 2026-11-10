@@ -302,8 +302,10 @@ func redraw() -> void:
 	version += 1
 	_ground.clear()
 	var base: Dictionary = types[base_floor]
-	for x in range(bounds.position.x, bounds.end.x):
-		for y in range(bounds.position.y, bounds.end.y):
+	# (and on past the map's edges, for looks: Outskirts)
+	var drawn := bounds.grow(Outskirts.MARGIN)
+	for x in range(drawn.position.x, drawn.end.x):
+		for y in range(drawn.position.y, drawn.end.y):
 			var c := Vector2i(x, y)
 			_ground.put(c, cell_centre(c), _sprite_for(base.tiles[15], c))
 	# Only round what's painted: a drawn tile has a painted cell at one of its corners; a laid tile is its own cell.

@@ -297,5 +297,11 @@ func _layer(n: String, part: int, normal: float, strong: float) -> Node2D:
 class MistQuad extends Node2D:
 	var rect := Rect2()
 
+	# Drawn a way past the world every side (the outskirts), the mist's own edge carried on out there (the shader's
+	# map isn't repeated: past it, it reads its edge, and the wilds' edges are all strong mist).
 	func _draw() -> void:
-		draw_rect(rect, Color.WHITE)
+		var m := 0.45
+		var r := rect.grow_individual(rect.size.x * m, rect.size.y * m, rect.size.x * m, rect.size.y * m)
+		var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+		var uvs := PackedVector2Array([Vector2(-m, -m), Vector2(1.0 + m, -m), Vector2(1.0 + m, 1.0 + m), Vector2(-m, 1.0 + m)])
+		draw_polygon(pts, PackedColorArray([Color.WHITE]), uvs)

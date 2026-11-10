@@ -62,6 +62,7 @@ func _ready() -> void:
 	add_child(floors)
 	floors.setup(self, _load_json("res://data/floors.json"))
 	layers.append_array(floors.layer_nodes())
+	_run_river_on(world.meshes)
 	for mesh in world.meshes:
 		layers.append([mesh.order, _mesh(mesh)])
 	var placed := 0
@@ -227,6 +228,43 @@ func _sprite_node(s: Dictionary, sorted: bool) -> Node2D:
 
 ## A water mesh (the river, lake, ponds), a bank's earth wall, or the waterfall, each with its Godot shader and the
 ## colours and numbers its Unity material had.
+# The river runs the map's whole length and stopped dead at its edges: its ribbon and its banks (strips of vertex
+# pairs, a row every half cell) are carried on past both ends, as far as the outskirts go.
+func _run_river_on(meshes: Array) -> void:
+	var river: Dictionary = {}
+	for m in meshes:
+		if str(m.name) == "River":
+			river = m
+	if river.is_empty():
+		return
+	var rows := Outskirts.MARGIN * 2 + 8
+	var n: int = (river.v as Array).size() >> 1
+	_stretch_strip(river, 0, 2, rows)
+	_stretch_strip(river, n - 2, n - 4, rows)
+	for m in meshes:
+		# Its banks: the cliffs mesh that starts where the river does, two strips as long as it.
+		if str(m.name) != "Cliffs" or (m.v as Array).size() != n * 4 or not is_equal_approx(float(m.v[0]), float(river.v[0])):
+			continue
+		for from in [0, n]:
+			_stretch_strip(m, from, from + 2, rows)
+			_stretch_strip(m, from + n - 2, from + n - 4, rows)
+
+
+# Carries a strip on from its end pair of vertices ([param end], end + 1) by [param rows] more rows, each the step
+# from the pair before ([param before]) to it: one long piece, its uvs running on too.
+func _stretch_strip(m: Dictionary, end: int, before: int, rows: int) -> void:
+	var first: int = (m.v as Array).size() >> 1
+	for k in 2:
+		for key in ["v", "uv", "uv2"]:
+			if not m.has(key) or (m[key] as Array).size() < (first + k) * 2:
+				continue
+			var a: Array = m[key]
+			for c in 2:
+				var at := float(a[(end + k) * 2 + c])
+				a.append(at + (at - float(a[(before + k) * 2 + c])) * rows)
+	(m.t as Array).append_array([end, first, end + 1, end + 1, first, first + 1])
+
+
 func _mesh(m: Dictionary) -> Node2D:
 	var verts := PackedVector2Array()
 	var v: Array = m.v
