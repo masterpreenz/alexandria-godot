@@ -16,7 +16,6 @@ elif what == "fix":
     d["fixes"] += 1
 else:
     d["minor"], d["fixes"] = d["minor"] + 1, 0
-open(path, "w", encoding="utf-8", newline="
-").write(json.dumps(d, separators=(",", ":")) + "
-")
+with open(path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(json.dumps(d, separators=(",", ":")) + "\n")
 print("%s %d.%d.%d" % (d["stage"], d["major"], d["minor"], d["fixes"]))
