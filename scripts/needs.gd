@@ -453,7 +453,7 @@ static func fit_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool
 
 ## As [method fit_on_bed], and with [param turn] the angle to turn the sleeper's art by so they lie along the bed (the
 ## line from their middle to their head along the mattress's, middle to pillow; never more than [constant MOST_TURN]):
-## [where they go, the angle]. Turned, their middle sits on the mattress's middle exactly.
+## [where they go, the angle]. Turned, their head lies on the pillow exactly.
 const MOST_TURN := 0.45
 
 static func lie_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool, k: float, turn_art := true) -> Array:
@@ -467,7 +467,8 @@ static func lie_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool
 	if (pillow - centre).length() < 1.0 or (head - middle).length() < 1.0:
 		return [at[0], 0.0]
 	var rot := clampf(wrapf((pillow - centre).angle() - (head - middle).angle(), -PI, PI), -MOST_TURN, MOST_TURN)
-	return [centre - middle.rotated(rot), rot]
+	# Their head on the pillow (a little down it, not hanging off the bed's end), the rest of them down the mattress.
+	return [pillow - head.rotated(rot) + (centre - pillow).normalized() * 8.0 * k, rot]
 
 
 # [where they go, the mattress's middle, the pillow, the pose's middle, its head] (the last four when they're known).
