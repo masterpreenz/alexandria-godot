@@ -347,6 +347,7 @@ func _died() -> void:
 	for i in randi_range(1, 2):
 		Pickup.launch_icon(world, "Food", 1, at, 2.2)
 	Pickup.launch_icon(world, "Hide", 1, at, 2.2)
+	drop_seed()
 	# The dust trail stays a moment to fade, apart from the boar.
 	dust.emitting = false
 	var d := dust

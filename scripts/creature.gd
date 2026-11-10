@@ -137,6 +137,18 @@ func taunter() -> Damageable:
 	return taunted_by
 
 
+const SEED_CHANCE := 0.25        ## a felled monster drops a seed this often
+
+## A seed dropped where it fell, now and then: one of the crops' seeds, or a tree's.
+func drop_seed() -> void:
+	if randf() >= SEED_CHANCE:
+		return
+	var seeds := ["Seed"]
+	for c in Farming.CROPS:
+		seeds.append(str(Farming.CROPS[c].seed))
+	Pickup.launch_icon(world, seeds.pick_random(), 1, position, 2.2)
+
+
 func player() -> Miko:
 	return world.player as Miko
 

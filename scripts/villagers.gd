@@ -211,6 +211,11 @@ func _newcomer() -> Dictionary:
 	# (the looks in turn: a woman, a man, the other woman)
 	var turn := [1, 0, 2]
 	var look: int = turn[(turn.find(int(people[-1].look)) + 1) % turn.size()] if not people.is_empty() else 1
+	# (a look nobody here has yet comes first)
+	for l in turn:
+		if l < d.looks.size() and not people.any(func(q): return int(q.look) == l):
+			look = l
+			break
 	look = mini(look, d.looks.size() - 1)
 	var pool: Array = NAMES[mini(look, NAMES.size() - 1)]
 	var nm := ""

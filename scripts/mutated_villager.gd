@@ -225,5 +225,6 @@ func _died() -> void:
 	var crystals := (2 if raid_to != Vector2.INF else 1) if randf() < float(s.get("crystalChance", 0.5)) else 0
 	if crystals > 0:
 		Pickup.launch_icon(world, "Crystal", crystals, position, 2.2)
+	drop_seed()
 	Puffs.burst(world, position + Vector2(0, -0.4 * world.px), 1.0, 10)
 	queue_free()

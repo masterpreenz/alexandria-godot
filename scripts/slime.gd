@@ -273,6 +273,7 @@ func _died() -> void:
 	var jelly := 3 if large else (1 if randf() < float(s.jellyChance) else 0)
 	if jelly > 0:
 		Pickup.launch_icon(world, "Jelly", jelly, position, 2.2)
+	drop_seed()
 	SlimePop.play(world, art, position, 1.0)
 	queue_free()
 
