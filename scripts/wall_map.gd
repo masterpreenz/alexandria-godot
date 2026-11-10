@@ -42,6 +42,7 @@ var rooms_version := 0
 var walls := {}            # Vector3i (edge key) -> type name
 var hp := {}               # Vector3i (edge key) -> health left, for walls that can break (barricades)
 var _hit_at := {}          # key -> when it was last struck (it flashes)
+const DOOR_OUTLINE_NEAR := 3.0  ## units: a door hidden behind a house is outlined only with Miko this near
 var _bars: HealthBars      # the health bars over worn barricades and gates
 var keep_open := {}        # Vector3i -> true: doors of houses set to stay open
 var original := {}
@@ -365,9 +366,12 @@ func _sync(e: Edge) -> void:
 			o.name = "DoorOutline"
 			o.fade_covers = false
 			h.add_child(o)
-			# Hidden when the room in front of it (lower on screen) has its roof showing: a door in a house's back wall.
+			# Hidden when the room in front of it (lower on screen) has its roof showing (a door in a house's back wall),
+			# and unless Miko is near it.
 			var front_cell := _front_cell(e)
-			o.hidden_when = func() -> bool: return world.roofs != null and world.roofs.alpha_over(world.floors.cell_centre(front_cell)) > 0.5
+			var door_at: Vector2 = mid
+			o.hidden_when = func() -> bool: return (world.player == null or world.player.position.distance_to(door_at) > DOOR_OUTLINE_NEAR * world.px) \
+					or (world.roofs != null and world.roofs.alpha_over(world.floors.cell_centre(front_cell)) > 0.5)
 			o.setup(world, art, Color(1.0, 0.86, 0.55, 1))
 	var drawn := {"holders": holders}
 	if float(type.opening) < 1.0:
