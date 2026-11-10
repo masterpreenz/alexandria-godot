@@ -4276,5 +4276,13 @@
 {"name":"mood_idea_2","tex":"res://assets/Art/UI/Bubbles/mood_idea.png","rect":[216,0,108,115],"pivot":[54.0,115],"ppu":380},
 {"name":"mood_idea_3","tex":"res://assets/Art/UI/Bubbles/mood_idea.png","rect":[324,0,108,115],"pivot":[54.0,115],"ppu":380},
 {"name":"mood_idea_4","tex":"res://assets/Art/UI/Bubbles/mood_idea.png","rect":[432,0,108,115],"pivot":[54.0,115],"ppu":380},
-{"name":"mood_idea_5","tex":"res://assets/Art/UI/Bubbles/mood_idea.png","rect":[540,0,108,115],"pivot":[54.0,115],"ppu":380}
+{"name":"mood_idea_5","tex":"res://assets/Art/UI/Bubbles/mood_idea.png","rect":[540,0,108,115],"pivot":[54.0,115],"ppu":380},
+{"name":"Emote_repairing_0","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[0,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_1","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[166,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_2","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[332,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_3","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[498,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_4","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[664,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_5","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[830,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_6","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[996,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"Emote_repairing_7","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[1162,0,166,150],"pivot":[83.0,150],"ppu":380}
 ]

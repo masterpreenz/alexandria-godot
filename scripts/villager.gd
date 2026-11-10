@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
 
@@ -43,6 +43,7 @@ static var cooking_at := {}       ## fire key -> true
 static var lighting := {}         ## fire key -> true
 static var building := {}         ## blueprint piece -> true: being built
 static var unreachable := {}      ## blueprint piece -> until when it's left (walled off)
+static var mending := {}          ## barricade (wall key) -> true: someone's on the way to repair it, or at it
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 const FOODS := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
@@ -128,6 +129,7 @@ var fire: Dictionary = {}         ## the fire or torch they're off to light
 var _next_till := 0.0
 var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
+var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
 var _next_smoke := 0.0
 var _next_knock := 0.0
 var craft_bench: Dictionary = {}
@@ -306,6 +308,7 @@ func _physics_process_timed(delta: float) -> void:
 				elif _go_door_duty(): pass
 				elif _hour(world) >= 17.5 and _go_light(): pass
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
+				elif _work_hours() and _go_repair(): pass
 				elif _work_hours() and (randf() < chance or _crops_need_care()) and _go_farm(): pass
 				elif _work_hours() and randf() < chance and _go_cook(): pass
 				elif _work_hours() and randf() < chance and _go_build(): pass
@@ -383,6 +386,11 @@ func _physics_process_timed(delta: float) -> void:
 			else: _walk(t, delta)
 		State.BUILD:
 			_building(t)
+		State.TO_REPAIR:
+			if not _mend_worn() or t > state_until: _done_repairing(t)
+			else: _walk(t, delta)
+		State.REPAIR:
+			_repairing(t)
 		State.TO_CRAFT:
 			if _night() or craft_bench.is_empty(): _done_crafting(t)
 			else: _walk(t, delta)
@@ -539,6 +547,10 @@ func _walk(t: float, delta: float) -> void:
 			if not stove.is_empty() and position.distance_to(stove.pos) < 1.3 * world.px: _arrive(t)
 			else: _done_cooking(t)
 			return
+		if state == State.TO_REPAIR:
+			if mend != null and position.distance_to(world.walls.wall_middle(mend)) < 1.6 * world.px: _arrive(t)
+			else: _done_repairing(t)
+			return
 		if state == State.TO_BUILD:
 			# Close enough to reach it: build from here. Otherwise leave it a while and do something else.
 			if dir.length() < world.px or (not piece.is_empty() and position.distance_to(Construction.active.position_of(piece)) < 1.1 * world.px): _arrive(t)
@@ -563,6 +575,7 @@ func _arrive(t: float) -> void:
 		State.TO_COOK: _start_cooking(t)
 		State.TO_LIGHT: _light_it(t)
 		State.TO_BUILD: _start_building(t)
+		State.TO_REPAIR: _start_repairing(t)
 		State.TO_CRAFT: _start_crafting(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
@@ -576,7 +589,7 @@ func _arrive(t: float) -> void:
 
 func _going() -> bool:
 	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
-		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT]
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -1042,6 +1055,7 @@ func _status() -> void:
 		State.COOK: e = "cooking"
 		State.TO_FARM, State.FARM: e = {"pests": "pests", "water": "watering"}.get(farm_task, "")
 		State.BUILD: e = "building"
+		State.TO_REPAIR, State.REPAIR: e = "repairing"
 		State.CRAFT:
 			if craft_bench.get("skill", "") == "Cooking": e = "cooking"
 			elif str(craft_bench.get("title", "")).contains("Alchemy"): e = "alchemy"
@@ -1361,6 +1375,7 @@ func _abandon(t: float) -> void:
 			if not piece.is_empty(): unreachable[piece] = t + 30.0
 			_done_building(t)
 		State.TO_CRAFT: _done_crafting(t)
+		State.TO_REPAIR: _done_repairing(t)
 		State.TO_PICKUP:
 			if loose != null:
 				out_of_reach[loose] = t + 60.0
@@ -1376,6 +1391,7 @@ func _let_go() -> void:
 	if not stove.is_empty(): cooking_at.erase(stove.key)
 	if not fire.is_empty(): lighting.erase(fire.key)
 	if not piece.is_empty(): building.erase(piece)
+	if mend != null: mending.erase(mend)
 	if not craft_recipe.is_empty(): crafting_now.erase(_recipe_key(craft_recipe))
 
 
@@ -2231,6 +2247,131 @@ func _done_building(t: float) -> void:
 	_stand(t, randf_range(0.5, 1.5))
 
 
+# ---- Repairs: a barricade worn down by monsters is mended in the day, a piece of wood from storage for each go,
+# hammering as they build. One villager to a barricade; the most worn nearby first. ----
+
+const REPAIR_COST := 1            ## wood a go at a barricade takes from storage
+
+func _go_repair() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.BUILDING:
+		return false
+	var walls := world.walls
+	if walls == null or walls.hp.is_empty() or world.village.stored("Wood") < REPAIR_COST:
+		return false
+	var t := now()
+	var best: Variant = null
+	var best_score := INF
+	for k in walls.hp:
+		if mending.has(k) or not walls.walls.has(k) or float(unreachable.get(k, 0.0)) > t:
+			continue
+		var top := walls.max_hp(walls.walls[k])
+		var left := float(walls.hp[k])
+		if top <= 0.0 or left >= top:
+			continue
+		# Nearest first, the badly worn sooner.
+		var score := position.distance_to(walls.wall_middle(k)) * (0.5 + left / top)
+		if score < best_score:
+			best_score = score
+			best = k
+	if best == null:
+		return false
+	var goal: Variant = _beside_wall(best)
+	if goal == null:
+		unreachable[best] = t + 30.0
+		return false
+	mend = best
+	mending[best] = true
+	state = State.TO_REPAIR
+	clock = 0.0
+	state_until = t + 40.0
+	target = goal
+	route = VillagerRoute.find(world, position, goal)
+	leg = 0
+	return true
+
+
+# Where to stand to repair the barricade at [param k]: beside its middle, on whichever side can be walked to (the
+# nearer if both); null when neither can.
+func _beside_wall(k: Vector3i) -> Variant:
+	var walls := world.walls
+	var mid := walls.wall_middle(k)
+	var e := WallMap.Edge.of(k)
+	var across := Vector2.RIGHT if e.along_y else Vector2.DOWN
+	# (one step across, in the ground's squashed view)
+	var step := (walls.vertex_position(e.vertex + (Vector2i(1, 0) if e.along_y else Vector2i(0, 1))) - walls.vertex_position(e.vertex)) * 0.55
+	if step.length() < 1.0:
+		step = across * 0.5 * world.px
+	var best: Variant = null
+	var best_d := INF
+	for side in [mid + step, mid - step]:
+		if VillagerRoute.find(world, position, side) == null and position.distance_to(side) > 0.6 * world.px:
+			continue
+		var dd := position.distance_to(side)
+		if dd < best_d:
+			best_d = dd
+			best = side
+	return best
+
+
+func _mend_worn() -> bool:
+	var walls := world.walls
+	return mend != null and walls != null and walls.walls.has(mend) and walls.hp.has(mend) 		and float(walls.hp[mend]) < walls.max_hp(walls.walls[mend])
+
+
+func _start_repairing(t: float) -> void:
+	if not _mend_worn() or not world.village.take_from_stash("Wood", REPAIR_COST):
+		_done_repairing(t)
+		return
+	state = State.REPAIR
+	clock = 0.0
+	var to: Vector2 = world.walls.wall_middle(mend) - position
+	facing_up = to.y < -0.02 * world.px
+	facing_right = to.x > 0.0
+	_kit()
+	var skill := 1.0 + 0.08 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.BUILDING)) - 1)
+	state_until = t + 3.0 / skill / _tool_pace()
+
+
+# Hammering at it a while (as they build), then its health back: all of it, or a good share when badly broken.
+func _repairing(t: float) -> void:
+	velocity = Vector2.ZERO
+	if not _mend_worn():
+		_done_repairing(t)
+		return
+	var walls := world.walls
+	var at := walls.wall_middle(mend)
+	if t >= _next_smoke:
+		_next_smoke = t + randf_range(0.45, 0.8)
+		Puffs.burst(world, at + Vector2(randf_range(-0.3, 0.3), -randf_range(0.05, 0.4)) * world.px, 0.45, 6)
+	var sounds: Array = s.get("buildSounds", [])
+	if t >= _next_knock and not sounds.is_empty():
+		var path: Variant = sounds[randi() % sounds.size()]
+		if path is String and ResourceLoader.exists(path):
+			var clip: AudioStream = Sfx.stream(path)
+			Sfx.play(world, clip, at, float(s.toolVolume), 0.08)
+			_next_knock = t + clip.get_length() + randf_range(0.1, 0.4)
+	_show_idle()
+	if t < state_until:
+		return
+	var top := walls.max_hp(walls.walls[mend])
+	var mended := minf(top - float(walls.hp[mend]), top * 0.6)
+	walls.hp[mend] = float(walls.hp[mend]) + mended
+	FloatingText.spawn(world, "+%d" % roundi(mended), at + Vector2(0, -0.9 * world.px), Color(0.55, 0.9, 0.5))
+	people.practise(person, LifeSkills.Skill.BUILDING)
+	_wear_tools()
+	if float(walls.hp[mend]) >= top:
+		show_mood("success", 4.0)
+	_done_repairing(t)
+
+
+func _done_repairing(t: float) -> void:
+	if mend != null:
+		mending.erase(mend)
+	mend = null
+	_stand(t, randf_range(0.5, 1.5))
+
+
 # ---- Crafting: at a workbench in the village, whatever is furthest below what's to be kept in storage, out of
 # what's in storage. One villager on each kind of thing at a time. ----
 
@@ -2385,6 +2526,8 @@ func activity() -> String:
 		State.CHAT, State.CHAT_WAIT: return "Chatting with %s" % partner.person.name if partner != null else "Chatting"
 		State.TO_BUILD: return "Off to build " + kind
 		State.BUILD: return "Building " + kind
+		State.TO_REPAIR: return "Off to repair the barricade"
+		State.REPAIR: return "Repairing the barricade"
 		State.TO_COOK: return "Off to the fire to cook"
 		State.COOK: return "Cooking %s (%d/%d)" % [lower.call(dish), world.village.stored(dish), Kitchen.target(dish)]
 		State.TO_PICKUP: return "Clearing up"
