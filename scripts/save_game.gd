@@ -243,6 +243,8 @@ func capture() -> Dictionary:
 	put.call("village.blueprints", at.call("Construction"), func(n): return n.to_json())
 	s["village.kitchen"] = Kitchen.to_json(farming.rotation if farming != null else ["Potato"])
 	put.call("world.rabbits", at.call("RabbitPens"), func(n): return n.to_json())
+	if Upkeep.active != null:
+		s["world.upkeep"] = Upkeep.active.to_json()
 	put.call("world.forest", at.call("Corruption"), func(n): return n.to_json())
 	s["player.bag"] = miko.bag.to_json()
 	s["player.skills"] = LifeSkills.to_json()

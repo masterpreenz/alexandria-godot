@@ -575,7 +575,7 @@ func _walk(t: float, delta: float) -> void:
 			else: _done_cooking(t)
 			return
 		if state == State.TO_REPAIR:
-			if mend != null and position.distance_to(world.walls.wall_middle(mend)) < 1.6 * world.px: _arrive(t)
+			if mend != null and position.distance_to(_mend_at()) < 1.6 * world.px: _arrive(t)
 			else: _done_repairing(t)
 			return
 		if state == State.TO_BUILD:
@@ -890,9 +890,14 @@ func _needs() -> void:
 	# Asleep in winter with no fire burning in the house: a cold night. They rest half as well, don't mend, and
 	# work slower the day after.
 	var cold_night := sleeping and in_bed and _sleeping_cold()
+	# A leaking roof over them (the house worn past half): they rest a quarter worse; a house fallen to nothing is
+	# no shelter, as bad a night as a cold one.
+	var shelter := Upkeep.active.condition_at(home.pos) if sleeping and in_bed and Upkeep.active != null and not home.is_empty() else 100.0
+	if shelter <= 0.0 and sleeping and in_bed:
+		cold_night = true
 	if sleeping:
 		_cold_hours = _cold_hours + dh if cold_night else maxf(0.0, _cold_hours - dh)
-	p.energy = clampf(float(p.energy) + ((7.0 if cold_night else 14.0) if sleeping else -6.0 / stamina) * dh, 0.0, 100.0)
+	p.energy = clampf(float(p.energy) + ((7.0 if cold_night else (10.5 if shelter < Upkeep.LEAKY else 14.0)) if sleeping else -6.0 / stamina) * dh, 0.0, 100.0)
 	# Long days on their feet build stamina.
 	if not sleeping:
 		_awake_hours += dh
@@ -2442,7 +2447,7 @@ func _go_repair() -> bool:
 	if choice != Job.ANY and choice != Job.BUILDING:
 		return false
 	var walls := world.walls
-	if walls == null or walls.hp.is_empty() or world.village.stored("Wood") < REPAIR_COST:
+	if walls == null or world.village.stored("Wood") < REPAIR_COST:
 		return false
 	var t := now()
 	var best: Variant = null
@@ -2460,7 +2465,7 @@ func _go_repair() -> bool:
 			best_score = score
 			best = k
 	if best == null:
-		return false
+		return _go_mend_house(t)
 	var goal: Variant = _beside_wall(best)
 	if goal == null:
 		unreachable[best] = t + 30.0
@@ -2474,6 +2479,57 @@ func _go_repair() -> bool:
 	route = VillagerRoute.find(world, position, goal)
 	leg = 0
 	return true
+
+
+# A worn house (Upkeep), the worst first, with the wood and stone for a go at it in storage: off to it.
+func _go_mend_house(t: float) -> bool:
+	var up := Upkeep.active
+	if up == null:
+		return false
+	var best := {}
+	for h in up.houses():
+		if float(h.condition) >= Upkeep.WORN or mending.has(h.key) or float(unreachable.get(h.key, 0.0)) > t:
+			continue
+		if best.is_empty() or float(h.condition) < float(best.condition):
+			best = h
+	if best.is_empty():
+		return false
+	var cost := Upkeep.cost(best.cells)
+	if world.village.stored("Wood") < int(cost[0]) or world.village.stored("Stone") < int(cost[1]):
+		VillageLog.problem("no-upkeep", "Not enough wood and stone in storage to repair a house (%d wood, %d stone)" % [cost[0], cost[1]])
+		return false
+	# Somewhere to stand in it that can be walked to: the cells nearest its middle first.
+	var cells: Array = (best.cells as Dictionary).keys()
+	var mid: Vector2 = best.middle
+	cells.sort_custom(func(a, b): return world.floors.cell_centre(a).distance_squared_to(mid) < world.floors.cell_centre(b).distance_squared_to(mid))
+	var goal: Variant = null
+	for i in mini(5, cells.size()):
+		var spot := world.floors.cell_centre(cells[i])
+		if VillagerRoute.find(world, position, spot) != null:
+			goal = spot
+			break
+	if goal == null:
+		unreachable[best.key] = t + 60.0
+		return false
+	mend = best.key
+	mending[mend] = true
+	state = State.TO_REPAIR
+	clock = 0.0
+	state_until = t + 60.0
+	target = goal
+	route = VillagerRoute.find(world, position, goal)
+	leg = 0
+	return true
+
+
+# Whether what they're mending is a house (not a barricade or gate).
+func _mend_house() -> bool:
+	return mend is Vector2i
+
+
+# Where what they're mending is (px): a barricade's middle, or where they stand in a house.
+func _mend_at() -> Vector2:
+	return target if _mend_house() else world.walls.wall_middle(mend)
 
 
 # Where to stand to repair the barricade at [param k]: beside its middle, on whichever side can be walked to (the
@@ -2501,6 +2557,8 @@ func _beside_wall(k: Vector3i) -> Variant:
 
 # What they're repairing ("barricade", "gate").
 func _mend_name() -> String:
+	if _mend_house():
+		return "house"
 	var walls := world.walls
 	if mend == null or walls == null or not walls.walls.has(mend):
 		return "barricade"
@@ -2509,23 +2567,40 @@ func _mend_name() -> String:
 
 
 func _mend_worn() -> bool:
+	if _mend_house():
+		return Upkeep.active != null and float(Upkeep.active.condition.get(mend, 100.0)) < 100.0 - Upkeep.A_REPAIR * 0.5
 	var walls := world.walls
 	return mend != null and walls != null and walls.walls.has(mend) and walls.hp.has(mend) \
 		and float(walls.hp[mend]) < walls.max_hp(walls.walls[mend])
 
 
 func _start_repairing(t: float) -> void:
-	if not _mend_worn() or not world.village.take_from_stash("Wood", REPAIR_COST):
+	if not _mend_worn() or not _pay_mend():
 		_done_repairing(t)
 		return
 	state = State.REPAIR
 	clock = 0.0
-	var to: Vector2 = world.walls.wall_middle(mend) - position
+	var to: Vector2 = _mend_at() - position + (Vector2(0, -0.5 * world.px) if _mend_house() else Vector2.ZERO)
 	facing_up = to.y < -0.02 * world.px
 	facing_right = to.x > 0.0
 	_kit()
 	var skill := 1.0 + 0.08 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.BUILDING)) - 1)
-	state_until = t + 3.0 / skill / _tool_pace()
+	state_until = t + (6.0 if _mend_house() else 3.0) / skill / _tool_pace()
+
+
+# The wood (and for a house, stone) a go at it takes, out of storage; false when there isn't enough.
+func _pay_mend() -> bool:
+	if not _mend_house():
+		return world.village.take_from_stash("Wood", REPAIR_COST)
+	for h in Upkeep.active.houses():
+		if h.key == mend:
+			var cost := Upkeep.cost(h.cells)
+			if world.village.stored("Wood") < int(cost[0]) or world.village.stored("Stone") < int(cost[1]):
+				return false
+			world.village.take_from_stash("Wood", int(cost[0]))
+			world.village.take_from_stash("Stone", int(cost[1]))
+			return true
+	return false
 
 
 # Hammering at it a while (as they build), then its health back: all of it, or a good share when badly broken.
@@ -2535,7 +2610,7 @@ func _repairing(t: float) -> void:
 		_done_repairing(t)
 		return
 	var walls := world.walls
-	var at := walls.wall_middle(mend)
+	var at := _mend_at()
 	if t >= _next_smoke:
 		_next_smoke = t + randf_range(0.45, 0.8)
 		Puffs.burst(world, at + Vector2(randf_range(-0.3, 0.3), -randf_range(0.05, 0.4)) * world.px, 0.45, 6)
@@ -2548,6 +2623,15 @@ func _repairing(t: float) -> void:
 			_next_knock = t + clip.get_length() + randf_range(0.1, 0.4)
 	_show_idle()
 	if t < state_until:
+		return
+	if _mend_house():
+		var now_at := Upkeep.active.repair(mend)
+		FloatingText.spawn(world, "House %d%%" % roundi(now_at), at + Vector2(0, -1.4 * world.px), Color(0.55, 0.9, 0.5))
+		people.practise(person, LifeSkills.Skill.BUILDING)
+		_wear_tools()
+		if now_at >= 99.0:
+			show_mood("success", 4.0)
+		_done_repairing(t)
 		return
 	var top := walls.max_hp(walls.walls[mend])
 	var mended := minf(top - float(walls.hp[mend]), top * 0.6)
