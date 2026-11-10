@@ -103,6 +103,21 @@ func _hours() -> float:
 	return world.clock.hours if world.clock != null else Time.get_ticks_msec() / 1000.0 / 30.0
 
 
+## A farm plot picked up (build mode's Move): what's growing in it comes away with it ({} for none).
+func lift_plot(at: Vector2) -> Dictionary:
+	var k := _key(at)
+	var st: Dictionary = states.get(k, {})
+	states.erase(k)
+	return st
+
+
+## A farm plot set down at [param at]: what was growing in it goes on there.
+func set_plot(at: Vector2, st: Dictionary) -> void:
+	if not st.is_empty():
+		states[_key(at)] = st
+	_looked_at = -1
+
+
 func _key(at: Vector2) -> Vector2i:
 	return Vector2i(roundi(at.x / world.px * 8.0), roundi(-at.y / world.px * 8.0))
 

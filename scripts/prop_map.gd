@@ -337,6 +337,35 @@ func peek_top(cell: Vector2i) -> String:
 	return ""
 
 
+## The prop on [param cell] the next [method remove_one_where] would take: as [method peek_top], counting only those
+## [param want] (a prop name -> bool) says yes to; "" when none.
+func peek_where(cell: Vector2i, want: Callable) -> String:
+	for i in range(free.size() - 1, -1, -1):
+		if floors.cell_at(free[i].pos) == cell and want.call(free[i].prop):
+			return free[i].prop
+	for slot in [Slot.TALL, Slot.GROUND]:
+		var p := get_prop(cell, slot)
+		if p != "" and want.call(p):
+			return p
+	return ""
+
+
+## Removes one thing on [param cell] that [param want] says yes to (as [method remove_one]); false when none.
+func remove_one_where(cell: Vector2i, want: Callable) -> bool:
+	for i in range(free.size() - 1, -1, -1):
+		if floors.cell_at(free[i].pos) == cell and want.call(free[i].prop):
+			free.remove_at(i)
+			_rebuild_free()
+			version += 1
+			return true
+	for slot in [Slot.TALL, Slot.GROUND]:
+		var p := get_prop(cell, slot)
+		if p != "" and want.call(p):
+			remove(cell, slot)
+			return true
+	return false
+
+
 ## Removes one thing standing on [param cell]: the free prop placed there last, else the tallest slot's prop. False
 ## when there was nothing.
 func remove_one(cell: Vector2i) -> bool:

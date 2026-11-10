@@ -27,6 +27,10 @@ var items: Array = []             ## the catalogue, in category order
 var settings: Dictionary
 var open := false
 var tool := "Place"               ## Place or Demolish
+## What Demolish takes: "All" (a plan, then a prop, a wall, the floor), or only "Walls", "Floors", "Decor" (props but
+## farm plots) or "Farm" (farm plots).
+var demolish_only := "All"
+const DEMOLISH_KINDS := ["All", "Walls", "Floors", "Decor", "Farm"]
 var selected: Dictionary = {}
 var blueprint := false
 var brush := 0
@@ -635,17 +639,32 @@ func _place_prop(cell: Vector2i, sc: float) -> void:
 	_drop_in([world.props.node_at(cell, slot)], 0.0, _prop_sound(selected.name))
 
 
+func set_demolish_only(kind: String) -> void:
+	demolish_only = kind
+	changed.emit()
+
+
+# Whether Demolish (as set) takes a prop called [param prop_name].
+func _demolish_prop(prop_name: String) -> bool:
+	var farm_plot: bool = prop_name in ["FarmPlot", "WildPotatoes"]
+	return demolish_only == "All" or (demolish_only == "Farm" and farm_plot) or (demolish_only == "Decor" and not farm_plot)
+
+
 func _clear_one(cell: Vector2i) -> void:
 	var f := world.floors
 	var at := f.cell_centre(cell)
+	var only := demolish_only
 	# A plan there goes first (nothing to refund).
-	if Construction.active != null and Construction.active.remove_at(cell, world.walls.edges_in(cell)):
+	if only in ["All", "Walls", "Floors"] and Construction.active != null and Construction.active.remove_at(cell, world.walls.edges_in(cell)):
 		return
-	var top := world.props.peek_top(cell)
-	if world.props.remove_one(cell):
-		_refund(item_for("Prop", top), at)
+	if only in ["All", "Decor", "Farm"]:
+		var top := world.props.peek_where(cell, _demolish_prop)
+		if world.props.remove_one_where(cell, _demolish_prop):
+			_refund(item_for("Prop", top), at)
+			return
+	if only == "Decor" or only == "Farm":
 		return
-	for e in world.walls.edges_in(cell):
+	for e in ([] if only == "Floors" else world.walls.edges_in(cell)):
 		var before := world.walls.version
 		var type := world.walls.get_wall(e)
 		world.walls.restore(e)
@@ -653,6 +672,8 @@ func _clear_one(cell: Vector2i) -> void:
 			if type != "" and world.walls.get_wall(e) != type:
 				_refund(item_for("Wall", type), at)
 			return
+	if only == "Walls":
+		return
 	var laid := f.get_laid(cell)
 	var ground := f.get_floor(cell)
 	f.restore(cell)
@@ -665,18 +686,19 @@ func _clear_one(cell: Vector2i) -> void:
 func _demolish_hover(cell: Vector2i, shown: bool) -> Dictionary:
 	var it := {}
 	var nm := ""
-	var top := world.props.peek_top(cell)
+	var only := demolish_only
+	var top := world.props.peek_where(cell, _demolish_prop) if only in ["All", "Decor", "Farm"] else ""
 	if top != "":
 		it = item_for("Prop", top)
 		nm = str(world.props.types.get(top, {}).get("display", top))
-	if nm == "":
+	if nm == "" and only in ["All", "Walls"]:
 		for e in world.walls.edges_in(cell):
 			var w := world.walls.get_wall(e)
 			if w != "":
 				it = item_for("Wall", w)
 				nm = str(world.walls.types[w].get("display", w))
 				break
-	if nm == "":
+	if nm == "" and only in ["All", "Floors"]:
 		var laid := world.floors.get_laid(cell)
 		if laid != "":
 			it = item_for("Floor", laid)
@@ -1161,6 +1183,7 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 				else:
 					world.props.place(cell, carried.prop, float(carried.scale), t)
 					_drop_in([world.props.node_at(cell, int(world.props.types[carried.prop].slot))])
+				_set_plot(point if free else world.floors.cell_centre(cell))
 				carried = {}
 				_end_stroke()
 				changed.emit()
@@ -1170,6 +1193,10 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		if click and top != "":
 			_stroke_start = _capture()
 			carried = world.props.take_top(cell)
+			# A farm plot: its crop comes along.
+			var fm := _farming()
+			if fm != null and not carried.is_empty() and fm.d.get("plots", {}).has(carried.prop):
+				carried.farm = fm.lift_plot(carried.pos)
 			changed.emit()
 		return
 	# Copy: what's here, top first.
@@ -1192,6 +1219,17 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		select(found)
 
 
+func _farming() -> Farming:
+	return miko.get_node_or_null("Farming") as Farming if miko != null else null
+
+
+# A farm plot carried by Move set down at [param at]: its crop with it.
+func _set_plot(at: Vector2) -> void:
+	var fm := _farming()
+	if fm != null and carried.has("farm"):
+		fm.set_plot(at, carried.farm)
+
+
 ## Puts what Move is carrying back where it came from.
 func put_back_carried() -> void:
 	if carried.is_empty():
@@ -1202,6 +1240,7 @@ func put_back_carried() -> void:
 		world.props.place_free(carried.pos, carried.prop, float(carried.scale), t)
 	else:
 		world.props.place(world.floors.cell_at(carried.pos), carried.prop, float(carried.scale), t)
+	_set_plot(carried.pos)
 	carried = {}
 	_stroke_start = null
 	changed.emit()

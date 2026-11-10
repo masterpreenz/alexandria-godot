@@ -27,6 +27,7 @@ var _search: LineEdit
 var _footer_text: Label
 var _have: Label
 var _brushes: HBoxContainer
+var _demolish_kinds: HBoxContainer   ## while demolishing: what it takes (All, Walls, Floors, Decor, Farm plots)
 var _turn: Label
 var _card: PanelContainer
 var _card_box: VBoxContainer
@@ -160,6 +161,17 @@ func _build_bar() -> void:
 		b.pressed.connect(build.set_brush.bind(i))
 		_brushes.add_child(b)
 	foot.add_child(_brushes)
+	_demolish_kinds = HBoxContainer.new()
+	_demolish_kinds.add_theme_constant_override("separation", int(_k(4)))
+	for kind in BuildMode.DEMOLISH_KINDS:
+		var b := HudStyle.button("Farm plots" if kind == "Farm" else kind, 11, "slot")
+		b.custom_minimum_size = Vector2(_k(48), _k(24))
+		b.tooltip_text = {"All": "Everything, one layer a click: a plan, then a prop, a wall, the floor", "Walls": "Only walls, fences and doors",
+			"Floors": "Only floors and paths", "Decor": "Only props: furniture, decorations, trees, lights (not farm plots)",
+			"Farm": "Only farm plots (and their crops)"}[kind]
+		b.pressed.connect(build.set_demolish_only.bind(kind))
+		_demolish_kinds.add_child(b)
+	foot.add_child(_demolish_kinds)
 	_have = HudStyle.label("", 11, "pixel", HudStyle.color("text"))
 	foot.add_child(_have)
 	col.add_child(foot)
@@ -272,13 +284,17 @@ func _refresh() -> void:
 	# The footer.
 	var sel := build.selected
 	if build.tool == "Demolish":
-		_footer_text.text = "Demolish: click to remove one thing (a plan, then furniture, a wall, the floor) · refunds half"
+		_footer_text.text = {"All": "Demolish: one thing a click (a plan, then furniture, a wall, the floor)", "Walls": "Demolish walls only",
+			"Floors": "Demolish floors only", "Decor": "Demolish decor only (not farm plots)", "Farm": "Demolish farm plots only"}[build.demolish_only] + " · refunds half"
 	elif sel.is_empty():
 		_footer_text.text = "Pick something to build"
 	else:
 		_footer_text.text = "%s  ·  %s" % [sel.display, sel.description]
 	var painting: bool = (build.tool == "Place" and not sel.is_empty() and (sel.kind == "Ground" or sel.kind == "Floor" or build._sizable(sel))) or build.tool == "Demolish"
 	_brushes.visible = painting
+	_demolish_kinds.visible = build.tool == "Demolish"
+	for i in _demolish_kinds.get_child_count():
+		_demolish_kinds.get_child(i).add_theme_stylebox_override("normal", HudStyle.piece("slotOn" if BuildMode.DEMOLISH_KINDS[i] == build.demolish_only else "slot"))
 	for i in _brushes.get_child_count():
 		_brushes.get_child(i).modulate = Color(1.3, 1.15, 0.8) if i == build.brush else Color(1, 1, 1, 0.6)
 	var turnable: bool = not sel.is_empty() and sel.kind == "Floor" and world.floors.can_turn(sel.name)
@@ -346,6 +362,12 @@ func _tooltip() -> void:
 		for c in h.refund:
 			parts.append("+%d %s" % [c[1], UiKit.resource_name(c[0]).to_lower()])
 		t += "\n[color=#%s]%s[/color]" % [hex.call(HudStyle.color("muted")), ("Refunds " + ", ".join(parts)) if not parts.is_empty() else "Nothing back"]
+	elif bool(h.get("move", false)):
+		# Move and Copy: what it is, and why not (when it can't go there).
+		t = str(h.title)
+		if str(h.get("note", "")) != "":
+			t += "
+[color=#%s]%s[/color]" % [hex.call(HudStyle.color("coral")), h.note]
 	else:
 		var st: String = h.status
 		var sc: Color = HudStyle.color("green") if st == "Ready" else (HudStyle.color("coral") if st == "Short" else HudStyle.color("muted"))
