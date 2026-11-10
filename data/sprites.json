@@ -4220,5 +4220,7 @@
 {"name":"carrot_crop_1","tex":"res://assets/Art/Environment/Farm/Carrot/carrot_crop_1.png","rect":[0,0,786,553],"pivot":[393.0,373.2],"ppu":946.367},
 {"name":"carrot_crop_2","tex":"res://assets/Art/Environment/Farm/Carrot/carrot_crop_2.png","rect":[0,0,871,589],"pivot":[435.5,409.2],"ppu":946.367},
 {"name":"wheat_crop_1","tex":"res://assets/Art/Environment/Farm/Wheat/wheat_crop_1.png","rect":[0,0,451,427],"pivot":[220.3,382.0],"ppu":638.496},
-{"name":"wheat_crop_2","tex":"res://assets/Art/Environment/Farm/Wheat/wheat_crop_2.png","rect":[0,0,555,595],"pivot":[282.6,536.8],"ppu":638.496}
+{"name":"wheat_crop_2","tex":"res://assets/Art/Environment/Farm/Wheat/wheat_crop_2.png","rect":[0,0,555,595],"pivot":[282.6,536.8],"ppu":638.496},
+{"name":"BarricadeX","tex":"res://assets/Art/Environment/Barricade/BarricadeX.png","rect":[0,0,985,810],"pivot":[491.0,636.3],"ppu":1308.347},
+{"name":"BarricadeY","tex":"res://assets/Art/Environment/Barricade/BarricadeY.png","rect":[0,0,953,880],"pivot":[476.2,699.1],"ppu":1220.596}
 ]
