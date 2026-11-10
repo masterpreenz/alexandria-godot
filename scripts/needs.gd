@@ -254,7 +254,9 @@ func _bubble(t: float, st: String) -> void:
 		_bubble_label.say(Loc.pick(key), Villager.bark_kind(key))
 	_bubble_label.visible = t < _bubble_until
 	if _bubble_label.visible:
-		_bubble_label.place(Vector2(0, -1.75 * world.px))
+		# Just over the top of her picture (as drawn now, so a jump or a pose carries it).
+		var top := World.sprite_rect(miko.art).position.y - miko.global_position.y
+		_bubble_label.place(Vector2(0, top + 0.02 * world.px))
 
 
 # What going without does: half the HP regen while hungry; none, and slower, while starving; slower, with half the
