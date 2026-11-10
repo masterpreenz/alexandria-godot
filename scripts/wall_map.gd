@@ -40,6 +40,8 @@ var version := 0
 var rooms_version := 0
 
 var walls := {}            # Vector3i (edge key) -> type name
+var hp := {}               # Vector3i (edge key) -> health left, for walls that can break (barricades)
+var _hit_at := {}          # key -> when it was last struck (it flashes)
 var keep_open := {}        # Vector3i -> true: doors of houses set to stay open
 var original := {}
 var _drawn := {}           # Vector3i -> {holders: [Node2D], body: StaticBody2D}
@@ -156,7 +158,77 @@ func place(e: Edge, type: String) -> void:
 	for i in int(types[type].length):
 		remove(Edge.new(e.vertex + _dir(e.along_y) * i, e.along_y))
 	walls[e.key()] = type
+	if max_hp(type) > 0.0:
+		hp[e.key()] = max_hp(type)
 	_changed(e)
+
+
+# ---- Barricades: walls with health (walls.json's hp), worn down by monsters and broken when it runs out ----
+
+## The health a wall of [param type] starts with, or 0 for one that can't be broken.
+func max_hp(type: String) -> float:
+	return float(types.get(type, {}).get("hp", 0.0))
+
+
+## Hits the wall starting at [param k] (a key) for [param amount]; when its health runs out it breaks and is gone.
+func damage(k: Vector3i, amount: float) -> void:
+	if not walls.has(k) or not hp.has(k):
+		return
+	var e := Edge.of(k)
+	var mid := wall_middle(k)
+	hp[k] = float(hp[k]) - amount
+	FloatingText.spawn(world, str(roundi(amount)), mid + Vector2(0, -0.9 * world.px), Color(1.0, 0.75, 0.45))
+	_hit_at[k] = Time.get_ticks_msec() / 1000.0
+	for n in nodes_of(e):
+		if is_instance_valid(n) and n.get_child_count() > 0:
+			(n.get_child(0) as CanvasItem).self_modulate = Color(1.0, 0.7, 0.6)
+	if float(hp[k]) <= 0.0:
+		Puffs.burst(world, mid, 1.4, 14)
+		VillageLog.event("barricade", "A %s was broken down" % str(types[walls[k]].get("display", walls[k])).to_lower())
+		remove(e)
+
+
+## The middle of the whole wall starting at [param k] (a key), however many cells long.
+func wall_middle(k: Vector3i) -> Vector2:
+	var e := Edge.of(k)
+	return (vertex_position(e.vertex) + vertex_position(span_end(e, walls.get(k, "")))) / 2.0
+
+
+## The barricade (a wall with health) in the way from [param from] to [param to], or within [param near] px of
+## [param from] facing that way: [key, the nearest point on it], or [].
+func barricade_in_way(from: Vector2, to: Vector2, near: float) -> Array:
+	var best := []
+	var best_d := INF
+	for k in hp:
+		if not walls.has(k):
+			continue
+		var e := Edge.of(k)
+		var a := vertex_position(e.vertex)
+		var b := vertex_position(span_end(e, walls[k]))
+		var hit: Variant = Geometry2D.segment_intersects_segment(from, to, a, b)
+		var p: Vector2 = hit if hit != null else Geometry2D.get_closest_point_to_segment(from, a, b)
+		var d := from.distance_to(p)
+		if hit == null and (d > near or (to - from).dot(p - from) < 0.0):
+			continue
+		if d < best_d:
+			best_d = d
+			best = [k, p]
+	return best
+
+
+# The walls struck lately flash back to their colour.
+func _process(_delta: float) -> void:
+	if _hit_at.is_empty():
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	for k in _hit_at.keys():
+		if now - float(_hit_at[k]) < 0.15:
+			continue
+		_hit_at.erase(k)
+		if walls.has(k):
+			for n in nodes_of(Edge.of(k)):
+				if is_instance_valid(n) and n.get_child_count() > 0:
+					(n.get_child(0) as CanvasItem).self_modulate = Color.WHITE
 
 
 ## Removes the wall covering [param e].
@@ -167,6 +239,7 @@ func remove(e: Edge) -> void:
 	var start: Edge = c[1]
 	var end := span_end(start, c[0])
 	walls.erase(start.key())
+	hp.erase(start.key())
 	_changed(start, end)
 
 
@@ -197,15 +270,27 @@ func to_json() -> String:
 	for k in keep_open:
 		if walls.has(k):
 			open.append({"x": k.x, "y": k.y, "alongY": k.z == 1})
-	return JSON.stringify({"walls": out, "world": FloorMap.WORLD_VERSION, "keepOpen": open})
+	var worn := []
+	for k in hp:
+		if walls.has(k) and float(hp[k]) < max_hp(walls[k]):
+			worn.append({"x": k.x, "y": k.y, "alongY": k.z == 1, "hp": hp[k]})
+	return JSON.stringify({"walls": out, "world": FloorMap.WORLD_VERSION, "keepOpen": open, "worn": worn})
 
 
 func from_json(json: String) -> void:
 	var data: Dictionary = JSON.parse_string(json)
 	walls.clear()
+	hp.clear()
 	for w in data.get("walls", []):
 		if types.has(w.type):
-			walls[Vector3i(int(w.x), int(w.y), 1 if w.alongY else 0)] = w.type
+			var k := Vector3i(int(w.x), int(w.y), 1 if w.alongY else 0)
+			walls[k] = w.type
+			if max_hp(w.type) > 0.0:
+				hp[k] = max_hp(w.type)
+	for w in data.get("worn", []):
+		var k := Vector3i(int(w.x), int(w.y), 1 if w.alongY else 0)
+		if hp.has(k):
+			hp[k] = float(w.hp)
 	keep_open.clear()
 	for k in data.get("keepOpen", []):
 		keep_open[Vector3i(int(k.x), int(k.y), 1 if k.alongY else 0)] = true

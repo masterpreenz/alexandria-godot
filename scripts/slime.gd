@@ -90,12 +90,16 @@ func _physics_process_timed(delta: float) -> void:
 		chasing = seen
 		if not seen:
 			_pick_wander()
+	# A barricade in the way: that first.
+	var bar := barricade_ahead(prey.position) if chasing else []
 	if chasing:
-		target = prey.position
+		target = prey.position if bar.is_empty() else bar[1]
 	elif at.distance_to(home) > float(s.leash) * world.px:
 		target = home
 	_animate(t, delta)
-	if prey_body != null:
+	if not bar.is_empty():
+		_bite_barricade(t, bar)
+	elif prey_body != null:
 		_bite_villager(t, prey_body, prey.position - at)
 	elif p != null:
 		_bite(t, p.position - at)
@@ -179,6 +183,14 @@ func _bite(t: float, to_player: Vector2) -> void:
 	hopping = false
 	bouncing = true
 	clock = clampf(clock, 1.0, 4.99)
+
+
+# Butting at a barricade in its way, now and then.
+func _bite_barricade(t: float, bar: Array) -> void:
+	if t - last_hit < float(s.hitEvery) or position.distance_to(bar[1]) > (0.3 * _scale() + 0.45) * world.px:
+		return
+	last_hit = t
+	world.walls.damage(bar[0], float(s.damage) * (2.5 if large else 1.0) * power)
 
 
 # Touching a villager hurts them, now and then.

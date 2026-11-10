@@ -24,6 +24,7 @@ var _next_attack := 0.0
 var _attack_clock := 0.0
 var _hit_done := false
 var _slashed := false
+var _bar_key: Variant = null      ## the barricade it's swinging at (null: at her)
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedVillager:
@@ -66,8 +67,11 @@ func _physics_process_timed(delta: float) -> void:
 			if t >= state_until:
 				_pick_walk()
 		State.CHASE:
-			var to := p.position - position
-			var reach := float(s.attackReach) * world.px
+			# A barricade in the way: that first.
+			var bar := barricade_ahead(p.position)
+			_bar_key = null if bar.is_empty() else bar[0]
+			var to: Vector2 = (p.position if bar.is_empty() else bar[1]) - position
+			var reach := float(s.attackReach) * world.px * (1.0 if bar.is_empty() else 1.3)
 			face(to, 0.1)
 			if to.length() > reach:
 				velocity = to.normalized() * float(s.chaseSpeed) * world.px
@@ -84,13 +88,17 @@ func _physics_process_timed(delta: float) -> void:
 			_attack_clock += delta
 			var f := int(_attack_clock * float(s.attackFps))
 			var to_her := p.position - position if p != null else Vector2.ZERO
+			if _bar_key != null and world.walls.walls.has(_bar_key):
+				to_her = world.walls.wall_middle(_bar_key) - position
 			if f >= int(s.hitFrame) - 1 and not _slashed:
 				_slashed = true
 				Slash.play(world, position, to_her if to_her != Vector2.ZERO else (Vector2.RIGHT if flip else Vector2.LEFT), Color(0.85, 0.4, 1.0, 0.85), 0.9)
 			if f >= int(s.hitFrame) and not _hit_done:
 				_hit_done = true
 				# The slam lands where she was: she's hit only if she's still in reach.
-				if p != null and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
+				if _bar_key != null:
+					world.walls.damage(_bar_key, float(s.attackDamage) * 2.0)
+				elif p != null and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
 					hurt_player(float(s.attackDamage), to_her.normalized() * float(s.knockback) * world.px, 0.2)
 			if f >= (s.attackFront as Array).size():
 				state = State.CHASE if hunting else State.STAND

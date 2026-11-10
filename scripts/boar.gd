@@ -243,6 +243,12 @@ func _charge(t: float, to_player: Vector2, delta: float) -> void:
 	_show(1 + floori(clock) % 12)
 	var v := charge_dir * float(s.chargeSpeed) * world.px
 	var blocked := world.village.contains(position + v * 0.15, 0.2)
+	# Into a barricade: a heavy blow to it, and the charge ends there.
+	var bar := world.walls.barricade_in_way(position, position + charge_dir * 0.7 * world.px, 0.5 * world.px) if world.walls != null and not world.walls.hp.is_empty() else []
+	if not bar.is_empty() and not hit_this_charge:
+		hit_this_charge = true
+		world.walls.damage(bar[0], float(s.damage) * 3.0)
+		blocked = true
 	velocity = Vector2.ZERO if blocked else v
 	# Connects: hurts her and throws her back along the charge, up off her feet in an arc.
 	var p := player()

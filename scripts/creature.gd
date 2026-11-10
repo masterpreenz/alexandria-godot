@@ -107,6 +107,14 @@ func face(dir: Vector2, back_above := 0.1) -> void:
 	flip = dir.x > 0.0
 
 
+## Going for [param goal]: the barricade standing across the straight way there, [wall key, where the way crosses it],
+## or []. A hunting monster breaks that down first.
+func barricade_ahead(goal: Vector2) -> Array:
+	if world.walls == null or world.walls.hp.is_empty():
+		return []
+	return world.walls.barricade_in_way(position, goal, 0.0)   # (across the way only: a gap broken in, it goes through)
+
+
 func player() -> Miko:
 	return world.player as Miko
 
