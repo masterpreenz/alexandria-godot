@@ -51,17 +51,24 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 	row.name = "Row"
 	row.add_theme_constant_override("separation", int(_k(6)))
 	add_child(row)
-	# The rows' + and −.
+	# The rows' + and −: a small panel of their own, as tall as one row of slots, its buttons slots too.
+	var side_panel := PanelContainer.new()
+	side_panel.add_theme_stylebox_override("panel", HudStyle.piece("panel"))
+	side_panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	_side = VBoxContainer.new()
-	_side.alignment = BoxContainer.ALIGNMENT_END
-	for t in ["+", "−"]:
-		var btn := HudStyle.button(t, 13, "pill")
-		btn.custom_minimum_size = Vector2(_k(30), _k(26))
-		btn.pressed.connect(_rows_by.bind(1 if t == "+" else -1))
+	_side.add_theme_constant_override("separation", int(_k(GAP)))
+	for plus in [true, false]:
+		var btn := StepButton.new()
+		btn.plus = plus
+		btn.tooltip_text = "More rows" if plus else "Fewer rows"
+		btn.custom_minimum_size = Vector2(_k(CELL * 0.6), _k((CELL - GAP) / 2.0))
+		btn.pressed.connect(_rows_by.bind(1 if plus else -1))
 		_side.add_child(btn)
-	row.add_child(_side)
+	side_panel.add_child(_side)
+	row.add_child(side_panel)
 	_bar = PanelContainer.new()
 	_bar.add_theme_stylebox_override("panel", HudStyle.piece("panel"))
+	_bar.size_flags_vertical = Control.SIZE_SHRINK_END
 	_grid = GridContainer.new()
 	_grid.columns = COLUMNS
 	_grid.add_theme_constant_override("h_separation", int(_k(GAP)))
@@ -450,7 +457,29 @@ class HotCell extends Control:
 		_text(Vector2(4, 13 * k), Hotbar.key_name(index), roundi(10 * k), HudStyle.color("muted"))
 
 
-## One of the Build, Bag and Character buttons: a slot with its icon, and its key bottom right.
+## A + or − for the hotbar's rows: a slot with a bright plus or minus drawn on it.
+class StepButton extends Button:
+	var plus := true
+
+	func _init() -> void:
+		focus_mode = Control.FOCUS_NONE
+		flat = true
+		mouse_entered.connect(queue_redraw)
+		mouse_exited.connect(queue_redraw)
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_style_box(HudStyle.piece("slotOn" if is_hovered() else "slot"), r)
+		var c := size / 2.0
+		var arm := minf(size.x, size.y) * 0.22
+		var w := maxf(2.0, minf(size.x, size.y) * 0.1)
+		var col := HudStyle.color("accentLight") if is_hovered() else HudStyle.color("text")
+		draw_line(c - Vector2(arm, 0), c + Vector2(arm, 0), col, w)
+		if plus:
+			draw_line(c - Vector2(0, arm), c + Vector2(0, arm), col, w)
+
+
+## One of the Build, Bag and Character buttons: a slot with its icon, and its key top left (as the hotbar's slots).
 class QuickButton extends Button:
 	var icon_name := ""
 	var key := ""
@@ -474,9 +503,10 @@ class QuickButton extends Button:
 		draw_style_box(HudStyle.piece("slotOn" if is_hovered() else "slot"), r)
 		var tex := HudStyle.icon(icon_name)
 		if tex != null:
-			var s := 28.0 * k
-			draw_texture_rect(tex, Rect2((size - Vector2(s, s)) / 2.0, Vector2(s, s)), false, Color(1, 1, 1, 0.85) if button_pressed else Color.WHITE)
-		var f := HudStyle.font("bold")
+			# The same inset as the hotbar's icons.
+			draw_texture_rect(tex, r.grow(-8 * k), false, Color(1, 1, 1, 0.85) if button_pressed else Color.WHITE)
+		# Its key, top left, as the hotbar's.
+		var f := HudStyle.font("pixel")
 		var px := roundi(10 * k)
-		draw_string_outline(f, Vector2(0, size.y - 4 * k), key, HORIZONTAL_ALIGNMENT_RIGHT, size.x - 5 * k, px, 4, Color(0, 0, 0, 0.8))
-		draw_string(f, Vector2(0, size.y - 4 * k), key, HORIZONTAL_ALIGNMENT_RIGHT, size.x - 5 * k, px, HudStyle.color("muted"))
+		draw_string_outline(f, Vector2(4, 13 * k), key, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 4, Color(0, 0, 0, 0.8))
+		draw_string(f, Vector2(4, 13 * k), key, HORIZONTAL_ALIGNMENT_LEFT, -1, px, HudStyle.color("muted"))
