@@ -928,6 +928,27 @@ func _ready() -> void:
 					for pl in row:
 						fm.sow(pl, fm._field_crop(pl, any_seed)[1])
 					print("Fields: replanted together ", row.map(func(pl): return fm.crop(pl)))
+				"fieldpanel":
+					# A field of four carrots part grown (one dry, one with pests), and its panel opened (R).
+					var fm: Farming = miko.get_node("Farming")
+					fm.rotation = ["Potato", "Carrot", "Wheat", "Cotton"]
+					var c0 := world.floors.cell_at(miko.position) + Vector2i(1, 1)
+					for k in 4:
+						world.props.place(c0 + Vector2i(k % 2, floori(k / 2.0)), "FarmPlot")
+					for i in 3:
+						await get_tree().process_frame
+					fm._look()
+					var field := fm.field_of(fm.nearest(world.floors.cell_centre(c0), world.px))
+					for pl in field:
+						fm.sow(pl, "Carrot")
+						fm._state(pl).grown = 22.0
+					fm._state(field[1]).wateredAt = -1000.0
+					fm._state(field[2]).pest = true
+					miko.place(field[0].pos + Vector2(0, 0.4) * world.px)
+					await get_tree().process_frame
+					fm.panel.open(field[0])
+					for i in 10:
+						await get_tree().process_frame
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

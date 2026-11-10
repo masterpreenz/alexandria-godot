@@ -38,6 +38,7 @@ var rotation: Array = ["Potato"]
 var _next := 0
 var _saved: Array = []
 var _looked_at := -1
+var panel: FieldPanel           ## the field's control panel (R)
 var _tended_at := -INF           # the game hour the crops were last grown to
 var _resources: Array = []        ## Unity's Resource enum, in order (the save keeps crops as its index + 1)
 var prompt: Label
@@ -48,6 +49,10 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	world = w
 	miko = who
 	d = data
+	panel = FieldPanel.new()
+	panel.name = "FieldPanel"
+	hud.add_child(panel)
+	panel.setup(self)
 	_resources = UiKit.data.resources.keys()
 	prompt = Label.new()
 	prompt.add_theme_font_size_override("font_size", 20)
@@ -350,9 +355,14 @@ func _process_timed(_delta: float) -> void:
 	WorldPrompts.at(prompt, p.pos + Vector2(0, -0.7 * world.px))   # the arrow to the plot, not to her
 	_give_starter()
 	if keys.has("r"):
-		_set_field(p)
-	var st := _state(p)
-	var set_to: String = "field: " + CROPS[st.setTo].plural if st.setTo != "" else "field: village rotation"
+		if panel.visible:
+			panel.close()
+		else:
+			panel.open(p)
+	if panel.visible:
+		_say("")   # the panel says it all
+		return
+	var set_to := "field"   # (R opens the field's panel)
 	match stage(p):
 		0:
 			if not plantable(p):
