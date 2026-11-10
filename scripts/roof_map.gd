@@ -21,6 +21,8 @@ var _kept_smoke := {}      # Vector2i (chimney cell) -> smoke node, kept across 
 var snowed := false        ## settled snow: every roof shows the snowy look (but round the chimney)
 var _wall_version := -1
 var _floor_version := -1
+var _hearths := ""          # where the fireplaces stand (the chimneys stand over them): a change rebuilds
+var _next_hearths := 0.0
 
 
 func setup(w: World, f: FloorMap, wm: WallMap, d: Dictionary) -> void:
@@ -41,6 +43,7 @@ func _process(delta: float) -> void:
 func _process_timed(delta: float) -> void:
 	if walls.rooms_version != _wall_version or floors.laid_version != _floor_version:
 		rebuild()
+	_chimneys()
 	var inside := Vector2i(1 << 30, 0)
 	if world.player != null:
 		inside = floors.cell_at(world.player.position)
@@ -121,6 +124,35 @@ func from_json(json: String) -> void:
 
 
 # ---- Building ----
+
+# A house's chimney stands over its fireplace, and smokes only while a fire burns in the house: looked at twice a
+# second (a fireplace put in, moved or taken out rebuilds the roofs).
+func _chimneys() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _next_hearths or world.props == null:
+		return
+	_next_hearths = now + 0.5
+	var key := str(_hearth_cells())
+	if key != _hearths:
+		_hearths = key
+		rebuild()
+	var fires: Fires = world.player.get_node_or_null("Fires") if world.player != null else null
+	for roof in roofs:
+		if roof.smoke != null and is_instance_valid(roof.smoke):
+			var p := roof.smoke.get_child(0) as CPUParticles2D
+			var burning := fires != null and fires.warm_room(roof.cells)
+			if p != null and p.emitting != burning:
+				p.emitting = burning
+
+
+# The cells the fireplaces stand on.
+func _hearth_cells() -> Array:
+	var out := []
+	for at in world.props_named("Fireplace"):
+		out.append(floors.cell_at(at))
+	out.sort()
+	return out
+
 
 func rebuild() -> void:
 	var __t := Time.get_ticks_usec()
@@ -255,6 +287,11 @@ func _build(cells: Dictionary) -> Dictionary:
 		hi = hi.max(p)
 	var root := (lo + hi) / 2.0 + Vector2(0, -height)
 	var chimney := _chimney_spot(cells)
+	# Over the fireplace, when the house has one.
+	for c in _hearth_cells():
+		if cells.has(c):
+			chimney = c
+			break
 	for c in cells:
 		var left: bool = not cells.has(c + Vector2i(-1, 0))
 		var front: bool = not cells.has(c + Vector2i(0, -1))
@@ -306,6 +343,7 @@ func _add_chimney(roof: Dictionary, cells: Dictionary, spot: Vector2i, root: Vec
 		_kept_smoke.erase(spot)
 	else:
 		smoke = Smoke.make()
+		(smoke.get_child(0) as CPUParticles2D).emitting = false   # (till a fire's seen burning under it)
 	smoke.position = Vector2(top.x, sort + 1.28)
 	smoke.set_meta("top", top)
 	smoke.get_child(0).position = Vector2(0, top.y - smoke.position.y)

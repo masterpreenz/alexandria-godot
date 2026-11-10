@@ -409,10 +409,40 @@ func _wall_outside(e: WallMap.Edge, type: String, say: bool) -> bool:
 	return _outside(a, say, margin) or _outside(b, say and not _outside(a, false, margin), margin)
 
 
+## A fireplace stands with its back against a wall and faces out from it: the way it's turned on [param cell] (0 its
+## back to the wall up and to the right, opening down-left; 1 its back up and to the left, opening down-right), or
+## -1 where there's no wall behind. In a back corner, with both, R picks.
+func hearth_turn(cell: Vector2i) -> int:
+	var right := _solid_wall(WallMap.Edge.new(cell + Vector2i(1, 0), true))
+	var left := _solid_wall(WallMap.Edge.new(cell + Vector2i(0, 1), false))
+	if right and left:
+		return posmod(prop_turn, 2)
+	return 0 if right else (1 if left else -1)
+
+
+# A whole wall on [param e]: not a fence or barricade, a doorway or a door.
+func _solid_wall(e: WallMap.Edge) -> bool:
+	var t := world.walls.get_wall(e)
+	if t == "":
+		return false
+	var type: Dictionary = world.walls.types[t]
+	return not bool(type.fence) and float(type.opening) <= 0.0 and str(type.toggle) == ""
+
+
+# The turn [param prop_name] is placed with on [param cell]: the one picked (R), or for a fireplace, its wall's.
+func _turn_on(prop_name: String, cell: Vector2i) -> int:
+	if prop_name == "Fireplace":
+		return maxi(0, hearth_turn(cell))
+	var turns := int(world.props._turns(world.props.types[prop_name])) if world.props.types.has(prop_name) else 1
+	return prop_turn % maxi(1, turns)
+
+
 ## Why [param it] (a prop) can't stand at [param at], or "".
 func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 	if it.is_empty():
 		return ""
+	if str(it.name) == "Fireplace" and hearth_turn(world.floors.cell_at(at)) < 0:
+		return "A fireplace goes against a back wall"
 	if _use_cells().has(world.floors.cell_at(at)):
 		return "Keep clear: the way in to a bed or chest"
 	if bool(it.get("indoorsOnly", false)) and (world.roofs == null or not world.roofs.covers(at)):
@@ -538,7 +568,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		if placing_prop:
 			var at := point if placing_free else f.cell_centre(cell)
 			var turns := int(world.props._turns(world.props.types[selected.name])) if world.props.types.has(selected.name) else 1
-			_prop_ghost = {"sprite": world.props.sprite_for(selected.name, prop_turn % maxi(1, turns)), "at": at, "scale": prop_scale,
+			_prop_ghost = {"sprite": world.props.sprite_for(selected.name, _turn_on(selected.name, cell) if turns > 1 else 0), "at": at, "scale": prop_scale,
 				"colour": _ghost_tint}
 			if float(selected.get("ring", 0.0)) > 0.0:
 				_ring = float(selected.ring)
@@ -670,7 +700,7 @@ func _place_prop(cell: Vector2i, sc: float) -> void:
 	if not _pay(selected, at):
 		return
 	var turns := int(world.props._turns(world.props.types[selected.name]))
-	world.props.place(cell, selected.name, sc, prop_turn % turns if turns > 1 else -1)
+	world.props.place(cell, selected.name, sc, _turn_on(selected.name, cell) if turns > 1 else -1)
 	_drop_in([world.props.node_at(cell, slot)], 0.0, _prop_sound(selected.name))
 
 
