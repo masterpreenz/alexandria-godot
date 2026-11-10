@@ -42,6 +42,7 @@ var rooms_version := 0
 var walls := {}            # Vector3i (edge key) -> type name
 var hp := {}               # Vector3i (edge key) -> health left, for walls that can break (barricades)
 var _hit_at := {}          # key -> when it was last struck (it flashes)
+var _bars: HealthBars      # the health bars over worn barricades and gates
 var keep_open := {}        # Vector3i -> true: doors of houses set to stay open
 var original := {}
 var _drawn := {}           # Vector3i -> {holders: [Node2D], body: StaticBody2D}
@@ -50,6 +51,9 @@ var _drawn := {}           # Vector3i -> {holders: [Node2D], body: StaticBody2D}
 func setup(w: World, f: FloorMap, data: Dictionary) -> void:
 	world = w
 	floors = f
+	_bars = HealthBars.new()
+	_bars.map = self
+	w.add_child.call_deferred(_bars)
 	cells_per_wall = int(data.cellsPerWall)
 	thickness = data.thickness
 	for t in data.types:
@@ -177,6 +181,7 @@ func damage(k: Vector3i, amount: float) -> void:
 	var e := Edge.of(k)
 	var mid := wall_middle(k)
 	hp[k] = float(hp[k]) - amount
+	_bars.queue_redraw()
 	FloatingText.spawn(world, str(roundi(amount)), mid + Vector2(0, -0.9 * world.px), Color(1.0, 0.75, 0.45))
 	_hit_at[k] = Time.get_ticks_msec() / 1000.0
 	for n in nodes_of(e):
@@ -186,6 +191,13 @@ func damage(k: Vector3i, amount: float) -> void:
 		Puffs.burst(world, mid, 1.4, 14)
 		VillageLog.event("barricade", "A %s was broken down" % str(types[walls[k]].get("display", walls[k])).to_lower())
 		remove(e)
+
+
+## Sets the health of the wall starting at [param k] (a repair), up to its most.
+func set_hp(k: Vector3i, value: float) -> void:
+	if walls.has(k) and hp.has(k):
+		hp[k] = clampf(value, 0.0, max_hp(walls[k]))
+		_bars.queue_redraw()
 
 
 ## The middle of the whole wall starting at [param k] (a key), however many cells long.
@@ -240,6 +252,7 @@ func remove(e: Edge) -> void:
 	var end := span_end(start, c[0])
 	walls.erase(start.key())
 	hp.erase(start.key())
+	_bars.queue_redraw()
 	_changed(start, end)
 
 
@@ -291,6 +304,7 @@ func from_json(json: String) -> void:
 		var k := Vector3i(int(w.x), int(w.y), 1 if w.alongY else 0)
 		if hp.has(k):
 			hp[k] = float(w.hp)
+	_bars.queue_redraw()
 	keep_open.clear()
 	for k in data.get("keepOpen", []):
 		keep_open[Vector3i(int(k.x), int(k.y), 1 if k.alongY else 0)] = true
@@ -543,3 +557,30 @@ func all_nodes() -> Array:
 	for d in _drawn.values():
 		out.append_array(d.get("holders", []))
 	return out
+
+
+## A bar over each barricade or gate that's been worn down (none over one at full health): how much is left of it.
+## Bright whatever the hour.
+class HealthBars extends Node2D:
+	var map: WallMap
+
+	func _init() -> void:
+		z_as_relative = false
+		z_index = 3990
+		World.keep_lit(self)
+
+	func _draw() -> void:
+		var px := map.world.px
+		for k in map.hp:
+			if not map.walls.has(k):
+				continue
+			var top := map.max_hp(map.walls[k])
+			var left := float(map.hp[k])
+			if top <= 0.0 or left >= top:
+				continue
+			var w := 64.0
+			var at := map.wall_middle(k) + Vector2(-w / 2.0, -1.2 * px)
+			var share := clampf(left / top, 0.0, 1.0)
+			var fill := Color(0.92, 0.3, 0.2).lerp(Color(0.95, 0.75, 0.3), clampf((share - 0.25) / 0.5, 0.0, 1.0))
+			draw_rect(Rect2(at, Vector2(w, 8)), Color(0.1, 0.06, 0.05, 0.85))
+			draw_rect(Rect2(at + Vector2(1, 1), Vector2((w - 2) * share, 6)), fill)

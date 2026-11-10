@@ -2325,7 +2325,8 @@ func _mend_name() -> String:
 
 func _mend_worn() -> bool:
 	var walls := world.walls
-	return mend != null and walls != null and walls.walls.has(mend) and walls.hp.has(mend) 		and float(walls.hp[mend]) < walls.max_hp(walls.walls[mend])
+	return mend != null and walls != null and walls.walls.has(mend) and walls.hp.has(mend) \
+		and float(walls.hp[mend]) < walls.max_hp(walls.walls[mend])
 
 
 func _start_repairing(t: float) -> void:
@@ -2365,7 +2366,7 @@ func _repairing(t: float) -> void:
 		return
 	var top := walls.max_hp(walls.walls[mend])
 	var mended := minf(top - float(walls.hp[mend]), top * 0.6)
-	walls.hp[mend] = float(walls.hp[mend]) + mended
+	walls.set_hp(mend, float(walls.hp[mend]) + mended)
 	FloatingText.spawn(world, "+%d" % roundi(mended), at + Vector2(0, -0.9 * world.px), Color(0.55, 0.9, 0.5))
 	people.practise(person, LifeSkills.Skill.BUILDING)
 	_wear_tools()

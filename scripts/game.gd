@@ -1110,6 +1110,8 @@ func _ready() -> void:
 					for i in int(Shots.arg("repairframes", "1800")):
 						await get_tree().process_frame
 						var who: Array = Villager.all.filter(func(v): return v.mend == ek.key())
+						if i == 30:
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_worn.png")
 						if i % 120 == 0:
 							print("Repair ", floori(i / 60.0), " s: HP ", roundi(world.walls.hp.get(ek.key(), -1.0)), ", ", (who[0].person.name + " " + Villager.State.keys()[who[0].state]) if not who.is_empty() else "nobody on it")
 						if not shot and not who.is_empty() and who[0].state == Villager.State.REPAIR:
