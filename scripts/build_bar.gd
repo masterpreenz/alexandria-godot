@@ -183,12 +183,17 @@ func _build_bar() -> void:
 # Placing a prop: a note over the bar's right end, snapping to tiles, or (Alt held) set down freely.
 func _snap_note() -> void:
 	var sel := build.selected
-	_snap.visible = build.tool == "Place" and not sel.is_empty() and sel.kind == "Prop"
+	# A barricade: which way it's turned, R to turn it round.
+	var turns: bool = build.tool == "Place" and not sel.is_empty() and sel.kind == "Wall" and world.walls.types.get(sel.name, {}).has("front")
+	_snap.visible = turns or (build.tool == "Place" and not sel.is_empty() and sel.kind == "Prop")
 	if not _snap.visible:
 		return
 	var free := Input.is_key_pressed(KEY_ALT)
-	_snap.text = "Free placement  (Alt held)" if free else "Snapping to tiles  ·  hold Alt for free placement"
-	_snap.add_theme_color_override("font_color", HudStyle.color("accentLight") if free else HudStyle.color("muted"))
+	if turns:
+		_snap.text = ("Spikes towards you" if build.wall_turned else "Spikes away from you") + "  ·  R to turn it round"
+	else:
+		_snap.text = "Free placement  (Alt held)" if free else "Snapping to tiles  ·  hold Alt for free placement"
+	_snap.add_theme_color_override("font_color", HudStyle.color("accentLight") if free and not turns else HudStyle.color("muted"))
 	_snap.reset_size()
 	_snap.position = Vector2(_bar.position.x + _bar.size.x - _snap.size.x, _bar.position.y - _snap.size.y - _k(6)).round()
 

@@ -37,6 +37,7 @@ var blueprint := false
 var brush := 0
 var turn := false
 var auto_turn := false
+var wall_turned := false           ## barricades placed showing their other face (spikes towards the viewer): R
 var prop_turn := 0
 var hover := {}                   ## what the cursor would do: {show, title, status, costs, refund, note, demolish}
 var _undo: Array = []
@@ -260,6 +261,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		changed.emit()
 	elif k == KEY_R:
 		turn = not turn
+		wall_turned = not wall_turned
 		prop_turn += 1
 		preset_turn = (preset_turn + 1) % 4
 		if not carried.is_empty():
@@ -518,7 +520,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	if shown and not selected.is_empty() or (shown and clear):
 		if wall_mode:
 			_wall_ghost = [world.walls.vertex_position(edge.vertex), world.walls.vertex_position(world.walls.span_end(edge, selected.name))]
-			_wall_art = [] if clear else world.walls.ghost_pieces(edge, selected.name)
+			_wall_art = [] if clear else world.walls.ghost_pieces(edge, selected.name, wall_turned)
 		elif not placing_free:
 			for x in size:
 				for y in size:
@@ -639,14 +641,19 @@ func _place_wall(e: WallMap.Edge, type: String) -> void:
 	var at := w.vertex_position(e.vertex)
 	var had := w.get_wall(e)
 	if had == type:
+		# Already there: placed again, it's turned to face the way chosen (R), free.
+		var start: WallMap.Edge = w.covering(e)[1]
+		if w.is_turned(start) != wall_turned and w.types[type].has("front"):
+			w.set_turned(start, wall_turned)
+			drop_sound("land", w.wall_middle(start.key()))
 		return
 	if blueprint and Construction.active != null:
 		if not _wall_outside(e, type, true):
-			Construction.active.plan_wall(e, type)
+			Construction.active.plan_wall(e, type, wall_turned)
 		return
 	if _wall_outside(e, type, true) or not _pay(item_for("Wall", type), at):
 		return
-	w.place(e, type)
+	w.place(e, type, wall_turned)
 	_drop_in(w.nodes_of(e))
 
 

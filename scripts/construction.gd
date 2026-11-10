@@ -151,7 +151,7 @@ func build(p: Dictionary) -> bool:
 			else:
 				world.props.place(Vector2i(int(p.x), int(p.y)), p.type, sc, turn)
 	elif bool(p.get("wall", false)):
-		world.walls.place(WallMap.Edge.new(Vector2i(int(p.x), int(p.y)), bool(p.alongY)), p.type)
+		world.walls.place(WallMap.Edge.new(Vector2i(int(p.x), int(p.y)), bool(p.alongY)), p.type, bool(p.get("turned", false)))
 	else:
 		var cell := Vector2i(int(p.x), int(p.y))
 		world.props.remove_all(cell)
@@ -256,9 +256,9 @@ func plan_floor(cell: Vector2i, floor_name: String, turned: bool) -> void:
 
 
 ## A planned wall on [param edge].
-func plan_wall(edge: WallMap.Edge, type: String) -> void:
+func plan_wall(edge: WallMap.Edge, type: String, turned := false) -> void:
 	_remove_where(func(p): return bool(p.get("wall", false)) and int(p.x) == edge.vertex.x and int(p.y) == edge.vertex.y and bool(p.get("alongY", false)) == edge.along_y)
-	_add({"wall": true, "prop": false, "free": false, "x": edge.vertex.x, "y": edge.vertex.y, "alongY": edge.along_y, "type": type, "ready": false, "scale": 1.0})
+	_add({"wall": true, "prop": false, "free": false, "x": edge.vertex.x, "y": edge.vertex.y, "alongY": edge.along_y, "type": type, "ready": false, "scale": 1.0, "turned": turned})
 
 
 ## Takes away one plan at [param cell]: furniture first, then a wall on one of [param edges], then the floor.
