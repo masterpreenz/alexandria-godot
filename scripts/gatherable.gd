@@ -212,6 +212,12 @@ func tree_height() -> float:
 	return _height()
 
 
+## Shaken by a blow that takes nothing from it (Miko's staff on a corrupted tree).
+func flinch() -> void:
+	_shake = 0.18
+	set_process(true)
+
+
 ## One strike: what it gives (0 once it's run out).
 func strike() -> int:
 	if depleted():

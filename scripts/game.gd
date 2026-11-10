@@ -1092,6 +1092,31 @@ func _ready() -> void:
 					for i in 40:
 						await get_tree().process_frame
 					print("Hit fx after: villager tint ", v.art.self_modulate, ", jolt ", v.get_node("Wading").extra)
+				"treehit":
+					# Miko beside a corrupted tree, which is struck: it blinks red and shakes.
+					for i in 5:
+						await get_tree().process_frame
+					var cr := Corruption.active
+					var tr: Gatherable = null
+					for t in cr.corrupted:
+						if is_instance_valid(t) and t.standing():
+							tr = t
+							break
+					if tr == null:
+						print("Tree hit: no corrupted tree")
+					else:
+						miko.place(tr.foot + Vector2(-0.8, 0.6) * world.px)
+						for i in 300:
+							await get_tree().process_frame
+							if cr.armed.has(tr):
+								break
+						var dm: Damageable = cr.armed[tr][0] if cr.armed.has(tr) else null
+						if dm != null:
+							dm.hurt(2.0)
+						for i in 4:
+							await get_tree().process_frame
+						print("Tree hit: armed ", dm != null, ", tint ", tr.art.self_modulate, ", shaken ", tr.art.position != tr._rest)
+						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_tree.png")
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:

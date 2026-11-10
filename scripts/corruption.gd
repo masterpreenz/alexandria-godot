@@ -212,6 +212,12 @@ func _make_armed(t: Gatherable) -> Array:
 	world.add_child(hit)
 	var strong := world.mist.tier_at(t.foot) == Mist.Tier.STRONG
 	hit.setup(world, Damageable.Team.ENEMY, float(s.treeHp) * (1.5 if strong else 1.0), 0.45 * world.px, maxf(world.px, height * 0.5))
+	# Struck (her staff, a spell): it blinks red and shakes.
+	var fx := HitFx.add_to(hit, t.art, null, world.px)
+	hit.damaged.connect(func(_a):
+		fx.play()
+		if is_instance_valid(t):
+			t.flinch())
 	hit.died.connect(func():
 		armed.erase(t)
 		if is_instance_valid(t):

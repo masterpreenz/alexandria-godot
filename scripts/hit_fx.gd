@@ -1,7 +1,8 @@
 class_name HitFx
 extends Node
 ## Flinching from a hit (as Miko does, Unity's HitReaction): the body blinks red twice, fading, and jolts side to side,
-## settling. For villagers and monsters: added beside their art and wading (whose jolt it sets), [method play] on a hit.
+## settling. For villagers, monsters and corrupted trees: added beside their art and wading (whose jolt it sets; without
+## one, the colour only), [method play] on a hit.
 
 const LENGTH := 0.32
 const COLOR := Color(1.0, 0.42, 0.38)
@@ -32,8 +33,14 @@ func active() -> bool:
 	return _since >= 0.0
 
 
+# Gone mid-blink (its owner freed): the body back to its own colour.
+func _exit_tree() -> void:
+	if _since >= 0.0 and is_instance_valid(art):
+		art.self_modulate = Color.WHITE
+
+
 func _process(delta: float) -> void:
-	if _since < 0.0 or art == null:
+	if _since < 0.0 or not is_instance_valid(art):
 		return
 	_since += delta
 	var t := _since / LENGTH
