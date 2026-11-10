@@ -63,6 +63,17 @@ func setup(w: World, m: Miko) -> void:
 		b.allow_lesser = true
 		b.custom_minimum_size.x = 84
 		b.value_changed.connect(func(_v): _changed())
+		# Only numbers go in (walking with WASD while its box is picked typed letters into it); Enter lets go of it.
+		var edit := b.get_line_edit()
+		edit.text_changed.connect(func(t: String) -> void:
+			var clean := ""
+			for ch in t:
+				if ch in "0123456789-.":
+					clean += ch
+			if clean != t:
+				edit.text = clean
+				edit.caret_column = clean.length())
+		edit.text_submitted.connect(func(_t): edit.release_focus())
 		row.add_child(b)
 		_boxes.append(b)
 	col.add_child(HudStyle.label("Saved for every villager of this look", 10, "bold", HudStyle.color("faint")))
