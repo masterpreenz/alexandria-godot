@@ -1,7 +1,7 @@
 class_name SnowCover
 extends Node
 ## How much snow lies on the world, 0 (none) to 1 (all white) (from Unity's SnowCover): it builds while it snows and
-## melts when it stops, quicker under a clear sky and quickest out of winter. Sets the snow_cover global the snow
+## melts when it stops, quicker under a clear sky and quickest out of winter; in winter it doesn't melt at all. Sets the snow_cover global the snow
 ## shader reads, so the ground whitens in patches, roofs blanket over and things standing get caps. Once the snow has
 ## settled, sprites that have a snowy version (trees) fade over to it, and back as it melts; past snow_roof_from the
 ## roofs turn to their snowy look.
@@ -53,10 +53,19 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
+	var winter := clock.season() == GameClock.Season.WINTER
+	# Loaded into winter (the snow isn't saved): it lies as it would by now, its first day's fall and all after.
+	if _last_hours < 0.0 and winter:
+		cover = 1.0 if clock.day_of_season() > 1 else clampf(clock.hour() / maxf(0.01, build_hours), 0.0, 1.0)
 	var passed := 0.0 if _last_hours < 0.0 else maxf(0.0, clock.hours - _last_hours)
 	_last_hours = clock.hours
 	if clock.weather() == GameClock.Weather.SNOW:
 		cover += passed / maxf(0.01, build_hours)
+	elif winter:
+		# (it lies all winter: a clear winter's day doesn't melt it. Skipped ahead into winter past its first
+		# day's snow, it's lying already)
+		if clock.day_of_season() > 1:
+			cover = maxf(cover, 1.0)
 	elif cover > 0.0:
 		var rate := 1.0 / maxf(0.01, melt_hours)
 		if clock.weather() == GameClock.Weather.CLEAR: rate *= sun_melt

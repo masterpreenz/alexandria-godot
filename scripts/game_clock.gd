@@ -28,6 +28,7 @@ var forced := -1
 
 var _rolled := Weather.CLEAR
 var _slot := -1
+var _season := -1
 
 
 func day() -> int:
@@ -101,6 +102,12 @@ func _update_weather() -> void:
 		return
 	_slot = slot
 	var before := weather()
+	# Winter coming in drops a weather picked by hand: it always comes in snowing.
+	var now_season := season()
+	if now_season != _season:
+		if now_season == Season.WINTER and _season >= 0:
+			forced = -1
+		_season = now_season
 	@warning_ignore("int_as_enum_without_cast")
 	_rolled = _roll(slot)
 	if weather() != before:

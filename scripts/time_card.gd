@@ -49,6 +49,7 @@ func _gui_input(event: InputEvent) -> void:
 			var day := clock.day() - 1
 			@warning_ignore("integer_division")
 			clock.hours = float((day / days + 1) * days) * 24.0 + clock.hour()
+			clock._slot = -1   # (its weather at once, not at the next change)
 			accept_event()
 
 
