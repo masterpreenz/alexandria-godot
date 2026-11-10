@@ -318,6 +318,7 @@ func _process_timed(delta: float) -> void:
 		_wall_art = []
 		_floor_art = ""
 		_prop_ghost = {}
+		_group_ghost = []
 		_ring = 0.0
 		_house_cursor(cell, over, not over and world.floors.in_bounds(cell))
 	else:
@@ -489,6 +490,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	_wall_art = []
 	_floor_art = ""
 	_prop_ghost = {}
+	_group_ghost = []
 	_ring = 0.0
 	if shown and not selected.is_empty() or (shown and clear):
 		if wall_mode:
@@ -807,6 +809,13 @@ func _draw() -> void:
 			draw_set_transform(piece[2], 0.0, Vector2(-1.0 if piece[1] else 1.0, 1.0))
 			draw_texture_rect_region(tex, Rect2(-Vector2(float(info.pivot[0]), float(info.pivot[1])) * k, region.size * k), region, _ghost_tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for g in _group_ghost:
+		if int(g.sprite) < 0:
+			continue
+		var gi: Dictionary = world.sprites[int(g.sprite)]
+		var gk := float(g.scale) * world.px / float(gi.ppu)
+		var gr := Rect2(gi.rect[0], gi.rect[1], gi.rect[2], gi.rect[3])
+		draw_texture_rect_region(world._texture(gi.tex), Rect2(g.at - Vector2(float(gi.pivot[0]), float(gi.pivot[1])) * gk, gr.size * gk), gr, g.colour)
 	if not _prop_ghost.is_empty() and int(_prop_ghost.sprite) >= 0:
 		var info: Dictionary = world.sprites[int(_prop_ghost.sprite)]
 		var tex := world._texture(info.tex)
@@ -828,7 +837,9 @@ const PRESETS_FILE := "user://house_presets.json"
 const CRYSTAL_MIN_GAP := 10.0
 const CRYSTAL_MAX_GAP := 26.0
 
-var carried: Dictionary = {}           ## a prop picked up with Move: {prop, turn, scale, free, pos}
+var carried: Dictionary = {}           ## a prop picked up with Move: {prop, turn, scale, free, pos}; a farm field: and
+## group: [{off (cells from the one picked up), prop, turn, scale, farm (its crop)}], from (the cell picked up)
+var _group_ghost: Array = []           ## a farm field being moved: a ghost for each plot ({sprite, at, scale, colour})
 var preset_turn := 0
 var picked_room: Variant = null        ## the house picked with Inspect (its cells), or null
 var hover_room: Variant = null
@@ -943,6 +954,7 @@ func _inspect(point: Vector2, over_ui: bool) -> void:
 	_wall_art = []
 	_floor_art = ""
 	_prop_ghost = {}
+	_group_ghost = []
 	_ring = 0.0
 	hover = {}
 	hover_room = null if over_ui or world.roofs == null else world.roofs.room_on(point)
@@ -1149,6 +1161,7 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	_wall_art = []
 	_floor_art = ""
 	_prop_ghost = {}
+	_group_ghost = []
 	_ring = 0.0
 	var shown := not over_ui and world.floors.in_bounds(cell)
 	var top := world.props.peek_top(cell)
@@ -1160,6 +1173,9 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	if shown:
 		_cells.append(cell)
 	if tool == "Move":
+		if carried.has("group"):
+			_carry_field(cell, shown, click)
+			return
 		if not carried.is_empty():
 			var free := Input.is_key_pressed(KEY_ALT)
 			var at := point if free else world.floors.cell_centre(cell)
@@ -1190,6 +1206,13 @@ func _move_or_copy(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 			return
 		_cell_colour = HudStyle.color("accent") if top != "" else Color(1, 1, 1, 0.35)
 		hover = {"show": shown and top != "", "title": "Move " + str(world.props.types.get(top, {}).get("display", top)), "move": true, "note": ""}
+		var fm0 := _farming()
+		if click and top != "" and fm0 != null and fm0.d.get("plots", {}).has(top) and world.props.peek_top(cell) == top:
+			# A farm plot: its whole field comes up together.
+			_stroke_start = _capture()
+			_lift_field(cell)
+			changed.emit()
+			return
 		if click and top != "":
 			_stroke_start = _capture()
 			carried = world.props.take_top(cell)
@@ -1223,6 +1246,67 @@ func _farming() -> Farming:
 	return miko.get_node_or_null("Farming") as Farming if miko != null else null
 
 
+# Picks up the farm field the plot on [param cell] belongs to: every plot, with its crop.
+func _lift_field(cell: Vector2i) -> void:
+	var fm := _farming()
+	fm._look()
+	var p := fm.nearest(world.floors.cell_centre(cell), 0.4 * world.px)
+	if p.is_empty():
+		return
+	var group := []
+	for q in fm.field_of(p):
+		var qc := world.floors.cell_at(q.pos)
+		var slot := int(world.props.types[q.type].slot)
+		var e: Dictionary = world.props.cells.get(Vector3i(qc.x, qc.y, slot), {})
+		if e.is_empty():
+			continue
+		group.append({"off": qc - cell, "prop": e.prop, "turn": int(e.get("turn", 0)), "scale": PropMap._scale(float(e.get("scale", 1.0))),
+			"farm": fm.lift_plot(q.pos)})
+		world.props.remove(qc, slot)
+	carried = {"prop": p.type, "turn": 0, "scale": 1.0, "free": false, "pos": world.floors.cell_centre(cell), "group": group, "from": cell}
+
+
+# A farm field carried by Move: its ghost under the cursor (red where a plot can't go), set down on a click if every
+# plot can be.
+func _carry_field(cell: Vector2i, shown: bool, click: bool) -> void:
+	var blocked := ""
+	for g in carried.group:
+		var c: Vector2i = cell + g.off
+		var at := world.floors.cell_centre(c)
+		var why := "Can't build on the road" if no_build(c) else ("Something's in the way" if world.props.get_prop(c, int(world.props.types[g.prop].slot)) != "" else why_not(item_for("Prop", g.prop), at, carried))
+		if not world.floors.in_bounds(c):
+			why = "Off the map"
+		if why != "" and blocked == "":
+			blocked = why
+		if shown:
+			_cells.append(c)
+		_group_ghost.append({"sprite": world.props.sprite_for(g.prop, int(g.turn)), "at": at, "scale": float(g.scale), "colour": BLOCKED if why != "" else Color(1, 1, 1, 0.6)})
+	_cell_colour = BLOCKED if blocked != "" else Color(HudStyle.color("green"), 0.9)
+	hover = {"show": shown, "title": "Move field (%d plot%s)" % [carried.group.size(), "" if carried.group.size() == 1 else "s"], "move": true, "note": blocked}
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		put_back_carried()
+		return
+	if click and shown and blocked == "":
+		_set_field_down(cell)
+		carried = {}
+		_end_stroke()
+		changed.emit()
+
+
+# Sets the carried field down with the plot picked up on [param cell], each plot's crop with it.
+func _set_field_down(cell: Vector2i) -> void:
+	var fm := _farming()
+	var nodes := []
+	for g in carried.group:
+		var c: Vector2i = cell + g.off
+		var turns := world.props._turns(world.props.types[g.prop])
+		world.props.place(c, g.prop, float(g.scale), int(g.turn) if turns > 1 else -1)
+		nodes.append(world.props.node_at(c, int(world.props.types[g.prop].slot)))
+		if fm != null:
+			fm.set_plot(world.floors.cell_centre(c), g.farm)
+	_drop_in(nodes.filter(func(n): return n != null))
+
+
 # A farm plot carried by Move set down at [param at]: its crop with it.
 func _set_plot(at: Vector2) -> void:
 	var fm := _farming()
@@ -1233,6 +1317,12 @@ func _set_plot(at: Vector2) -> void:
 ## Puts what Move is carrying back where it came from.
 func put_back_carried() -> void:
 	if carried.is_empty():
+		return
+	if carried.has("group"):
+		_set_field_down(carried.from)
+		carried = {}
+		_stroke_start = null
+		changed.emit()
 		return
 	var turns := world.props._turns(world.props.types[carried.prop])
 	var t := int(carried.turn) if turns > 1 else -1
