@@ -347,11 +347,33 @@ func pick(it: Dictionary) -> void:
 	_dirty = true
 
 
+# [param text] broken into lines of about [param width] letters (the card doesn't wrap by itself).
+static func _wrap(text: String, width: int) -> String:
+	var lines := []
+	var line := ""
+	for w in text.split(" ", false):
+		if line != "" and line.length() + 1 + w.length() > width:
+			lines.append(line)
+			line = w
+		else:
+			line = w if line == "" else line + " " + w
+	if line != "":
+		lines.append(line)
+	return "\n".join(lines)
+
+
 # The card by the cursor.
 func _tooltip() -> void:
 	var h := build.hover
 	var over := get_viewport().gui_get_hovered_control()
-	if h.is_empty() or not bool(h.get("show", false)) or (over != null and over.mouse_filter != Control.MOUSE_FILTER_IGNORE):
+	# Over an item in the row: its card (what it costs, a row a material, red only where she's short).
+	if over is ItemTile:
+		var it: Dictionary = (over as ItemTile).item
+		var st := build.status_of(it)
+		var note := ("Needs a %s first" % it.lockedBy) if st == "Locked" else _wrap(str(it.get("description", "")), 40)
+		h = {"show": true, "title": it.display, "tier": int(it.get("tier", 1)), "status": st, "costs": it.cost, "note": note,
+			"note_plain": st != "Locked"}
+	elif h.is_empty() or not bool(h.get("show", false)) or (over != null and over.mouse_filter != Control.MOUSE_FILTER_IGNORE):
 		_tip.visible = false
 		return
 	var hex := func(c: Color) -> String: return c.to_html(false)
@@ -375,8 +397,10 @@ func _tooltip() -> void:
 		for c in Village.sum(h.costs):
 			var have := world.village.have(miko.bag, miko, c[0])
 			t += "\n[color=#%s]%s  %d / %d[/color]" % [hex.call(HudStyle.color("text") if have >= c[1] else HudStyle.color("coral")), UiKit.resource_name(c[0]), c[1], have]
+		if Village.sum(h.costs).is_empty():
+			t += "\n[color=#%s]Free[/color]" % hex.call(HudStyle.color("muted"))
 		if str(h.note) != "":
-			t += "\n[color=#%s]%s[/color]" % [hex.call(HudStyle.color("coral")), h.note]
+			t += "\n[color=#%s]%s[/color]" % [hex.call(HudStyle.color("muted") if h.get("note_plain", false) else HudStyle.color("coral")), h.note]
 	_tip_text.text = t
 	_tip.visible = true
 	_tip.reset_size()
@@ -388,7 +412,8 @@ func _tooltip() -> void:
 	_tip.position = at
 
 
-## One item in the row: its icon, name and cost (coral when short), "needs X" when locked, amber when picked.
+## One item in the row: its icon and name (dimmer when it can't be built now), amber when picked; its cost on the card
+## shown over it.
 class ItemTile extends Control:
 	var bar: BuildBar
 	var item: Dictionary
@@ -414,21 +439,15 @@ class ItemTile extends Control:
 			var f := minf(box.size.x / s.x, box.size.y / s.y)
 			var w := s * f
 			draw_texture_rect(icon, Rect2(box.position + (box.size - w) / 2.0, w), false, Color(1, 1, 1, 0.45) if st == "Locked" else Color.WHITE)
+		# Its name, whole (on two lines if it must), dimmer when it can't be built now; its cost is on its card (hover).
 		var font := HudStyle.font("bold")
 		var px := roundi(10 * k)
-		draw_string(font, Vector2(4, 62 * k), str(item.display), HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, px, HudStyle.color("text"))
-		var line := ""
-		var c := HudStyle.color("muted")
-		if st == "Locked":
-			line = "needs " + str(item.lockedBy)
-			c = HudStyle.color("faint")
+		var c := HudStyle.color("faint") if st == "Locked" else (HudStyle.color("muted") if st == "Short" else HudStyle.color("text"))
+		var nm := str(item.display)
+		if font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x <= size.x - 8:
+			draw_string(font, Vector2(4, 68 * k), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, px, c)
 		else:
-			var parts := []
-			for cost in Village.sum(item.cost):
-				parts.append("%d %s" % [cost[1], UiKit.resource_name(cost[0]).left(5).to_lower()])
-			line = " ".join(parts) if not parts.is_empty() else "free"
-			c = HudStyle.color("coral") if st == "Short" else HudStyle.color("muted")
-		draw_string(font, Vector2(4, 78 * k), line, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, roundi(9 * k), c)
+			draw_multiline_string(font, Vector2(4, 63 * k), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, px, 2, c)
 		draw_string(HudStyle.font("pixel"), Vector2(6, 14 * k), "T%d" % int(item.get("tier", 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(9 * k), HudStyle.color("faint"))
 
 

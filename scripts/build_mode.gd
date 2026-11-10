@@ -26,6 +26,7 @@ var miko: Miko
 var items: Array = []             ## the catalogue, in category order
 var settings: Dictionary
 var open := false
+var _grid: GridLines
 var tool := "Place"               ## Place or Demolish
 ## What Demolish takes: "All" (a plan, then a prop, a wall, the floor), or only "Walls", "Floors", "Decor" (props but
 ## farm plots) or "Farm" (farm plots).
@@ -65,6 +66,12 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 	miko = who
 	active = self
 	settings = data.get("buildMode", {})
+	# The tile grid over the ground while building (under walls and everything standing).
+	_grid = GridLines.new()
+	_grid.build = self
+	_grid.visible = false
+	_grid.visibility_layer = MapMarks.HIDDEN_LAYER
+	w.add_ground_layer(_grid, -9970)
 	z_as_relative = false
 	visibility_layer = MapMarks.HIDDEN_LAYER   # build mode's feedback stays off the maps
 	z_index = 4080  # over the world and the mist veil, under floating text
@@ -106,6 +113,7 @@ func set_open(on: bool) -> void:
 		hide_buildings = false
 		_show_buildings()
 	open = on
+	_grid.visible = on
 	_end_stroke()
 	miko.locked = on
 	var caster: SpellCaster = world.get_node_or_null("Caster")
@@ -1549,3 +1557,41 @@ func _draw_more() -> void:
 func _diamond(c: Vector2i) -> PackedVector2Array:
 	var f := world.floors
 	return PackedVector2Array([f.corner(Vector2(c)), f.corner(Vector2(c) + Vector2(1, 0)), f.corner(Vector2(c) + Vector2(1, 1)), f.corner(Vector2(c) + Vector2(0, 1))])
+
+
+
+## The tile grid drawn over the ground while building: a faint line round every cell in view (the corner lines of the
+## floor grid), on the ground, under the walls and props.
+class GridLines extends Node2D:
+	var build: BuildMode
+	var _seen := Rect2()
+
+	func _process(_delta: float) -> void:
+		var cam := get_viewport().get_camera_2d()
+		if cam == null:
+			return
+		var half := get_viewport_rect().size / cam.zoom / 2.0
+		var view := Rect2(cam.get_screen_center_position() - half, half * 2.0)
+		if not view.is_equal_approx(_seen):
+			_seen = view
+			queue_redraw()
+
+	func _draw() -> void:
+		var f := build.world.floors
+		# The cells the view's corners fall in: the range of corner lines to draw.
+		var lo := Vector2(INF, INF)
+		var hi := -lo
+		for p in [_seen.position, _seen.end, Vector2(_seen.position.x, _seen.end.y), Vector2(_seen.end.x, _seen.position.y)]:
+			var cell_at := f.fractional_cell(p)
+			lo = lo.min(cell_at)
+			hi = hi.max(cell_at)
+		var x0 := maxi(floori(lo.x) - 1, f.bounds.position.x)
+		var x1 := mini(ceili(hi.x) + 1, f.bounds.end.x)
+		var y0 := maxi(floori(lo.y) - 1, f.bounds.position.y)
+		var y1 := mini(ceili(hi.y) + 1, f.bounds.end.y)
+		var c := Color(1, 1, 1, 0.3)
+		var w := maxf(1.5, 0.02 * build.world.px)
+		for x in range(x0, x1 + 1):
+			draw_line(f.corner(Vector2(x, y0)), f.corner(Vector2(x, y1)), c, w)
+		for y in range(y0, y1 + 1):
+			draw_line(f.corner(Vector2(x0, y)), f.corner(Vector2(x1, y)), c, w)
