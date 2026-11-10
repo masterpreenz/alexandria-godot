@@ -99,6 +99,7 @@ func start(count := -1) -> int:
 	for v in Villager.all:
 		if is_instance_valid(v) and world.village.contains(v.position) and not v.in_bed:
 			v.bark("bark.raid", {"side": side}, true)
+			v.show_mood("alarm", 8.0)
 	return n
 
 

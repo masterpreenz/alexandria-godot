@@ -1272,6 +1272,16 @@ func _ready() -> void:
 							await get_tree().process_frame
 						if sec % 10 == 0:
 							print("Pests ", sec, " s: left ", field.filter(func(pl): return fm.pests(pl)).size(), "; doing ", Villager.all.map(func(v): return v.activity()))
+				"moods":
+					while Villager.all.size() < 3:
+						await get_tree().process_frame
+					var ms := ["affection", "idea", "alarm"]
+					for k in 3:
+						var v: Villager = Villager.all[k]
+						v.position = miko.position + Vector2(-2.6 + k * 2.6, -0.4) * world.px
+						v.show_mood(ms[k], 30.0)
+					for i in int(Shots.arg("mframes", "40")):
+						await get_tree().process_frame
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

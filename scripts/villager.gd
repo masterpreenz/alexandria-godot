@@ -80,6 +80,8 @@ var _bark_next := 0.0
 static var _bark_any := 0.0       ## the village's next moment for a bark (not all at once)
 var _last_state := -1
 var _was_raining := false
+var mood := ""                    ## an animated mood bubble over their head for a while (cheerful, worried, alarm, info,
+var mood_until := 0.0             ## success, ellipsis, frustration, affection, relaxed, idea): how they feel just now
 var facing_right := false
 var target := Vector2.ZERO
 var route: Variant = null          ## the way there round walls (VillagerRoute points), or null: straight there
@@ -999,7 +1001,10 @@ func _barks() -> void:
 	if state != _last_state:
 		_last_state = state
 		match state:
-			State.TO_EAT: bark("bark.hungry" if _food_in_storage() > 0 else "bark.no_food")
+			State.TO_EAT:
+				bark("bark.hungry" if _food_in_storage() > 0 else "bark.no_food")
+				if _food_in_storage() == 0:
+					show_mood("frustration", 7.0)
 			State.HOME: bark("bark.tired")
 			State.FIGHT: bark("bark.fight")
 			State.TO_FARM: if farm_task == "pests": bark("bark.pests")
@@ -1009,11 +1014,21 @@ func _barks() -> void:
 	_was_raining = raining
 
 
+## Shows [param m] (a mood bubble's name) over their head for [param seconds].
+func show_mood(m: String, seconds := 3.0) -> void:
+	mood = m
+	mood_until = now() + seconds
+
+
 func _status() -> void:
 	_barks()
 	if _bark != null and _bark.visible:
 		_emote("")   # (the line's showing: no emote over it)
 		return
+	if mood != "" and now() < mood_until:
+		_emote("mood." + mood)
+		return
+	mood = ""
 	if bubble != null and bubble.visible:
 		_emote("")
 		return
@@ -1213,6 +1228,9 @@ func _show_bubble(on: bool) -> void:
 		var still := int(emojis[i])
 		var nm: String = world.sprites[still].name
 		bubble_frames = people.d.get("emotes", {}).get(nm.substr(nm.find("_") + 1), [])
+		# Half the time a mood of the chat instead (the bubble set's).
+		if randf() < 0.5:
+			bubble_frames = people.d.get("emotes", {}).get("mood." + ["cheerful", "relaxed", "affection", "idea", "ellipsis", "info"].pick_random(), bubble_frames)
 		if bubble_frames.is_empty():
 			bubble_frames = [still]
 		bubble_start = now()
@@ -1800,6 +1818,7 @@ func _farming(t: float) -> void:
 	if farm_task == "pests" or farm_task == "water":
 		if farm_task == "pests" and farm.pests(plot):
 			farm.clear_pests(plot)
+			show_mood("success", 2.5)
 			people.practise(person, LifeSkills.Skill.FARMING)
 		elif farm_task == "water" and farm.dry(plot):
 			farm.water(plot)

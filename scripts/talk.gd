@@ -200,6 +200,7 @@ func _add(text: String, act: Callable) -> void:
 
 func _ask_how() -> void:
 	var doing := who.activity().to_lower()
+	who.show_mood("cheerful", 3.0)
 	_show(Loc.pick("talk.reply.how", {"doing": doing, "doing_cap": who.activity(), "miko": "Miko"}))
 
 
@@ -223,6 +224,7 @@ func _give_food(food: String) -> void:
 		return
 	who.person.hunger = minf(100.0, float(who.person.get("hunger", 0.0)) + fills)
 	FloatingText.spawn(world, "-1 " + UiKit.resource_name(food), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
+	who.show_mood("affection", 4.0)
 	_show(Loc.pick("talk.reply.food", {"food": UiKit.resource_name(food), "miko": "Miko"}))
 
 
@@ -236,6 +238,7 @@ func _ask_need() -> void:
 		key = "talk.need.food"
 	elif int(p.get("job", 0)) in [Villager.Job.MINING, Villager.Job.LUMBERING] and int(p.get("toolsLeft", 0)) <= 0:
 		key = "talk.need.tools"
+	who.show_mood("relaxed" if key == "talk.need.nothing" else "worried", 4.0)
 	_show(Loc.pick(key, {"miko": "Miko"}))
 
 

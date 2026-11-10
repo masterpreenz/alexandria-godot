@@ -16,7 +16,7 @@ const INK := Color(0.16, 0.12, 0.1)
 const LOOKS := {
 	Kind.SAY: {"art": "say", "left": 140, "right": 44, "tall": 3.4, "pad": 34, "y": 0.4, "tip": 0.44, "ink": [0.16, 0.12, 0.1]},
 	Kind.FANCY: {"art": "fancy", "left": 150, "right": 52, "tall": 3.6, "pad": 44, "y": 0.4, "tip": 0.46, "ink": [0.16, 0.12, 0.1]},
-	Kind.THINK: {"art": "think", "left": 60, "right": 96, "tall": 4.4, "pad": 50, "y": 0.42, "tip": 0.93, "ink": [0.16, 0.12, 0.1]},
+	Kind.THINK: {"art": "think", "left": 60, "right": 96, "tall": 3.6, "pad": 34, "y": 0.42, "tip": 0.93, "ink": [0.16, 0.12, 0.1]},
 	Kind.SHOUT: {"art": "shout", "left": 96, "right": 96, "tall": 4.2, "pad": 52, "y": 0.52, "tip": 0.5, "ink": [0.45, 0.1, 0.06]},
 	Kind.ALARM: {"art": "alarm", "left": 104, "right": 104, "tall": 4.4, "pad": 56, "y": 0.52, "tip": 0.5, "ink": [0.78, 0.12, 0.08]},
 }
