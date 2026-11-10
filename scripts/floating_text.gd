@@ -16,6 +16,7 @@ static func spawn(w: World, msg: String, at: Vector2, color := Color.WHITE) -> v
 	l.z_as_relative = false
 	l.z_index = 4090
 	l.size = Vector2(240, 30)
+	World.keep_lit(l)   # (bright at night too)
 	l.position = at - Vector2(120, 15)
 	w.add_child(l)
 

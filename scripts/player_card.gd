@@ -70,8 +70,11 @@ func _draw() -> void:
 		draw_texture_rect(b_tex, badge, false)
 	_text(str(stats.level), badge.position + Vector2(0, badge.size.y * 0.75), 12, "pixel", HudStyle.color("ink"), badge.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 	var col_w := CARD.x - COL_X - 8.0
-	# Name and coins.
+	# Name, her level beside it, and coins.
 	_text("Miko", Vector2(COL_X, 20) * k, 14, "bold", HudStyle.color("text"))
+	var nf := HudStyle.font("bold")
+	var nw := nf.get_string_size("Miko", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * k)).x if nf else 36.0 * k
+	_text("Lv %d" % stats.level, Vector2(COL_X * k + nw + 6 * k, 20 * k), 12, "pixel", HudStyle.color("accentLight"))
 	var coins := miko.bag.count("Gold") + world.village.stored("Gold")
 	var coin_text := str(coins)
 	var f := HudStyle.font("pixel")
@@ -100,6 +103,11 @@ func _draw() -> void:
 		if moon != null:
 			draw_texture_rect(moon, Rect2(Vector2(COL_X + 50, 54) * k, Vector2(12, 12) * k), false, HudStyle.color("rest"))
 		_text(("Asleep " if needs.sleeping() else "Rest ") + str(ceili(needs.energy)), Vector2(COL_X + 66, 66) * k, 12, "pixel", low if needs.energy < 20.0 else calm)
+	# Experience: a thin bar along the card's foot, filling towards the next level.
+	var need := maxi(1, stats.xp_to_next())
+	var xr := Rect2(Vector2(8, CARD.y - 6) * k, Vector2(CARD.x - 16, 3) * k)
+	draw_rect(xr, Color(0, 0, 0, 0.45))
+	draw_rect(Rect2(xr.position, Vector2(xr.size.x * clampf(float(stats.xp) / need, 0.0, 1.0), xr.size.y)), HudStyle.color("accent"))
 	# The effect tags under the card, and the cooldown rack under them.
 	var y := (CARD.y + 6.0) * k
 	_tag_rects.clear()

@@ -1123,6 +1123,20 @@ func _ready() -> void:
 					for i in 5:
 						await get_tree().process_frame
 					print("Raid at dawn: raiders still raiding ", rd.raiders.size())
+				"mvdrop":
+					# Ten mutated villagers killed: how many dropped a crystal.
+					var md: Dictionary = world._load_json("res://data/monsters.json")
+					var drops := 0
+					for k in 10:
+						var mv := MutatedVillager.spawn(world, md.mutatedVillager, miko.position + Vector2(2.0 + k * 0.3, 1.0) * world.px)
+						await get_tree().process_frame
+						var had := Pickup.all.size()
+						mv.hit.hurt(9999.0, true)
+						await get_tree().process_frame
+						if Pickup.all.any(func(pk): return pk.resource == "Crystal") and Pickup.all.size() > had: drops += 1
+						for pk in Pickup.all.duplicate(): pk.queue_free()
+						Pickup.all.clear()
+					print("Drops: ", drops, " of 10 dropped a crystal")
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position
@@ -1144,6 +1158,9 @@ func _ready() -> void:
 						print("Camera ", c.get_path(), " callback ", c.process_callback, " interp ", c.is_physics_interpolated())
 				"eat":
 					if Shots.arg("hour") != "": clock.hours = float(Shots.arg("hour"))
+					if Shots.arg("say") != "":
+						miko.stats.xp = floori(miko.stats.xp_to_next() * 0.6)
+						FloatingText.spawn(world, Shots.arg("say"), miko.position + Vector2(0, -1.6 * world.px), Color(1, 0.6, 0.5))
 					while Villager.all.is_empty():
 						await get_tree().process_frame
 					var v: Villager = Villager.all[0]

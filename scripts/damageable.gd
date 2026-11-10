@@ -36,6 +36,7 @@ func setup(w: World, side: int, hp_max: float, body_radius: float, body_height: 
 
 func _enter_tree() -> void:
 	all.append(self)
+	World.keep_lit(self)   # its HP bar bright at night too
 
 
 func _exit_tree() -> void:

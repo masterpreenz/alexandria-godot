@@ -211,5 +211,9 @@ func _died() -> void:
 		p.stats.gain_xp(int(s.xp))
 	var coins: Array = s.coins
 	Pickup.drop(world, "Gold", randi_range(int(coins[0]), int(coins[1])), position)
+	# A mist crystal now and then (for cleansing crystals), two from one that came raiding.
+	var crystals := (2 if raid_to != Vector2.INF else 1) if randf() < float(s.get("crystalChance", 0.5)) else 0
+	if crystals > 0:
+		Pickup.launch_icon(world, "Crystal", crystals, position, 2.2)
 	Puffs.burst(world, position + Vector2(0, -0.4 * world.px), 1.0, 10)
 	queue_free()

@@ -596,6 +596,21 @@ static func grass_variety() -> Texture2D:
 	return _variety
 
 
+## Keeps [param n] as drawn whatever the hour (words, numbers, bars, speech bubbles: not things in the world): the
+## night's tint undone on it each frame (its self_modulate; its own fading through modulate goes on as it was).
+static func keep_lit(n: CanvasItem) -> void:
+	n.add_to_group(&"unlit")
+
+
+func _process(_delta: float) -> void:
+	var lit := get_tree().get_nodes_in_group(&"unlit")
+	if lit.is_empty():
+		return
+	var undo := daylight_undo()
+	for n in lit:
+		(n as CanvasItem).self_modulate = Color(undo, (n as CanvasItem).self_modulate.a)
+
+
 ## The colour that undoes the day's light on something that shouldn't be dimmed by it (emotes: speech-bubble art,
 ## always shown as drawn): the night's tint (Daylight) inverted, to multiply it by.
 func daylight_undo() -> Color:
