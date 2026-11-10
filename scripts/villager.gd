@@ -132,6 +132,7 @@ var piece: Dictionary = {}        ## the blueprint piece they're building
 var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
 var flee_from: Damageable = null   ## the monster they're running from
 var _next_refuge := 0.0
+var _flee_bark_at := 0.0
 var _next_smoke := 0.0
 var _next_knock := 0.0
 var craft_bench: Dictionary = {}
@@ -585,6 +586,7 @@ func _arrive(t: float) -> void:
 		State.TO_LIGHT: _light_it(t)
 		State.TO_BUILD: _start_building(t)
 		State.TO_REPAIR: _start_repairing(t)
+		State.FLEE: _next_refuge = 0.0   # (somewhere further next: still running)
 		State.TO_CRAFT: _start_crafting(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
@@ -1065,6 +1067,7 @@ func _status() -> void:
 		State.TO_FARM, State.FARM: e = {"pests": "pests", "water": "watering", "plant": "planting"}.get(farm_task, "")
 		State.BUILD: e = "building"
 		State.TO_REPAIR, State.REPAIR: e = "repairing"
+		State.FLEE: e = "crying"
 		State.CRAFT:
 			if craft_bench.get("skill", "") == "Cooking": e = "cooking"
 			elif str(craft_bench.get("title", "")).contains("Alchemy"): e = "alchemy"
@@ -1422,8 +1425,10 @@ func _flee(from: Damageable) -> void:
 	state = State.FLEE
 	clock = 0.0
 	_next_refuge = 0.0
-	bark("bark.flee", {}, true)
-	show_mood("alarm", 3.0)
+	if now() >= _flee_bark_at:   # (once, not again every time they turn to run)
+		_flee_bark_at = now() + 10.0
+		bark("bark.flee", {}, true)
+	mood = ""   # (crying while they run: no other mood over it)
 
 
 func _fleeing(t: float, delta: float) -> void:
@@ -1492,6 +1497,7 @@ func _abandon(t: float) -> void:
 			_done_building(t)
 		State.TO_CRAFT: _done_crafting(t)
 		State.TO_REPAIR: _done_repairing(t)
+		State.FLEE: _next_refuge = 0.0   # (stuck: somewhere else to run, still running)
 		State.TO_PICKUP:
 			if loose != null:
 				out_of_reach[loose] = t + 60.0

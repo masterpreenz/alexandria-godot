@@ -1072,6 +1072,15 @@ func _ready() -> void:
 					camera.zoom *= float(Shots.arg("zoom", "1.4"))
 					for i in 10:
 						await get_tree().process_frame
+				"margin":
+					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
+					for i in 3:
+						await get_tree().process_frame
+					var bm := BuildMode.active
+					var edge_cell := world.floors.cell_at(world.village.centre()) + Vector2i(0, ceili(world.village.half_size()))
+					for off in [0, 1, 2, 3, 4]:
+						var e := WallMap.Edge.new(edge_cell + Vector2i(0, off), false)
+						print("Margin +", off, ": PlankWall out ", bm._wall_outside(e, "PlankWall", false), ", Barricade out ", bm._wall_outside(e, "Barricade", false), ", Gate out ", bm._wall_outside(e, "Gate", false))
 				"flee":
 					# A villager at 15% health with a mutated villager a few steps off: they run; distance and state each second.
 					clock.hours = float(clock.day() - 1) * 24.0 + 10.0
@@ -1095,6 +1104,12 @@ func _ready() -> void:
 							for k in 3:
 								await get_tree().process_frame
 							print("Flee shot: ", v.person.name, " bark showing ", v._bark != null and v._bark.visible)
+						if i == 450:
+							miko.place(v.position + Vector2(-1.5, 2.0) * world.px)
+							for k in 3:
+								await get_tree().process_frame
+							print("Flee later: emote showing ", v.emote != null and v.emote.visible, ", bark ", v._bark != null and v._bark.visible, " ", v._bark.text if v._bark != null else "", ", mood ", v.mood, ", bubble ", v.bubble != null and v.bubble.visible)
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_cry.png")
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_run.png")
 						if not is_instance_valid(v):
 							print("Flee: the villager died")

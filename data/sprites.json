@@ -4302,5 +4302,13 @@
 {"name":"Emote_planting_4","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[624,0,156,150],"pivot":[78.0,150],"ppu":380},
 {"name":"Emote_planting_5","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[780,0,156,150],"pivot":[78.0,150],"ppu":380},
 {"name":"Emote_planting_6","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[936,0,156,150],"pivot":[78.0,150],"ppu":380},
-{"name":"Emote_planting_7","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[1092,0,156,150],"pivot":[78.0,150],"ppu":380}
+{"name":"Emote_planting_7","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[1092,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_crying_0","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[0,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_1","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[132,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_2","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[264,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_3","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[396,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_4","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[528,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_5","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[660,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_6","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[792,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"Emote_crying_7","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[924,0,132,150],"pivot":[66.0,150],"ppu":380}
 ]
