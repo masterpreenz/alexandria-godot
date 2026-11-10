@@ -1204,6 +1204,16 @@ func _ready() -> void:
 					miko.place(world.floors.cell_centre(c0 + Vector2i(2, 2)))
 					for i in 20:
 						await get_tree().process_frame
+				"penaway":
+					# A rabbit pen, demolished from a corner tile of it (not the middle one it stands on).
+					for i in 5:
+						await get_tree().process_frame
+					var pc := world.floors.cell_at(miko.position) + Vector2i(3, 0)
+					world.props.place(pc, "RabbitPen")
+					var bm := BuildMode.active
+					print("Pen: hover on its corner '", bm._demolish_hover(pc + Vector2i(1, 1), true).get("title", ""), "'")
+					bm._clear_one(pc + Vector2i(1, 1))
+					print("Pen: left after demolishing its corner ", world.props_named("RabbitPen").filter(func(p): return world.floors.cell_at(p) == pc).size())
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:

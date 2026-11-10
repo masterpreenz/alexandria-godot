@@ -682,16 +682,28 @@ func _demolish_prop(prop_name: String) -> bool:
 	return demolish_only == "All" or (demolish_only == "Farm" and farm_plot) or (demolish_only == "Decor" and not farm_plot)
 
 
+# A rabbit pen covers the 3x3 tiles round the one it stands on: on any of them, the tile it stands on (else [param cell]).
+func _pen_cell(cell: Vector2i) -> Vector2i:
+	if world.props.peek_where(cell, _demolish_prop) != "":
+		return cell
+	for at in world.props_named("RabbitPen"):
+		var c := world.floors.cell_at(at)
+		if absi(c.x - cell.x) <= 1 and absi(c.y - cell.y) <= 1 and _demolish_prop("RabbitPen"):
+			return c
+	return cell
+
+
 func _clear_one(cell: Vector2i) -> void:
 	var f := world.floors
 	var at := f.cell_centre(cell)
 	var only := demolish_only
+	var prop_cell := _pen_cell(cell) if only in ["All", "Decor", "Farm"] else cell
 	# A plan there goes first (nothing to refund).
 	if only in ["All", "Walls", "Floors"] and Construction.active != null and Construction.active.remove_at(cell, world.walls.edges_in(cell)):
 		return
 	if only in ["All", "Decor", "Farm"]:
-		var top := world.props.peek_where(cell, _demolish_prop)
-		if world.props.remove_one_where(cell, _demolish_prop):
+		var top := world.props.peek_where(prop_cell, _demolish_prop)
+		if world.props.remove_one_where(prop_cell, _demolish_prop):
 			_refund(item_for("Prop", top), at)
 			return
 	if only == "Decor" or only == "Farm":
@@ -719,7 +731,7 @@ func _demolish_hover(cell: Vector2i, shown: bool) -> Dictionary:
 	var it := {}
 	var nm := ""
 	var only := demolish_only
-	var top := world.props.peek_where(cell, _demolish_prop) if only in ["All", "Decor", "Farm"] else ""
+	var top := world.props.peek_where(_pen_cell(cell), _demolish_prop) if only in ["All", "Decor", "Farm"] else ""
 	if top != "":
 		it = item_for("Prop", top)
 		nm = str(world.props.types.get(top, {}).get("display", top))
