@@ -782,12 +782,7 @@ func _go_to_sleep() -> void:
 	var turn := int(home.e.turn)
 	facing_right = turn == 1 or turn == 2
 	facing_up = turn >= 2
-	var lying: Variant = look.get("lying", {}).get("sleepUp" if facing_up else "sleepDown")
-	# (and turned to lie along it)
-	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right, 1.0)
-	position = lie[0]
-	art.rotation = lie[1]
-	reset_physics_interpolation()
+	lie_in_bed()
 	collision_layer = 0
 	if shadow != null:
 		shadow.visible = false
@@ -795,6 +790,23 @@ func _go_to_sleep() -> void:
 	in_bed = true
 	z_index = 1   # drawn over the bed
 	sleep_clock = 0.0
+
+
+## Which sleeping pose they're in: "sleepUp" (seen from behind) or "sleepDown".
+func sleep_pose() -> String:
+	return "sleepUp" if facing_up else "sleepDown"
+
+
+## Puts them where they lie on their bed: head on the pillow, turned along it, and then as adjusted by hand
+## (SleepTune: x, y px and degrees for their look and pose, mirrored with them).
+func lie_in_bed() -> void:
+	var lying: Variant = look.get("lying", {}).get(sleep_pose())
+	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right, 1.0)
+	var tune := SleepTune.of(int(person.get("look", 0)), sleep_pose())
+	var side := -1.0 if facing_right else 1.0
+	position = (lie[0] as Vector2) + Vector2(float(tune[0]) * side, float(tune[1]))
+	art.rotation = float(lie[1]) + deg_to_rad(float(tune[2])) * side
+	reset_physics_interpolation()
 
 
 # Lying down, then breathing slowly in their sleep; a "z" floating up now and then.

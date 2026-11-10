@@ -207,6 +207,11 @@ func _ready() -> void:
 	outskirts.name = "Outskirts"
 	add_child(outskirts)
 	outskirts.setup(world)
+	# By a bed with a villager asleep in it: the panel to adjust how they lie.
+	var sleep_tune := SleepTune.new()
+	sleep_tune.name = "SleepTune"
+	$Hud.add_child(sleep_tune)
+	sleep_tune.setup(world, miko)
 	# The mountains along the north-east edge, and the cave in them.
 	var mountains := Mountains.new()
 	mountains.name = "Mountains"
@@ -1750,6 +1755,15 @@ func _ready() -> void:
 						var fit: Array = Needs._fit(world, v.home, v.look.get("lying", {}).get("sleepUp" if v.facing_up else "sleepDown"), v.facing_right, 1.0)
 						if fit.size() >= 5:
 							print("  head lands ", ((v.position + (fit[4] as Vector2).rotated(v.art.rotation)) - fit[2]).round(), " px from the pillow, middle ", ((v.position + (fit[3] as Vector2).rotated(v.art.rotation)) - fit[1]).round(), " from the mattress's middle; pillow from middle ", ((fit[2] as Vector2) - fit[1]).round(), ", head from middle ", ((fit[4] as Vector2) - fit[3]).round())
+						if n == 0:
+							var st: SleepTune = $Hud/SleepTune
+							var was := v.position
+							st._boxes[0].value = 10.0
+							st._boxes[2].value = 5.0
+							print("Sleep tune: panel showing ", st.visible, " '", st._title.text, "', moved ", (v.position - was).round(), ", saved ", SleepTune.of(int(v.person.look), v.sleep_pose()))
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_panel.png")
+							st._boxes[0].value = 0.0
+							st._boxes[2].value = 0.0
 						print("Sleeper ", v.person.name, " look ", int(v.person.look), ": turned ", snappedf(rad_to_deg(v.art.rotation), 0.1), " deg, bed turn ", int(v.home.e.turn))
 						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_%d.png" % n)
 						n += 1
