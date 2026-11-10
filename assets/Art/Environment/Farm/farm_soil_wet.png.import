@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmr0csch5hnqo"
-path="res://.godot/imported/farm_plot_potato_stages.png-317b135370ce255010480b8753d76707.ctex"
+uid="uid://coksueqsnigvq"
+path="res://.godot/imported/farm_soil_wet.png-34e01f6128165a38e7cd00b1f2872982.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Art/Environment/Farm/Potato/farm_plot_potato_stages.png"
-dest_files=["res://.godot/imported/farm_plot_potato_stages.png-317b135370ce255010480b8753d76707.ctex"]
+source_file="res://assets/Art/Environment/Farm/farm_soil_wet.png"
+dest_files=["res://.godot/imported/farm_soil_wet.png-34e01f6128165a38e7cd00b1f2872982.ctex"]
 
 [params]
 
