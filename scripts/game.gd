@@ -1055,8 +1055,8 @@ func _ready() -> void:
 					# Barricades: three along x and three along y, a fence row beside them to compare.
 					var c0 := world.floors.cell_at(miko.position) + Vector2i(2, -2)
 					for i in 3:
-						world.walls.place(WallMap.Edge.new(c0 + Vector2i(i, 0), false), Shots.arg("wall", "Barricade"))
-						world.walls.place(WallMap.Edge.new(c0 + Vector2i(3, i + 1), true), Shots.arg("wall", "Barricade"))
+						world.walls.place(WallMap.Edge.new(c0 + Vector2i(i * 2, 0), false), Shots.arg("wall", "Barricade"))
+						world.walls.place(WallMap.Edge.new(c0 + Vector2i(7, i * 2 + 1), true), Shots.arg("wall", "Barricade"))
 						world.walls.place(WallMap.Edge.new(c0 + Vector2i(i, -2), false), "Fence")
 					miko.place(world.floors.cell_centre(c0 + Vector2i(1, 2)))
 					camera.zoom *= float(Shots.arg("zoom", "1.4"))
