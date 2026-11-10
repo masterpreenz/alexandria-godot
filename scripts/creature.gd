@@ -24,6 +24,7 @@ var flash_until := -1.0
 var facing_back := false
 var flip := false               ## facing east (the art faces west)
 var art_scale := 1.0
+var raid_to := Vector2.INF       ## raiding (Raids): where in the village it's making for; INF when not
 var _check_at := 0.0
 
 
@@ -121,6 +122,9 @@ func player() -> Miko:
 
 ## Rests while far from Miko; true while resting (the caller skips its thinking).
 func resting() -> bool:
+	if raid_to != Vector2.INF:
+		asleep = false   # a raider keeps coming, however far from Miko
+		return false
 	var t := now()
 	if t >= _check_at:
 		_check_at = t + 0.25

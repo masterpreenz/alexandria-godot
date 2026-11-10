@@ -25,6 +25,7 @@ var _attack_clock := 0.0
 var _hit_done := false
 var _slashed := false
 var _bar_key: Variant = null      ## the barricade it's swinging at (null: at her)
+var prey: Node2D = null            ## who it's after: Miko, or (raiding) a villager too
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedVillager:
@@ -53,9 +54,11 @@ func _physics_process_timed(delta: float) -> void:
 		return
 	var t := now()
 	clock += delta
-	# Miko in the mist and in sight: after her. Out of the mist, or got away: back to its wandering.
+	# Miko in the mist and in sight: after her. Out of the mist, or got away: back to its wandering. Raiding: after
+	# whoever's nearest, Miko or a villager, mist or not; with nobody about, on into the village.
 	var p := player()
-	var hunting := _hunting(p)
+	prey = _pick_prey(p)
+	var hunting := prey != null or raid_to != Vector2.INF
 	if hunting and state != State.CHASE and state != State.ATTACK:
 		state = State.CHASE
 	elif not hunting and state == State.CHASE:
@@ -67,13 +70,19 @@ func _physics_process_timed(delta: float) -> void:
 			if t >= state_until:
 				_pick_walk()
 		State.CHASE:
+			var goal: Vector2 = prey.position if prey != null else raid_to
 			# A barricade in the way: that first.
-			var bar := barricade_ahead(p.position)
+			var bar := barricade_ahead(goal)
 			_bar_key = null if bar.is_empty() else bar[0]
-			var to: Vector2 = (p.position if bar.is_empty() else bar[1]) - position
+			var to: Vector2 = (goal if bar.is_empty() else bar[1]) - position
 			var reach := float(s.attackReach) * world.px * (1.0 if bar.is_empty() else 1.3)
 			face(to, 0.1)
-			if to.length() > reach:
+			if prey == null and bar.is_empty():
+				# Marching on the village: round what's in the way; there, on to somewhere else in it.
+				if to.length() < 1.2 * world.px:
+					raid_to = Raids.spot_in_village(world)
+				velocity = steer.around(to.normalized() * float(s.chaseSpeed) * world.px, delta)
+			elif to.length() > reach:
 				velocity = to.normalized() * float(s.chaseSpeed) * world.px
 			else:
 				velocity = Vector2.ZERO
@@ -87,7 +96,7 @@ func _physics_process_timed(delta: float) -> void:
 			velocity = Vector2.ZERO
 			_attack_clock += delta
 			var f := int(_attack_clock * float(s.attackFps))
-			var to_her := p.position - position if p != null else Vector2.ZERO
+			var to_her := prey.position - position if prey != null else Vector2.ZERO
 			if _bar_key != null and world.walls.walls.has(_bar_key):
 				to_her = world.walls.wall_middle(_bar_key) - position
 			if f >= int(s.hitFrame) - 1 and not _slashed:
@@ -98,7 +107,9 @@ func _physics_process_timed(delta: float) -> void:
 				# The slam lands where she was: she's hit only if she's still in reach.
 				if _bar_key != null:
 					world.walls.damage(_bar_key, float(s.attackDamage) * 2.0)
-				elif p != null and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
+				elif prey is Villager and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
+					(prey as Villager).hit.hurt(float(s.attackDamage))
+				elif prey != null and prey == p and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
 					hurt_player(float(s.attackDamage), to_her.normalized() * float(s.knockback) * world.px, 0.2)
 			if f >= (s.attackFront as Array).size():
 				state = State.CHASE if hunting else State.STAND
@@ -134,6 +145,22 @@ func _hunting(p: Miko) -> bool:
 		return false
 	var far := float(s.giveUpAt if state == State.CHASE else s.sight) * world.px
 	return p.position.distance_to(position) <= far
+
+
+# Who it's after now, or null: Miko as [method _hunting] says; raiding, the nearest of her and the villagers in sight.
+func _pick_prey(p: Miko) -> Node2D:
+	if raid_to == Vector2.INF:
+		return p if _hunting(p) else null
+	var best: Node2D = null
+	var best_d := float(s.giveUpAt if state == State.CHASE and prey != null else s.sight) * world.px
+	if p != null and p.stats != null and p.stats.hp > 0.0 and p.position.distance_to(position) < best_d:
+		best = p
+		best_d = p.position.distance_to(position)
+	for v in Villager.all:
+		if is_instance_valid(v) and v.visible and v.hit.alive() and v.position.distance_to(position) < best_d:
+			best = v
+			best_d = v.position.distance_to(position)
+	return best
 
 
 func _stand(t: float) -> void:

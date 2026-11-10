@@ -146,8 +146,8 @@ func _animate(t: float, delta: float) -> void:
 	var v := Vector2.ZERO
 	if airborne and dir.length() > 0.1 * world.px:
 		v = dir.normalized() * float(s.hopSpeed) * world.px * (1.2 if chasing else 1.0) * (0.85 if large else 1.0)
-	# Wandering, it keeps out of the village.
-	if not chasing and v != Vector2.ZERO and world.village.contains(position + v * 0.25, 0.3):
+	# Wandering, it keeps out of the village (unless it's raiding it).
+	if not chasing and raid_to == Vector2.INF and v != Vector2.ZERO and world.village.contains(position + v * 0.25, 0.3):
 		v = Vector2.ZERO
 		_pick_wander()
 	if v != Vector2.ZERO:
