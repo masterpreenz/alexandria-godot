@@ -167,13 +167,15 @@ func pests(p: Dictionary) -> bool:
 
 ## Waters a plot (wet for a day), with the sound of it.
 func water(p: Dictionary) -> void:
-	_state(p).wateredAt = _hours()
+	for q in field_of(p):   # the whole field at once
+		_state(q).wateredAt = _hours()
 	Sfx.play(world, Sfx.stream(WATER_SOUND), p.pos, 0.6, 0.08)
 
 
-## Clears the pests out of a plot.
+## Clears the pests out of a plot's whole field.
 func clear_pests(p: Dictionary) -> void:
-	_state(p).pest = false
+	for q in field_of(p):
+		_state(q).pest = false
 
 
 # Growing crops grow by the game hours gone by: at full speed watered, half dry, not at all with pests in them; pests
@@ -199,8 +201,21 @@ func _tend(dh: float) -> void:
 			st.grown = _grown(p)
 		var rate := 0.0 if st.get("pest", false) else (DRY_RATE if dry(p) else 1.0)
 		st.grown = float(st.grown) + dh * rate
-		if not st.get("pest", false) and randf() < 1.0 - pow(1.0 - PEST_PER_HOUR, dh):
-			st.pest = true
+	# Pests get into a field, not a plot: one roll a field, and then into all of its growing plots.
+	if dh > 0.0 and not frost:
+		var seen := {}
+		for p in plots:
+			if seen.has(p.key) or stage(p) != 1:
+				continue
+			var field := field_of(p)
+			for q in field:
+				seen[q.key] = true
+			if field.any(func(q): return _state(q).get("pest", false)):
+				continue
+			if randf() < 1.0 - pow(1.0 - PEST_PER_HOUR, dh):
+				for q in field:
+					if stage(q) == 1:
+						_state(q).pest = true
 	if killed > 0:
 		VillageLog.event("frost", "Winter's frost killed %d growing plot%s: plant again in spring" % [killed, "" if killed == 1 else "s"])
 
@@ -415,14 +430,14 @@ func _process_timed(_delta: float) -> void:
 			var h := hours_left(p)
 			var nm: String = CROPS[crop(p)].plural.capitalize()
 			if pests(p):
-				_say("Pests in the %s  ·  not growing  ·  E clear them" % CROPS[crop(p)].plural)
+				_say("Pests in the %s  ·  not growing  ·  E clear the field" % CROPS[crop(p)].plural)
 				if keys.has("e"):
 					clear_pests(p)
 					_till(p)
 					FloatingText.spawn(world, "Pests cleared", p.pos + Vector2(0, -0.6 * world.px), Color(0.62, 0.86, 0.5))
 					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 			elif dry(p):
-				_say("%s dry  ·  growing at half speed  ·  E water" % nm)
+				_say("%s dry  ·  growing at half speed  ·  E water the field" % nm)
 				if keys.has("e"):
 					water(p)
 					FloatingText.spawn(world, "Watered", p.pos + Vector2(0, -0.6 * world.px), Color(0.55, 0.78, 1.0))

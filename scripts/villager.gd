@@ -305,7 +305,7 @@ func _physics_process_timed(delta: float) -> void:
 				elif _go_door_duty(): pass
 				elif _hour(world) >= 17.5 and _go_light(): pass
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
-				elif _work_hours() and randf() < chance and _go_farm(): pass
+				elif _work_hours() and (randf() < chance or _crops_need_care()) and _go_farm(): pass
 				elif _work_hours() and randf() < chance and _go_cook(): pass
 				elif _work_hours() and randf() < chance and _go_build(): pass
 				elif _work_hours() and _go_pick_up(): pass
@@ -1807,6 +1807,12 @@ func _farming(t: float) -> void:
 		elif farm_task == "water" and farm.dry(plot):
 			farm.water(plot)
 			people.practise(person, LifeSkills.Skill.FARMING)
+		# On to the next plot close by wanting the same (the rest of the field), before anything else.
+		var nxt := _next_tending(farm)
+		if not nxt.is_empty():
+			tending.erase(plot.key)
+			_go_to_plot(nxt)
+			return
 		_done_farming(t)
 		return
 	if planting:
@@ -1837,6 +1843,32 @@ func _farming(t: float) -> void:
 			_go_to_plot(nxt)
 			return
 	_done_farming(t, had_load)
+
+
+# The nearest plot (within a few units) wanting what they're doing now (pests cleared, or water), or {}.
+func _next_tending(farm: Farming) -> Dictionary:
+	var best := {}
+	var best_d := 6.0 * world.px
+	for p in farm.plots:
+		if p == plot or tending.has(p.key):
+			continue
+		var wants: bool = farm.pests(p) if farm_task == "pests" else farm.dry(p)
+		var dd: float = p.pos.distance_to(position)
+		if wants and dd < best_d:
+			best_d = dd
+			best = p
+	return best
+
+
+## Whether a crop in the village wants seeing to now (pests in it, or dry), for a farmer to go to first.
+func _crops_need_care() -> bool:
+	var farm := _farming_node()
+	if farm == null or carrying > 0 or not (_job() == Job.ANY or _job() == Job.FARMING):
+		return false
+	for p in farm.plots:
+		if not tending.has(p.key) and (farm.pests(p) or farm.dry(p)) and world.village.contains(p.pos, 3.0):
+			return true
+	return false
 
 
 func _next_ripe(farm: Farming) -> Dictionary:
