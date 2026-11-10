@@ -208,7 +208,10 @@ class Burst extends Node2D:
 	func _draw() -> void:
 		var t := clampf(age / 0.6, 0.0, 1.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, radius * lerpf(0.3, 1.0, t), Color(col, 0.25 * (1.0 - t)))
+		draw_circle(Vector2.ZERO, radius * lerpf(0.3, 1.0, t), Color(col, 0.4 * (1.0 - t)))
+		# The flash at its heart, gone quickly.
+		var f := clampf(age / 0.22, 0.0, 1.0)
+		draw_circle(Vector2.ZERO, radius * lerpf(0.25, 0.75, f), Color(1.0, 0.95, 0.8, 0.6 * (1.0 - f)))
 		draw_arc(Vector2.ZERO, radius * lerpf(0.3, 1.05, t), 0.0, TAU, 48, Color(col.lightened(0.3), 0.9 * (1.0 - t)), 4.0, true)
 
 

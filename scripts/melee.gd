@@ -6,7 +6,8 @@ extends Node
 ## with her character panel open, or while she's busy (cooking, sleeping, casting...).
 
 const DOWNSWING := 3          ## the frame the staff comes down on (counted from 0)
-const REACH := 0.8            ## units in front of her the smack lands, and how far round that it reaches
+const REACH := 0.8            ## units in front of her the smack lands
+const SWEEP := 1.15           ## units round that it reaches: everything close together there is hit
 const BASE_DAMAGE := 5.0
 
 var world: World
@@ -69,7 +70,7 @@ func _process_timed(_delta: float) -> void:
 	# The slash sweeps out a moment before the staff lands.
 	if f >= DOWNSWING - 1 and not _slashed:
 		_slashed = true
-		Slash.play(world, miko.position, _toward, Color(1.0, 0.93, 0.72, 0.9), 1.0)
+		Slash.play(world, miko.position, _toward, Color(1.0, 0.93, 0.72, 0.9), 1.35)
 		if _swing_sound != null:
 			Sfx.play(world, _swing_sound, miko.position, 0.6, 0.08)
 	if f >= DOWNSWING and not _struck:
@@ -91,6 +92,6 @@ func _strike() -> void:
 	var dir := Vector2(_toward.x, _toward.y * 2.0).normalized()
 	var at := miko.position + Vector2(dir.x, dir.y * 0.5) * REACH * world.px
 	var attack := miko.stats.stat("attack") if miko.stats != null else 0.0
-	var n := Damageable.hit_around(at, REACH * world.px, BASE_DAMAGE + attack, Damageable.Team.ENEMY, true)
+	var n := Damageable.hit_around(at, SWEEP * world.px, BASE_DAMAGE + attack, Damageable.Team.ENEMY, true)
 	if n > 0 and _hit_sound != null:
 		Sfx.play(world, _hit_sound, at, 0.55, 0.12)
