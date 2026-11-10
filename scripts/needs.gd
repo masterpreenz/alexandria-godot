@@ -116,6 +116,9 @@ func effects() -> Array:
 		list.append(["Hungry", false, "HP regen -%d%%, attack, defense and magic -%d%%. Eat something (F)." % [pct.call(1.0 - float(s.hungryRegen)), pct.call(float(s.hungryWeaker))]])
 	if exhausted():
 		list.append(["Exhausted", false, "Can't run, 25% slower, mana regen -50%. Rest, sleep (Z) or drink tea (G)."])
+	match cold():
+		1: list.append(["Cold", false, "Winter: 10% slower, HP regen -25%. Stand by a burning fire or torch, or get under a roof."])
+		2: list.append(["Freezing", false, "Out in the snow: 20% slower, HP regen -50%, mana regen -25%. Stand by a burning fire or torch, or get under a roof."])
 	# Second Wind spent: how long till it's back.
 	var wind_in := stats.wind_ready_at - Time.get_ticks_msec() / 1000.0
 	if stats.stat("secondWind") > 0.0 and wind_in > 0.0:
@@ -265,8 +268,23 @@ func _bubble(t: float, st: String) -> void:
 
 # What going without does: half the HP regen while hungry; none, and slower, while starving; slower, with half the
 # mana regen, while exhausted.
+## How cold she is: 0 not (not winter, or by a burning fire, or under a roof), 1 cold, 2 freezing (out in the snow).
+func cold() -> int:
+	if world.clock == null or world.clock.season() != GameClock.Season.WINTER:
+		return 0
+	if world.roofs != null and world.roofs.covers(miko.position):
+		return 0
+	var fires: Fires = miko.get_node_or_null("Fires")
+	if fires != null and fires.warm(miko.position, WARMTH * world.px):
+		return 0
+	return 2 if world.clock.weather() == GameClock.Weather.SNOW else 1
+
+
+const WARMTH := 4.0              ## units from a burning fire or torch she's kept warm
+
 func _penalties() -> void:
-	if not hungry() and not exhausted():
+	var chill := cold()
+	if not hungry() and not exhausted() and chill == 0:
 		if stats.buffs.has(self): stats.set_buff(self, null)
 		return
 	var total := stats.unbuffed()
@@ -284,6 +302,12 @@ func _penalties() -> void:
 	if exhausted():
 		b.moveSpeed = float(b.get("moveSpeed", 0.0)) - 25.0
 		b.manaRegen = -maxf(0.0, float(total.get("manaRegen", 0.0))) * 0.5
+	# Cold: slower, mending less; freezing in the snow, worse, and her mana comes back slower too.
+	if chill > 0:
+		b.moveSpeed = float(b.get("moveSpeed", 0.0)) - (20.0 if chill == 2 else 10.0)
+		b.hpRegen = float(b.get("hpRegen", 0.0)) - hp_regen * (0.5 if chill == 2 else 0.25)
+		if chill == 2:
+			b.manaRegen = float(b.get("manaRegen", 0.0)) - maxf(0.0, float(total.get("manaRegen", 0.0))) * 0.25
 	if stats.buffs.get(self) != b:
 		stats.set_buff(self, b)
 

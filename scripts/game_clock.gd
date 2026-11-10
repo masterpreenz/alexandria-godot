@@ -115,6 +115,9 @@ func _roll(slot: int) -> int:
 		Season.SPRING: return Weather.CLEAR if r < 0.5 else Weather.CLOUDY if r < 0.75 else Weather.RAIN if r < 0.92 else Weather.STORM
 		Season.SUMMER: return Weather.CLEAR if r < 0.65 else Weather.CLOUDY if r < 0.85 else Weather.RAIN if r < 0.93 else Weather.STORM
 		Season.AUTUMN: return Weather.CLEAR if r < 0.35 else Weather.CLOUDY if r < 0.65 else Weather.RAIN if r < 0.88 else Weather.STORM
+	# Winter always comes in snowing: all its first day.
+	if day_of_season() == 1:
+		return Weather.SNOW
 	return Weather.CLEAR if r < 0.35 else Weather.CLOUDY if r < 0.6 else Weather.SNOW
 
 

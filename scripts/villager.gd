@@ -317,7 +317,8 @@ func _physics_process_timed(delta: float) -> void:
 				var chance := float(s.workChance)
 				if _hungry() and _go_eat(): pass
 				elif _go_door_duty(): pass
-				elif _hour(world) >= 17.5 and _go_light(): pass
+				# (in winter the fires and torches are kept burning all day: lit again as each burns down)
+				elif (_hour(world) >= 17.5 or (_fires() != null and _fires().winter() and not _night())) and _go_light(): pass
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
 				elif _work_hours() and _go_repair(): pass
 				elif _work_hours() and (randf() < chance or _crops_need_care()) and _go_farm(): pass

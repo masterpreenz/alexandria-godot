@@ -84,13 +84,29 @@ func _evening() -> bool:
 	return h >= 17.5 or h < 6.0
 
 
-## Sets it burning: through the night when lit in the evening; by day an hour, for cooking.
+const WINTER_BURN := 6.0          ## game hours a fire lit by day burns in winter (kept going for warmth)
+
+## Whether it's winter (the fires are kept lit all day then, for warmth).
+func winter() -> bool:
+	return world.clock != null and world.clock.season() == GameClock.Season.WINTER
+
+
+## Whether there's a burning fire within [param reach] px of [param at].
+func warm(at: Vector2, reach: float) -> bool:
+	for f in fires:
+		if lit(f) and f.pos.distance_to(at) <= reach:
+			return true
+	return false
+
+
+## Sets it burning: through the night when lit in the evening; by day an hour, for cooking (in winter, a good while:
+## it burns down and wants lighting again).
 func light(f: Dictionary) -> void:
 	var now := _hours()
 	var morning := floorf(now / 24.0) * 24.0 + 6.0
 	if now >= morning:
 		morning += 24.0
-	lit_until[f.key] = morning if _evening() else now + 1.0
+	lit_until[f.key] = morning if _evening() else now + (WINTER_BURN if winter() else 1.0)
 
 
 ## Someone is cooking at it: it doesn't go out under them.

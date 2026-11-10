@@ -1587,6 +1587,51 @@ func _ready() -> void:
 							await get_tree().process_frame
 						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_" + pose + ".png")
 					print("Villager 3: shown, look 2 of ", vs.d.looks.size(), ", ", third.person.name)
+				"cold":
+					# Winter: out in the open, in the snow, by a lit fire; what she suffers each time. And a villager
+					# lighting a fire by day.
+					var nd: Needs = miko.get_node("Needs")
+					var fr: Fires = miko.get_node("Fires")
+					clock.forced = -1
+					clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4) + 2) * 24.0 + 10.0
+					var names := func() -> Array: return nd.effects().map(func(x): return x[0])
+					miko.place(world.village.centre() + Vector2(9.0, 6.0) * world.px)
+					for f in fr.fires:
+						fr.lit_until.erase(f.key)
+					for w in [GameClock.Weather.CLEAR, GameClock.Weather.SNOW]:
+						clock.forced = w
+						for i in 20:
+							await get_tree().process_frame
+						print("Cold: ", GameClock.WEATHER_NAMES[w], " out in the open -> ", nd.cold(), " ", names.call(), ", move speed ", miko.stats.stat("moveSpeed"))
+					var bon: Dictionary = fr.fires.filter(func(f): return not bool(f.s.torch))[0]
+					miko.place(bon.pos + Vector2(1.2, 0.6) * world.px)
+					for i in 20:
+						await get_tree().process_frame
+					print("Cold: by an unlit fire -> ", nd.cold())
+					fr.light(bon)
+					for i in 20:
+						await get_tree().process_frame
+					print("Cold: by it lit -> ", nd.cold(), ", it burns ", snappedf(float(fr.lit_until[bon.key]) - clock.hours, 0.1), " h")
+					fr.lit_until.erase(bon.key)
+					world.village.put_in_stash("Wood", 20)
+					world.village.put_in_stash("Stone", 20)
+					for i in int(Shots.arg("coldframes", "1500")):
+						await get_tree().process_frame
+					print("Cold: villagers lit by day ", fr.fires.filter(func(f): return fr.lit(f)).size(), " of ", fr.fires.size(), " fires and torches (hour ", snappedf(clock.hour(), 0.1), ")")
+				"wintersnow":
+					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
+					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0
+					print("Winter snow: weather pinned by hand ", clock.forced)
+					clock.forced = -1
+					for seed_now in [1234, 1, 99]:
+						clock.weather_seed = seed_now
+						var seen := []
+						for h in range(-24, 48, 6):
+							clock.hours = first_winter + h + 1.0
+							clock._slot = -1
+							clock._update_weather()
+							seen.append("%s d%d %s" % [GameClock.SEASON_NAMES[clock.season()], clock.day_of_season(), GameClock.WEATHER_NAMES[clock.weather()]])
+						print("Winter snow (seed ", seed_now, "): ", seen)
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:
