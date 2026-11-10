@@ -27,6 +27,7 @@ var _search: LineEdit
 var _footer_text: Label
 var _have: Label
 var _brushes: HBoxContainer
+var _snap: Label                     ## placing a prop: snapping to tiles, or free (Alt)
 var _demolish_kinds: HBoxContainer   ## while demolishing: what it takes (All, Walls, Floors, Decor, Farm plots)
 var _turn: Label
 var _card: PanelContainer
@@ -179,7 +180,25 @@ func _build_bar() -> void:
 	add_child(_bar)
 
 
+# Placing a prop: a note over the bar's right end, snapping to tiles, or (Alt held) set down freely.
+func _snap_note() -> void:
+	var sel := build.selected
+	_snap.visible = build.tool == "Place" and not sel.is_empty() and sel.kind == "Prop"
+	if not _snap.visible:
+		return
+	var free := Input.is_key_pressed(KEY_ALT)
+	_snap.text = "Free placement  (Alt held)" if free else "Snapping to tiles  ·  hold Alt for free placement"
+	_snap.add_theme_color_override("font_color", HudStyle.color("accentLight") if free else HudStyle.color("muted"))
+	_snap.reset_size()
+	_snap.position = Vector2(_bar.position.x + _bar.size.x - _snap.size.x, _bar.position.y - _snap.size.y - _k(6)).round()
+
+
 func _build_tip() -> void:
+	_snap = HudStyle.label("", 11, "bold", HudStyle.color("muted"))
+	_snap.add_theme_stylebox_override("normal", HudStyle.piece("panel"))
+	_snap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_snap.visible = false
+	add_child(_snap)
 	_tip = PanelContainer.new()
 	_tip.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
 	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -252,6 +271,7 @@ func _process_timed(_delta: float) -> void:
 	if _card.visible:
 		_card.reset_size()
 		_card.position = Vector2(vp.x - _card.size.x - _k(16), _bar.position.y - _card.size.y - _k(10)).round()
+	_snap_note()
 	_tooltip()
 
 
@@ -406,6 +426,11 @@ func _tooltip() -> void:
 	_tip.reset_size()
 	var m := get_viewport().get_mouse_position()
 	var vp := get_viewport_rect().size
+	if get_viewport().gui_get_hovered_control() is ItemTile:
+		# An item's card: over the bar's right end (above the snapping note), never off the screen.
+		var above := _bar.position.y - _k(8) - (_snap.size.y + _k(4) if _snap.visible else 0.0)
+		_tip.position = Vector2(_bar.position.x + _bar.size.x - _tip.size.x, maxf(_k(8), above - _tip.size.y)).round()
+		return
 	var at := m + Vector2(22, 22)
 	if at.x + _tip.size.x > vp.x: at.x = m.x - 22 - _tip.size.x
 	if at.y + _tip.size.y > _bar.position.y: at.y = m.y - 22 - _tip.size.y
