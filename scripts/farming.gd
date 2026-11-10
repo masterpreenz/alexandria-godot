@@ -166,10 +166,20 @@ func pests(p: Dictionary) -> bool:
 
 
 ## Waters a plot (wet for a day), with the sound of it.
-func water(p: Dictionary) -> void:
+func water(p: Dictionary, sound := true) -> void:
 	for q in field_of(p):   # the whole field at once
 		_state(q).wateredAt = _hours()
-	Sfx.play(world, Sfx.stream(WATER_SOUND), p.pos, 0.6, 0.08)
+	if sound:
+		splash(p)
+
+
+## The sound of watering at a plot; how long it lasts.
+func splash(p: Dictionary) -> float:
+	var clip := Sfx.stream(WATER_SOUND)
+	if clip == null:
+		return 0.0
+	Sfx.play(world, clip, p.pos, 0.6, 0.08)
+	return clip.get_length()
 
 
 ## Clears the pests out of a plot's whole field.

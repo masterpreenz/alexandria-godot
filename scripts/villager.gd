@@ -1951,7 +1951,9 @@ func _farming(t: float) -> void:
 		return
 	_show_idle()
 	if t >= _next_till:
-		_next_till = t + maxf(0.6, farm.till(plot)) + randf_range(0.1, 0.3)
+		# Pouring water as they water (the field's watering sound), else working the soil.
+		var took := farm.splash(plot) if farm_task == "water" else farm.till(plot)
+		_next_till = t + maxf(0.6, took) + randf_range(0.1, 0.3)
 	if t < state_until:
 		return
 	_wear_tools()
@@ -1961,7 +1963,7 @@ func _farming(t: float) -> void:
 			show_mood("success", 2.5)
 			people.practise(person, LifeSkills.Skill.FARMING)
 		elif farm_task == "water" and farm.dry(plot):
-			farm.water(plot)
+			farm.water(plot, false)   # (heard while they were at it)
 			people.practise(person, LifeSkills.Skill.FARMING)
 		# On to the next plot close by wanting the same (the rest of the field), before anything else.
 		var nxt := _next_tending(farm)
