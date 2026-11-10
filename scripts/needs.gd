@@ -448,13 +448,37 @@ func _sleep_point(bed: Dictionary) -> Vector2:
 ## Place, from the points exported for the bed's art and the pose's); [param mirrored]: the pose is shown flipped;
 ## [param k]: the art's scale.
 static func fit_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool, k: float) -> Vector2:
+	return lie_on_bed(w, bed, lying, mirrored, k, false)[0]
+
+
+## As [method fit_on_bed], and with [param turn] the angle to turn the sleeper's art by so they lie along the bed (the
+## line from their middle to their head along the mattress's, middle to pillow; never more than [constant MOST_TURN]):
+## [where they go, the angle]. Turned, their middle sits on the mattress's middle exactly.
+const MOST_TURN := 0.45
+
+static func lie_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool, k: float, turn_art := true) -> Array:
+	var at := _fit(w, bed, lying, mirrored, k)
+	if not turn_art or at.size() < 5:
+		return [at[0], 0.0]
+	var centre: Vector2 = at[1]
+	var pillow: Vector2 = at[2]
+	var middle: Vector2 = at[3]
+	var head: Vector2 = at[4]
+	if (pillow - centre).length() < 1.0 or (head - middle).length() < 1.0:
+		return [at[0], 0.0]
+	var rot := clampf(wrapf((pillow - centre).angle() - (head - middle).angle(), -PI, PI), -MOST_TURN, MOST_TURN)
+	return [centre - middle.rotated(rot), rot]
+
+
+# [where they go, the mattress's middle, the pillow, the pose's middle, its head] (the last four when they're known).
+static func _fit(w: World, bed: Dictionary, lying: Variant, mirrored: bool, k: float) -> Array:
 	var e: Dictionary = bed.e
 	var turn := int(e.turn)
 	var id := w.props.sprite_for(e.prop, turn)
 	var flipped := w.props.shown_flipped(e)
 	var pts: Dictionary = bed.points.get(str(id), {})
 	if pts.is_empty() or lying == null:
-		return bed.pos
+		return [bed.pos]
 	var feet_right := turn == 1 or turn == 2
 	var pillow_right := (not feet_right) != flipped
 	var pair: Array = pts.right if pillow_right else pts.left
@@ -471,7 +495,7 @@ static func fit_on_bed(w: World, bed: Dictionary, lying: Variant, mirrored: bool
 	if mirrored:
 		middle.x = -middle.x
 		head.x = -head.x
-	return ((centre - middle) + (pillow - head)) / 2.0
+	return [((centre - middle) + (pillow - head)) / 2.0, centre, pillow, middle, head]
 
 
 ## Every bed in the world: [{pos, e, type, settings, points}].

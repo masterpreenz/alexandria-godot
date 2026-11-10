@@ -783,7 +783,10 @@ func _go_to_sleep() -> void:
 	facing_right = turn == 1 or turn == 2
 	facing_up = turn >= 2
 	var lying: Variant = look.get("lying", {}).get("sleepUp" if facing_up else "sleepDown")
-	position = Needs.fit_on_bed(world, home, lying, facing_right, 1.0)
+	# (and turned to lie along it)
+	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right, 1.0)
+	position = lie[0]
+	art.rotation = lie[1]
 	reset_physics_interpolation()
 	collision_layer = 0
 	if shadow != null:
@@ -821,6 +824,7 @@ func _wake_up(t: float) -> void:
 		if Needs.occupants.get(Needs.bed_key(home.pos)) == self:
 			Needs.occupants.erase(Needs.bed_key(home.pos))
 		position = _door()
+		art.rotation = 0.0
 		reset_physics_interpolation()
 		collision_layer = 8
 		if shadow != null:

@@ -1727,6 +1727,25 @@ func _ready() -> void:
 						if i == 60:
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_walk.png")
 					print("Villager dust: has a trail ", dust != null, ", most puffs at once ", most, ", walked ", snappedf(v.position.distance_to(miko.position) / world.px, 0.1), " units off")
+				"sleepers":
+					# Every housed villager put to bed: how far each is turned, and a close picture of each.
+					clock.hours = float(clock.day() - 1) * 24.0 + 23.0
+					for i in 200:
+						await get_tree().process_frame
+					camera.zoom *= 2.0
+					var n := 0
+					for v in Villager.all:
+						if v.home.is_empty():
+							continue
+						if not v.in_bed:
+							v._go_to_sleep()
+						v.sleep_clock = 5.0
+						miko.place(v.position + Vector2(0.4, 1.3) * world.px)
+						for i in 60:
+							await get_tree().process_frame
+						print("Sleeper ", v.person.name, " look ", int(v.person.look), ": turned ", snappedf(rad_to_deg(v.art.rotation), 0.1), " deg, bed turn ", int(v.home.e.turn))
+						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_%d.png" % n)
+						n += 1
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0
