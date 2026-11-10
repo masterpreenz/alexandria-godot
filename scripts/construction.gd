@@ -128,6 +128,11 @@ func next(near: Vector2, taken: Array) -> Dictionary:
 
 
 ## Pays for a piece from storage and lays it; false (nothing taken) if storage can't.
+## How many pieces are ready to build (marked for the villagers) and not built yet.
+func ready_left() -> int:
+	return pieces.filter(func(p): return bool(p.get("ready", false))).size()
+
+
 func build(p: Dictionary) -> bool:
 	if not pieces.has(p) or not affordable(p):
 		return false

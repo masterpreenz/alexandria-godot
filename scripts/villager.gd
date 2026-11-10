@@ -2042,6 +2042,8 @@ func _cooking(t: float, delta: float) -> void:
 		people.practise(person, LifeSkills.Skill.COOKING)
 		dishes += 1
 	if dishes >= 8 or Kitchen.next(world.village).is_empty():
+		if dishes > 0:
+			show_mood("success", 2.5)   # the cooking done
 		_done_cooking(t)
 
 
@@ -2213,6 +2215,12 @@ func _building(t: float) -> void:
 	if c.build(piece):
 		people.practise(person, LifeSkills.Skill.BUILDING)
 		_wear_tools()
+		# The last piece of what was planned: the whole building done, and everyone who built it pleased.
+		if c.ready_left() == 0:
+			for v in Villager.all:
+				if is_instance_valid(v) and (v == self or v.state == State.BUILD or v.state == State.TO_BUILD):
+					v.show_mood("success", 4.0)
+			VillageLog.event("built", "The building work is finished")
 	_done_building(t)
 
 
@@ -2336,6 +2344,7 @@ func _crafting(t: float, delta: float) -> void:
 		world.village.changed.emit()
 	var nm: String = UiKit.resource_name(r.resource) if bool(r.makesResource) else str(UiKit.item(r.item).get("name", r.item))
 	FloatingText.spawn(world, "Made: " + nm, position + Vector2(0, -1.4 * world.px), Color(0.96, 0.85, 0.5))
+	show_mood("success", 2.5)
 	var sk := LifeSkills.NAMES.find(craft_bench.skill)
 	people.practise(person, sk if sk >= 0 else LifeSkills.Skill.BUILDING)
 	_done_crafting(t)
