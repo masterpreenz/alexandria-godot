@@ -103,7 +103,7 @@ func _process(_delta: float) -> void:
 	if not prompt.visible:
 		return
 	prompt.text = Loc.t("talk.prompt", {"name": v.person.name})
-	WorldPrompts.at(prompt, v.position + Vector2(0, -1.3 * world.px))
+	WorldPrompts.at(prompt, v.position + Vector2(0, -v._top() * 0.5))   # (the arrow to their middle)
 	if pressed:
 		open(v)
 
