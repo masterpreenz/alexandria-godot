@@ -976,9 +976,12 @@ func bark(key: String, values := {}, force := false) -> void:
 	_bark_until = t + 2.8
 
 
-## How a line is said: thought (hungry, tired, rain), shouted (hurt, a fight, a raid, no food), else spoken.
+## How a line is said: thought (hungry, tired, rain), shouted (a fight, no food), in alarm (hurt, a raid, starving),
+## else spoken.
 static func bark_kind(key: String) -> int:
-	if key in ["bark.hurt", "bark.fight", "bark.raid", "bark.no_food", "miko.starving"]:
+	if key in ["bark.hurt", "bark.raid", "miko.starving"]:
+		return SpeechBubble.Kind.ALARM
+	if key in ["bark.fight", "bark.no_food"]:
 		return SpeechBubble.Kind.SHOUT
 	if key in ["bark.hungry", "bark.tired", "bark.rain", "miko.hungry"]:
 		return SpeechBubble.Kind.THINK
