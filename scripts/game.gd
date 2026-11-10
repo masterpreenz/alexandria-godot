@@ -1097,25 +1097,25 @@ func _ready() -> void:
 					for i in 5:
 						await get_tree().process_frame
 					var cr := Corruption.active
-					var tr: Gatherable = null
+					var tree: Gatherable = null
 					for t in cr.corrupted:
 						if is_instance_valid(t) and t.standing():
-							tr = t
+							tree = t
 							break
-					if tr == null:
+					if tree == null:
 						print("Tree hit: no corrupted tree")
 					else:
-						miko.place(tr.foot + Vector2(-0.8, 0.6) * world.px)
+						miko.place(tree.foot + Vector2(-0.8, 0.6) * world.px)
 						for i in 300:
 							await get_tree().process_frame
-							if cr.armed.has(tr):
+							if cr.armed.has(tree):
 								break
-						var dm: Damageable = cr.armed[tr][0] if cr.armed.has(tr) else null
+						var dm: Damageable = cr.armed[tree][0] if cr.armed.has(tree) else null
 						if dm != null:
 							dm.hurt(2.0)
 						for i in 4:
 							await get_tree().process_frame
-						print("Tree hit: armed ", dm != null, ", tint ", tr.art.self_modulate, ", shaken ", tr.art.position != tr._rest)
+						print("Tree hit: armed ", dm != null, ", tint ", tree.art.self_modulate, ", shaken ", tree.art.position != tree._rest)
 						get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_tree.png")
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
