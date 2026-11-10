@@ -172,6 +172,7 @@ class LostBag extends Node2D:
 	var counts := {}
 	var icon: Sprite2D
 	var phase := 0.0
+	var armed := false   ## once she's been away from it (it isn't taken back where she fell, in the moment she falls)
 
 	## Takes this life's loot out of [param from] into a bag at [param at]; replaces any bag already lying out.
 	static func drop(w: World, from: Bag, loot: Dictionary, at: Vector2) -> void:
@@ -220,7 +221,11 @@ class LostBag extends Node2D:
 		var glow := 0.75 + 0.25 * sin(t * 4.0)
 		icon.modulate = Color(1.0, 0.85 * glow + 0.15, 0.45 * glow)
 		var p := world.player as Miko
-		if p == null or p.position.distance_to(position) > 0.5 * world.px or p.locked:
+		if p == null:
+			return
+		if p.position.distance_to(position) > 1.5 * world.px:
+			armed = true
+		if not armed or p.position.distance_to(position) > 0.5 * world.px or p.locked:
 			return
 		var parts := []
 		for r in counts:

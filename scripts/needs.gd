@@ -44,6 +44,9 @@ var _next_stir := 0.0
 var _stir_until := 0.0
 var _stir_frame := 0
 var _next_starve := 0.0
+var _bubble_label: Label         ## her own speech bubble over her head (hungry, starving)
+var _bubble_at := 0.0            ## when it next shows
+var _bubble_until := 0.0
 var _last_state := ""
 var _facing_up := false
 var _bed: Dictionary = {}         ## the bed she's on: {pos, type, ...}; empty on the ground
@@ -216,11 +219,14 @@ func _process_timed(dt: float) -> void:
 			var lost := minf(float(s.starvePang), stats.hp - 1.0)
 			stats.set_hp(stats.hp - lost)
 			FloatingText.spawn(world, "-%s" % str(snappedf(lost, 0.1)), miko.position + Vector2(0, -1.2 * world.px), Color(1, 0.45, 0.35))
-	# Say so when she becomes hungry or starving.
+	# Say so when she becomes hungry or starving, and in a bubble over her head now and then while she is (more often
+	# starving).
 	var st := hunger_state()
 	if st != "" and st != _last_state:
 		_say(st, Color(1, 0.6, 0.5))
+		_bubble_at = t
 	_last_state = st
+	_bubble(t, st)
 	_penalties()
 	_mist(dt)
 	_sleep(dt)
@@ -230,6 +236,36 @@ func _process_timed(dt: float) -> void:
 		if t >= _food_until[dish]:
 			_food_until.erase(dish)
 			stats.set_buff("food:" + dish, null)
+
+
+# Her bubble over her head while she's hungry (every 40 s) or starving (every 15 s, in coral), for 3 seconds.
+func _bubble(t: float, st: String) -> void:
+	if _bubble_label == null:
+		_bubble_label = HudStyle.label("", 15, "bold", HudStyle.color("text"))
+		var pill := HudStyle.piece("pillPlain", Color(1, 1, 1, 0.94))
+		pill.content_margin_left = 10
+		pill.content_margin_right = 10
+		pill.content_margin_top = 3
+		pill.content_margin_bottom = 3
+		_bubble_label.add_theme_stylebox_override("normal", pill)
+		_bubble_label.z_as_relative = false
+		_bubble_label.z_index = 3999
+		_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bubble_label.visible = false
+		World.keep_lit(_bubble_label)
+		miko.add_child(_bubble_label)
+	if st == "" or sleeping():
+		_bubble_label.visible = false
+		return
+	if t >= _bubble_at:
+		_bubble_at = t + (15.0 if st == "Starving" else 40.0)
+		_bubble_until = t + 3.0
+		_bubble_label.text = Loc.pick("miko.starving" if st == "Starving" else "miko.hungry")
+		_bubble_label.add_theme_color_override("font_color", HudStyle.color("coral") if st == "Starving" else HudStyle.color("text"))
+		_bubble_label.reset_size()
+	_bubble_label.visible = t < _bubble_until
+	if _bubble_label.visible:
+		_bubble_label.position = Vector2(-_bubble_label.size.x / 2.0, -2.05 * world.px - _bubble_label.size.y).round()
 
 
 # What going without does: half the HP regen while hungry; none, and slower, while starving; slower, with half the

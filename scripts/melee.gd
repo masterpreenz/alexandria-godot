@@ -79,7 +79,8 @@ func _process_timed(_delta: float) -> void:
 	if f >= length:
 		_swinging = false
 		miko.end_action()
-		miko.locked = _was_locked
+		if miko.stats == null or miko.stats.hp > 0.0:
+			miko.locked = _was_locked   # (not if she fell mid-swing: fainting holds her)
 		# Held down: straight into the next swing.
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _can_swing():
 			_swing(get_viewport().get_mouse_position())

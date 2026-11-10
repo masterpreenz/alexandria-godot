@@ -343,6 +343,18 @@ func _sync(e: Edge) -> void:
 		_half(holders, start_art, e.along_y and not own_y, mid if panels else (a + mid) / 2.0, mid, panels)
 		if not panels:
 			_half(holders, int(type.rightY if own_y else type.right), e.along_y and not own_y, (b + mid) / 2.0, mid, false)
+	# A door: findable when the house hides it (an outline over what's in front, as for a character behind something).
+	if str(type.get("toggle", "")) != "":
+		for h in holders:
+			var art: Sprite2D = h.get_child(0)
+			var o := OccludedOutline.new()
+			o.name = "DoorOutline"
+			o.fade_covers = false
+			h.add_child(o)
+			# Hidden when the room in front of it (lower on screen) has its roof showing: a door in a house's back wall.
+			var front_cell := _front_cell(e)
+			o.hidden_when = func() -> bool: return world.roofs != null and world.roofs.alpha_over(world.floors.cell_centre(front_cell)) > 0.5
+			o.setup(world, art, Color(1.0, 0.86, 0.55, 1))
 	var drawn := {"holders": holders}
 	if float(type.opening) < 1.0:
 		# The blocking line; with an opening, two pieces either side of it.
@@ -384,6 +396,13 @@ func ghost_pieces(e: Edge, type_name: String) -> Array:
 	if not panels:
 		out.append([int(type.rightY if own_y else type.right), flip, mid])
 	return out.filter(func(p): return int(p[0]) >= 0)
+
+
+# Of the two cells a wall at [param e] stands between, the one in front (lower on screen).
+func _front_cell(e: Edge) -> Vector2i:
+	var v := e.vertex
+	var a := Vector2i(v.x - 1, v.y) if e.along_y else Vector2i(v.x, v.y - 1)
+	return a if floors.cell_centre(a).y > floors.cell_centre(v).y else v
 
 
 # A piece of wall art: at the wall's middle (a whole wall's halves pivot there; a panel stands on its own centre),

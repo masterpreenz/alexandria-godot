@@ -28,6 +28,9 @@
 	"bark.rain": ["Rain again...", "Good for the crops!", "I'm soaked!"],
 	"bark.raid": ["They're coming from the {side}!", "To arms! The {side}!", "Monsters! From the {side}!"],
 
+	"miko.hungry": ["I'm hungry...", "My tummy's rumbling.", "I need to eat something."],
+	"miko.starving": ["I'm starving!", "So hungry... I can barely walk.", "Need... food..."],
+
 	"talk.prompt": "E  Talk to {name}",
 	"talk.hello": ["Hello, {miko}! What is it?", "Oh, hi {miko}.", "Need something, {miko}?"],
 	"talk.hello.hungry": ["I'm so hungry, {miko}...", "Is there anything to eat?"],

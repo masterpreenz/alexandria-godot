@@ -17,6 +17,7 @@ var cover_needed := 0.9
 var cover_keep := 0.8
 var cover_alpha := 0.45
 var cover_fade_speed := 5.0
+var hidden_when: Callable        ## if set, says whether it's hidden (instead of looking at what's drawn in front)
 
 var outline: Sprite2D
 var shown := 0.0
@@ -54,7 +55,7 @@ func _process_timed(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if now >= next_check:
 		next_check = now + 0.1
-		covered = _covered()
+		covered = hidden_when.call() if hidden_when.is_valid() else _covered()
 	if fade_covers:
 		_fade_covers(delta)
 	shown = move_toward(shown, 1.0 if covered else 0.0, delta * fade_speed)
