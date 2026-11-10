@@ -207,6 +207,11 @@ func _ready() -> void:
 	outskirts.name = "Outskirts"
 	add_child(outskirts)
 	outskirts.setup(world)
+	# Whether the village uses more than it brings in.
+	var ledger := Ledger.new()
+	ledger.name = "Ledger"
+	add_child(ledger)
+	ledger.setup(world)
 	# Houses wear out, and are repaired.
 	var upkeep := Upkeep.new()
 	upkeep.name = "Upkeep"
@@ -1930,6 +1935,26 @@ func _ready() -> void:
 					for i in 400:
 						await get_tree().process_frame
 					print("Scarf: wearing one ", vl.person.get("scarf", false), ", chill ", vl.chill(), ", work pace ", snappedf(vl._tool_pace(), 0.01), ", scarves left in storage ", world.village.items.count("Scarf"))
+				"ledger":
+					# A day in which food and wood run down, hour by hour: what the log says.
+					var lg: Ledger = $Ledger
+					var v := world.village
+					for f in Villager.FOODS:
+						v.stash[f[0]] = 0
+					v.stash["BakedPotato"] = 60
+					v.stash["Wood"] = 40
+					clock.hours = floorf(clock.hours) + 0.5
+					lg.notes.clear()
+					for h in 12:
+						clock.hours += 1.0
+						v.stash["BakedPotato"] = v.stored("BakedPotato") - 2
+						v.stash["Wood"] = v.stored("Wood") - 1
+						v.stash["Stone"] = v.stored("Stone") + 1
+						for i in 3:
+							await get_tree().process_frame
+					print("Ledger: a day's change food ", roundi(lg.a_day("Food")), ", wood ", roundi(lg.a_day("Wood")), ", stone ", roundi(lg.a_day("Stone")))
+					for k in ["Food", "Wood", "Stone"]:
+						print("  ", k, ": ", VillageLog._entries.get("running-down:" + k, {}).get("text", "(nothing)"))
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

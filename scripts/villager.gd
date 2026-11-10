@@ -929,7 +929,7 @@ func _winter_wear(t: float) -> void:
 	if t >= _next_chilly:
 		_next_chilly = t + randf_range(40.0, 80.0)
 		if chill() > 0 and state != State.ASLEEP:
-			bark("bark.chilly")
+			bark("bark.chilly.scarf" if bool(person.get("scarf", false)) else "bark.chilly")
 			show_mood("worried", 3.0)
 
 
@@ -1161,7 +1161,7 @@ static func bark_kind(key: String) -> int:
 		return SpeechBubble.Kind.ALARM
 	if key in ["bark.fight", "bark.no_food"]:
 		return SpeechBubble.Kind.SHOUT
-	if key in ["bark.hungry", "bark.tired", "bark.rain", "bark.chilly", "miko.hungry"]:
+	if key in ["bark.hungry", "bark.tired", "bark.rain", "bark.chilly", "bark.chilly.scarf", "miko.hungry"]:
 		return SpeechBubble.Kind.THINK
 	return SpeechBubble.Kind.SAY
 
