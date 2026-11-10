@@ -384,12 +384,25 @@ func _village_note() -> String:
 	return "Only inside the village (outdoor things go anywhere)" if world.village.founded() else "Place a town banner to found a village first"
 
 
-func _outside(at: Vector2, say: bool) -> bool:
-	if world.village.contains(at):
+func _outside(at: Vector2, say: bool, margin := 0.0) -> bool:
+	if world.village.contains(at, margin):
 		return false
 	if say:
 		_say(_village_note(), at)
 	return true
+
+
+## Barricades and gates (walls with health) may go up to this many tiles past the village's edge: a ring round it.
+const DEFENCE_MARGIN := 2.0
+
+# Whether the wall [param type] on [param e] would be out of bounds: both its ends in the village, or for a barricade
+# or gate within [constant DEFENCE_MARGIN] tiles of it.
+func _wall_outside(e: WallMap.Edge, type: String, say: bool) -> bool:
+	var w := world.walls
+	var margin := DEFENCE_MARGIN if w.max_hp(type) > 0.0 else 0.0
+	var a := w.vertex_position(e.vertex)
+	var b := w.vertex_position(w.span_end(e, type))
+	return _outside(a, say, margin) or _outside(b, say and not _outside(a, false, margin), margin)
 
 
 ## Why [param it] (a prop) can't stand at [param at], or "".
@@ -474,7 +487,7 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 	var building := not clear and (placing_prop or laid_floor) and not paving
 	if paving:
 		structure = false
-	var outside := structure and _outside(world.walls.vertex_position(edge.vertex) if wall_mode else f.cell_centre(cell), false)
+	var outside := structure and (_wall_outside(edge, selected.name, false) if wall_mode else _outside(f.cell_centre(cell), false))
 	var why := why_not(selected, f.cell_centre(cell)) if placing_prop else ""
 	var can_here := status == "Ready" and not outside and not (building and no_build(cell)) and why == ""
 	if wall_mode:
@@ -628,10 +641,10 @@ func _place_wall(e: WallMap.Edge, type: String) -> void:
 	if had == type:
 		return
 	if blueprint and Construction.active != null:
-		if not _outside(at, true):
+		if not _wall_outside(e, type, true):
 			Construction.active.plan_wall(e, type)
 		return
-	if _outside(at, true) or not _pay(item_for("Wall", type), at):
+	if _wall_outside(e, type, true) or not _pay(item_for("Wall", type), at):
 		return
 	w.place(e, type)
 	_drop_in(w.nodes_of(e))
