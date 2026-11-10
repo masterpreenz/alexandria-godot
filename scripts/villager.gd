@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
 
@@ -130,6 +130,8 @@ var _next_till := 0.0
 var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
 var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
+var flee_from: Damageable = null   ## the monster they're running from
+var _next_refuge := 0.0
 var _next_smoke := 0.0
 var _next_knock := 0.0
 var craft_bench: Dictionary = {}
@@ -292,11 +294,16 @@ func _physics_process_timed(delta: float) -> void:
 		_show_idle()
 		return
 	# A slime about: go for it (unless asleep, or already at one).
-	if state != State.ASLEEP and state != State.FIGHT and t >= next_look:
+	# Badly hurt (under a fifth of their health) with a monster near: they run instead.
+	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
 		next_look = t + 0.5
-		var threat := _threat()
-		if threat != null:
-			_fight(threat)
+		var danger := _danger() if _low() else null
+		if danger != null:
+			_flee(danger)
+		else:
+			var threat := _threat() if not _low() else null
+			if threat != null:
+				_fight(threat)
 	match state:
 		State.STAND:
 			velocity = Vector2.ZERO
@@ -344,6 +351,8 @@ func _physics_process_timed(delta: float) -> void:
 				_sleeping(delta)
 		State.FIGHT:
 			_fighting(t, delta)
+		State.FLEE:
+			_fleeing(t, delta)
 		State.EATING:
 			_eating(t)
 		State.TO_CHAT:
@@ -521,7 +530,7 @@ func _walk(t: float, delta: float) -> void:
 	var frames: Array = s.walkUp if facing_up else s.walkDown
 	if not frames.is_empty():
 		_show(int(frames[int(clock * float(s.walkFps)) % frames.size()]))
-	var speed := float(s.walkSpeed) * world.px
+	var speed := float(s.walkSpeed) * world.px * (1.7 if state == State.FLEE else 1.0)   # (running for it)
 	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
 	v = steer.around(v, delta)
 	if steer.stuck:
@@ -589,7 +598,7 @@ func _arrive(t: float) -> void:
 
 func _going() -> bool:
 	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
-		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR]
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR, State.FLEE]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -994,7 +1003,7 @@ func bark(key: String, values := {}, force := false) -> void:
 ## How a line is said: thought (hungry, tired, rain), shouted (a fight, no food), in alarm (hurt, a raid, starving),
 ## else spoken.
 static func bark_kind(key: String) -> int:
-	if key in ["bark.hurt", "bark.raid", "miko.starving"]:
+	if key in ["bark.hurt", "bark.raid", "bark.flee", "miko.starving"]:
 		return SpeechBubble.Kind.ALARM
 	if key in ["bark.fight", "bark.no_food"]:
 		return SpeechBubble.Kind.SHOUT
@@ -1010,7 +1019,7 @@ func _barks() -> void:
 		if t >= _bark_until or talking:   # (talking: the talk bubble says it)
 			_bark.visible = false
 		else:
-			_bark.place(Vector2(0, -_top() - 0.1 * world.px))
+			_bark.place(Vector2(0, -_top() + 0.02 * world.px))
 	if state != _last_state:
 		_last_state = state
 		match state:
@@ -1151,8 +1160,25 @@ func _eating_emote() -> void:
 
 # How tall their standing art is above their feet, px.
 func _top() -> float:
-	var info: Dictionary = world.sprites[int(s.idleDown)]
-	return float(info.pivot[1]) * world.px / float(info.ppu) * _scale()
+	var id := int(s.idleDown)
+	var info: Dictionary = world.sprites[id]
+	return (float(info.pivot[1]) - _head_room(id)) * world.px / float(info.ppu) * _scale()
+
+
+static var _head_rooms := {}     ## idle sprite -> px of empty frame above the head
+
+# How far down its frame the head of sprite [param id] starts (the empty space above it), measured once.
+func _head_room(id: int) -> float:
+	if not _head_rooms.has(id):
+		var info: Dictionary = world.sprites[id]
+		var tex := world._texture(info.tex)
+		var img := tex.get_image() if tex != null else null
+		var room := 0.0
+		if img != null:
+			var used := img.get_region(Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))).get_used_rect()
+			room = float(used.position.y) if used.size.y > 0 else 0.0
+		_head_rooms[id] = room
+	return float(_head_rooms[id])
 
 
 # ---- Chats ----
@@ -1311,6 +1337,12 @@ func _fight(threat: Damageable) -> void:
 
 
 func _fighting(t: float, delta: float) -> void:
+	# Too badly hurt to keep at it: off they run.
+	if _low():
+		var danger := _danger()
+		if danger != null:
+			_flee(danger)
+			return
 	# Gone, or out of the village (they don't follow it out): back to it.
 	if foe == null or not is_instance_valid(foe) or not foe.alive() or not world.village.contains(foe.global_position, 0.5) \
 			or foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px:
@@ -1347,6 +1379,90 @@ func _fighting(t: float, delta: float) -> void:
 				people.practise(person, LifeSkills.Skill.STRENGTH)
 	last_frame = frame
 
+
+
+# ---- Running away: under a fifth of their health, with a monster near, they drop everything and run, away from
+# it (home, if that's away from it), faster than they walk, till it's well behind them. ----
+
+const FLEE_BELOW := 0.2          ## share of their health under which they run
+const DANGER_RANGE := 6.0        ## units: a monster this near sends them running
+const SAFE_RANGE := 9.0          ## units: this far from it, they stop
+
+func _low() -> bool:
+	return hit != null and hit.hp < hit.max_hp * FLEE_BELOW
+
+
+# The nearest monster within [param within] units (any, in the village or out), or null.
+func _danger(within := DANGER_RANGE) -> Damageable:
+	var best: Damageable = null
+	var best_d := within * world.px
+	for d in Damageable.all:
+		if d.team != Damageable.Team.ENEMY or not d.alive() or d.dummy:
+			continue
+		# Monsters only (not a corrupted tree), awake, and not a rabbit or a boar left in peace.
+		var c := d.get_parent() as Creature
+		if c == null or c.asleep or c is Rabbit or (c is Boar and (c as Boar).angry_until < Creature.now()):
+			continue
+		var dd := d.global_position.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = d
+	return best
+
+
+func _flee(from: Damageable) -> void:
+	if partner != null:
+		_end_chat(now())
+	_let_go()
+	job = null
+	mend = null
+	piece = {}
+	foe = null
+	flee_from = from
+	state = State.FLEE
+	clock = 0.0
+	_next_refuge = 0.0
+	bark("bark.flee", {}, true)
+	show_mood("alarm", 3.0)
+
+
+func _fleeing(t: float, delta: float) -> void:
+	var d := flee_from
+	if d == null or not is_instance_valid(d) or not d.alive() or d.global_position.distance_to(position) > SAFE_RANGE * world.px:
+		# Safe: nearer monsters still about? Run from that one; else catch their breath.
+		var other := _danger()
+		if other != null:
+			flee_from = other
+		else:
+			flee_from = null
+			show_mood("worried", 3.0)
+			_stand(t, randf_range(2.0, 3.0))
+			return
+	if t >= _next_refuge:
+		_next_refuge = t + 1.0
+		_set_goal(_refuge(flee_from.global_position))
+	_walk(t, delta)
+	if state != State.FLEE and flee_from != null:
+		state = State.FLEE   # (getting there isn't arriving anywhere: still running)
+
+
+# Somewhere to run to from a monster at [param from]: their door if it's away from it; else a spot a few units
+# off, the way most directly away from it that can be walked to.
+func _refuge(from: Vector2) -> Vector2:
+	var here := position.distance_to(from)
+	if not home.is_empty():
+		var door := _door()
+		if door.distance_to(from) > here + 0.5 * world.px and (door - position).dot(position - from) > 0.0 and door.distance_to(position) < 14.0 * world.px:
+			return door
+	var away := (position - from).normalized()
+	if away.length() < 0.5:
+		away = Vector2.from_angle(randf() * TAU)
+	for turn in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5]:
+		var dir := away.rotated(turn)
+		var spot := position + Vector2(dir.x, dir.y * 0.5).normalized() * 5.0 * world.px
+		if Wilds.dry(world, spot, 0.3) and VillagerRoute.find(world, position, spot) != null:
+			return spot
+	return position + away * 3.0 * world.px
 
 
 # ---- Work ----
@@ -2542,6 +2658,7 @@ func activity() -> String:
 		State.COOK: return "Cooking %s (%d/%d)" % [lower.call(dish), world.village.stored(dish), Kitchen.target(dish)]
 		State.TO_PICKUP: return "Clearing up"
 		State.FIGHT: return "Fighting a slime"
+		State.FLEE: return "Running for their life"
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"
 	if _hungry() and _food_in_storage() == 0: return "Hungry: no food in storage"

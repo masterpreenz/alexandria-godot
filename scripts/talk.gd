@@ -114,7 +114,7 @@ func _nearest() -> Villager:
 	var best: Villager = null
 	var best_d := RANGE * world.px
 	for v in Villager.all:
-		if not is_instance_valid(v) or not v.visible or v.in_bed or v.state == Villager.State.FIGHT or v.state == Villager.State.ASLEEP:
+		if not is_instance_valid(v) or not v.visible or v.in_bed or v.state == Villager.State.FIGHT or v.state == Villager.State.FLEE or v.state == Villager.State.ASLEEP:
 			continue
 		var dd := v.position.distance_to(miko.position)
 		if dd < best_d:

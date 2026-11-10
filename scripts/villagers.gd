@@ -135,10 +135,10 @@ func _process_timed(_delta: float) -> void:
 		by_key[Needs.bed_key(b.pos)] = b
 	# Leave: beds taken away, or no longer in a house in the village. The person keeps their claim to it.
 	for k in living.keys():
-		var v: Villager = living[k][1]
+		var v: Variant = living[k][1]   # (untyped: it may have died and been freed)
 		if not by_key.has(k) or not is_instance_valid(v) or not _home(by_key[k]):
 			if is_instance_valid(v):
-				v.move_out()
+				(v as Villager).move_out()
 			living.erase(k)
 	# The dead are gone for good: their bed frees up for a newcomer.
 	people = people.filter(func(p): return float(p.hp) > 0.0 or _living(p))
