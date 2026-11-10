@@ -189,6 +189,8 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 	wade.name = "Wading"
 	add_child(wade)
 	wade.setup(world, self, art, shadow)
+	var fx := HitFx.add_to(self, art, wade, world.px)
+	hit.damaged.connect(func(_a): fx.play())
 	outline = OccludedOutline.new()
 	outline.name = "OccludedOutline"
 	outline.fade_covers = false

@@ -19,6 +19,7 @@ var hit: Damageable
 var steer: Steer
 var shape: CircleShape2D
 var outline: OccludedOutline
+var fx: HitFx                   ## blinking red and jolting when hit
 var asleep := false
 var flash_until := -1.0
 var facing_back := false
@@ -66,6 +67,8 @@ func build(w: World, d: Dictionary, hp: float, hit_radius: float, hit_height: fl
 	wade.name = "Wading"
 	add_child(wade)
 	wade.setup(world, self, art, shadow)
+	fx = HitFx.add_to(self, art, wade, world.px)
+	hit.damaged.connect(func(_a): fx.play())
 	# Seen through whatever stands in front of it, in red.
 	outline = OccludedOutline.new()
 	outline.name = "OccludedOutline"
@@ -141,6 +144,8 @@ func resting() -> bool:
 
 ## A hit flashes it pale for a moment.
 func paint_flash(c := Color(1, 0.75, 0.75)) -> void:
+	if fx != null and fx.active():
+		return   # (flinching: its red shows)
 	art.self_modulate = c if now() < flash_until else Color.WHITE
 
 
