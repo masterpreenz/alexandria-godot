@@ -1145,6 +1145,7 @@ func _show_bubble(on: bool) -> void:
 	bubble.visible = on
 	if not on:
 		return
+	bubble.modulate = world.daylight_undo()   # as drawn, whatever the hour (as the emotes)
 	var id := int(bubble_frames[int((now() - bubble_start) * EMOTE_FPS) % bubble_frames.size()])
 	world.show_frame(bubble, id, Vector2.ONE * float(s.bubbleScale))
 	var info: Dictionary = world.sprites[id]
