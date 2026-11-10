@@ -202,6 +202,11 @@ func _ready() -> void:
 		explored.from_json(sv.sections["world.explored"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
+	# Her HP and mana over her head while either is short of full.
+	var head_bars := HeadBars.new()
+	head_bars.name = "HeadBars"
+	head_bars.setup(world, miko)
+	miko.add_child(head_bars)
 	# Her talents' pockets, a blocked hit and Second Wind, shown over her.
 	var pockets := func() -> void: miko.bag.bonus_slots = int(miko.stats.stat("bagSlots"))
 	miko.stats.changed.connect(pockets)
@@ -1362,6 +1367,21 @@ func _ready() -> void:
 					print("Second Wind: a few seconds on HP ", snappedf(st.hp, 0.1), " of ", tot.maxHp, "; statuses ", (miko.get_node("Needs") as Needs).effects().map(func(x): return x[0]))
 					st.damage(99999.0)
 					print("Second Wind: felled again while it waits, HP ", st.hp)
+				"headbars":
+					# Hurt and short of mana: the bars over her head; then full again: gone.
+					miko.stats.damage(40.0)
+					miko.stats.spend_mana(30.0)
+					camera.zoom *= 1.6
+					for i in 30:
+						await get_tree().process_frame
+					var hb: HeadBars = miko.get_node("HeadBars")
+					print("Head bars: showing hurt ", hb.visible)
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_hurt.png")
+					miko.stats.hp = miko.stats.stat("maxHp")
+					miko.stats.mana = miko.stats.stat("maxMana")
+					for i in 400:
+						await get_tree().process_frame
+					print("Head bars: showing when full ", hb.visible)
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:
