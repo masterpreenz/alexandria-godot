@@ -46,8 +46,39 @@ static func play(w: World, who: Node2D, level: int) -> void:
 	p.emitting = true
 	fx.add_child(p)
 	Sfx.play(w, WorldSounds.chime(), who.position, 0.7)
-	FloatingText.spawn(w, "LEVEL UP!", who.position + Vector2(0, -1.7 * w.px), GOLD)
-	FloatingText.spawn(w, "Lv %d" % level, who.position + Vector2(0, -1.25 * w.px), PALE)
+	FloatingText.spawn(w, Loc.t("levelup.title"), who.position + Vector2(0, -2.1 * w.px), GOLD, 30, 2.4)
+	FloatingText.spawn(w, Loc.t("levelup.level", {"level": level}), who.position + Vector2(0, -1.7 * w.px), PALE, 22, 2.4)
+	_banner(w, level)
+
+
+# A banner across the top of the screen: "Level up! · Level 9 · +1 talent point (P)", sliding in and fading after a
+# few seconds.
+static func _banner(w: World, level: int) -> void:
+	var hud := w.get_tree().current_scene.get_node_or_null("Hud")
+	if hud == null:
+		return
+	var k := HudStyle.SCALE
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_child(col)
+	var title := HudStyle.label(Loc.t("levelup.title"), 22, "bold", GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(title)
+	var sub := HudStyle.label(Loc.t("levelup.banner", {"level": level}), 13, "bold", HudStyle.color("text"))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(sub)
+	hud.add_child(box)
+	box.reset_size()
+	var vp := box.get_viewport_rect().size
+	box.position = Vector2((vp.x - box.size.x) / 2.0, -box.size.y).round()
+	var tw := box.create_tween()
+	tw.tween_property(box, "position:y", 70.0 * k, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(3.2)
+	tw.tween_property(box, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(box.queue_free)
 
 
 func _process(delta: float) -> void:

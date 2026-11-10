@@ -323,6 +323,11 @@ func _ready() -> void:
 	melee.name = "Melee"
 	miko.add_child(melee)
 	melee.setup(world, miko)
+	# Talking with villagers (E beside one).
+	var talk := Talk.new()
+	talk.name = "Talk"
+	$Hud.add_child(talk)
+	talk.setup(world, miko, $Hud)
 	# The crystal necklace's light and clearing, while she wears one.
 	var necklace := CrystalNecklace.new()
 	necklace.name = "CrystalNecklace"
@@ -1165,6 +1170,36 @@ func _ready() -> void:
 					bm._paint(wet_cell, "PathCobble", false)
 					print("Path in the water: '", world.floors.get_laid(wet_cell), "'")
 					bm.set_open(false)
+				"levelup":
+					# Enough XP for a level: the effect, half a second in.
+					miko.stats.gain_xp(miko.stats.xp_to_next() - miko.stats.xp)
+					for i in int(Shots.arg("lvframes", "30")):
+						await get_tree().process_frame
+				"talk":
+					# Beside a villager: the prompt, then talking (E): the panel; a reply (1); give food; bye.
+					while Villager.all.is_empty():
+						await get_tree().process_frame
+					var v: Villager = Villager.all[0]
+					miko.place(v.position + Vector2(0.6, 0.3) * world.px)
+					miko.bag.add("Bread", 2)
+					v.person.hunger = 30.0
+					for i in 10:
+						await get_tree().process_frame
+					var tk: Talk = $Hud/Talk
+					print("Talk: prompt '", tk.prompt.text, "' shown ", tk.prompt.visible)
+					tk.open(v)
+					for i in 5:
+						await get_tree().process_frame
+					print("Talk: ", v.person.name, " says '", tk._line.text, "', replies ", tk._acts.size())
+					(tk._acts[1] as Callable).call()
+					print("Talk: after food '", tk._line.text, "', hunger ", v.person.hunger)
+					for i in 8:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_panel.png")
+					tk._say_bye()
+					for i in 10:
+						await get_tree().process_frame
+					print("Talk: closed, speed ", Engine.time_scale, ", bark '", v._bark.text if v._bark else "", "'")
 				"walk":
 					# Walks her round a wide loop (through the village and out into the wilds) at running pace, then reports.
 					var centre := miko.position

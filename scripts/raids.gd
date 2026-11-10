@@ -39,7 +39,7 @@ func _process_timed() -> void:
 	if not raiders.is_empty():
 		raiders = raiders.filter(func(r): return is_instance_valid(r))
 		if raiders.is_empty():
-			VillageLog.event("raid", "The raid was beaten off")
+			VillageLog.event("raid", Loc.t("raid.beaten"))
 		elif not _night():
 			_fall_back()
 		return
@@ -90,11 +90,15 @@ func start(count := -1) -> int:
 		raiders.append(m)
 	_last_night = world.clock.day() - (1 if world.clock.hour() < 12.0 else 0)
 	var dirs := ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"]
-	var side: String = dirs[posmod(roundi(heading / (TAU / 8.0)), 8)]
-	VillageLog.problem("raid", "A horde is coming out of the mist from the %s! (%d)" % [side, n], VillageLog.Kind.DANGER)
+	var side := Loc.t("dir." + dirs[posmod(roundi(heading / (TAU / 8.0)), 8)])
+	VillageLog.problem("raid", Loc.t("raid.warning", {"side": side, "count": n}), VillageLog.Kind.DANGER)
 	var miko := world.player
 	if miko != null:
-		FloatingText.spawn(world, "Raid from the %s!" % side, miko.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.45, 0.4))
+		FloatingText.spawn(world, Loc.t("raid.float", {"side": side}), miko.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.45, 0.4))
+	# The villagers in the village shout it.
+	for v in Villager.all:
+		if is_instance_valid(v) and world.village.contains(v.position) and not v.in_bed:
+			v.bark("bark.raid", {"side": side}, true)
 	return n
 
 
@@ -108,7 +112,7 @@ func _fall_back() -> void:
 			(r as Slime).angry_until = Creature.now()
 			(r as Slime).home = r.position
 	raiders.clear()
-	VillageLog.event("raid", "At dawn the horde fell back into the mist")
+	VillageLog.event("raid", Loc.t("raid.dawn"))
 
 
 ## Somewhere in the village for a raider to make for: a random spot within its square.

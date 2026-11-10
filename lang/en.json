@@ -1,0 +1,48 @@
+{
+	"_about": "English, the game's words by key. To translate: copy this file to lang/<code>.json (fr, ja, ...), translate the values, keep the keys and the {blanks}. A list is a pool of lines, one picked at random.",
+
+	"levelup.title": "LEVEL UP!",
+	"levelup.level": "Level {level}",
+	"levelup.banner": "Level {level}  ·  +1 talent point (P)",
+
+	"dir.east": "east", "dir.south-east": "south-east", "dir.south": "south", "dir.south-west": "south-west",
+	"dir.west": "west", "dir.north-west": "north-west", "dir.north": "north", "dir.north-east": "north-east",
+
+	"raid.warning": "A horde is coming out of the mist from the {side}! ({count})",
+	"raid.float": "Raid from the {side}!",
+	"raid.beaten": "The raid was beaten off",
+	"raid.dawn": "At dawn the horde fell back into the mist",
+
+	"job.0": "Any work", "job.1": "Miner", "job.2": "Woodcutter", "job.3": "Resting", "job.4": "Farmer",
+	"job.5": "Builder", "job.6": "Cook", "job.7": "Crafter",
+
+	"bark.greet.morning": ["Morning, {miko}!", "Good morning!", "Up early, {miko}?", "Lovely morning."],
+	"bark.greet.day": ["Hello, {miko}!", "Hi there!", "Busy day!", "Oh, {miko}!"],
+	"bark.greet.evening": ["Evening, {miko}.", "Getting dark...", "Long day, wasn't it?", "Evening!"],
+	"bark.hungry": ["I'm starving...", "Time for a bite.", "My stomach's growling.", "Food, food, food."],
+	"bark.no_food": ["No food left?!", "The stores are empty...", "Nothing to eat..."],
+	"bark.tired": ["Off to bed.", "So sleepy...", "Good night!", "My bed's calling."],
+	"bark.pests": ["Pests again!", "Shoo, bugs!", "Not my crops!"],
+	"bark.hurt": ["Ow!", "Ouch!", "Get away!", "Help!"],
+	"bark.fight": ["For the village!", "Get back!", "Stay away from us!"],
+	"bark.rain": ["Rain again...", "Good for the crops!", "I'm soaked!"],
+	"bark.raid": ["They're coming from the {side}!", "To arms! The {side}!", "Monsters! From the {side}!"],
+
+	"talk.prompt": "E  Talk to {name}",
+	"talk.hello": ["Hello, {miko}! What is it?", "Oh, hi {miko}.", "Need something, {miko}?"],
+	"talk.hello.hungry": ["I'm so hungry, {miko}...", "Is there anything to eat?"],
+	"talk.hello.tired": ["*yawn* I could sleep for a week.", "I'm worn out, {miko}."],
+	"talk.hello.homeless": ["I've been sleeping by the fire...", "I wish I had a bed of my own."],
+	"talk.choice.how": "How are things?",
+	"talk.choice.food": "Here, have some {food}",
+	"talk.choice.need": "What do you need?",
+	"talk.choice.bye": "Bye",
+	"talk.reply.how": ["I'm {doing}. Can't complain!", "Oh, I'm {doing}.", "Right now? {doing_cap}."],
+	"talk.reply.food": ["Thank you! {food}, my favourite!", "Oh, you're too kind!", "Mm! That hits the spot."],
+	"talk.reply.full": ["I'm full, thanks!", "Keep it, I've eaten."],
+	"talk.need.bed": ["A bed of my own, in a house.", "Somewhere to sleep that isn't the ground."],
+	"talk.need.food": ["Food in storage. We're running out.", "Something to eat, for all of us."],
+	"talk.need.tools": ["Tools! I can't work with my bare hands.", "New tools, mine are worn through."],
+	"talk.need.nothing": ["Nothing, really. I'm happy here!", "Just keep the monsters away."],
+	"talk.reply.bye": ["See you!", "Take care, {miko}!", "Bye!"]
+}

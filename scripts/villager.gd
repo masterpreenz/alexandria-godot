@@ -73,6 +73,14 @@ var state := State.STAND
 var state_until := 0.0
 var clock := 0.0
 var facing_up := false
+var talking := false              ## in a conversation with Miko (Talk): standing still, facing her
+var _bark: Label                  ## a short line over their head (barks), shown a moment
+var _bark_until := 0.0
+var _bark_next := 0.0
+static var _bark_any := 0.0       ## the village's next moment for a bark (not all at once)
+var _last_state := -1
+var _greeted_at := -INF
+var _was_raining := false
 var facing_right := false
 var target := Vector2.ZERO
 var route: Variant = null          ## the way there round walls (VillagerRoute points), or null: straight there
@@ -164,6 +172,7 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 	hit.setup(world, Damageable.Team.ALLY, float(who.get("maxHp", 40.0)), 0.18 * world.px, 0.9 * world.px)
 	hit.hp = clampf(float(who.get("hp", hit.max_hp)), 1.0, hit.max_hp)
 	hit.damaged.connect(func(_a):
+		bark("bark.hurt")
 		person.hp = hit.hp
 		VillageLog.event("hurt:" + name, "%s is under attack!" % name, VillageLog.Kind.DANGER))
 	hit.died.connect(func():
@@ -271,6 +280,14 @@ func _physics_process_timed(delta: float) -> void:
 	_unstick(t, delta)
 	_close_behind()
 	_status()
+	# Talking with Miko: standing still, facing her.
+	if talking and world.player != null:
+		velocity = Vector2.ZERO
+		var to := world.player.position - position
+		facing_right = to.x > 0.0
+		facing_up = to.y < 0.0
+		_show_idle()
+		return
 	# A slime about: go for it (unless asleep, or already at one).
 	if state != State.ASLEEP and state != State.FIGHT and t >= next_look:
 		next_look = t + 0.5
@@ -939,7 +956,69 @@ func _see_to_door(t: float) -> void:
 
 # What they're up to or how they're doing, over their head (not while chatting): eating, hungry on the way to get
 # food, sleepy on the way to bed, sick when badly hurt.
+# ---- Barks: a short line over their head now and then (lang/en.json's bark.*), as things happen ----
+
+## Says one of [param key]'s lines over their head for a moment (not again for a while, and not two villagers at once
+## unless [param force]).
+func bark(key: String, values := {}, force := false) -> void:
+	var t := now()
+	if not force and (t < _bark_next or t < _bark_any):
+		return
+	var line := Loc.pick(key, values)
+	if line == "":
+		return
+	_bark_next = t + 25.0
+	_bark_any = t + 2.5
+	if _bark == null:
+		_bark = HudStyle.label("", 15, "bold", HudStyle.color("text"))
+		var pill := HudStyle.piece("pillPlain", Color(1, 1, 1, 0.94))
+		pill.content_margin_left = 10
+		pill.content_margin_right = 10
+		pill.content_margin_top = 3
+		pill.content_margin_bottom = 3
+		_bark.add_theme_stylebox_override("normal", pill)
+		_bark.z_as_relative = false
+		_bark.z_index = 3999
+		_bark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		World.keep_lit(_bark)
+		add_child(_bark)
+	_bark.text = line
+	_bark.visible = true
+	_bark.reset_size()
+	_bark_until = t + 2.8
+
+
+# What happens to them, said out loud: turning hungry or for bed, pests, a fight; Miko coming by; rain starting.
+func _barks() -> void:
+	var t := now()
+	if _bark != null and _bark.visible:
+		if t >= _bark_until:
+			_bark.visible = false
+		else:
+			_bark.position = Vector2(-_bark.size.x / 2.0, -_top() - 0.35 * world.px - _bark.size.y).round()
+	if state != _last_state:
+		_last_state = state
+		match state:
+			State.TO_EAT: bark("bark.hungry" if _food_in_storage() > 0 else "bark.no_food")
+			State.HOME: bark("bark.tired")
+			State.FIGHT: bark("bark.fight")
+			State.TO_FARM: if farm_task == "pests": bark("bark.pests")
+	var p := world.player
+	if p != null and state != State.ASLEEP and not in_bed and t - _greeted_at > 120.0 and p.position.distance_to(position) < 2.6 * world.px:
+		_greeted_at = t
+		var h := _hour(world)
+		bark("bark.greet." + ("morning" if h < 11.0 else ("day" if h < 17.0 else "evening")), {"miko": "Miko"})
+	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
+	if raining and not _was_raining and not in_bed and randf() < 0.3:
+		bark("bark.rain")
+	_was_raining = raining
+
+
 func _status() -> void:
+	_barks()
+	if _bark != null and _bark.visible:
+		_emote("")   # (the line's showing: no emote over it)
+		return
 	if bubble != null and bubble.visible:
 		_emote("")
 		return
