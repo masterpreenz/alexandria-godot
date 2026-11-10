@@ -3,8 +3,12 @@ extends Node
 ## Farm plots and crops (from Unity's FarmPlot, Crops and FarmInteractor). A plot is a tilled patch one tile across
 ## growing a crop: potatoes, carrots, wheat or cotton. Bare until something's planted (E), it sprouts, grows
 ## over its crop's game hours and is then ripe, to be harvested with E (crops grown from seed give some seed back; her
-## farming skill sometimes gives one more). R sets the plot's whole field (the plots joined to it) to one crop, in
-## turn: the village's rotation, then each crop. Bare soil lies flat on the ground; sprouts and ripe plants stand up.
+## farming skill sometimes gives one more).
+##
+## Plots joined to one another make a farm group (a field), and a field grows one crop: what's set for it (R, in turn:
+## the village's rotation, then each crop), its plots all the same. It's planted, grows and is harvested as one: a plot
+## harvested stays bare until the rest of its field is in, and then the whole field is planted again (the next crop in
+## the rotation, unless it's set to one). Bare soil lies flat on the ground; sprouts and ripe plants stand up.
 ## The first potatoes come from old overgrown patches in the wild (ripe when first found). What each plot grows is
 ## saved (world.farms).
 ##
@@ -197,7 +201,8 @@ func _look() -> void:
 		if not best.is_empty():
 			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo)),
 				"last": _crop_name(int(sv.get("last", 0))), "grown": float(sv.get("grown", _hours() - float(sv.sownAt))),
-				"wateredAt": float(sv.get("wateredAt", _hours())), "pest": bool(sv.get("pest", false))}
+				"wateredAt": float(sv.get("wateredAt", _hours())), "pest": bool(sv.get("pest", false)),
+				"waiting": bool(sv.get("waiting", false))}
 			# A crop no longer grown (cabbages, for now): the plot bare again, and any field setting for it the rotation.
 			var stb: Dictionary = states[best.key]
 			for k in ["crop", "setTo", "last"]:
@@ -211,6 +216,7 @@ func _look() -> void:
 		if bool(p.s.startsRipe) and not states.has(p.key):
 			states[p.key] = {"sown": true, "sownAt": _hours() - float(p.s.growHours) * 2.0, "crop": "", "setTo": "",
 				"grown": float(p.s.growHours) * 2.0, "wateredAt": _hours(), "pest": false}
+	_even_fields()
 
 
 func _art(p: Dictionary, st: int) -> int:
@@ -349,6 +355,9 @@ func _process_timed(_delta: float) -> void:
 	var set_to: String = "field: " + CROPS[st.setTo].plural if st.setTo != "" else "field: village rotation"
 	match stage(p):
 		0:
+			if not plantable(p):
+				_say("Harvested  ·  waiting for the rest of the field (%d still growing)  ·  R %s" % [still_growing(p), set_to])
+				return
 			var pick := _pick(p)
 			var c: String = pick[1]
 			var got_seed: String = CROPS[c].seed
@@ -398,7 +407,7 @@ func sow(p: Dictionary, c: String) -> bool:
 		return false
 	var st := _state(p)
 	# The first plot of a new field under the village rotation: the next new field gets the next crop.
-	if st.setTo == "" and st.get("last", "") == "" and _sown_in_field(p) == "":
+	if st.setTo == "" and _field_last(p) == "" and _sown_in_field(p) == "":
 		var i := rotation.find(c)
 		if i >= 0:
 			_next = (i + 1) % rotation.size()
@@ -420,7 +429,7 @@ func harvest(p: Dictionary) -> Array:
 	var y: Array = p.s.yield if c == "Potato" else info.yield
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
-	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c}
+	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c, "waiting": true}
 	return [c, n, seeds]
 
 
@@ -453,12 +462,13 @@ func _pick(p: Dictionary) -> Array:
 # moves on together); else, a new field, the rotation's next.
 func _field_crop(p: Dictionary, has_seed: Callable) -> Array:
 	var st := _state(p)
-	if st.setTo != "":
-		return [has_seed.call(CROPS[st.setTo].seed), st.setTo]
+	# What the rest of the field is growing (one crop a field), else what it's set to, else the rotation.
 	var growing := _sown_in_field(p)
 	if growing != "":
 		return [has_seed.call(CROPS[growing].seed), growing]
-	var last: String = st.get("last", "")
+	if st.setTo != "":
+		return [has_seed.call(CROPS[st.setTo].seed), st.setTo]
+	var last := _field_last(p)
 	if last != "" and rotation.has(last):
 		var after: String = rotation[(rotation.find(last) + 1) % rotation.size()]
 		return [has_seed.call(CROPS[after].seed), after]
@@ -481,13 +491,86 @@ func field_of(p: Dictionary) -> Array:
 	return field
 
 
-# What the rest of [param p]'s field (those under the rotation too) is growing this season, or "".
+# What the rest of [param p]'s field is growing this season, or "".
 func _sown_in_field(p: Dictionary) -> String:
 	for q in field_of(p):
-		var qs := _state(q)
-		if q != p and qs.sown and qs.setTo == "":
+		if q != p and _state(q).sown:
 			return crop(q)
 	return ""
+
+
+# The crop the field last grew (any of its plots), or "".
+func _field_last(p: Dictionary) -> String:
+	for q in field_of(p):
+		var last: String = _state(q).get("last", "")
+		if last != "":
+			return last
+	return ""
+
+
+## Whether a bare plot may be planted: not while plots of its field are still waiting for the rest to be harvested.
+## Once the whole field is in (nothing growing), the field starts over.
+func plantable(p: Dictionary) -> bool:
+	if stage(p) != 0:
+		return false
+	var field := field_of(p)
+	var waiting := 0
+	for q in field:
+		if _state(q).sown:
+			if waiting > 0:
+				return false
+		elif _state(q).get("waiting", false):
+			waiting += 1
+	if waiting == 0:
+		return true
+	for q in field:
+		if _state(q).sown:
+			return false
+	# All of it harvested: the field starts over.
+	for q in field:
+		_state(q).waiting = false
+	return true
+
+
+## How many of [param p]'s field are still growing (what a waiting plot waits for).
+func still_growing(p: Dictionary) -> int:
+	return field_of(p).filter(func(q): return _state(q).sown).size()
+
+
+# One setting and one crop a field: where joined plots disagree (a plot newly laid beside a field, two fields joined,
+# an old save), the most of them win.
+func _even_fields() -> void:
+	var seen := {}
+	for p in plots:
+		if seen.has(p.key):
+			continue
+		var field := field_of(p)
+		var votes := {}
+		for q in field:
+			seen[q.key] = true
+			var v: String = _state(q).setTo
+			votes[v] = int(votes.get(v, 0)) + 1
+		var best := ""
+		for v in votes:
+			if int(votes[v]) > int(votes.get(best, -1)):
+				best = v
+		for q in field:
+			_state(q).setTo = best
+		# Plots already growing other crops than most of the field (from before fields kept to one): the field's crop,
+		# carrying on where they were.
+		var crops := {}
+		for q in field:
+			if _state(q).sown:
+				crops[crop(q)] = int(crops.get(crop(q), 0)) + 1
+		if crops.size() > 1:
+			var main := ""
+			for c in crops:
+				if main == "" or int(crops[c]) > int(crops[main]):
+					main = c
+			for q in field:
+				if _state(q).sown:
+					_state(q).crop = main
+					q.erase("drawn")
 
 
 func _harvest(p: Dictionary) -> void:
@@ -496,7 +579,7 @@ func _harvest(p: Dictionary) -> void:
 	var y: Array = p.s.yield if c == "Potato" else info.yield
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
-	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c}
+	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c, "waiting": true}
 	_till(p)
 	# Her farming skill: a 6% chance a level (past the first) of one more.
 	if randf() < 0.06 * (LifeSkills.get_level(LifeSkills.Skill.FARMING) - 1):
@@ -517,7 +600,7 @@ func _set_field(p: Dictionary) -> void:
 	var field := field_of(p)
 	for q in field:
 		_state(q).setTo = nxt
-	FloatingText.spawn(world, "Field (%d): %s only" % [field.size(), CROPS[nxt].plural] if nxt != "" else "Field (%d): village rotation" % field.size(),
+	FloatingText.spawn(world, "Field of %d: %s" % [field.size(), CROPS[nxt].plural] if nxt != "" else "Field of %d: village rotation" % field.size(),
 		p.pos + Vector2(0, -0.9 * world.px), Color(0.9, 0.85, 0.6))
 
 
@@ -539,5 +622,5 @@ func to_json() -> String:
 		var st := _state(p)
 		list.append({"x": p.pos.x / world.px, "y": -p.pos.y / world.px, "sown": st.sown, "sownAt": st.sownAt, "crop": _crop_index(st.crop), "setTo": _crop_index(st.setTo),
 			"last": _crop_index(st.get("last", "")), "grown": _grown(p), "wateredAt": float(st.get("wateredAt", _hours())),
-			"pest": bool(st.get("pest", false))})
+			"pest": bool(st.get("pest", false)), "waiting": bool(st.get("waiting", false))})
 	return JSON.stringify({"plots": list})

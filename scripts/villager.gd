@@ -1656,7 +1656,7 @@ func _go_farm() -> bool:
 		if st == 2 and dd < ripe_d:
 			ripe_d = dd
 			ripe = p
-		elif st == 0 and dd < bare_d:
+		elif st == 0 and dd < bare_d and farm.plantable(p):
 			bare_d = dd
 			bare = p
 		elif st == 1 and farm.pests(p) and dd < pest_d:
@@ -1730,7 +1730,7 @@ func _farming(t: float) -> void:
 		_done_farming(t)
 		return
 	if planting:
-		if farm.stage(plot) == 0:
+		if farm.plantable(plot):
 			var pick := farm.pick_from_storage(plot)
 			if pick[0] and world.village.take_from_stash(Farming.CROPS[pick[1]].seed, 1):
 				farm.sow(plot, pick[1])
