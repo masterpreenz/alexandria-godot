@@ -52,7 +52,7 @@ func setup(f: Farming) -> void:
 	_lines.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_lines.custom_minimum_size.x = 340 * k
 	inner.add_child(_lines)
-	box.add_child(HudStyle.label("NEXT CROP", 11, "bold", HudStyle.color("muted")))
+	box.add_child(HudStyle.label("NEXT CROP  ·  seed in storage", 11, "bold", HudStyle.color("muted")))
 	_next = HudStyle.label("", 12, "body")
 	_next.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_next.custom_minimum_size.x = 340 * k
@@ -184,6 +184,11 @@ func _show_next(p: Dictionary, now_growing: String) -> void:
 		c.queue_free()
 	for option in [""] + Farming.ORDER:
 		var label := "Rotation" if option == "" else str(Farming.CROPS[option].plural).capitalize()
+		if option != "":
+			# The seed for it to hand (her bag and the village's storage), so it's known before picking.
+			var seed_name: String = Farming.CROPS[option].seed
+			var n: int = farm.world.village.have(farm.miko.bag, farm.miko, seed_name)
+			label += "  ·  " + ("99+" if n > 99 else str(n))
 		var b := _choice(label, set_to == option)
 		b.pressed.connect(_pick.bind(option))
 		_choices.add_child(b)
