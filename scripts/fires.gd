@@ -22,6 +22,7 @@ var lit_until := {}               ## Vector2i key -> game hour it burns till
 var _saved: Array = []            ## the save's fires, matched to the fires as they're found
 var _looked_at := -1
 var _clock := 0.0
+var _warned_day := -1             ## the day winter's coming was last told
 var prompt: Label
 var _pressed := false
 # Cooking.
@@ -89,6 +90,50 @@ const WINTER_BURN := 6.0          ## game hours a fire lit by day burns in winte
 ## Whether it's winter (the fires are kept lit all day then, for warmth).
 func winter() -> bool:
 	return world.clock != null and world.clock.season() == GameClock.Season.WINTER
+
+
+## How much wood the fires take a winter's day: each fireplace lit for the night, each bonfire and torch lit again as
+## it burns down by day ([constant WINTER_BURN] hours) and once more at dusk.
+func winter_wood_a_day() -> int:
+	var wood := 0
+	for f in fires:
+		if not world.village.contains(f.pos, 2.0):
+			continue
+		var by_day := 0 if bool(f.s.get("hearth", false)) else ceili(11.5 / WINTER_BURN)
+		wood += int(f.s.woodToLight) * (1 + by_day)
+	return wood
+
+
+# Winter two days off, and again the day before: the village is told to lay wood in (how much the fires will burn
+# through it, what's in storage, and the houses with no fireplace).
+func _winter_warning() -> void:
+	var c := world.clock
+	if c == null or not world.village.founded() or c.season() == GameClock.Season.WINTER:
+		return
+	if c.season() != GameClock.Season.AUTUMN or c.day() == _warned_day:
+		return
+	var days_left := c.days_per_season - c.day_of_season() + 1
+	if days_left > 2:
+		return
+	_warned_day = c.day()
+	var need := winter_wood_a_day() * c.days_per_season
+	var have := world.village.stored("Wood")
+	var bare := 0
+	if world.roofs != null:
+		for roof in world.roofs.roofs:
+			var has := false
+			for f in fires:
+				if bool(f.s.get("hearth", false)) and roof.cells.has(world.floors.cell_at(f.pos)):
+					has = true
+			if not has:
+				bare += 1
+	var when := "tomorrow" if days_left <= 1 else "in %d days" % days_left
+	var text := "Winter comes %s: the fires will burn about %d wood through it (%d in storage)" % [when, need, have]
+	if have < need:
+		text += ". Stock up"
+	if bare > 0:
+		text += ". %d %s no fireplace" % [bare, "house has" if bare == 1 else "houses have"]
+	VillageLog.problem("winter-coming", text, VillageLog.Kind.DANGER if have < need or bare > 0 else VillageLog.Kind.WARNING)
 
 
 ## Whether a fire burns in the room made of [param cells] (RoofMap's room: a house).
@@ -280,6 +325,7 @@ func _process_timed(delta: float) -> void:
 		_looked_at = world.props.version
 		_look()
 	_clock += delta
+	_winter_warning()
 	# Godot darkens a light along with the night's tint (Unity's 2D lights add on top of it): undo that, so a fire
 	# lights the dark as much as it did there.
 	var night := 1.0
