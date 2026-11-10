@@ -163,53 +163,67 @@ func _clear() -> void:
 	roofs.clear()
 
 
-# The rooms: cells closed in by walls with a laid floor on every cell, big enough to live in.
+# The rooms: cells closed in by walls with a laid floor on every cell, big enough to live in. (Fences don't close a
+# room, so the search starts only from real walls, and checks a set of their edges made once, not each wall's length.)
 func _find_rooms() -> Array:
+	var blocked := _blocked_edges()
 	var found := []
 	var seen := {}
-	for k in walls.walls:
-		var start := WallMap.Edge.of(k)
-		for i in int(walls.types[walls.walls[k]].length):
-			var e := WallMap.Edge.new(start.vertex + WallMap._dir(start.along_y) * i, start.along_y)
-			var v := e.vertex
-			var sides := [Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]
-			for start2 in sides:
-				if seen.has(start2):
-					continue
-				var room := _fill(start2, seen)
-				if room.is_empty() or not _floored(room):
-					continue
-				var size := _size(room)
-				if size.x >= int(data.minRoomSize) and size.y >= int(data.minRoomSize):
-					found.append(room)
+	for e in blocked:
+		var v := Vector2i(e.x, e.y)
+		var sides := [Vector2i(v.x - 1, v.y), v] if e.z == 1 else [Vector2i(v.x, v.y - 1), v]
+		for start in sides:
+			if seen.has(start):
+				continue
+			var room := _fill(start, seen, blocked)
+			if room.is_empty() or not _floored(room):
+				continue
+			var size := _size(room)
+			if size.x >= int(data.minRoomSize) and size.y >= int(data.minRoomSize):
+				found.append(room)
 	return found
 
 
-# Every cell reachable from seed without crossing a wall (fences don't stop it), or {} if that runs off the map or
+# The edges (Vector3i keys) every wall but a fence covers, its whole length.
+func _blocked_edges() -> Dictionary:
+	var blocked := {}
+	for k in walls.walls:
+		var t: Dictionary = walls.types[walls.walls[k]]
+		if t.fence:
+			continue
+		var step := WallMap._dir(k.z == 1)
+		for i in int(t.length):
+			blocked[Vector3i(k.x + step.x * i, k.y + step.y * i, k.z)] = true
+	return blocked
+
+
+# Every cell reachable from [param start] without crossing a wall in [param blocked], or {} if that runs off the map or
 # past the most a room can be (not closed in).
-func _fill(start: Vector2i, seen: Dictionary) -> Dictionary:
+func _fill(start: Vector2i, seen: Dictionary, blocked: Dictionary) -> Dictionary:
 	var room := {start: true}
 	var open := [start]
 	seen[start] = true
-	var closed := true
 	var most := int(data.maxRoomCells)
-	while not open.is_empty():
-		var cell: Vector2i = open.pop_front()
+	var head := 0
+	while head < open.size():
+		var cell: Vector2i = open[head]
+		head += 1
 		if not floors.in_bounds(cell) or room.size() > most:
-			closed = false
-		if not closed:
-			continue
-		for n in [[cell + Vector2i(1, 0), WallMap.Edge.new(cell + Vector2i(1, 0), true)],
-				[cell + Vector2i(-1, 0), WallMap.Edge.new(cell, true)],
-				[cell + Vector2i(0, 1), WallMap.Edge.new(cell + Vector2i(0, 1), false)],
-				[cell + Vector2i(0, -1), WallMap.Edge.new(cell, false)]]:
-			var wall := walls.get_wall(n[1])
-			if (wall != "" and not walls.types[wall].fence) or room.has(n[0]):
-				continue
-			room[n[0]] = true
-			seen[n[0]] = true
-			open.append(n[0])
-	return room if closed else {}
+			return {}
+		# Right and left cross edges along y (at x+1 and x); up and down, edges along x (at y+1 and y).
+		var n := cell + Vector2i(1, 0)
+		if not room.has(n) and not blocked.has(Vector3i(cell.x + 1, cell.y, 1)):
+			room[n] = true; seen[n] = true; open.append(n)
+		n = cell + Vector2i(-1, 0)
+		if not room.has(n) and not blocked.has(Vector3i(cell.x, cell.y, 1)):
+			room[n] = true; seen[n] = true; open.append(n)
+		n = cell + Vector2i(0, 1)
+		if not room.has(n) and not blocked.has(Vector3i(cell.x, cell.y + 1, 0)):
+			room[n] = true; seen[n] = true; open.append(n)
+		n = cell + Vector2i(0, -1)
+		if not room.has(n) and not blocked.has(Vector3i(cell.x, cell.y, 0)):
+			room[n] = true; seen[n] = true; open.append(n)
+	return room
 
 
 func _floored(room: Dictionary) -> bool:
@@ -427,23 +441,21 @@ func missing_floor() -> Array:
 	_missing_key = key
 	_missing = []
 	var seen := {}
-	for k in walls.walls:
-		var start := WallMap.Edge.of(k)
-		for i in int(walls.types[walls.walls[k]].length):
-			var e := WallMap.Edge.new(start.vertex + WallMap._dir(start.along_y) * i, start.along_y)
-			var v := e.vertex
-			for start2 in ([Vector2i(v.x - 1, v.y), v] if e.along_y else [Vector2i(v.x, v.y - 1), v]):
-				if seen.has(start2):
-					continue
-				var room := _fill(start2, seen)
-				if room.is_empty():
-					continue
-				var bare := []
-				for c in room:
-					if floors.get_laid(c) == "":
-						bare.append(c)
-				if not bare.is_empty() and bare.size() * 2 < room.size():
-					_missing.append_array(bare)
+	var blocked := _blocked_edges()
+	for e in blocked:
+		var v := Vector2i(e.x, e.y)
+		for start2 in ([Vector2i(v.x - 1, v.y), v] if e.z == 1 else [Vector2i(v.x, v.y - 1), v]):
+			if seen.has(start2):
+				continue
+			var room := _fill(start2, seen, blocked)
+			if room.is_empty():
+				continue
+			var bare := []
+			for c in room:
+				if floors.get_laid(c) == "":
+					bare.append(c)
+			if not bare.is_empty() and bare.size() * 2 < room.size():
+				_missing.append_array(bare)
 	return _missing
 
 
