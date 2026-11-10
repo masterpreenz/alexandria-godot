@@ -131,6 +131,7 @@ var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
 var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
 var flee_from: Damageable = null   ## the monster they're running from
+var _threat_told := 0.0            ## when being in danger outside the village may next be told
 ## For their dust (DustTrail): moving at all, and running (fleeing).
 var moving: bool:
 	get: return velocity.length_squared() > 1.0
@@ -273,6 +274,31 @@ func _hungry() -> bool:
 	return float(person.get("hunger", 100.0)) < 35.0
 
 
+const MEALS := [7.0, 12.0, 18.0]  ## breakfast, lunch and dinner: the hours they start (each is on for two hours)
+
+# The meal that's on now (0 to 2), or -1 between meals.
+func _meal_now() -> int:
+	var h := _hour(world)
+	for i in MEALS.size():
+		if h >= float(MEALS[i]) and h < float(MEALS[i]) + 2.0:
+			return i
+	return -1
+
+
+# Whether it's a mealtime they haven't eaten at yet (three a day, hungry or not; skipped when they're full).
+func _meal_due() -> bool:
+	var m := _meal_now()
+	if m < 0 or world.clock == null:
+		return false
+	var id := world.clock.day() * 3 + m
+	if int(person.get("lastMeal", -1)) == id:
+		return false
+	if float(person.get("hunger", 100.0)) >= 92.0:
+		person["lastMeal"] = id
+		return false
+	return true
+
+
 # ---- Each tick ----
 
 # Lying in bed they draw over the bed (z 1), which would lift them over the roof too: under a roof that's shown they
@@ -315,6 +341,14 @@ func _physics_process_timed(delta: float) -> void:
 	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
 		next_look = t + 0.5
 		var danger := _danger() if _low() else null
+		# Out of the village with a monster close: the village hears of it, and they call out.
+		if not world.village.contains(position, 1.0) and world.village.founded() and t >= _threat_told:
+			var near := danger if danger != null else _danger(4.0)
+			if near != null:
+				_threat_told = t + 20.0
+				VillageLog.problem("threat:" + name, "%s is in danger outside the village: a monster is after them" % person.name, VillageLog.Kind.DANGER)
+				bark("bark.threat", {}, true)
+				show_mood("alarm", 4.0)
 		if danger != null:
 			_flee(danger)
 		else:
@@ -328,7 +362,8 @@ func _physics_process_timed(delta: float) -> void:
 				_go_home()
 			elif t >= state_until:
 				var chance := float(s.workChance)
-				if _hungry() and _go_eat(): pass
+				# Three meals a day; between them only when they're close to starving.
+				if (_meal_due() or float(person.get("hunger", 100.0)) < 12.0) and _go_eat(): pass
 				elif _go_door_duty(): pass
 				# (in winter the fires and torches are kept burning all day: lit again as each burns down)
 				elif (_hour(world) >= 17.5 or (_fires() != null and _fires().winter() and not _night())) and _go_light(): pass
@@ -853,10 +888,50 @@ func _wake_up(t: float) -> void:
 		z_index = 0
 	visible = true
 	facing_up = false
-	_stand(t, randf_range(1.0, 3.0))
+	_stand(t, randf_range(0.1, 0.5))   # (up and off: not standing by the bed)
 
 
 # ---- Needs ----
+
+var _next_chilly := 0.0
+
+## How cold they are now: 0 not (not winter, under a roof, by a burning fire), 1 cold, 2 freezing (out in the snow).
+## A scarf takes it down a step. Cold, they work slower (and slower still freezing) and say so now and then.
+func chill() -> int:
+	var c := world.clock
+	if c == null or c.season() != GameClock.Season.WINTER or in_bed:
+		return 0
+	if world.roofs != null and world.roofs.covers(position):
+		return 0
+	var fires := _fires()
+	if fires != null and fires.warm(position, Needs.WARMTH * world.px):
+		return 0
+	var cold := 2 if c.weather() == GameClock.Weather.SNOW else 1
+	return maxi(0, cold - (1 if bool(person.get("scarf", false)) else 0))
+
+
+# Winter, and no scarf: one from storage, if there is one. And now and then, cold, they say so.
+func _winter_wear(t: float) -> void:
+	var c := world.clock
+	if c == null or c.season() != GameClock.Season.WINTER:
+		return
+	if not bool(person.get("scarf", false)) and world.village.founded():
+		var v := world.village
+		for i in v.items.size():
+			if UiKit.item(v.items[i]).get("kind", "") == "Scarf":
+				v.items.remove_at(i)
+				v.changed.emit()
+				person["scarf"] = true
+				VillageLog.event("scarf:" + name, "%s took a scarf from storage" % name)
+				bark("bark.scarf", {}, true)
+				show_mood("relaxed", 4.0)
+				break
+	if t >= _next_chilly:
+		_next_chilly = t + randf_range(40.0, 80.0)
+		if chill() > 0 and state != State.ASLEEP:
+			bark("bark.chilly")
+			show_mood("worried", 3.0)
+
 
 var _cold_hours := 0.0           ## hours of this sleep spent cold
 
@@ -889,6 +964,7 @@ func _needs() -> void:
 	var stamina := 1.0 + 0.06 * (maxi(1, Villagers.skill(p, LifeSkills.Skill.STAMINA)) - 1)
 	# Asleep in winter with no fire burning in the house: a cold night. They rest half as well, don't mend, and
 	# work slower the day after.
+	_winter_wear(now())
 	var cold_night := sleeping and in_bed and _sleeping_cold()
 	# A leaking roof over them (the house worn past half): they rest a quarter worse; a house fallen to nothing is
 	# no shelter, as bad a night as a cold one.
@@ -922,7 +998,7 @@ func _needs() -> void:
 func _food_in_storage() -> int:
 	var n := 0
 	for f in FOODS:
-		n += world.village.stored(f[0])
+		n += world.village.spare(f[0])   # (not what's kept for planting)
 	return n
 
 
@@ -943,12 +1019,25 @@ func _go_eat() -> bool:
 # At the chest: the most filling thing in storage, then off somewhere out in the open to eat it.
 func _eat(t: float) -> void:
 	var took := false
-	for f in FOODS:
-		if world.village.take_from_stash(f[0], 1):
-			person.hunger = minf(100.0, float(person.hunger) + float(f[1]))
-			meal = f[0]
-			took = true
+	# One sitting: as much as fills them (the most filling things first, a few at most), so they don't come back for
+	# more before the next meal.
+	for helping in 4:
+		if took and float(person.hunger) >= 85.0:
 			break
+		var had := false
+		for f in FOODS:
+			if world.village.spare(f[0]) > 0 and world.village.take_from_stash(f[0], 1):
+				person.hunger = minf(100.0, float(person.hunger) + float(f[1]))
+				if not took:
+					meal = f[0]
+				took = true
+				had = true
+				break
+		if not had:
+			break
+	# That's this mealtime's meal eaten.
+	if took and _meal_now() >= 0 and world.clock != null:
+		person["lastMeal"] = world.clock.day() * 3 + _meal_now()
 	if not took:
 		_stand(t, randf_range(2.0, 4.0))
 		return
@@ -1068,11 +1157,11 @@ func bark(key: String, values := {}, force := false) -> void:
 ## How a line is said: thought (hungry, tired, rain), shouted (a fight, no food), in alarm (hurt, a raid, starving),
 ## else spoken.
 static func bark_kind(key: String) -> int:
-	if key in ["bark.hurt", "bark.raid", "bark.flee", "miko.starving"]:
+	if key in ["bark.hurt", "bark.raid", "bark.flee", "bark.threat", "miko.starving"]:
 		return SpeechBubble.Kind.ALARM
 	if key in ["bark.fight", "bark.no_food"]:
 		return SpeechBubble.Kind.SHOUT
-	if key in ["bark.hungry", "bark.tired", "bark.rain", "miko.hungry"]:
+	if key in ["bark.hungry", "bark.tired", "bark.rain", "bark.chilly", "miko.hungry"]:
 		return SpeechBubble.Kind.THINK
 	return SpeechBubble.Kind.SAY
 
@@ -1591,7 +1680,7 @@ func _has_tools() -> bool:
 
 
 func _tool_pace() -> float:
-	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0)   # (Village Heart: quicker with Miko about)
+	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0) * [1.0, 0.88, 0.72][chill()]   # (Village Heart: quicker with Miko about)
 
 
 # Tools and a bag from storage, picked up when they start on work that wants them.
@@ -2285,7 +2374,7 @@ func _go_light() -> bool:
 	var best := {}
 	var best_d := INF
 	for f in fires.fires:
-		if fires.lit(f) or lighting.has(f.key) or not world.village.contains(f.pos, 2.0):
+		if fires.lit(f) or lighting.has(f.key) or not fires.tended(f):
 			continue
 		# A house's fireplace: only on winter evenings, for the night.
 		if bool(f.s.get("hearth", false)) and not (fires.winter() and _hour(world) >= 17.5):
@@ -2667,7 +2756,7 @@ static func _recipe_key(r: Dictionary) -> String:
 
 func _storage_has(cost: Array) -> bool:
 	for c in cost:
-		if world.village.stored(c.resource) < int(c.amount):
+		if world.village.spare(c.resource) < int(c.amount):   # (not what's kept for planting)
 			return false
 	return true
 

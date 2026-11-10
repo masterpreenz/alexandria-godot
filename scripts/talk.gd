@@ -168,6 +168,8 @@ func _greeting(v: Villager) -> String:
 	var vals := {"miko": "Miko", "name": v.person.name}
 	if v._hungry():
 		return Loc.pick("talk.hello.hungry", vals)
+	if v.chill() > 0:
+		return Loc.pick("talk.hello.cold", vals)
 	if float(v.person.get("energy", 100.0)) < 30.0:
 		return Loc.pick("talk.hello.tired", vals)
 	if not bool(v.person.get("hasBed", true)):
@@ -238,6 +240,8 @@ func _ask_need() -> void:
 		key = "talk.need.food"
 	elif int(p.get("job", 0)) in [Villager.Job.MINING, Villager.Job.LUMBERING] and int(p.get("toolsLeft", 0)) <= 0:
 		key = "talk.need.tools"
+	elif world.clock != null and world.clock.season() == GameClock.Season.WINTER and not bool(p.get("scarf", false)):
+		key = "talk.need.scarf"
 	who.show_mood("relaxed" if key == "talk.need.nothing" else "worried", 4.0)
 	_show(Loc.pick(key, {"miko": "Miko"}))
 

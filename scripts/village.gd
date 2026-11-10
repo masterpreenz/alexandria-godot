@@ -89,6 +89,16 @@ func item_slots() -> int:
 	return total
 
 
+## Kept back in storage for planting (Farming sets it): resource -> how many. Eating, cooking and crafting leave
+## that much alone.
+var reserve := {}
+
+
+## How many of [param r] storage can spare: what's there, less what's kept for planting.
+func spare(r: String) -> int:
+	return maxi(0, stored(r) - int(reserve.get(r, 0)))
+
+
 func stored(r: String) -> int:
 	return int(stash.get(r, 0))
 

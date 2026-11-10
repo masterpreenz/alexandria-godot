@@ -390,6 +390,7 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
+	_keep_seed()
 	var keys := _keys
 	_keys = {}
 	if world.props.version != _looked_at:
@@ -461,6 +462,26 @@ func _process_timed(_delta: float) -> void:
 
 
 # ---- For the villagers ----
+
+var _next_reserve := 0.0
+
+# What the village's plots will want to be planted again, kept back from the cooks and the hungry (Village.reserve):
+# one of its seed for every plot, by the crop each is set to grow. Worked out every couple of seconds.
+func _keep_seed() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _next_reserve:
+		return
+	_next_reserve = now + 2.0
+	var want := {}
+	for p in plots:
+		if not world.village.contains(p.pos, 3.0):
+			continue
+		var c: String = _field_crop(p, func(_seed: String) -> bool: return true)[1]
+		if CROPS.has(c):
+			var seed_name: String = CROPS[c].seed
+			want[seed_name] = int(want.get(seed_name, 0)) + 1
+	world.village.reserve = want
+
 
 ## The crop for a bare plot, with seed for it in storage: [ok, crop].
 func pick_from_storage(p: Dictionary) -> Array:

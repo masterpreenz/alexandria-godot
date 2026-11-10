@@ -92,12 +92,24 @@ func winter() -> bool:
 	return world.clock != null and world.clock.season() == GameClock.Season.WINTER
 
 
+## Whether the villagers see to this fire: it's in the village, or out of it on ground a cleansing crystal keeps clear
+## (a torch on the road out, a camp by a crystal).
+func tended(f: Dictionary) -> bool:
+	if world.village.contains(f.pos, 2.0):
+		return true
+	for at in world.props_named("CleansingCrystal"):
+		var off: Vector2 = f.pos - at
+		if Vector2(off.x, off.y * 2.0).length() <= Crystals.WARD_RADIUS * world.px:
+			return true
+	return false
+
+
 ## How much wood the fires take a winter's day: each fireplace lit for the night, each bonfire and torch lit again as
 ## it burns down by day ([constant WINTER_BURN] hours) and once more at dusk.
 func winter_wood_a_day() -> int:
 	var wood := 0
 	for f in fires:
-		if not world.village.contains(f.pos, 2.0):
+		if not tended(f):
 			continue
 		var by_day := 0 if bool(f.s.get("hearth", false)) else ceili(11.5 / WINTER_BURN)
 		wood += int(f.s.woodToLight) * (1 + by_day)

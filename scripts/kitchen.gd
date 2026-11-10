@@ -66,7 +66,7 @@ static func next(v: Village) -> Array:
 	var worst := 1.0
 	for r in RECIPES:
 		var want := target(r[1])
-		if want <= 0 or v.stored(r[0]) <= 0:
+		if want <= 0 or v.spare(r[0]) <= 0:   # (what's kept for planting isn't cooked)
 			continue
 		var have := v.stored(r[1])
 		if have >= want:

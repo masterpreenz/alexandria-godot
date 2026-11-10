@@ -1876,6 +1876,60 @@ func _ready() -> void:
 					for i in 150:
 						await get_tree().process_frame
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_out.png")
+				"daily":
+					# Seed kept back; the meals of a day; a torch out by a crystal lit; waking and off.
+					var fm: Farming = miko.get_node("Farming")
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day()) * 24.0 + 5.0
+					for i in 150:
+						await get_tree().process_frame
+					var v := world.village
+					print("Daily: plots in the village ", fm.plots.filter(func(q): return v.contains(q.pos, 3.0)).size(), ", a plot's crop ", fm._field_crop(fm.plots[0], func(_s: String) -> bool: return true))
+					print("Daily: kept for planting ", v.reserve, "; potatoes ", v.stored("Potato"), ", spare ", v.spare("Potato"), "; plots ", fm.plots.size())
+					v.stash["Potato"] = int(v.reserve.get("Potato", 0)) + 1
+					v.stash["Potato"] = int(v.reserve.get("Potato", 0))
+					print("Daily: at the reserve exactly, spare ", v.spare("Potato"), ", potato dish ", Kitchen.next(v).has("Potato"))
+					v.put_in_stash("BakedPotato", 30)
+					# A torch out by a crystal, well outside the village.
+					var out := world.floors.cell_at(v.centre()) + Vector2i(ceili(v.half_size()) + 6, 0)
+					world.props.place(out, "CleansingCrystal")
+					world.props.place(out + Vector2i(2, 1), "Torch")
+					var fr: Fires = miko.get_node("Fires")
+					for i in 10:
+						await get_tree().process_frame
+					var far: Dictionary = fr.fires.filter(func(f): return world.floors.cell_at(f.pos) == out + Vector2i(2, 1))[0]
+					fr.lit_until.erase(far.key)
+					print("Daily: the torch by the crystal, outside the village: in the village ", v.contains(far.pos, 2.0), ", tended ", fr.tended(far))
+					var eaten := {}
+					for start in [6.9, 11.9, 17.6]:
+						clock.hours = floorf(clock.hours / 24.0) * 24.0 + start
+						var t0 := Time.get_ticks_msec()
+						while Time.get_ticks_msec() - t0 < 50000:
+							await get_tree().process_frame
+							for vl in Villager.all:
+								if vl.state == Villager.State.EATING and vl.get_meta("ate_at", -9.0) < clock.hours - 0.5:
+									vl.set_meta("ate_at", clock.hours)
+									eaten[vl.person.name] = (eaten.get(vl.person.name, []) as Array) + [snappedf(clock.hour(), 0.1)]
+					print("Daily: by ", snappedf(clock.hour(), 0.1), " h, sat down to eat at ", eaten, "; hunger ", Villager.all.map(func(q): return roundi(q.person.hunger)), "; torch by the crystal lit ", fr.lit(far))
+				"scarf":
+					# Winter, snowing: a villager out in the open, cold; a scarf put in storage; they take it.
+					clock.forced = -1
+					clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0 + 10.0
+					while Villager.all.is_empty():
+						await get_tree().process_frame
+					var fr: Fires = miko.get_node("Fires")
+					for f in fr.fires:
+						fr.lit_until[f.key] = -1.0
+					var vl: Villager = Villager.all[0]
+					vl.position = world.village.centre() + Vector2(6.0, 5.0) * world.px
+					for i in 30:
+						await get_tree().process_frame
+					print("Scarf: ", GameClock.WEATHER_NAMES[clock.weather()], ", ", vl.person.name, " chill ", vl.chill(), ", work pace ", snappedf(vl._tool_pace(), 0.01), ", greets '", ($Hud/Talk as Talk)._greeting(vl) if has_node("Hud/Talk") else "", "'")
+					print("Scarf: recipe at the tool workbench ", world._load_json("res://data/build.json").workbenches.ToolWorkbench.recipes.filter(func(r): return r.item == "Scarf").size() if world._load_json("res://data/build.json").has("workbenches") else "?", ", item ", UiKit.item("Scarf").get("name", "?"))
+					world.village.items.append("Scarf")
+					for i in 400:
+						await get_tree().process_frame
+					print("Scarf: wearing one ", vl.person.get("scarf", false), ", chill ", vl.chill(), ", work pace ", snappedf(vl._tool_pace(), 0.01), ", scarves left in storage ", world.village.items.count("Scarf"))
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

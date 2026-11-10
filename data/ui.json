@@ -68,6 +68,7 @@
 "Sachet":{"name":"Sachet","kind":"Bag","label":"Bag","icon":-1,"bagSlots":8,"wearable":true,"description":"A small bag: 8 more slots. A villager carrying one brings home 8 more.","stats":[]},
 "ShrineCharm":{"name":"Shrine Charm","kind":"Necklace","label":"Necklace","icon":-1,"bagSlots":0,"wearable":true,"description":"A blessed charm on a cord.","stats":[["Max HP",15,""],["HP Regen",0.5,"/s"]]},
 "CrystalNecklace":{"name":"Crystal Necklace","kind":"Necklace","label":"Necklace","icon":-1,"bagSlots":0,"wearable":true,"description":"A mist crystal on a fibre cord. Worn, it glows round her like a lantern and keeps the mist back a little way; it wears thin as it's worn, and breaks.","stats":[]},
+"Scarf":{"name":"Scarf","kind":"Scarf","label":"Scarf","icon":-1,"bagSlots":0,"wearable":false,"description":"A warm scarf for a villager: in winter they feel the cold a step less (cold in the snow, not at all otherwise). Put it in storage and whoever has none takes it when winter comes.","stats":[]},
 "Tools":{"name":"Tools","kind":"Tools","label":"Tools","icon":-1,"bagSlots":0,"wearable":false,"description":"A set of tools for a villager: felling, mining, farming, building and planting go quicker. Wears out after 150 uses. Put it in storage and a villager takes it.","stats":[]},
 "WoodenShield":{"name":"Wooden Shield","kind":"Shield","label":"Shield","icon":-1,"bagSlots":0,"wearable":true,"description":"Planks bound with iron.","stats":[["Defense",3,""]]}}
 }
