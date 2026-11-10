@@ -84,6 +84,12 @@ func _physics_process_timed(delta: float) -> void:
 				prey = v
 				prey_body = v.hit
 		seen = prey != null
+	# Drawn off by a shield shikigami: that instead.
+	var drawn := taunter()
+	if drawn != null:
+		prey = drawn
+		prey_body = drawn
+		seen = true
 	if seen:
 		angry_until = maxf(angry_until, t + float(s.calmAfter))
 	if seen != chasing:
@@ -236,6 +242,10 @@ func _pick_wander() -> void:
 			target = spot
 			return
 	target = home
+
+
+func hostile() -> bool:
+	return chasing
 
 
 func _hurt(_amount: float) -> void:

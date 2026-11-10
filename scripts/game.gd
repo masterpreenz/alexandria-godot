@@ -202,6 +202,7 @@ func _ready() -> void:
 		explored.from_json(sv.sections["world.explored"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
+	miko.stats.hurt.connect(func(_a): HitFx.sound(world, miko.position))   # (heard too)
 	# Her HP and mana over her head while either is short of full.
 	var head_bars := HeadBars.new()
 	head_bars.name = "HeadBars"
@@ -1382,6 +1383,93 @@ func _ready() -> void:
 					for i in 400:
 						await get_tree().process_frame
 					print("Head bars: showing when full ", hb.visible)
+				"wardshiki":
+					# A shield shikigami out, a slime and a mutated villager coming at Miko: they turn on it, it wards her
+					# and stands its ground; then she walks off and it follows.
+					var st: CharacterStats = miko.stats
+					var caster_node: SpellCaster = world.get_node("Caster")
+					var sd: Dictionary = world._load_json("res://data/shikigami.json")
+					var md: Dictionary = world._load_json("res://data/monsters.json")
+					var ward := Shikigami.summon(world, "ShikigamiDefender", sd["ShikigamiDefender"], miko, st, caster_node, miko.position)
+					var sl: Slime = Slime.spawn(world, md.slime, false, miko.position + Vector2(3.0, 0.5) * world.px, 1.0)
+					sl.angry_until = Creature.now() + 999.0
+					var mv := MutatedVillager.spawn(world, md.mutatedVillager, miko.position + Vector2(-3.0, 0.8) * world.px)
+					mv.raid_to = miko.position
+					var hp0: float = st.hp
+					var ward_hp0: float = ward.hp
+					var warded := false
+					var shot := false
+					var stood := Vector2.ZERO
+					for i in int(Shots.arg("wardframes", "1100")):
+						await get_tree().process_frame
+						if not is_instance_valid(ward):
+							print("Ward shiki: struck down at frame ", i)
+							break
+						warded = warded or ward.bubble != null
+						if ward.holding and stood == Vector2.ZERO:
+							stood = ward.position
+						if i % 180 == 0:
+							print("Ward shiki ", floori(i / 60.0), ": slime on it ", is_instance_valid(sl) and sl.taunted_by == ward, ", mutant on it ", is_instance_valid(mv) and mv.taunted_by == ward, ", ward up ", ward.bubble != null, ", holding ", ward.holding, ", its HP ", roundi(ward.hp), "/", roundi(ward_hp0), ", her HP ", roundi(st.hp), "/", roundi(hp0))
+						if not shot and ward.bubble != null and i > 120:
+							shot = true
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_ward.png")
+					if is_instance_valid(ward):
+						print("Ward shiki: warded ", warded, ", moved while holding ", snappedf(ward.position.distance_to(stood) / world.px, 0.1), " units")
+						miko.place(miko.position + Vector2(9.0, 0) * world.px)
+						for i in 240:
+							await get_tree().process_frame
+						if is_instance_valid(ward):
+							print("Ward shiki: she went 9 units off; it's ", snappedf(ward.position.distance_to(miko.position) / world.px, 0.1), " units from her, holding ", ward.holding)
+				"mikohit":
+					# Miko hit: mid-flinch, her tint and jolt (and a picture).
+					camera.zoom *= 1.8
+					for i in 10:
+						await get_tree().process_frame
+					miko.stats.damage(10.0)
+					for i in 5:
+						await get_tree().process_frame
+					print("Miko hit: tint ", miko.art.self_modulate, ", jolt ", miko.wading.extra, ", material ", miko.art.material)
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_hit.png")
+				"bedtaken":
+					# Miko beside a villager's bed: free, the sleep prompt shows; with the villager in it, it doesn't.
+					while Villager.all.is_empty():
+						await get_tree().process_frame
+					var nd: Needs = miko.get_node("Needs")
+					var sleeper: Villager = null
+					for v in Villager.all:
+						if not v.home.is_empty():
+							sleeper = v
+							break
+					if sleeper == null:
+						print("Bed taken: no villager with a bed")
+					else:
+						var bed_at: Vector2 = sleeper.home.pos
+						miko.place(bed_at + Vector2(0.5, 0.4) * world.px)
+						for i in 20:
+							await get_tree().process_frame
+						print("Bed taken: free bed, prompt '", nd.prompt.text, "' showing ", nd.prompt.visible)
+						Needs.occupants[Needs.bed_key(bed_at)] = sleeper
+						for i in 20:
+							await get_tree().process_frame
+						var found: Dictionary = nd.nearest_bed(miko.position, float(nd.s.bedRange) * world.px)
+						print("Bed taken: with ", sleeper.person.name, " in it, prompt showing ", nd.prompt.visible, ", still marked taken ", Needs.occupants.has(Needs.bed_key(bed_at)), ", bed found for her ", "none" if found.is_empty() else ("the same one" if found.pos.distance_to(bed_at) < 1.0 else "another, %.1f units from it" % (found.pos.distance_to(bed_at) / world.px)))
+				"wallhit":
+					# A barricade struck: mid-flinch, its tint and shake; then back as it was.
+					var c0 := world.floors.cell_at(miko.position) + Vector2i(1, -2)
+					var eh := WallMap.Edge.new(c0, false)
+					world.walls.place(eh, "Barricade", true)
+					camera.zoom *= 1.6
+					for i in 10:
+						await get_tree().process_frame
+					world.walls.damage(eh.key(), 20.0)
+					for i in 6:
+						await get_tree().process_frame
+					var art: Node2D = world.walls.nodes_of(eh)[0].get_child(0)
+					print("Wall hit: tint ", art.self_modulate, ", shaken ", snappedf(art.position.x - float(art.get_meta("rest_x")), 0.1))
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_hit.png")
+					for i in 80:
+						await get_tree().process_frame
+					print("Wall hit after: tint ", art.self_modulate, ", shaken ", snappedf(art.position.x - float(art.get_meta("rest_x")), 0.1))
 				"margin":
 					# Walls just past the village's edge: a plank wall can't go there, a barricade or gate can (up to 2 tiles).
 					for i in 3:

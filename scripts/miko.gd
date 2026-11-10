@@ -55,9 +55,9 @@ var _toss_time := 0.5
 var _toss_clock := -1.0
 # Flinching from a hit (Unity's HitReaction): two red blinks and a jolt, this long ago (-1: not).
 var _hit_since := -1.0
-const HIT_FOR := 0.32
+const HIT_FOR := 0.4
 const HIT_COLOR := Color(1.0, 0.42, 0.38)
-const HIT_JOLT := 0.06
+const HIT_JOLT := 0.08
 
 
 func setup(w: World, d: Dictionary) -> void:

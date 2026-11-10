@@ -377,6 +377,10 @@ func nearest_bed(at: Vector2, reach: float) -> Dictionary:
 	var best_d := reach
 	for type in data.get("beds", {}):
 		for b in world.props.entries_named(type):
+			# (not one a villager's in: no prompt for it, and Z doesn't put her in it)
+			var in_it: Variant = occupants.get(bed_key(b.pos))
+			if in_it != null and in_it != miko and is_instance_valid(in_it):
+				continue
 			var d: float = b.pos.distance_to(at)
 			if d <= best_d:
 				best_d = d

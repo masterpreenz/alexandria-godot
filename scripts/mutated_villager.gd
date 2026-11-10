@@ -109,6 +109,8 @@ func _physics_process_timed(delta: float) -> void:
 					world.walls.damage(_bar_key, float(s.attackDamage) * 2.0)
 				elif prey is Villager and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
 					(prey as Villager).hit.hurt(float(s.attackDamage))
+				elif prey is Damageable and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
+					(prey as Damageable).hurt(float(s.attackDamage))   # (a shield shikigami that drew it off)
 				elif prey != null and prey == p and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
 					hurt_player(float(s.attackDamage), to_her.normalized() * float(s.knockback) * world.px, 0.2)
 			if f >= (s.attackFront as Array).size():
@@ -149,6 +151,10 @@ func _hunting(p: Miko) -> bool:
 
 # Who it's after now, or null: Miko as [method _hunting] says; raiding, the nearest of her and the villagers in sight.
 func _pick_prey(p: Miko) -> Node2D:
+	# Drawn off by a shield shikigami: that instead.
+	var drawn := taunter()
+	if drawn != null:
+		return drawn
 	if raid_to == Vector2.INF:
 		return p if _hunting(p) else null
 	var best: Node2D = null
@@ -196,6 +202,10 @@ func _show() -> void:
 		show_art(int(sheet[int(clock * fps) % sheet.size()]))
 	else:
 		show_art(int(sheet[int(s.standFrame)]))
+
+
+func hostile() -> bool:
+	return prey != null and (state == State.CHASE or state == State.ATTACK)
 
 
 func _hurt(_amount: float) -> void:

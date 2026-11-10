@@ -4,14 +4,24 @@ extends Node
 ## settling. For villagers, monsters and corrupted trees: added beside their art and wading (whose jolt it sets; without
 ## one, the colour only), [method play] on a hit.
 
-const LENGTH := 0.32
+const LENGTH := 0.4
 const COLOR := Color(1.0, 0.42, 0.38)
-const JOLT := 0.06                ## units, side to side
+const JOLT := 0.08                ## units, side to side
 
 var art: CanvasItem
 var wading: Wading
 var px := 128.0
 var _since := -1.0
+var thud: World                   ## set (the world) for a hit to be heard too (allies: a monster's blow has no sound of its own)
+
+const THUD := "res://assets/Sounds/blunt_staff_hit.mp3"
+
+
+## The sound of a blow landing at [param at] (on Miko, a villager, a shikigami, a barricade).
+static func sound(w: World, at: Vector2) -> void:
+	var clip := Sfx.stream(THUD)
+	if clip != null and w != null:
+		Sfx.play(w, clip, at, 0.45, 0.14)
 
 
 static func add_to(owner_node: Node, body: CanvasItem, wade: Wading, world_px: float) -> HitFx:
@@ -26,6 +36,16 @@ static func add_to(owner_node: Node, body: CanvasItem, wade: Wading, world_px: f
 
 func play() -> void:
 	_since = 0.0
+	if thud != null and is_instance_valid(art):
+		sound(thud, art.global_position)
+
+
+## The jolt now (px, side to side), for a body that places itself (no wading to carry it); 0 when not flinching.
+func jolt_x() -> float:
+	if _since < 0.0:
+		return 0.0
+	var t := _since / LENGTH
+	return sin(t * PI * 6.0) * JOLT * (1.0 - t) * px
 
 
 ## Whether it's flinching now (its red over any other tint).

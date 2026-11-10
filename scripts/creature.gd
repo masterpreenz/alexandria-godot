@@ -26,6 +26,8 @@ var facing_back := false
 var flip := false               ## facing east (the art faces west)
 var art_scale := 1.0
 var raid_to := Vector2.INF       ## raiding (Raids): where in the village it's making for; INF when not
+var taunted_by: Damageable       ## a shield shikigami that's drawn it off: it goes for that instead, while it lasts
+var taunt_until := 0.0
 var _check_at := 0.0
 
 
@@ -117,6 +119,22 @@ func barricade_ahead(goal: Vector2) -> Array:
 	if world.walls == null or world.walls.hp.is_empty():
 		return []
 	return world.walls.barricade_in_way(position, goal, 0.0)   # (across the way only: a gap broken in, it goes through)
+
+
+## Whether it's going for someone now (a shield shikigami draws off only those).
+func hostile() -> bool:
+	return false
+
+
+## The shield shikigami it's been drawn off by, while that's still about, near and the taunt lasts; else null.
+func taunter() -> Damageable:
+	if taunted_by == null or not is_instance_valid(taunted_by) or not taunted_by.alive() or now() >= taunt_until:
+		taunted_by = null
+		return null
+	if taunted_by.global_position.distance_to(position) > 9.0 * world.px:
+		taunted_by = null
+		return null
+	return taunted_by
 
 
 func player() -> Miko:

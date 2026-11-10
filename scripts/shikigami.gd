@@ -9,7 +9,8 @@ extends Damageable
 ##   little faster.
 ## - Attacker: picks on enemies Miko has hit herself (within its leash of her), hovers round them, draws back and
 ##   thrusts its spear straight through; too far from her, it drops the fight and hurries back.
-## - Defender: flies to where it was sent and raises a ward there (ShieldBubble).
+## - Defender: follows its summoner. When monsters come at them it raises a ward round them by itself (ShieldBubble),
+##   again every so often, and draws the monsters going for anyone nearby onto itself. It doesn't attack.
 ## Its skill can start cooling down only once it's gone (cooldownAfterSummon).
 
 static var active: Array[Shikigami] = []
@@ -46,6 +47,11 @@ var heal_loop: AudioStreamPlayer2D
 var guard_at := Vector2.ZERO
 var guard_radius := 0.0
 var bubble: ShieldBubble
+var fx: HitFx
+var ward_until := 0.0            ## when the ward it raised comes down
+var next_taunt := 0.0
+var holding := false             ## a shield shikigami with monsters on it: it stands its ground
+var hold_at := Vector2.ZERO
 var strike := 0                  # 0 none, 1 wind-up, 2 thrust
 var strike_at := 0.0
 var strike_from := Vector2.ZERO
@@ -78,7 +84,7 @@ func _px(v) -> float:
 	return float(v) * world.px
 
 
-func _begin(target: Vector2) -> void:
+func _begin(_target: Vector2) -> void:
 	var t := owner_stats.total()
 	var effect := CharacterStats.percent(float(t.get("summonEffect", 0.0)))
 	power = float(s.power) * effect
@@ -93,17 +99,20 @@ func _begin(target: Vector2) -> void:
 	next_act = born_at + (0.4 if kind == "Attacker" else 0.2)
 	_make_room(t)
 	if kind == "Defender":
-		guard_at = target
 		guard_radius = float(caster.spells[spell_name].aoeRadius)
 	slot = active.size()
 	active.append(self)
 	setup(world, Damageable.Team.ALLY, float(s.hp) * CharacterStats.percent(float(t.get("summonHp", 0.0))), 0.25 * world.px, 1.1 * world.px)
 	body = Sprite2D.new()
 	add_child(body)
+	# Struck: it blinks red and jolts, as everyone does.
+	fx = HitFx.add_to(self, body, null, world.px)
+	fx.thud = world
+	damaged.connect(func(_a): fx.play())
 	_show(int(s.idleDown[0]) if s.idleDown.size() > 0 else -1)
 	last_owner = owner_node.position
 	# A ward sets off from its summoner; the others appear beside them.
-	position = (owner_node.position if kind == "Defender" else _home()) + Vector2(0, -0.4 * world.px)
+	position = _home() + Vector2(0, -0.4 * world.px)
 	last_pos = position
 	world.things.add_child(self)
 	# Its presence alone mends a little faster.
@@ -232,9 +241,7 @@ func _process_timed(delta: float) -> void:
 	if kind == "Attacker":
 		goal = _attack(t, goal)
 	elif kind == "Defender":
-		# Arrived: raise the ward, and hover over its middle.
-		if bubble == null and position.distance_to(guard_at) < 0.2 * world.px:
-			bubble = ShieldBubble.spawn(world, owner_stats, owner_node, guard_at, guard_radius, float(s.guardPercent), power, float(s.shieldFillTime), int(s.circleSprite) if s.circleSprite != null else -1, _color(s.wardTint))
+		_defend(t)
 	elif t >= next_act:
 		next_act = t + float(s.interval)
 		if kind == "Healer" and circles_laid < int(s.maxCircles) and s.circleSprite != null:
@@ -255,7 +262,7 @@ func _process_timed(delta: float) -> void:
 	else:
 		velocity = Vector2.ZERO
 	# Floats and bobs; faces the way it's going.
-	body.position = Vector2(0, -_px(s.floatHeight) - sin((t - born_at) * 3.0 + slot) * 0.08 * world.px)
+	body.position = Vector2(fx.jolt_x() if fx != null else 0.0, -_px(s.floatHeight) - sin((t - born_at) * 3.0 + slot) * 0.08 * world.px)
 	var moved := position - last_pos
 	if absf(moved.x) > 0.002 * world.px: facing_right = moved.x > 0.0
 	if absf(moved.y) > 0.002 * world.px: facing_up = moved.y < 0.0
@@ -338,8 +345,9 @@ func _go(next: int, t: float) -> void:
 
 # Beside the summoner: each one its own spot around them; a healer circles its circle while it heals.
 func _home() -> Vector2:
-	if kind == "Defender":
-		return guard_at
+	# A shield shikigami with monsters on it holds where it is (until its summoner's gone too far: then after them).
+	if kind == "Defender" and holding:
+		return hold_at
 	if kind == "Healer" and now() < healing_until:
 		var c := deg_to_rad((now() - born_at) * float(s.circleOrbitSpeed) + slot * 120.0)
 		var ring := maxf(0.2, float(s.circleRadius) - float(s.circleOrbitInset)) * world.px
@@ -476,6 +484,49 @@ func _jab(target: Damageable) -> void:
 	if crit:
 		hit *= (CRIT_DAMAGE + float(owner_stats.stat("summonCritDamage"))) / 100.0
 	target.hurt(hit, false, crit)
+
+
+# The shield shikigami's part: the monsters going for anyone near it are drawn onto it instead (again and again while
+# it lives); with any about, it raises a ward round its summoner, which lasts a while, then again after a rest.
+func _defend(t: float) -> void:
+	if bubble != null and (not is_instance_valid(bubble) or t >= ward_until):
+		if is_instance_valid(bubble):
+			bubble.end()
+		bubble = null
+	if t < next_taunt:
+		return
+	next_taunt = t + 0.5
+	var near := _px(s.get("tauntRadius", 4.5))
+	var threatened := false
+	for c in Creature.all:
+		if not is_instance_valid(c) or c.asleep or not c.hit.alive() or c.hit.team != Damageable.Team.ENEMY:
+			continue
+		var from_me := c.position.distance_to(position)
+		if not c.hostile() or (from_me > near and c.position.distance_to(owner_node.position) > near):
+			continue
+		threatened = true
+		if c.taunted_by != self:
+			FloatingText.spawn(world, "!", c.position + Vector2(0, -c.hit.height - 0.2 * world.px), Color(0.6, 0.8, 1.0), 26)
+		c.taunted_by = self
+		c.taunt_until = t + 3.0
+	# With monsters on it, it stays where it took them on; its summoner past its leash, it lets that go and follows.
+	var d := owner_node.position - position
+	var gap := Vector2(d.x, d.y * 2.0).length()
+	if gap > _px(s.leash):
+		recalled = true          # (after them, all the way back to their side)
+	elif gap < 2.0 * world.px:
+		recalled = false
+	if threatened and not recalled:
+		if not holding:
+			holding = true
+			hold_at = position
+	else:
+		holding = false
+	if threatened and bubble == null and t >= next_act:
+		guard_at = owner_node.position
+		bubble = ShieldBubble.spawn(world, owner_stats, owner_node, guard_at, guard_radius, float(s.guardPercent), power, float(s.shieldFillTime), int(s.circleSprite) if s.circleSprite != null else -1, _color(s.wardTint))
+		ward_until = t + float(s.get("shieldTime", 6.0))
+		next_act = ward_until + float(s.get("shieldRest", 4.0))
 
 
 ## Heals the summoner and every ally standing within [param r] (px) of [param at], each showing a green number.

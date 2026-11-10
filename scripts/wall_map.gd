@@ -205,9 +205,7 @@ func damage(k: Vector3i, amount: float) -> void:
 	_bars.queue_redraw()
 	FloatingText.spawn(world, str(roundi(amount)), mid + Vector2(0, -0.9 * world.px), Color(1.0, 0.75, 0.45))
 	_hit_at[k] = Time.get_ticks_msec() / 1000.0
-	for n in nodes_of(e):
-		if is_instance_valid(n) and n.get_child_count() > 0:
-			(n.get_child(0) as CanvasItem).self_modulate = Color(1.0, 0.7, 0.6)
+	HitFx.sound(world, mid)
 	if float(hp[k]) <= 0.0:
 		Puffs.burst(world, mid, 1.4, 14)
 		VillageLog.event("barricade", "A %s was broken down" % str(types[walls[k]].get("display", walls[k])).to_lower())
@@ -249,19 +247,27 @@ func barricade_in_way(from: Vector2, to: Vector2, near: float) -> Array:
 	return best
 
 
-# The walls struck lately flash back to their colour.
+# The walls struck lately flinch as everyone does (HitFx's look): two red blinks, fading, and a shake side to side.
 func _process(_delta: float) -> void:
 	if _hit_at.is_empty():
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	for k in _hit_at.keys():
-		if now - float(_hit_at[k]) < 0.15:
-			continue
-		_hit_at.erase(k)
+		var t := (now - float(_hit_at[k])) / HitFx.LENGTH
+		var done := t >= 1.0 or not walls.has(k)
 		if walls.has(k):
+			var blink := absf(sin(t * PI * 2.0)) * (1.0 - t * 0.5)
+			var jolt := sin(t * PI * 6.0) * HitFx.JOLT * (1.0 - t) * world.px
 			for n in nodes_of(Edge.of(k)):
-				if is_instance_valid(n) and n.get_child_count() > 0:
-					(n.get_child(0) as CanvasItem).self_modulate = Color.WHITE
+				if not is_instance_valid(n) or n.get_child_count() == 0:
+					continue
+				var art := n.get_child(0) as Node2D
+				if not art.has_meta("rest_x"):
+					art.set_meta("rest_x", art.position.x)
+				art.self_modulate = Color.WHITE if done else Color.WHITE.lerp(HitFx.COLOR, blink)
+				art.position.x = float(art.get_meta("rest_x")) + (0.0 if done else jolt)
+		if done:
+			_hit_at.erase(k)
 
 
 ## Removes the wall covering [param e].
