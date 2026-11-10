@@ -7,10 +7,11 @@ extends Node2D
 ## It also keeps an eye on the village for its messages: storage full, beds outside or not in a house, monsters inside.
 ## Hold Alt to see who's who: their name, level and HP over each (VillagerTags).
 ##
-## A person (Unity's Villagers.Person, as saved): name, look (0 a man, 1 a woman), hasBed, bedX, bedY (units), level,
+## A person (Unity's Villagers.Person, as saved): name, look (0 a man, 1 and 2 women), hasBed, bedX, bedY (units), level,
 ## xp, maxHp, hp, atk, skills {level, xp}, hunger, energy, job, toolsLeft, bag, bagSlots, bagLeft.
 
-const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"]]
+const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"],
+	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"]]
 const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina"]
 
 static var heart := 1.0          ## how much faster the villagers work now (Village Heart, with Miko in the village)
@@ -55,7 +56,7 @@ func _fix(p: Dictionary) -> void:
 				0: lv.append(int(p.get("lumbering", 1)))
 				1: lv.append(int(p.get("mining", 1)))
 				3: lv.append(int(p.get("farming", 1)))
-				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) == 1 else 0)  # only women cook, for now
+				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
 	for k in ["hunger", "energy", "hp", "maxHp", "atk", "level", "xp", "toolsLeft", "bagSlots", "bagLeft", "job"]:
@@ -207,7 +208,9 @@ func _homeless() -> Variant:
 
 # A newcomer: by turns, a woman first, so the village gets a mix; a name not yet taken.
 func _newcomer() -> Dictionary:
-	var look := 1 if people.is_empty() or int(people[-1].look) == 0 else 0
+	# (the looks in turn: a woman, a man, the other woman)
+	var turn := [1, 0, 2]
+	var look: int = turn[(turn.find(int(people[-1].look)) + 1) % turn.size()] if not people.is_empty() else 1
 	look = mini(look, d.looks.size() - 1)
 	var pool: Array = NAMES[mini(look, NAMES.size() - 1)]
 	var nm := ""
