@@ -4,7 +4,7 @@ extends Node
 ## - Teleport crystals glow blue, pulsing, with motes rising round the pedestal and sparkles winking on the crystal.
 ##   Standing at one, E opens the list of the others; picking one takes Miko there in a flash of light. Each has a
 ##   name: one given by hand (saved with the village), the village's, or where it lies from the village.
-## - Cleansing crystals clear the mist round them (Mist does the clearing) and glow violet. The edge of the clearing
+## - Cleansing crystals clear the mist round them (Mist does the clearing) and glow violet, sparkling. The edge of the clearing
 ##   shows as a low curtain of light rising from the ground, rippling, motes drifting up along it, only where there's
 ##   mist beyond it (where clearings meet, the shared stretch fades). While Miko stands inside, a soft ring on the
 ##   ground marks its reach.
@@ -123,17 +123,23 @@ func _light(at: Vector2, c: Color, radius: float) -> PointLight2D:
 
 func _dress_teleport(e: Dictionary) -> Dictionary:
 	var px := _px()
-	var holder: Node2D = e.node
+	var sp := _sparkles(e.node, 1.25, Vector2(0.14, 0.37), Color(0.9, 1, 1))
+	var l := _light(e.pos + Vector2(0, -0.6 * px), Color(0.45, 0.85, 1.0), 2.2)
+	return {"pos": e.pos, "nodes": [sp, l], "light": l, "phase": randf() * 10.0}
+
+
+# Sparkles winking on a crystal's facets: [param up] units above its foot, over [param extents] (units) round that.
+func _sparkles(holder: Node2D, up: float, extents: Vector2, tint: Color) -> CPUParticles2D:
+	var px := _px()
 	var base: Vector2 = (holder.get_child(0) as Node2D).position if holder.get_child_count() > 0 else Vector2.ZERO
-	# Sparkles winking on its facets.
 	var sp := CPUParticles2D.new()
 	sp.amount = 4
 	sp.lifetime = 0.6
 	sp.lifetime_randomness = 0.4
 	sp.local_coords = true
-	sp.position = base + Vector2(0, -1.25 * px)
+	sp.position = base + Vector2(0, -up * px)
 	sp.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	sp.emission_rect_extents = Vector2(0.14, 0.37) * px
+	sp.emission_rect_extents = extents * px
 	sp.gravity = Vector2.ZERO
 	sp.initial_velocity_min = 0.0
 	sp.initial_velocity_max = 0.0
@@ -145,18 +151,19 @@ func _dress_teleport(e: Dictionary) -> Dictionary:
 	twinkle.add_point(Vector2(0.35, 1))
 	twinkle.add_point(Vector2(1, 0))
 	sp.scale_amount_curve = twinkle
-	sp.color = Color(0.9, 1, 1)
+	sp.color = tint
 	var add := CanvasItemMaterial.new()
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	sp.material = add
 	holder.add_child(sp)
-	var l := _light(e.pos + Vector2(0, -0.6 * px), Color(0.45, 0.85, 1.0), 2.2)
-	return {"pos": e.pos, "nodes": [sp, l], "light": l, "phase": randf() * 10.0}
+	return sp
 
 
 func _dress_ward(e: Dictionary) -> Dictionary:
 	var px := _px()
 	var l := _light(e.pos + Vector2(0, -0.82 * px), Color(0.78, 0.6, 1.0), 2.4)
+	# Sparkles on its crystal, as on a teleport crystal's, in its violet.
+	var sp := _sparkles(e.node, 0.8, Vector2(0.12, 0.3), Color(1.0, 0.88, 1.0))
 	# The curtain: its back half drawn behind what stands in the clearing, its front half over the ground in front.
 	var back := MeshInstance2D.new()
 	var front := MeshInstance2D.new()
@@ -209,7 +216,7 @@ func _dress_ward(e: Dictionary) -> Dictionary:
 	var wanted := []
 	wanted.resize(SEGMENTS + 1)
 	wanted.fill(1.0)
-	return {"pos": e.pos, "nodes": [l, back_holder, front_holder, motes, ring], "light": l, "back": back, "front": front,
+	return {"pos": e.pos, "nodes": [l, sp, back_holder, front_holder, motes, ring], "light": l, "back": back, "front": front,
 		"motes": motes, "ring": ring, "shown": shown, "wanted": wanted, "ring_shown": 0.0, "phase": phase, "mote_clock": 0.0,
 		"edge": PackedFloat32Array(), "built": false}
 
@@ -266,7 +273,7 @@ func _process_timed(delta: float) -> void:
 	for c in teleports:
 		c.light.energy = (0.75 + 0.25 * sin((_clock + c.phase) * 2.2)) * 0.6 * night
 	for wd in wards:
-		wd.light.energy = (0.75 + 0.2 * sin((_clock + wd.phase) * 1.6)) * 0.6 * night
+		wd.light.energy = (0.75 + 0.25 * sin((_clock + wd.phase) * 2.2)) * 0.6 * night   # (pulsing as a teleport crystal does)
 	if Villager.now() >= _check_at:
 		_check_at = Villager.now() + 0.5
 		for wd in wards:
