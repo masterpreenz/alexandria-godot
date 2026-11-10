@@ -1230,7 +1230,7 @@ func _ready() -> void:
 					# Three villagers by Miko, saying, thinking and shouting; Miko starving.
 					while Villager.all.size() < 3:
 						await get_tree().process_frame
-					var keys := ["bark.greet.day", "bark.hungry", "bark.raid"]
+					var keys := ["bark.pests", "bark.hungry", "bark.raid"]
 					for k in 3:
 						var v: Villager = Villager.all[k]
 						v.position = miko.position + Vector2(-2.6 + k * 2.6, -0.4) * world.px

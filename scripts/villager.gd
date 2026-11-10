@@ -79,7 +79,6 @@ var _bark_until := 0.0
 var _bark_next := 0.0
 static var _bark_any := 0.0       ## the village's next moment for a bark (not all at once)
 var _last_state := -1
-var _greeted_at := -INF
 var _was_raining := false
 var facing_right := false
 var target := Vector2.ZERO
@@ -986,7 +985,7 @@ static func bark_kind(key: String) -> int:
 	return SpeechBubble.Kind.SAY
 
 
-# What happens to them, said out loud: turning hungry or for bed, pests, a fight; Miko coming by; rain starting.
+# What happens to them, said out loud: turning hungry or for bed, pests, a fight; rain starting.
 func _barks() -> void:
 	var t := now()
 	if _bark != null and _bark.visible:
@@ -1001,11 +1000,6 @@ func _barks() -> void:
 			State.HOME: bark("bark.tired")
 			State.FIGHT: bark("bark.fight")
 			State.TO_FARM: if farm_task == "pests": bark("bark.pests")
-	var p := world.player
-	if p != null and state != State.ASLEEP and not in_bed and t - _greeted_at > 120.0 and p.position.distance_to(position) < 2.6 * world.px:
-		_greeted_at = t
-		var h := _hour(world)
-		bark("bark.greet." + ("morning" if h < 11.0 else ("day" if h < 17.0 else "evening")), {"miko": "Miko"})
 	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
 	if raining and not _was_raining and not in_bed and randf() < 0.3:
 		bark("bark.rain")
