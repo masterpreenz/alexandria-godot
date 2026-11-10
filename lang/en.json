@@ -18,6 +18,7 @@
 
 	"bark.hungry": ["I'm starving...", "Time for a bite.", "My stomach's growling.", "Food, food, food."],
 	"bark.no_food": ["No food left?!", "The stores are empty...", "Nothing to eat..."],
+	"bark.cold": ["So cold last night...", "I couldn't get warm.", "We need a fire in the house.", "Brr... my fingers are numb."],
 	"bark.tired": ["Off to bed.", "So sleepy...", "Good night!", "My bed's calling."],
 	"bark.pests": ["Pests again!", "Shoo, bugs!", "Not my crops!"],
 	"bark.hurt": ["Ow!", "Ouch!", "Get away!", "Help!"],

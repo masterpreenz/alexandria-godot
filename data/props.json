@@ -22,6 +22,7 @@
 {"name":"GreyPebble6","display":"Grey Pebble 6","category":"Outdoor","slot":0,"sprite":3125,"icon":-1,"turnSprites":[],"turns":1,"solid":false,"footprint":22.4,"randomFlip":true,"attach":"","material":""},
 {"name":"GreyPebble7","display":"Grey Pebble 7","category":"Outdoor","slot":0,"sprite":3126,"icon":-1,"turnSprites":[],"turns":1,"solid":false,"footprint":33.6,"randomFlip":true,"attach":"","material":""},
 {"name":"Bonfire","display":"Bonfire","category":"Outdoor","slot":0,"sprite":3127,"icon":3128,"turnSprites":[],"turns":1,"solid":true,"footprint":48.64,"randomFlip":false,"attach":"BonfireFire","material":""},
+{"name":"Fireplace","display":"Fireplace","category":"Furniture","slot":0,"sprite":4484,"icon":3128,"turnSprites":[],"turns":1,"solid":true,"footprint":33.0,"randomFlip":false,"attach":"BonfireFire","material":""},
 {"name":"Bedroll","display":"Bedroll","category":"Outdoor","slot":0,"sprite":3129,"icon":-1,"turnSprites":[3129,3130,3131,3132],"turns":4,"solid":false,"footprint":80.404,"randomFlip":false,"attach":"BedrollBed","material":""},
 {"name":"LeafBed","display":"Leaf bed","category":"Outdoor","slot":0,"sprite":3133,"icon":-1,"turnSprites":[3133,3134,3135,3136],"turns":4,"solid":false,"footprint":77.632,"randomFlip":false,"attach":"LeafBed","material":""},
 {"name":"WoodenBed","display":"Bed","category":"Furniture","slot":0,"sprite":3137,"icon":3138,"turnSprites":[3137,3139],"turns":2,"solid":true,"footprint":53.76,"randomFlip":false,"attach":"WoodenBed","material":""},

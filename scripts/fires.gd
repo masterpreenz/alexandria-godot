@@ -91,6 +91,14 @@ func winter() -> bool:
 	return world.clock != null and world.clock.season() == GameClock.Season.WINTER
 
 
+## Whether a fire burns in the room made of [param cells] (RoofMap's room: a house).
+func warm_room(cells: Dictionary) -> bool:
+	for f in fires:
+		if lit(f) and cells.has(world.floors.cell_at(f.pos)):
+			return true
+	return false
+
+
 ## Whether there's a burning fire within [param reach] px of [param at].
 func warm(at: Vector2, reach: float) -> bool:
 	for f in fires:

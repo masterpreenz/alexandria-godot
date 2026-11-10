@@ -4482,5 +4482,6 @@
 {"name":"villager3_sleep_sw_12","tex":"res://assets/Art/Characters/Villager/villager_3f/villager3_sleep_sw.png","rect":[0,768,256,256],"pivot":[96.79,207.52],"ppu":167.58},
 {"name":"villager3_sleep_sw_13","tex":"res://assets/Art/Characters/Villager/villager_3f/villager3_sleep_sw.png","rect":[256,768,256,256],"pivot":[96.79,207.52],"ppu":167.58},
 {"name":"villager3_sleep_sw_14","tex":"res://assets/Art/Characters/Villager/villager_3f/villager3_sleep_sw.png","rect":[512,768,256,256],"pivot":[96.79,207.52],"ppu":167.58},
-{"name":"villager3_sleep_sw_15","tex":"res://assets/Art/Characters/Villager/villager_3f/villager3_sleep_sw.png","rect":[768,768,256,256],"pivot":[96.79,207.52],"ppu":167.58}
+{"name":"villager3_sleep_sw_15","tex":"res://assets/Art/Characters/Villager/villager_3f/villager3_sleep_sw.png","rect":[768,768,256,256],"pivot":[96.79,207.52],"ppu":167.58},
+{"name":"Fireplace","tex":"res://assets/Art/Environment/Props/bonfire.png","rect":[0,0,804,510],"pivot":[402,331.5],"ppu":1250}
 ]

@@ -831,6 +831,15 @@ func _sleeping(delta: float) -> void:
 
 
 func _wake_up(t: float) -> void:
+	# A cold night told on waking: they say so, and work slower today.
+	var was_cold := _cold_hours >= 3.0
+	_cold_hours = 0.0
+	if was_cold != bool(person.get("cold", false)):
+		person["cold"] = was_cold
+	if was_cold:
+		bark("bark.cold", {}, true)
+		show_mood("frustration", 5.0)
+		VillageLog.problem("cold-night", "Villagers slept cold: a house needs a fireplace, and wood to burn in it", VillageLog.Kind.DANGER)
 	if in_bed:
 		in_bed = false
 		if Needs.occupants.get(Needs.bed_key(home.pos)) == self:
@@ -848,6 +857,17 @@ func _wake_up(t: float) -> void:
 
 
 # ---- Needs ----
+
+var _cold_hours := 0.0           ## hours of this sleep spent cold
+
+# Whether they're sleeping cold: winter, and no fire burning in their house.
+func _sleeping_cold() -> bool:
+	var fires := _fires()
+	if fires == null or not fires.winter() or home.is_empty() or world.roofs == null:
+		return false
+	var room: Variant = world.roofs.room_on(home.pos)
+	return room == null or not fires.warm_room(room)
+
 
 # Hunger falls and tiredness grows with the game's hours (more slowly asleep, when they also mend).
 func _needs() -> void:
@@ -867,14 +887,19 @@ func _needs() -> void:
 	var hunger := float(p.hunger)
 	p.hunger = maxf(minf(hunger, 15.0), hunger - 7.0 * dh) if sleeping else maxf(0.0, hunger - 4.0 * dh)
 	var stamina := 1.0 + 0.06 * (maxi(1, Villagers.skill(p, LifeSkills.Skill.STAMINA)) - 1)
-	p.energy = clampf(float(p.energy) + (14.0 if sleeping else -6.0 / stamina) * dh, 0.0, 100.0)
+	# Asleep in winter with no fire burning in the house: a cold night. They rest half as well, don't mend, and
+	# work slower the day after.
+	var cold_night := sleeping and in_bed and _sleeping_cold()
+	if sleeping:
+		_cold_hours = _cold_hours + dh if cold_night else maxf(0.0, _cold_hours - dh)
+	p.energy = clampf(float(p.energy) + ((7.0 if cold_night else 14.0) if sleeping else -6.0 / stamina) * dh, 0.0, 100.0)
 	# Long days on their feet build stamina.
 	if not sleeping:
 		_awake_hours += dh
 		if _awake_hours >= 2.0:
 			_awake_hours = 0.0
 			people.practise(p, LifeSkills.Skill.STAMINA)
-	if sleeping and float(p.hunger) > 0.0 and hit.hp < hit.max_hp:
+	if sleeping and not cold_night and float(p.hunger) > 0.0 and hit.hp < hit.max_hp:
 		hit.heal(4.0 * dh)
 	if float(p.hunger) <= 0.0:
 		# Starving: HP slips away.
@@ -1561,7 +1586,7 @@ func _has_tools() -> bool:
 
 
 func _tool_pace() -> float:
-	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart   # (Village Heart: quicker with Miko about)
+	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0)   # (Village Heart: quicker with Miko about)
 
 
 # Tools and a bag from storage, picked up when they start on work that wants them.
@@ -2256,6 +2281,9 @@ func _go_light() -> bool:
 	var best_d := INF
 	for f in fires.fires:
 		if fires.lit(f) or lighting.has(f.key) or not world.village.contains(f.pos, 2.0):
+			continue
+		# A house's fireplace: only on winter evenings, for the night.
+		if bool(f.s.get("hearth", false)) and not (fires.winter() and _hour(world) >= 17.5):
 			continue
 		var dd: float = f.pos.distance_to(position)
 		if dd < best_d:
