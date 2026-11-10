@@ -2,11 +2,15 @@ class_name HealingCircle
 extends Node2D
 ## A healing shikigami's circle (from Unity's HealingCircle): laid flat on the ground where its summoner stood, it
 ## fades in growing, turns slowly and glows, motes rising off it, and every tick heals its summoner and their allies
-## standing in it; then it fades away.
+## standing in it; then it fades away. With Lasting Heal, the summoner leaving it (or it fading round them) keeps
+## mending a while (HP Regen).
 
 const FADE_IN := 0.25
 const FADE_OUT := 0.45
 const SPIN := 40.0
+const LASTING := 5.0             ## seconds Lasting Heal's regen lasts after leaving a circle
+
+static var _lasting_until := {}  ## CharacterStats -> when their Lasting Heal ends
 
 var from: Shikigami
 var art: Sprite2D
@@ -18,6 +22,7 @@ var tint := Color.WHITE
 var age := 0.0
 var next_tick := 0.0
 var _k := 1.0
+var _owner_in := false
 
 
 static func spawn(sk: Shikigami, at: Vector2) -> HealingCircle:
@@ -25,7 +30,7 @@ static func spawn(sk: Shikigami, at: Vector2) -> HealingCircle:
 	var c := HealingCircle.new()
 	c.from = sk
 	c.radius = float(sk.s.circleRadius) * w.px
-	c.life = float(sk.s.circleTime)
+	c.life = float(sk.s.circleTime) * CharacterStats.percent(sk.owner_stats.stat("healDuration") if sk.owner_stats != null else 0.0)
 	c.tick = maxf(0.1, float(sk.s.circleTick))
 	c.tint = Shikigami._color(sk.s.circleTint)
 	c.position = at
@@ -76,7 +81,10 @@ func _process(delta: float) -> void:
 
 func _process_timed(delta: float) -> void:
 	age += delta
+	_watch_owner()
 	if age >= life:
+		if _owner_in:
+			_lasting_heal()
 		_free_motes()
 		queue_free()
 		return
@@ -92,6 +100,33 @@ func _process_timed(delta: float) -> void:
 		next_tick += tick
 		if is_instance_valid(from):
 			from.heal_around(position, radius)
+
+
+# The summoner stepping out of it: Lasting Heal starts.
+func _watch_owner() -> void:
+	if not is_instance_valid(from) or not is_instance_valid(from.owner_node):
+		return
+	var d: Vector2 = from.owner_node.position - position
+	var inside := Vector2(d.x, d.y * 2.0).length() <= radius and age < life
+	if _owner_in and not inside:
+		_lasting_heal()
+	_owner_in = inside
+
+
+func _lasting_heal() -> void:
+	var st := from.owner_stats if is_instance_valid(from) else null
+	if st == null:
+		return
+	var regen := st.stat("lastingHeal")
+	if regen <= 0.0:
+		return
+	var until := Time.get_ticks_msec() / 1000.0 + LASTING
+	_lasting_until[st] = until
+	st.set_buff("lastingHeal", {"hpRegen": regen})
+	FloatingText.spawn(from.world, "Lasting Heal", from.owner_node.position + Vector2(0, -1.5 * from.world.px), Color(0.55, 1.0, 0.6))
+	(Engine.get_main_loop() as SceneTree).create_timer(LASTING).timeout.connect(func():
+		if is_instance_valid(st) and float(_lasting_until.get(st, 0.0)) <= Time.get_ticks_msec() / 1000.0 + 0.05:
+			st.set_buff("lastingHeal", null))
 
 
 func _free_motes() -> void:

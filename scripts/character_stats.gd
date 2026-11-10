@@ -237,6 +237,13 @@ func from_json(json: String) -> void:
 	var rs: Array = d.get("talentRanks", [])
 	for i in mini(ids.size(), rs.size()):
 		ranks[ids[i]] = int(rs[i])
+	# Saved on an older tree: the points in talents it's since rebuilt (or dropped) come back to be spent again.
+	if int(d.get("tree", 1)) < int(character.get("treeVersion", 1)):
+		for id in ranks.keys():
+			var tl: Dictionary = _talents.get(id, {})
+			if tl.is_empty() or (str(tl.get("region", "")) == "Shikigami" and tl.kind != "Start"):
+				talent_points += int(ranks[id])
+				ranks.erase(id)
 	for t in character.talents:
 		if t.kind == "Start" and not ranks.has(t.id):
 			ranks[t.id] = 1
@@ -568,7 +575,14 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["magic", "Magic", ""], ["hpRegen", "HP Regen", "/s"], ["manaRegen", "Mana Regen", "/s"], ["castSpeed", "Cast Speed", "%"],
 	["spellDamage", "Spell Damage", "%"], ["cooldownReduction", "Cooldown Reduction", "%"], ["summonEffect", "Summon Effect", "%"],
 	["summonDuration", "Summon Duration", "%"], ["summonDamage", "Summon Damage", "%"], ["summonHp", "Summon HP", "%"],
-	["maxSummons", "Max Shikigami", ""], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
+	["maxSummons", "Max Shikigami", ""], ["summonSeconds", "s Summon Duration", ""],
+	["summonAttackSpeed", "Shikigami Attack Speed", "%"], ["summonDoubleAttack", "Chance to Strike Twice", "%"],
+	["summonCritChance", "Shikigami Critical Chance", "%"], ["summonCritDamage", "Shikigami Critical Damage", "%"],
+	["summonMagicToAttack", "of Magic as Shikigami Attack", "%"], ["summonHeal", "Shikigami Healing", "%"],
+	["healDuration", "Healing Circle Duration", "%"], ["lastingHeal", "HP Regen after a Healing Circle", "/s"],
+	["shieldPower", "Shield Strength", "%"], ["shieldManaRegen", "Mana Regen inside a Shield", "/s"],
+	["attackerSummons", "Attack Shikigami at once", ""], ["healerSummons", "Healing Shikigami at once", ""],
+	["defenderSummons", "Shield Shikigami at once", ""], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
 	["stoneYield", "Stone Yield", "%"], ["growthSpeed", "Tree Growth", "%"], ["moveSpeed", "Move Speed", "%"]]
 
 
@@ -606,5 +620,5 @@ func to_json() -> String:
 	for id in ranks:
 		ids.append(id)
 		rs.append(int(ranks[id]))
-	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana,
+	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana, "tree": int(character.get("treeVersion", 1)),
 		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear})

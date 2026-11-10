@@ -6,13 +6,13 @@ var _age := 0.0
 var life := 1.2                  ## seconds it shows (fading over the last half)
 
 
-static func spawn(w: World, msg: String, at: Vector2, color := Color.WHITE, font_size := 22, seconds := 1.2) -> void:
+static func spawn(w: World, msg: String, at: Vector2, color := Color.WHITE, font_size := 22, seconds := 1.2, outline := Color(0, 0, 0, 0.85)) -> void:
 	var l := FloatingText.new()
 	l.life = seconds
 	l.text = msg
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_outline_color", outline)
+	l.add_theme_constant_override("outline_size", 6 if outline.a < 0.9 or font_size < 26 else 9)
 	l.add_theme_font_size_override("font_size", font_size)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.z_as_relative = false

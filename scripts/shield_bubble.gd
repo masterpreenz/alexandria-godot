@@ -97,6 +97,13 @@ func _process_timed(delta: float) -> void:
 	if owner_stats != null and is_instance_valid(owner_node):
 		var warded := live and _inside(owner_node.position)
 		owner_stats.set_guard(self, guard if warded else 0.0)
+		# Still Waters: mana comes back faster inside.
+		var calm := owner_stats.stat("shieldManaRegen") if warded else 0.0
+		if calm > 0.0:
+			if not owner_stats.buffs.has(self):
+				owner_stats.set_buff(self, {"manaRegen": calm})
+		elif owner_stats.buffs.has(self):
+			owner_stats.set_buff(self, null)
 		# What the shield soaked is gone; it refills from there.
 		owner_shield = minf(owner_shield, owner_stats.shield_from(self))
 		if warded:
@@ -129,6 +136,7 @@ func _exit_tree() -> void:
 		flat.queue_free()
 	if owner_stats != null and is_instance_valid(owner_stats):
 		owner_stats.set_guard(self, 0.0)
+		owner_stats.set_buff(self, null)
 
 
 ## A bubble: nearly clear inside, a soft bright rim, a gleam near the top.

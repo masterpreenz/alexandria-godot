@@ -81,17 +81,18 @@ func _px(v) -> float:
 func _begin(target: Vector2) -> void:
 	var t := owner_stats.total()
 	var effect := CharacterStats.percent(float(t.get("summonEffect", 0.0)))
-	power = float(s.power) * effect * (CharacterStats.percent(float(t.get("summonDamage", 0.0))) if kind == "Attacker" else 1.0)
+	power = float(s.power) * effect
+	match kind:
+		"Attacker":
+			# Summon Damage, and a share of the summoner's Magic as its Attack.
+			power = power * CharacterStats.percent(float(t.get("summonDamage", 0.0))) + float(t.get("magic", 0.0)) * float(t.get("summonMagicToAttack", 0.0)) / 100.0
+		"Healer": power *= CharacterStats.percent(float(t.get("summonHeal", 0.0)))
+		"Defender": power *= CharacterStats.percent(float(t.get("shieldPower", 0.0)))
 	born_at = now()
-	ends_at = born_at + float(s.lifetime) * CharacterStats.percent(float(t.get("summonDuration", 0.0)))
+	ends_at = born_at + float(s.lifetime) * CharacterStats.percent(float(t.get("summonDuration", 0.0))) + float(t.get("summonSeconds", 0.0))
 	next_act = born_at + (0.4 if kind == "Attacker" else 0.2)
-	# Only so many at once: the oldest of this summoner's goes. (A ward isn't a follower and doesn't count.)
-	if kind != "Defender":
-		var cap := 1 + maxi(0, floori(float(t.get("maxSummons", 0.0)) + 0.001))
-		var mine := active.filter(func(a): return is_instance_valid(a) and a.owner_stats == owner_stats and a.dismissed_at < 0.0 and a.kind != "Defender")
-		for i in range(0, mine.size() - cap + 1):
-			mine[i].dismiss()
-	else:
+	_make_room(t)
+	if kind == "Defender":
 		guard_at = target
 		guard_radius = float(caster.spells[spell_name].aoeRadius)
 	slot = active.size()
@@ -120,6 +121,25 @@ func _show(id: int) -> void:
 	var info: Dictionary = world.sprites[id]
 	# The pivot isn't always the middle: keep the art where Unity drew it.
 	body.offset = Vector2(info.rect[2] * 0.5 - info.pivot[0], info.rect[3] * 0.5 - info.pivot[1])
+
+
+## How many of each kind may be out at once: one, and one more for each talent that says so; never more than
+## [constant MOST_OUT] of all kinds together.
+const MOST_OUT := 3
+const KIND_LIMIT := {"Attacker": "attackerSummons", "Healer": "healerSummons", "Defender": "defenderSummons"}
+
+
+# Room for this one: the summoner's oldest of its kind goes past that kind's limit, then the oldest of any past the
+# limit of all of them together.
+func _make_room(t: Dictionary) -> void:
+	var mine := active.filter(func(a): return is_instance_valid(a) and a.owner_stats == owner_stats and a.dismissed_at < 0.0)
+	var same := mine.filter(func(a): return a.kind == kind)
+	var cap := 1 + maxi(0, floori(float(t.get(KIND_LIMIT.get(kind, ""), 0.0)) + 0.001))
+	for i in range(0, same.size() - cap + 1):
+		same[i].dismiss()
+		mine.erase(same[i])
+	for i in range(0, mine.size() - MOST_OUT + 1):
+		mine[i].dismiss()
 
 
 ## Sends it away (its time is up, or a newer one took its place).
@@ -222,7 +242,7 @@ func _process_timed(delta: float) -> void:
 			circles_laid += 1
 			# The circle stays where it was laid; the healer circles it until it fades.
 			healing_at = owner_node.position
-			healing_until = t + float(s.circleTime)
+			healing_until = t + float(s.circleTime) * CharacterStats.percent(owner_stats.stat("healDuration"))
 			_start_heal_loop(healing_at)
 	# Eases after where it's going rather than sticking to it: it lags, speeds up and settles. (A thrust moves it itself.)
 	if not (kind == "Attacker" and strike != 0):
@@ -429,11 +449,33 @@ func _striking(t: float) -> Vector2:
 	if not strike_hit and p >= 0.45:
 		strike_hit = true
 		if is_instance_valid(foe):
-			foe.hurt(power)
+			_jab(foe)
+			# Now and then a second thrust right behind the first.
+			var twice := float(owner_stats.stat("summonDoubleAttack")) / 100.0 if owner_stats != null else 0.0
+			if randf() < twice:
+				var f2 := foe
+				get_tree().create_timer(0.14).timeout.connect(func():
+					if is_instance_valid(self) and is_instance_valid(f2) and f2.alive():
+						_jab(f2)
+						SpearThrust.play(world, position + Vector2(0, -_px(s.floatHeight)), f2.global_position + Vector2(0, -_px(s.floatHeight))))
 	if p >= 1.0:
 		strike = 0
-		next_act = t + float(s.interval)
+		# Attack Speed shortens the wait to the next.
+		var quick := float(owner_stats.stat("summonAttackSpeed")) if owner_stats != null else 0.0
+		next_act = t + float(s.interval) / CharacterStats.percent(maxf(0.0, quick))
 	return position
+
+
+const CRIT_DAMAGE := 150.0       ## % of its power a critical hit does, before talents add to it
+
+# One hit on [param target]: now and then a critical one (Critical Chance), for more (Critical Damage).
+func _jab(target: Damageable) -> void:
+	var hit := power
+	var chance := float(owner_stats.stat("summonCritChance")) / 100.0 if owner_stats != null else 0.0
+	var crit := randf() < chance
+	if crit:
+		hit *= (CRIT_DAMAGE + float(owner_stats.stat("summonCritDamage"))) / 100.0
+	target.hurt(hit, false, crit)
 
 
 ## Heals the summoner and every ally standing within [param r] (px) of [param at], each showing a green number.

@@ -54,7 +54,8 @@ func ground_distance(p: Vector2) -> float:
 
 
 ## Takes [param amount] damage, showing the number; [param by_player]: Miko dealt it.
-func hurt(amount: float, by_player := false) -> void:
+## Takes [param amount]; [param crit]: a critical hit, its number big, yellow ringed in red.
+func hurt(amount: float, by_player := false, crit := false) -> void:
 	if not alive() or amount <= 0.0:
 		return
 	if by_player:
@@ -68,7 +69,10 @@ func hurt(amount: float, by_player := false) -> void:
 			shields.erase(k)
 	if amount <= 0.0:
 		return
-	FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height), Color(1, 0.82, 0.35))
+	if crit:
+		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height - 0.1 * world.px), Color(1.0, 0.9, 0.2), 34, 1.4, Color(0.85, 0.08, 0.05))
+	else:
+		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height), Color(1, 0.82, 0.35))
 	hp = maxf(1.0, hp - amount) if dummy else maxf(0.0, hp - amount)
 	damaged.emit(amount)
 	if team == Team.ENEMY and hp > 0.0:
