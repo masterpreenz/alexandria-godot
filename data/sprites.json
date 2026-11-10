@@ -4221,8 +4221,8 @@
 {"name":"carrot_crop_2","tex":"res://assets/Art/Environment/Farm/Carrot/carrot_crop_2.png","rect":[0,0,871,589],"pivot":[435.5,409.2],"ppu":946.367},
 {"name":"wheat_crop_1","tex":"res://assets/Art/Environment/Farm/Wheat/wheat_crop_1.png","rect":[0,0,451,427],"pivot":[220.3,382.0],"ppu":638.496},
 {"name":"wheat_crop_2","tex":"res://assets/Art/Environment/Farm/Wheat/wheat_crop_2.png","rect":[0,0,555,595],"pivot":[282.6,536.8],"ppu":638.496},
-{"name":"BarricadeX","tex":"res://assets/Art/Environment/Barricade/BarricadeX.png","rect":[0,0,450,527],"pivot":[225.0,379.4],"ppu":428.571},
-{"name":"BarricadeY","tex":"res://assets/Art/Environment/Barricade/BarricadeY.png","rect":[0,0,431,522],"pivot":[215.5,375.8],"ppu":410.476},
+{"name":"BarricadeX","tex":"res://assets/Art/Environment/Barricade/BarricadeX.png","rect":[0,0,458,472],"pivot":[190.0,365.0],"ppu":310.0},
+{"name":"BarricadeY","tex":"res://assets/Art/Environment/Barricade/BarricadeY.png","rect":[0,0,458,472],"pivot":[268.0,365.0],"ppu":310.0},
 {"name":"mood_cheerful_0","tex":"res://assets/Art/UI/Bubbles/mood_cheerful.png","rect":[0,0,112,101],"pivot":[56.0,101],"ppu":380},
 {"name":"mood_cheerful_1","tex":"res://assets/Art/UI/Bubbles/mood_cheerful.png","rect":[112,0,112,101],"pivot":[56.0,101],"ppu":380},
 {"name":"mood_cheerful_2","tex":"res://assets/Art/UI/Bubbles/mood_cheerful.png","rect":[224,0,112,101],"pivot":[56.0,101],"ppu":380},
@@ -4310,5 +4310,7 @@
 {"name":"Emote_crying_4","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[528,0,132,150],"pivot":[66.0,150],"ppu":380},
 {"name":"Emote_crying_5","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[660,0,132,150],"pivot":[66.0,150],"ppu":380},
 {"name":"Emote_crying_6","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[792,0,132,150],"pivot":[66.0,150],"ppu":380},
-{"name":"Emote_crying_7","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[924,0,132,150],"pivot":[66.0,150],"ppu":380}
+{"name":"Emote_crying_7","tex":"res://assets/Resources/Emotes/Emote_crying.png","rect":[924,0,132,150],"pivot":[66.0,150],"ppu":380},
+{"name":"BarricadeFrontX","tex":"res://assets/Art/Environment/Barricade/BarricadeFrontX.png","rect":[0,0,439,483],"pivot":[272.0,408.0],"ppu":310.0},
+{"name":"BarricadeFrontY","tex":"res://assets/Art/Environment/Barricade/BarricadeFrontY.png","rect":[0,0,440,483],"pivot":[168.0,408.0],"ppu":310.0}
 ]

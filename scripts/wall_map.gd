@@ -43,6 +43,8 @@ var walls := {}            # Vector3i (edge key) -> type name
 var hp := {}               # Vector3i (edge key) -> health left, for walls that can break (barricades)
 var _hit_at := {}          # key -> when it was last struck (it flashes)
 const DOOR_OUTLINE_NEAR := 3.0  ## units: a door hidden behind a house is outlined only with Miko this near
+var _facing_from := Vector2.INF   # the village middle the barricades were last turned from
+var _next_facing := 0.0
 var _bars: HealthBars      # the health bars over worn barricades and gates
 var keep_open := {}        # Vector3i -> true: doors of houses set to stay open
 var original := {}
@@ -231,9 +233,12 @@ func barricade_in_way(from: Vector2, to: Vector2, near: float) -> Array:
 
 # The walls struck lately flash back to their colour.
 func _process(_delta: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _next_facing:
+		_next_facing = now + 1.0
+		_refacing()
 	if _hit_at.is_empty():
 		return
-	var now := Time.get_ticks_msec() / 1000.0
 	for k in _hit_at.keys():
 		if now - float(_hit_at[k]) < 0.15:
 			continue
@@ -353,6 +358,10 @@ func _sync(e: Edge) -> void:
 	var cap_art := int(type.capY if own_y else type.cap)
 	var panels: bool = type.panels
 	var start_art: int = cap_art if panels and starts and cap_art >= 0 else int(type.leftY if own_y else type.left)
+	# A barricade's spikes point out of the village: its other face when the outside is the near side (lower on screen).
+	var front_art := int(type.get("frontY" if own_y else "front", -1))
+	if front_art >= 0 and _outside_is_front(e):
+		start_art = front_art
 	var holders := []
 	if not type.invisible:
 		_half(holders, start_art, e.along_y and not own_y, mid if panels else (a + mid) / 2.0, mid, panels)
@@ -417,6 +426,28 @@ func ghost_pieces(e: Edge, type_name: String) -> Array:
 
 
 # Of the two cells a wall at [param e] stands between, the one in front (lower on screen).
+# Whether the near side of [param e] (lower on screen) is the outside of the village: further from its middle.
+func _outside_is_front(e: Edge) -> bool:
+	if world == null or world.village == null or not world.village.founded():
+		return false
+	var front := _front_cell(e)
+	var v := e.vertex
+	var back := v if front != v else (Vector2i(v.x - 1, v.y) if e.along_y else Vector2i(v.x, v.y - 1))
+	var c := floors.fractional_cell(world.village.centre())
+	return (Vector2(front) + Vector2(0.5, 0.5)).distance_to(c) > (Vector2(back) + Vector2(0.5, 0.5)).distance_to(c)
+
+
+# The village moved (or was founded): barricades turned to face out of it again.
+func _refacing() -> void:
+	var c: Vector2 = world.village.centre() if world.village != null and world.village.founded() else Vector2.INF
+	if c == _facing_from:
+		return
+	_facing_from = c
+	for k in walls.keys():
+		if types[walls[k]].has("front"):
+			_sync(Edge.of(k))
+
+
 func _front_cell(e: Edge) -> Vector2i:
 	var v := e.vertex
 	var a := Vector2i(v.x - 1, v.y) if e.along_y else Vector2i(v.x, v.y - 1)
