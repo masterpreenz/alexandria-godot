@@ -4294,5 +4294,13 @@
 {"name":"PlankGateY","tex":"res://assets/Art/Environment/Gate/PlankGateY.png","rect":[0,0,269,325],"pivot":[133.8,271.0],"ppu":223.569},
 {"name":"PlankGateOpenY","tex":"res://assets/Art/Environment/Gate/PlankGateOpenY.png","rect":[0,0,269,325],"pivot":[133.8,271.0],"ppu":223.569},
 {"name":"GateIcon","tex":"res://assets/Art/UI/Icons/GateIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
-{"name":"PlankGateIcon","tex":"res://assets/Art/UI/Icons/PlankGateIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100}
+{"name":"PlankGateIcon","tex":"res://assets/Art/UI/Icons/PlankGateIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
+{"name":"Emote_planting_0","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[0,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_1","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[156,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_2","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[312,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_3","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[468,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_4","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[624,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_5","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[780,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_6","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[936,0,156,150],"pivot":[78.0,150],"ppu":380},
+{"name":"Emote_planting_7","tex":"res://assets/Resources/Emotes/Emote_planting.png","rect":[1092,0,156,150],"pivot":[78.0,150],"ppu":380}
 ]
