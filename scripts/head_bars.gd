@@ -4,9 +4,9 @@ extends Node2D
 ## her shield in pale blue past it) over mana (blue). They show while either is short of full and fade away a moment
 ## after both are full again. Bright whatever the hour.
 
-const WIDTH := 66.0
-const HP_TALL := 8.0
-const MANA_TALL := 6.0
+const WIDTH := 46.0
+const HP_TALL := 6.0
+const MANA_TALL := 4.0
 const GAP := 2.0
 const LINGER := 1.2              ## seconds they stay after both are full
 const FADE := 0.4
@@ -57,17 +57,30 @@ func _draw() -> void:
 	var tot := st.total()
 	var max_hp := maxf(1.0, float(tot.get("maxHp", 100.0)))
 	var max_mana := maxf(1.0, float(tot.get("maxMana", 50.0)))
-	var dark := Color(0.08, 0.05, 0.05, 0.85)
 	var x := -WIDTH / 2.0
 	var y := -(HP_TALL + GAP + MANA_TALL)
-	draw_rect(Rect2(x - 1, y - 1, WIDTH + 2, HP_TALL + 2), dark)
-	draw_rect(Rect2(x, y, WIDTH * clampf(st.hp / max_hp, 0.0, 1.0), HP_TALL), Color(0.9, 0.24, 0.2))
-	# Her shield, over the HP's end.
+	_bar(Rect2(x, y, WIDTH, HP_TALL), st.hp / max_hp, Color(0.9, 0.24, 0.2))
+	# Her shield, a pale line along the top of the HP.
 	var shield := 0.0
 	for k in st.shields:
 		shield += float(st.shields[k])
 	if shield > 0.5:
-		draw_rect(Rect2(x, y, WIDTH * clampf(shield / max_hp, 0.0, 1.0), 2.0), Color(0.7, 0.86, 1.0))
-	var my := y + HP_TALL + GAP
-	draw_rect(Rect2(x - 1, my - 1, WIDTH + 2, MANA_TALL + 2), dark)
-	draw_rect(Rect2(x, my, WIDTH * clampf(st.mana / max_mana, 0.0, 1.0), MANA_TALL), Color(0.36, 0.62, 0.96))
+		draw_rect(Rect2(x + 2.0, y + 1.0, (WIDTH - 4.0) * clampf(shield / max_hp, 0.0, 1.0), 1.5), Color(0.75, 0.9, 1.0))
+	_bar(Rect2(x, y + HP_TALL + GAP, WIDTH, MANA_TALL), st.mana / max_mana, Color(0.36, 0.62, 0.96))
+
+
+# A rounded bar: a dark pill, filled from the left by [param share].
+func _bar(r: Rect2, share: float, fill: Color) -> void:
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.08, 0.05, 0.05, 0.85)
+	back.set_corner_radius_all(ceili(r.size.y / 2.0) + 1)
+	back.anti_aliasing = true
+	draw_style_box(back, r.grow(1.0))
+	var w := r.size.x * clampf(share, 0.0, 1.0)
+	if w < 1.0:
+		return
+	var front := StyleBoxFlat.new()
+	front.bg_color = fill
+	front.set_corner_radius_all(ceili(r.size.y / 2.0))
+	front.anti_aliasing = true
+	draw_style_box(front, Rect2(r.position, Vector2(maxf(w, r.size.y), r.size.y)))
