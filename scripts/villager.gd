@@ -131,6 +131,11 @@ var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
 var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
 var flee_from: Damageable = null   ## the monster they're running from
+## For their dust (DustTrail): moving at all, and running (fleeing).
+var moving: bool:
+	get: return velocity.length_squared() > 1.0
+var running: bool:
+	get: return state == State.FLEE
 var _next_refuge := 0.0
 var _flee_bark_at := 0.0
 var _next_smoke := 0.0
@@ -189,6 +194,14 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 	wade.name = "Wading"
 	add_child(wade)
 	wade.setup(world, self, art, shadow)
+	# Dust at their feet as they walk (more running for their life), as at Miko's.
+	var dust := DustTrail.new()
+	dust.name = "Dust"
+	dust.target = self
+	dust.unit = world.px
+	dust.walk_rate = 6.0   # (they only walk: as much as she kicks up running)
+	dust.run_rate = 9.0
+	world.things.add_child.call_deferred(dust)
 	var fx := HitFx.add_to(self, art, wade, world.px)
 	fx.thud = world
 	hit.damaged.connect(func(_a): fx.play())

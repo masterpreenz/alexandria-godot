@@ -24,15 +24,20 @@ func _process(delta: float) -> void:
 func _process_timed(delta: float) -> void:
 	if target == null:
 		return
+	# Whoever it followed is gone (a villager who left or died): the last puffs fade, then it goes too.
+	if not is_instance_valid(target):
+		target = null
+		get_tree().create_timer(1.0).timeout.connect(queue_free)
+		return
 	var feet: Vector2 = target.drawn_position() if target.has_method("drawn_position") else target.position
 	position = feet + Vector2(0, -0.5)  # just behind them in the y-sort
 	if _last == Vector2.INF:
 		_last = feet
 	var moved := feet.distance_to(_last) / unit
 	_last = feet
-	var running: bool = target.get("running") and target.get("moving")
+	var running: bool = bool(target.get("running")) and bool(target.get("moving"))
 	# None kicked up while off the ground (a jump).
-	if not (target.has_method("airborne") and target.airborne()):
+	if not (target.has_method("airborne") and target.airborne()) and target.visible and moved < 2.0:
 		_owed += moved * (run_rate if running else walk_rate)
 	while _owed >= 1.0 and puffs.size() < 60:
 		_owed -= 1.0
