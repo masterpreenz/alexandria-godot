@@ -290,7 +290,12 @@ func _build(cells: Dictionary) -> Dictionary:
 	# Over the fireplace, when the house has one.
 	for c in _hearth_cells():
 		if cells.has(c):
+			# (a cell in from the wall it backs onto, so the chimney stands on the roof, not off its edge)
 			chimney = c
+			if not cells.has(c + Vector2i(1, 0)) and cells.has(c - Vector2i(1, 0)):
+				chimney = c - Vector2i(1, 0)
+			elif not cells.has(c + Vector2i(0, 1)) and cells.has(c - Vector2i(0, 1)):
+				chimney = c - Vector2i(0, 1)
 			break
 	for c in cells:
 		var left: bool = not cells.has(c + Vector2i(-1, 0))

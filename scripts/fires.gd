@@ -201,6 +201,12 @@ func _dress(f: Dictionary) -> void:
 	var at := base + Vector2(s.fireOffset[0], -float(s.fireOffset[1])) * world.px
 	var k := float(s.fireSize)
 	var px := world.px
+	# A fireplace's fire burns in its firebox, a little to one side by the way it faces.
+	var art := holder.get_child(0) as Sprite2D if holder.get_child_count() > 0 else null
+	var front_path := ""
+	if art != null and art.texture != null and bool(s.get("hearth", false)):
+		front_path = art.texture.resource_path.get_basename() + "_front.png"
+		at.x += (0.086 if front_path.contains("SE") else -0.06) * px * (-1.0 if art.scale.x < 0.0 else 1.0)
 	f.parts.append(_flames(holder, at, 70.0, [0.45, 0.75], [0.85 * k, 1.25 * k], [0.17 * k, 0.27 * k], 0.1 * k, 90, 0.2,
 		[[0.0, Color(1, 0.62, 0.2, 0)], [0.1, Color(1, 0.55, 0.16, 0.95)], [0.55, Color(0.92, 0.28, 0.08, 0.75)], [1.0, Color(0.45, 0.08, 0.04, 0)]], false))
 	f.parts.append(_flames(holder, at, 40.0, [0.3, 0.5], [0.5 * k, 0.8 * k], [0.12 * k, 0.2 * k], 0.07 * k, 50, 0.25,
@@ -216,6 +222,21 @@ func _dress(f: Dictionary) -> void:
 	l.energy = float(s.lightIntensity)
 	world.add_child(l)
 	f.light = l
+	# Its top half (the mantel, its shield and the stack: the art again, cut off under the mantel) over the flames:
+	# the fire burns in front of the hearth below and behind what's above it.
+	var old := holder.get_node_or_null("Front")
+	if old != null:
+		old.free()
+	if front_path != "" and ResourceLoader.exists(front_path):
+		var front := Sprite2D.new()
+		front.name = "Front"
+		front.texture = load(front_path)
+		front.centered = art.centered
+		front.offset = art.offset
+		front.position = art.position
+		front.scale = art.scale
+		front.material = art.material
+		holder.add_child(front)
 
 
 func _flames(holder: Node2D, at: Vector2, rate: float, life: Array, speed: Array, size: Array, radius: float, most: int,
