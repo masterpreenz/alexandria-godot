@@ -200,7 +200,7 @@ func barricade_in_way(from: Vector2, to: Vector2, near: float) -> Array:
 	var best := []
 	var best_d := INF
 	for k in hp:
-		if not walls.has(k):
+		if not walls.has(k) or is_open(Edge.of(k)):   # (an open gate: through it)
 			continue
 		var e := Edge.of(k)
 		var a := vertex_position(e.vertex)

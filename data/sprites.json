@@ -4284,5 +4284,15 @@
 {"name":"Emote_repairing_4","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[664,0,166,150],"pivot":[83.0,150],"ppu":380},
 {"name":"Emote_repairing_5","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[830,0,166,150],"pivot":[83.0,150],"ppu":380},
 {"name":"Emote_repairing_6","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[996,0,166,150],"pivot":[83.0,150],"ppu":380},
-{"name":"Emote_repairing_7","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[1162,0,166,150],"pivot":[83.0,150],"ppu":380}
+{"name":"Emote_repairing_7","tex":"res://assets/Resources/Emotes/Emote_repairing.png","rect":[1162,0,166,150],"pivot":[83.0,150],"ppu":380},
+{"name":"GateX","tex":"res://assets/Art/Environment/Gate/GateX.png","rect":[0,0,275,325],"pivot":[136.8,271.0],"ppu":229.389},
+{"name":"GateOpenX","tex":"res://assets/Art/Environment/Gate/GateOpenX.png","rect":[0,0,275,325],"pivot":[136.8,271.0],"ppu":229.389},
+{"name":"GateY","tex":"res://assets/Art/Environment/Gate/GateY.png","rect":[0,0,260,325],"pivot":[129.5,271.0],"ppu":216.295},
+{"name":"GateOpenY","tex":"res://assets/Art/Environment/Gate/GateOpenY.png","rect":[0,0,260,325],"pivot":[129.5,271.0],"ppu":216.295},
+{"name":"PlankGateX","tex":"res://assets/Art/Environment/Gate/PlankGateX.png","rect":[0,0,272,325],"pivot":[135.2,271.0],"ppu":226.479},
+{"name":"PlankGateOpenX","tex":"res://assets/Art/Environment/Gate/PlankGateOpenX.png","rect":[0,0,272,325],"pivot":[135.2,271.0],"ppu":226.479},
+{"name":"PlankGateY","tex":"res://assets/Art/Environment/Gate/PlankGateY.png","rect":[0,0,269,325],"pivot":[133.8,271.0],"ppu":223.569},
+{"name":"PlankGateOpenY","tex":"res://assets/Art/Environment/Gate/PlankGateOpenY.png","rect":[0,0,269,325],"pivot":[133.8,271.0],"ppu":223.569},
+{"name":"GateIcon","tex":"res://assets/Art/UI/Icons/GateIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
+{"name":"PlankGateIcon","tex":"res://assets/Art/UI/Icons/PlankGateIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100}
 ]

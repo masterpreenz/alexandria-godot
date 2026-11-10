@@ -57,7 +57,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _toggle(door: WallMap.Edge, open: bool) -> void:
 	world.walls.toggle(door)
-	sound(open, world.walls.edge_middle(door))
+	sound(open, world.walls.wall_middle(door.key()))
 
 
 func _villager_near(mid: Vector2, within: float) -> bool:
@@ -94,7 +94,7 @@ func _process_timed(_delta: float) -> void:
 	# A door left standing open (not kept open) with no one near it for a few seconds swings shut.
 	for door in doors:
 		var key: Vector3i = door.key()
-		var mid := walls.edge_middle(door)
+		var mid := walls.wall_middle(door.key())
 		if not walls.is_open(door) or (walls.kept_open(door) and not bedtime) or miko.position.distance_to(mid) < 1.2 * px or _villager_near(mid, 1.2):
 			alone.erase(key)
 			continue
@@ -110,7 +110,7 @@ func _process_timed(_delta: float) -> void:
 	for door in doors:
 		var key: Vector3i = door.key()
 		var open := walls.is_open(door)
-		var mid := walls.edge_middle(door)
+		var mid := walls.wall_middle(door.key())
 		var near := miko.position.distance_to(mid) < (1.1 if open else float(s.get("range", 0.6)) + 0.3) * px
 		if near and not open:
 			_toggle(door, true)
@@ -134,7 +134,7 @@ func _keep_open_prompt(pressed: bool) -> void:
 	var best: WallMap.Edge = null
 	var best_d := (float(s.get("range", 0.6)) + 0.5) * world.px
 	for door in doors:
-		var d := miko.position.distance_to(walls.edge_middle(door))
+		var d := miko.position.distance_to(walls.wall_middle(door.key()))
 		if d < best_d:
 			best_d = d
 			best = door
@@ -150,13 +150,13 @@ func _keep_open_prompt(pressed: bool) -> void:
 		return
 	var kept := walls.kept_open(best)
 	prompt.visible = true
-	WorldPrompts.at(prompt, walls.edge_middle(best) + Vector2(0, -1.4 * world.px))
+	WorldPrompts.at(prompt, walls.wall_middle(best.key()) + Vector2(0, -1.4 * world.px))
 	prompt.text = "O  " + ("Let the doors close" if kept else "Keep the doors open")
 	if not pressed:
 		return
 	for door in VillagerRoute.doors_of(walls, room):
 		walls.set_kept_open(door, not kept)
-		var mid := walls.edge_middle(door)
+		var mid := walls.wall_middle(door.key())
 		if not kept and not walls.is_open(door):
 			_toggle(door, true)
 		elif kept and walls.is_open(door) and not opened.has(door.key()) and not _villager_near(mid, 0.7):

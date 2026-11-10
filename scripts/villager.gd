@@ -481,7 +481,7 @@ func _close_behind() -> void:
 	if walls == null or not VillagerRoute.is_open_door(walls, _door_to_close) or walls.kept_open(_door_to_close):
 		_close_door = false
 		return
-	var mid := walls.edge_middle(_door_to_close)
+	var mid := walls.wall_middle(_door_to_close.key())
 	if _someone_near(mid, true):
 		return
 	_close_door = false
@@ -2314,6 +2314,15 @@ func _beside_wall(k: Vector3i) -> Variant:
 	return best
 
 
+# What they're repairing ("barricade", "gate").
+func _mend_name() -> String:
+	var walls := world.walls
+	if mend == null or walls == null or not walls.walls.has(mend):
+		return "barricade"
+	var type: Dictionary = walls.types[walls.walls[mend]]
+	return str(type.get("display", "barricade")).to_lower().trim_prefix("open ")
+
+
 func _mend_worn() -> bool:
 	var walls := world.walls
 	return mend != null and walls != null and walls.walls.has(mend) and walls.hp.has(mend) 		and float(walls.hp[mend]) < walls.max_hp(walls.walls[mend])
@@ -2526,8 +2535,8 @@ func activity() -> String:
 		State.CHAT, State.CHAT_WAIT: return "Chatting with %s" % partner.person.name if partner != null else "Chatting"
 		State.TO_BUILD: return "Off to build " + kind
 		State.BUILD: return "Building " + kind
-		State.TO_REPAIR: return "Off to repair the barricade"
-		State.REPAIR: return "Repairing the barricade"
+		State.TO_REPAIR: return "Off to repair the " + _mend_name()
+		State.REPAIR: return "Repairing the " + _mend_name()
 		State.TO_COOK: return "Off to the fire to cook"
 		State.COOK: return "Cooking %s (%d/%d)" % [lower.call(dish), world.village.stored(dish), Kitchen.target(dish)]
 		State.TO_PICKUP: return "Clearing up"
