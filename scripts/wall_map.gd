@@ -366,12 +366,12 @@ func _sync(e: Edge) -> void:
 			o.name = "DoorOutline"
 			o.fade_covers = false
 			h.add_child(o)
-			# Hidden when the room in front of it (lower on screen) has its roof showing (a door in a house's back wall),
-			# and unless Miko is near it.
+			# Outlined when it's hidden (the room in front of it, lower on screen, has its roof showing: a door in a
+			# house's back wall) and Miko is near it.
 			var front_cell := _front_cell(e)
 			var door_at: Vector2 = mid
-			o.hidden_when = func() -> bool: return (world.player == null or world.player.position.distance_to(door_at) > DOOR_OUTLINE_NEAR * world.px) \
-					or (world.roofs != null and world.roofs.alpha_over(world.floors.cell_centre(front_cell)) > 0.5)
+			o.hidden_when = func() -> bool: return world.player != null and world.player.position.distance_to(door_at) <= DOOR_OUTLINE_NEAR * world.px \
+					and world.roofs != null and world.roofs.alpha_over(world.floors.cell_centre(front_cell)) > 0.5
 			o.setup(world, art, Color(1.0, 0.86, 0.55, 1))
 	var drawn := {"holders": holders}
 	if float(type.opening) < 1.0:
