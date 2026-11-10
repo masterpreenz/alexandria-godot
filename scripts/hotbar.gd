@@ -242,7 +242,7 @@ func _process_timed(_delta: float) -> void:
 	var vp := get_viewport_rect().size
 	var row: HBoxContainer = get_node("Row")
 	row.reset_size()
-	row.position = Vector2((vp.x - row.size.x) / 2.0, vp.y - row.size.y - 14.0).round()
+	row.position = Vector2((vp.x - row.size.x) / 2.0, vp.y - row.size.y - 20.0).round()
 	for i in rows * COLUMNS:
 		_cells[i].queue_redraw()
 	if _picker.visible:
