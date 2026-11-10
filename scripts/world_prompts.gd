@@ -3,7 +3,7 @@ extends Node
 ## The "press a key" prompts (E Open chest, E Use workbench, Press E to light...) shown in the world beside what they're
 ## about, not fixed at the bottom of the screen: the text in a dark pill, with an arrow from the pill back to the thing
 ## ( ◄──── [ E  Town banner ] ). Each prompt label is registered once; [method at] says where it belongs (a point in
-## the world, px). One without a point shows beside Miko's head.
+## the world, px). One without a point shows beside Miko's head. Several at once go in one list, under the first.
 
 const GAP := 54.0         ## screen px from the thing to the pill (the arrow's length)
 ## The keys a prompt asks for, ringed so they stand out: a capital letter on its own (E, R, Z...), or a named key.
@@ -61,25 +61,25 @@ func _process(_delta: float) -> void:
 	var px := 128.0
 	var lines := []
 	var keys := []
-	var placed: Array[Rect2] = []
+	# Every prompt showing, with where its thing is on screen; the highest thing first.
+	var shown := []
 	for l in _labels:
 		if not is_instance_valid(l) or not l.visible or l.text == "":
 			continue
 		var p: Vector2 = _at.get(l, _miko.position + Vector2(0, -1.2 * px) if _miko != null else Vector2.ZERO)
-		var s := xf * p
 		l.reset_size()
-		# To the thing's right, its arrow pointing back at it; one that would cover another moves down below it.
-		var box := Rect2(Vector2(s.x + GAP * HudStyle.SCALE, s.y - l.size.y / 2.0), l.size)
-		var moved := true
-		while moved:
-			moved = false
-			for other in placed:
-				if box.grow(2.0).intersects(other):
-					box.position.y = other.end.y + 4.0
-					moved = true
-		placed.append(box)
-		l.position = box.position.round()
-		lines.append([s + Vector2(6, 0), Vector2(box.position.x, box.position.y + l.size.y / 2.0)])
+		shown.append([l, xf * p])
+	shown.sort_custom(func(x, y): return (x[1] as Vector2).y < (y[1] as Vector2).y)
+	# One column: the first beside its thing, its arrow pointing back at it; the rest straight below it, in a list.
+	var col := Vector2.ZERO
+	for i in shown.size():
+		var l: Label = shown[i][0]
+		var s: Vector2 = shown[i][1]
+		if i == 0:
+			col = Vector2(s.x + GAP * HudStyle.SCALE, s.y - l.size.y / 2.0)
+			lines.append([s + Vector2(6, 0), Vector2(col.x, col.y + l.size.y / 2.0)])
+		l.position = col.round()
+		col.y += l.size.y + 4.0
 		keys.append_array(_keys_in(l))
 	_arrows.lines = lines
 	_arrows.queue_redraw()
