@@ -11,6 +11,10 @@ extends Node
 static var active: Corruption
 
 const GLOW_REACH := 9.0           ## units: rotten trees this near her glow
+const CURE_HOURS := 6.0           ## game hours a cleansing crystal takes to cure a rotten tree at its clearing's edge
+const CURE_NEAR := 2.5            ## ...and how many times faster right beside it
+const CURE_BARS := 5              ## how many trees being cured show their bar at once (those nearest Miko)
+const CURE_BAR_REACH := 11.0      ## units: no further from her than this
 
 var world: World
 var s: Dictionary                 ## farm.json's corruption settings
@@ -22,6 +26,10 @@ var _pending: Variant = null      ## the save's rotten trees, put back once the 
 var _seed_at := 0.0
 var _last_hour := -1.0
 var _next_arm := 0.0
+var curing := {}                  ## Gatherable -> how far cured (0 to 1): the rotten trees in a cleansing crystal's clearing
+var _cure_at := -1.0              ## the clock's hours when the curing was last moved on
+var _next_cure := 0.0
+var _bars: CureBars
 
 
 func setup(w: World, settings: Dictionary) -> void:
@@ -97,7 +105,74 @@ func _process_timed(_delta: float) -> void:
 	if _now() >= _next_arm:
 		_next_arm = _now() + 1.0
 		_arm()
+	if _now() >= _next_cure:
+		_next_cure = _now() + 0.25
+		_cure()
 	_glow()
+
+
+# A cleansing crystal cures the rotten trees in its clearing, over hours: each fills up (quicker the nearer it
+# stands to the crystal) and then turns back, with its burst of sparks. A few of those nearest Miko show how far
+# along they are, a bar over the trunk.
+func _cure() -> void:
+	if world.clock == null:
+		return
+	var hours := world.clock.hours
+	var gone := clampf(hours - _cure_at, 0.0, 6.0) if _cure_at >= 0.0 else 0.0
+	_cure_at = hours
+	var wards: Array = world.props_named("CleansingCrystal")
+	var reach := Crystals.WARD_RADIUS
+	for t in corrupted.duplicate():
+		if not is_instance_valid(t):
+			continue
+		var nearest := INF
+		for w in wards:
+			var d: Vector2 = (t.foot - w) / world.px
+			nearest = minf(nearest, Vector2(d.x, d.y * 2.0).length())
+		# (only where the crystal has the mist off: the strong mist it can't clear keeps its trees)
+		if nearest > reach or world.mist.tier_at(t.foot) != Mist.Tier.CLEAR:
+			continue   # (what it has, it keeps: a crystal moved back finds it where it was)
+		var rate := lerpf(CURE_NEAR, 1.0, nearest / reach) / CURE_HOURS
+		curing[t] = float(curing.get(t, 0.0)) + rate * gone
+		if float(curing[t]) >= 1.0:
+			curing.erase(t)
+			_turn(t, false, true)
+	for t in curing.keys():
+		if not is_instance_valid(t) or not t.corrupted:
+			curing.erase(t)
+	if _bars == null:
+		_bars = CureBars.new()
+		_bars.z_as_relative = false
+		_bars.z_index = 4060   # (over the mist's veil: they're for reading)
+		World.keep_lit(_bars)
+		world.add_child(_bars)
+	# The bars: the few nearest her.
+	var shown := []
+	if world.player != null:
+		var from: Vector2 = world.player.position
+		for t in curing:
+			if t.standing() and float(curing[t]) > 0.0 and t.foot.distance_to(from) <= CURE_BAR_REACH * world.px:
+				shown.append([t.foot.distance_to(from), t.foot + Vector2(0, -t.tree_height() * 0.5), float(curing[t])])
+		shown.sort_custom(func(a, b): return a[0] < b[0])
+		shown.resize(mini(shown.size(), CURE_BARS))
+	_bars.bars = shown
+	_bars.unit = world.px
+	_bars.queue_redraw()
+
+
+## The bars over the trees being cured: [[how far from her, where (px), how far along], ...].
+class CureBars extends Node2D:
+	var bars: Array = []
+	var unit := 128.0
+
+	func _draw() -> void:
+		var w := unit * 0.62
+		var h := maxf(4.0, unit * 0.07)
+		for b in bars:
+			var at: Vector2 = (b[1] as Vector2) - Vector2(w / 2.0, 0)
+			draw_rect(Rect2(at - Vector2(2, 2), Vector2(w + 4, h + 4)), Color(0.1, 0.07, 0.1, 0.85))
+			draw_rect(Rect2(at, Vector2(w, h)), Color(0.32, 0.14, 0.42))
+			draw_rect(Rect2(at, Vector2(w * clampf(float(b[2]), 0.0, 1.0), h)), Color(0.72, 0.95, 0.55))
 
 
 # The forest as it is at the start: patches gone in the mist, more in strong mist.
@@ -131,7 +206,7 @@ func _tick() -> void:
 		var spring := Springs.near(at)
 		if t.corrupted:
 			var heal := float(s.healSpring) if spring else (float(s.healClear) if tier == Mist.Tier.CLEAR else 0.0)
-			if heal > 0.0 and randf() < heal:
+			if heal > 0.0 and not curing.has(t) and randf() < heal:
 				_turn(t, false, true)
 			continue
 		if tier == Mist.Tier.CLEAR or spring or world.village.contains(at, 2.0):

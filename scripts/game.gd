@@ -1751,6 +1751,24 @@ func _ready() -> void:
 						await get_tree().process_frame
 					var fp: SnowFootprints = world.find_child("SnowFootprints", true, false)
 					print("Footprints: ", fp._prints.size(), " pressed, snow under her ", snow.ground_snow(miko.position))
+					# Far more than the most there may be, quickly: none may blink out (showing one frame, gone the next).
+					var was := {}
+					var blinks := 0
+					var most_seen := 0
+					for i in 700:
+						fp._press(from + Vector2(fmod(i * 0.07, 12.0), 0.3 * floorf(i / 170.0)) * world.px, Vector2.RIGHT)
+						if i % 2 == 0:
+							await get_tree().process_frame
+							most_seen = maxi(most_seen, fp._prints.size())
+							for c in fp.get_children():
+								var a_now: float = c.modulate.a if c.visible else 0.0
+								if float(was.get(c, 0.0)) > 0.25 and a_now < 0.05:
+									blinks += 1
+								was[c] = a_now
+					print("Footprints: 700 pressed fast: most at once ", most_seen, " (the most kept ", SnowFootprints.MOST, ", a fifth over ", int(SnowFootprints.MOST * 1.2), "), blinked out ", blinks, ", sprites made ", fp.get_child_count())
+					for i in 60:
+						await get_tree().process_frame
+					print("Footprints: a second on: ", fp._prints.size(), " lying, ", fp._spare.size(), " spare")
 					camera.zoom *= 1.5
 					for i in 5:
 						await get_tree().process_frame
@@ -2210,6 +2228,39 @@ func _ready() -> void:
 					miko.place(world.floors.cell_centre(spot + Vector2i(3, -1)))
 					for i in 240:
 						await get_tree().process_frame
+				"cure":
+					# A cleansing crystal among rotten trees: they're cured over hours, a few showing their bars.
+					var cr: Corruption = Corruption.active
+					while not cr.seeded:
+						await get_tree().process_frame
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 10.0
+					var rm: Rumors = $Rumors
+					var wood := rm._wood_in({"section": "F6", "corner": "upper-left", "misted": true})
+					# (where the rot's thickest near there)
+					var best := wood
+					var best_n := -1
+					for t in cr.corrupted:
+						var n := cr.corrupted_near(t.foot, 5.0 * world.px)
+						if n > best_n and t.foot.distance_to(wood) < 40.0 * world.px and world.mist.tier_at(t.foot) == Mist.Tier.NORMAL:
+							best_n = n
+							best = t.foot
+					miko.place(best + Vector2(0.6, 0.9) * world.px)
+					world.props.place(world.floors.cell_at(best) + Vector2i(1, 2), "CleansingCrystal")
+					for i in 300:
+						await get_tree().process_frame
+					var rot0 := cr.corrupted_near(best, 7.0 * world.px)
+					print("Cure: rotten trees round the crystal ", rot0, ", being cured ", cr.curing.size())
+					clock.hours += 2.0
+					for i in 40:
+						await get_tree().process_frame
+					print("Cure: 2 hours on: being cured ", cr.curing.size(), ", furthest along ", snappedf(cr.curing.values().max() if not cr.curing.is_empty() else 0.0, 0.01), ", bars showing ", cr._bars.bars.size(), ", rotten ", cr.corrupted_near(best, 7.0 * world.px))
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_bars.png")
+					for k in 3:
+						clock.hours += 2.0
+						for i in 20:
+							await get_tree().process_frame
+					print("Cure: 8 hours on: rotten ", cr.corrupted_near(best, 7.0 * world.px), " of ", rot0, ", still being cured ", cr.curing.size())
 				"veins":
 					# The corruption in the ground: open misted ground, then a crystal set by it (its edge burning back).
 					clock.forced = GameClock.Weather.CLEAR

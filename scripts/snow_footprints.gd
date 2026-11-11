@@ -8,7 +8,8 @@ const STRIDE := 0.3              ## units walked between prints
 const GAIT := 0.06               ## units each foot is from the middle of her path
 const LIFETIME := 40.0           ## seconds a print takes to fill back in
 const MOST := 360                ## prints kept (she lays about ten a second running: 40 seconds' worth)
-const OLDEST_FADE := 40          ## with the most there can be, the oldest this many fade out towards the end of the line
+const OVER := 0.2                ## ...and this share more there may be for a moment, while the oldest go
+const GOING := 0.6               ## seconds a print over the most takes to fade out
 const TINT := Color(0.5, 0.58, 0.75, 0.7)
 
 static var _print: Texture2D
@@ -16,7 +17,8 @@ static var _print: Texture2D
 var world: World
 var miko: Miko
 var snow: SnowCover
-var _prints: Array = []          ## [Sprite2D, when made]
+var _prints: Array = []          ## [Sprite2D, when made, when it began to go (-1: it hasn't)], oldest first
+var _spare: Array = []           ## sprites of prints gone, for the next ones
 var _last := Vector2.ZERO
 var _walked := 0.0
 var _left := false
@@ -47,17 +49,25 @@ func _process(_delta: float) -> void:
 	# Filling back in with time, and going with the snow.
 	var now := Time.get_ticks_msec() / 1000.0
 	var lying := clampf(snow.cover * 3.0, 0.0, 1.0)
-	# (near the most there can be, the oldest thin out to nothing, so the one taken for the next step is already
-	# gone: taken while still showing, it blinked out behind her)
-	var crowd := clampf((_prints.size() - (MOST - OLDEST_FADE)) / float(OLDEST_FADE), 0.0, 1.0)
+	# Over the most there may be, the oldest begin to go: each fades out quickly in its own time (there may be a
+	# fifth more than the most while they do), and only once it's gone is its sprite used again. So none is taken
+	# while it still shows, and none blinks out behind her.
+	for i in maxi(0, _prints.size() - MOST):
+		if float(_prints[i][2]) < 0.0:
+			_prints[i][2] = now
+	var gone := 0
 	for i in _prints.size():
 		var p: Array = _prints[i]
 		var sp: Sprite2D = p[0]
 		var a := TINT.a * clampf(1.0 - (now - float(p[1])) / LIFETIME, 0.0, 1.0) * lying
-		if crowd > 0.0 and i < OLDEST_FADE:
-			a *= lerpf(1.0, float(i) / OLDEST_FADE, crowd)
+		if float(p[2]) >= 0.0:
+			a *= clampf(1.0 - (now - float(p[2])) / GOING, 0.0, 1.0)
+			if a <= 0.01 and i == gone:
+				gone += 1   # (the oldest, in order: they come off the front)
 		sp.modulate.a = a
 		sp.visible = a > 0.01
+	for i in gone:
+		_spare.append(_prints.pop_front()[0])
 
 
 func _press(at: Vector2, dir: Vector2) -> void:
@@ -65,19 +75,21 @@ func _press(at: Vector2, dir: Vector2) -> void:
 		return
 	var side := Vector2(-dir.y, dir.x * 0.5) * (GAIT if _left else -GAIT) * world.px
 	var sp: Sprite2D
-	if _prints.size() < MOST:
+	if not _spare.is_empty():
+		sp = _spare.pop_back()
+	elif _prints.size() < int(MOST * (1.0 + OVER)):
 		sp = Sprite2D.new()
 		sp.texture = _texture()
 		sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		sp.scale = Vector2.ONE * world.px / 64.0
 		add_child(sp)
 	else:
-		sp = _prints.pop_front()[0]
+		sp = _prints.pop_front()[0]   # (far past the most, which walking never reaches: the oldest at once)
 	sp.position = at + side
 	sp.rotation = dir.angle() + PI / 2.0
 	sp.modulate = Color(TINT, 0.0)   # (shown from the next frame, at its strength: not a frame at full first)
 	sp.visible = true
-	_prints.append([sp, Time.get_ticks_msec() / 1000.0])
+	_prints.append([sp, Time.get_ticks_msec() / 1000.0, -1.0])
 
 
 # A small boot print, pointing up: a sole and a heel, soft at the edges.
