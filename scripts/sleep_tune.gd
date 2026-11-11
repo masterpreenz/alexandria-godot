@@ -1,6 +1,6 @@
 class_name SleepTune
 ## How sleepers lie, adjusted by hand: for each look and pose, an X, Y (px) and R (degrees) on top of where the bed
-## puts them (data/sleep_tune.json: "look:pose" -> [x, y, r]), applied to every villager who lies down (Villager's
+## puts them (data/sleep_tune.json: "all" -> [x, y, r] for everybody, and "look:pose" for one that needs its own), applied to every villager who lies down (Villager's
 ## lie_in_bed). X and R are as seen with the sleeper's feet to the left: on a bed turned the other way they're
 ## mirrored with the art. (The numbers were set in the game with a little panel, since taken out: edit the file.)
 
@@ -16,5 +16,6 @@ static func of(look: int, pose: String) -> Array:
 		_loaded = true
 		var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(PATH)) if FileAccess.file_exists(PATH) else null
 		_data = d if d is Dictionary else {}
-	var v: Variant = _data.get("%d:%s" % [look, pose])
+	# A look's own numbers for that pose, else the ones for everybody ("all": they're all one size of body).
+	var v: Variant = _data.get("%d:%s" % [look, pose], _data.get("all"))
 	return v if v is Array and (v as Array).size() == 3 else [0.0, 0.0, 0.0]
