@@ -903,6 +903,11 @@ func _rumor_emote() -> String:
 
 
 func _show_idle() -> void:
+	# (a look with its own idle animation plays it; else the one frame)
+	var anim: Array = s.get("idleUpAnim" if facing_up else "idleDownAnim", [])
+	if not anim.is_empty():
+		_show(int(anim[int(now() * float(s.get("idleFps", 6))) % anim.size()]))
+		return
 	_show(int(s.idleUp if facing_up else s.idleDown))
 
 
@@ -1079,7 +1084,7 @@ var _fish_water := Vector2.ZERO  ## where their float sits (px)
 var _fish_line: FishingLine
 
 func _go_fish(urgent := false) -> bool:
-	if not urgent and not _wants(Job.FISHING):
+	if not able(person, Job.FISHING) or (not urgent and not _wants(Job.FISHING)):
 		return false
 	var f := Fishing.active
 	if f == null or carrying > 0 or Kitchen.stocked(world.village, "Fish"):
@@ -1196,7 +1201,7 @@ var _fetching_food := false     ## off to a chest for food to carry down the cel
 # at a time), then down the cellar with it.
 func _go_move_food(put_on := false) -> bool:
 	var c := Cellars.active
-	if (not put_on and not _wants(Job.HAULING)) or c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
+	if not able(person, Job.HAULING) or (not put_on and not _wants(Job.HAULING)) or c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
 		return false
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
 	if spot == null:
@@ -2074,7 +2079,19 @@ const JOBS := [Job.LUMBERING, Job.MINING, Job.FARMING, Job.FISHING, Job.COOKING,
 
 ## How much of job [param j] the villager [param p] is set to do: 1 (none of it) to 10 (as much as there is), as
 ## set in the jobs window ("weights"). Older saves: what was ticked, or their one job, counts 10 and the rest 1.
+const JOB_KEYS := {Job.LUMBERING: "lumbering", Job.MINING: "mining", Job.FARMING: "farming", Job.FISHING: "fishing", Job.COOKING: "cooking",
+	Job.BUILDING: "building", Job.CRAFTING: "crafting", Job.HAULING: "hauling"}
+
+
+## Whether [param p] can do job [param j] at all (some can't: the elder only cooks, crafts and fishes).
+static func able(p: Dictionary, j: int) -> bool:
+	var can: Array = p.get("canDo", [])
+	return can.is_empty() or can.has(JOB_KEYS.get(j, ""))
+
+
 static func weight_of(p: Dictionary, j: int) -> int:
+	if not able(p, j):
+		return 1
 	if p.has("weights"):
 		return clampi(int(p.weights.get(str(j), 10)), 1, 10)
 	if p.has("jobs"):
@@ -2246,8 +2263,8 @@ func _in_area(areas: Array, at: Vector2) -> bool:
 # on cleared ground, nobody else's; not while storage holds the wood or stone it's set to keep.
 func _find_work(just := -1, put_on := false) -> bool:
 	# ([param just]: only mining, or just felling, as the job board takes them one at a time)
-	var can_mine := (_does(Job.MINING) or (put_on and just == Job.MINING)) and just != Job.LUMBERING
-	var can_chop := (_does(Job.LUMBERING) or (put_on and just == Job.LUMBERING)) and just != Job.MINING
+	var can_mine := (_does(Job.MINING) or (put_on and just == Job.MINING)) and just != Job.LUMBERING and able(person, Job.MINING)
+	var can_chop := (_does(Job.LUMBERING) or (put_on and just == Job.LUMBERING)) and just != Job.MINING and able(person, Job.LUMBERING)
 	if not can_mine and not can_chop:
 		return false
 	# (by how much of each they're set to: whether at all this time, and which first)
@@ -2425,6 +2442,8 @@ func _nearest_loose(within: float) -> Pickup:
 
 
 func _go_pick_up(put_on := false) -> bool:
+	if not able(person, Job.HAULING):
+		return false
 	# (what's lying about is the haulers' to bring in, and the miners' and woodcutters' own)
 	if not put_on and not _wants(Job.HAULING) and not _wants(Job.LUMBERING) and not _wants(Job.MINING):
 		return false
@@ -2530,7 +2549,7 @@ func _unload(t: float, stand := true) -> void:
 # ones planted from storage ----
 
 func _go_farm(urgent := false) -> bool:
-	if not urgent and not _wants(Job.FARMING):
+	if not able(person, Job.FARMING) or (not urgent and not _wants(Job.FARMING)):
 		return false
 	if carrying > 0 and not Farming.CROPS.has(carry_kind):
 		return false
@@ -2730,7 +2749,7 @@ func _cook_skill() -> int:
 
 
 func _go_cook(urgent := false) -> bool:
-	if not urgent and not _wants(Job.COOKING):
+	if not able(person, Job.COOKING) or (not urgent and not _wants(Job.COOKING)):
 		return false
 	# (cooking is for those who can; with the village short of food and nobody here who can, anyone will)
 	var can := _cook_skill() > 0 or (urgent and not all.any(func(v): return is_instance_valid(v) and v._cook_skill() > 0))
@@ -2982,6 +3001,8 @@ func _done_lighting(t: float) -> void:
 # ---- Building from blueprints: ready pieces, paid for from storage ----
 
 func _go_build(put_on := false) -> bool:
+	if not able(person, Job.BUILDING):
+		return false
 	if not put_on and not _wants(Job.BUILDING):
 		return false
 	var c := Construction.active
@@ -3096,6 +3117,8 @@ func _done_building(t: float) -> void:
 const REPAIR_COST := 1            ## wood a go at a barricade takes from storage
 
 func _go_repair(put_on := false) -> bool:
+	if not able(person, Job.BUILDING):
+		return false
 	if not put_on and not _wants(Job.BUILDING):
 		return false
 	var walls := world.walls
@@ -3325,6 +3348,8 @@ func _storage_has(cost: Array) -> bool:
 
 
 func _go_craft(put_on := false, kind := "") -> bool:
+	if not able(person, Job.CRAFTING) and not able(person, Job.COOKING):
+		return false
 	# ([param kind]: "cook" for the cooking bench alone, "craft" for the others, "" for any)
 	if not put_on and not _does(Job.CRAFTING) and not _does(Job.COOKING):
 		return false

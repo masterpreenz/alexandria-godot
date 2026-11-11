@@ -11,7 +11,7 @@ extends Node2D
 ## xp, maxHp, hp, atk, skills {level, xp}, hunger, energy, job, toolsLeft, bag, bagSlots, bagLeft.
 
 const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"],
-	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"]]
+	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"], ["Genzo", "Tetsuo", "Isamu"], ["Haruko", "Fumiko", "Setsuko"]]
 const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina", "fishing"]
 
 static var heart := 1.0          ## how much faster the villagers work now (Village Heart, with Miko in the village)
@@ -86,6 +86,11 @@ func _fix(p: Dictionary) -> void:
 		(p.skills.level as Array).append(randi_range(1, 3))
 	while (p.skills.xp as Array).size() < SKILL_NAMES.size():
 		(p.skills.xp as Array).append(0)
+	# (what their look can't do: the elder only cooks, crafts and fishes)
+	var looks: Array = d.get("looks", [])
+	var lk := clampi(int(p.get("look", 0)), 0, maxi(0, looks.size() - 1))
+	if not looks.is_empty() and looks[lk] != null and looks[lk].settings.has("canDo"):
+		p["canDo"] = looks[lk].settings.canDo
 	if not p.has("thirst"):
 		p["thirst"] = 100.0
 	for k in ["hunger", "energy", "hp", "maxHp", "atk", "level", "xp", "toolsLeft", "bagSlots", "bagLeft", "job"]:

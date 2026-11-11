@@ -767,7 +767,7 @@ func _refresh() -> void:
 		for j in JOB_LIST:
 			var id: int = j[0]
 			var lv := Villagers.skill(p, int(j[2])) if int(j[2]) >= 0 else -1
-			var can := not (id == Villager.Job.COOKING and lv <= 0)   # (cooking is only for those who can)
+			var can := not (id == Villager.Job.COOKING and lv <= 0) and Villager.able(p, id)   # (cooking is only for those who can; the elder only some)
 			var boxes: Pips = r.pips[id]
 			var weight := Villager.weight_of(p, id) if can else 1
 			if boxes.weight != weight or boxes.enabled != can:
