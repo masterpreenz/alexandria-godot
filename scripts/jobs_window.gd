@@ -22,6 +22,7 @@ const JOB_LIST := [
 	[Villager.Job.CRAFTING, "Making things at the workbenches", -1],
 	[Villager.Job.HAULING, "Bringing in what lies about, food to the cellar", LifeSkills.Skill.STRENGTH],
 ]
+const TABS := ["Jobs", "Job Board", "Storage Rules"]
 const FILTERS := ["All", "Food", "Potions", "Gear", "Materials"]
 
 var world: World
@@ -35,13 +36,18 @@ var _filter_chips: Array = []
 var _query := ""
 var _filter := "All"
 var _pending: Label
+var _board_box: VBoxContainer      ## the job board's rows
+var _board_people: VBoxContainer   ## ...and its villagers, to drag
+var _board_rows: Array = []        # [{job, pending, doing}]
+var _board_cards: Array = []       # [{who, doing, first}]
+var _board_shown := ""             ## the order and who's put on what, as laid out
 var _w := 820.0                    ## the pages' size (as big as the screen allows), before the interface's scale
 var _h := 430.0
 var _cell := 60.0                  ## a job's column
 var _people_box: VBoxContainer
 var _keep_box: VBoxContainer
 var _next_refresh := 0.0
-var tab := "Jobs"            ## which page shows: "Jobs" (the villagers and the work waiting) or "Storage Rules"
+var tab := "Jobs"            ## which page shows: "Jobs" (the villagers and how much of each job), "Job Board" or "Storage Rules"
 var _pages := {}             # tab -> its page
 var _tab_buttons := {}
 
@@ -64,7 +70,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			visible = false
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_TAB and visible:
-			show_tab("Storage Rules" if tab == "Jobs" else "Jobs")
+			show_tab(TABS[(TABS.find(tab) + 1) % TABS.size()])
 			get_viewport().set_input_as_handled()
 
 
@@ -122,7 +128,7 @@ func _build() -> void:
 	# The tabs.
 	_tab_buttons.clear()
 	_pages.clear()
-	for t in ["Jobs", "Storage Rules"]:
+	for t in TABS:
 		var tb := HudStyle.button(t, 12)
 		tb.pressed.connect(show_tab.bind(t))
 		head.add_child(tb)
@@ -180,6 +186,26 @@ func _build() -> void:
 	var stock: VBoxContainer = ks[1]
 	root.add_child(rules)
 	_pages["Storage Rules"] = rules
+	# ---- The job board: the villagers down the left, to drag; the jobs in the order they're taken.
+	var board := HBoxContainer.new()
+	board.custom_minimum_size = page_size
+	board.add_theme_constant_override("separation", int(_k(14)))
+	var who_col := VBoxContainer.new()
+	who_col.add_child(HudStyle.label("VILLAGERS  ·  drag one onto a job", 11, "bold", HudStyle.color("faint")))
+	var ps := _scroller(_h, 250.0)
+	who_col.add_child(ps[0])
+	_board_people = ps[1]
+	board.add_child(who_col)
+	var jobs_col := VBoxContainer.new()
+	jobs_col.add_child(HudStyle.label("JOBS  ·  taken from the top down. Whoever's put on a job does it before anything else, whatever their boxes say.", 11, "bold", HudStyle.color("faint")))
+	var bs := _scroller(_h, _w - 250.0 - 14.0)
+	jobs_col.add_child(bs[0])
+	_board_box = bs[1]
+	_board_box.add_theme_constant_override("separation", int(_k(6)))
+	board.add_child(jobs_col)
+	root.add_child(board)
+	_pages["Job Board"] = board
+	_board_shown = ""
 	# The crop rotation: what bare plots left to the village are planted with, in turn.
 	if farming != null:
 		stock.add_child(HudStyle.label("Crop rotation (click to add or remove)", 11, "bold", HudStyle.color("faint")))
@@ -231,6 +257,8 @@ func _build() -> void:
 ## Shows the page [param t] ("Jobs" or "Storage Rules").
 func show_tab(t: String) -> void:
 	tab = t
+	if t == "Job Board":
+		_lay_board()
 	for k in _pages:
 		(_pages[k] as Control).visible = k == t
 	for k in _tab_buttons:
@@ -397,6 +425,217 @@ static func jobs_text(p: Dictionary) -> String:
 	return "%d jobs" % js.size()
 
 
+# ---- The job board ----
+
+## A villager's card on the job board: dragged onto a job, they're put on it.
+class DragCard extends PanelContainer:
+	var person: Dictionary
+	var face: Texture2D
+
+	func _get_drag_data(_at: Vector2) -> Variant:
+		var shown := HBoxContainer.new()
+		var pic := TextureRect.new()
+		pic.texture = face
+		pic.custom_minimum_size = Vector2(40, 40) * HudStyle.SCALE
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		shown.add_child(pic)
+		shown.add_child(HudStyle.label(str(person.name), 13, "bold", HudStyle.color("accentLight")))
+		set_drag_preview(shown)
+		return {"villager": person}
+
+
+## A job's row on the board: a villager dropped on it is put on it.
+class JobRow extends PanelContainer:
+	var job := 0
+	var dropped := Callable()
+
+	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+		return data is Dictionary and (data as Dictionary).has("villager")
+
+	func _drop_data(_at: Vector2, data: Variant) -> void:
+		dropped.call((data as Dictionary).villager, job)
+
+
+## Puts [param p] on job [param j] (they do it before anything else), or takes them off whatever they're on (-1).
+func put_on(p: Dictionary, j: int) -> void:
+	if j < 0:
+		p.erase("first")
+	else:
+		p["first"] = j
+	_lay_board()
+
+
+## Moves job [param j] up the board ([param by] -1) or down it (1).
+func move_job(j: int, by: int) -> void:
+	var order: Array = villagers.board
+	var i := order.find(j)
+	var to := clampi(i + by, 0, order.size() - 1)
+	if i < 0 or to == i:
+		return
+	order.remove_at(i)
+	order.insert(to, j)
+	_lay_board()
+
+
+# The board laid out: the villagers' cards and the jobs' rows, in order.
+func _lay_board() -> void:
+	if _board_box == null:
+		return
+	for c in _board_box.get_children():
+		c.queue_free()
+	for c in _board_people.get_children():
+		c.queue_free()
+	_board_rows.clear()
+	_board_cards.clear()
+	_board_shown = _board_state()
+	for p in villagers.people:
+		var card := DragCard.new()
+		card.person = p
+		card.face = _portrait(p)
+		card.add_theme_stylebox_override("panel", HudStyle.piece("well"))
+		card.mouse_default_cursor_shape = Control.CURSOR_DRAG
+		var line := HBoxContainer.new()
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_theme_constant_override("separation", int(_k(8)))
+		card.add_child(line)
+		var pic := TextureRect.new()
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.texture = card.face
+		pic.custom_minimum_size = Vector2(_k(40), _k(40))
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		line.add_child(pic)
+		var col := VBoxContainer.new()
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_theme_constant_override("separation", 0)
+		line.add_child(col)
+		col.add_child(HudStyle.label(str(p.name), 13, "bold"))
+		var doing := HudStyle.label("", 10, "body", HudStyle.color("muted"))
+		doing.clip_text = true
+		doing.custom_minimum_size.x = _k(170)
+		col.add_child(doing)
+		var first := HudStyle.label("", 10, "bold", HudStyle.color("accentLight"))
+		col.add_child(first)
+		_board_people.add_child(card)
+		_board_cards.append({"who": p, "doing": doing, "first": first})
+	var n := 0
+	for j in villagers.board:
+		n += 1
+		var id := int(j)
+		var row := JobRow.new()
+		row.job = id
+		row.dropped = put_on
+		row.add_theme_stylebox_override("panel", HudStyle.piece("well"))
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", int(_k(8)))
+		row.add_child(line)
+		line.add_child(HudStyle.label("%d" % n, 14, "pixel", HudStyle.color("faint")))
+		for step in [[-1, "▲"], [1, "▼"]]:
+			var b := HudStyle.button(str(step[1]), 10, "slot")
+			b.custom_minimum_size = Vector2(_k(24), _k(24))
+			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			b.disabled = (int(step[0]) < 0 and n == 1) or (int(step[0]) > 0 and n == villagers.board.size())
+			b.pressed.connect(move_job.bind(id, int(step[0])))
+			line.add_child(b)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", int(_k(1)))
+		line.add_child(col)
+		col.add_child(HudStyle.label(JOB_NAMES[id], 14, "bold", HudStyle.color("accentLight")))
+		var pending := HudStyle.label("", 11, "body", HudStyle.color("text"))
+		col.add_child(pending)
+		var doing := HudStyle.label("", 10, "body", HudStyle.color("muted"))
+		col.add_child(doing)
+		# Those put on it: each a button that takes them off.
+		var on := HBoxContainer.new()
+		on.add_theme_constant_override("separation", int(_k(4)))
+		on.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		for p in villagers.people:
+			if int(p.get("first", -1)) == id:
+				var chip := HudStyle.button("%s  ×" % str(p.name), 11, "pill", HudStyle.color("accentLight"))
+				chip.tooltip_text = "Take %s off this job" % str(p.name)
+				chip.pressed.connect(put_on.bind(p, -1))
+				on.add_child(chip)
+		if on.get_child_count() == 0:
+			on.add_child(HudStyle.label("drop a villager here", 10, "body", HudStyle.color("faint")))
+		line.add_child(on)
+		_board_box.add_child(row)
+		_board_rows.append({"job": id, "pending": pending, "doing": doing})
+	_refresh_board()
+
+
+func _board_state() -> String:
+	return "%s|%s|%s" % [villagers.board, villagers.people.map(func(p): return int(p.get("first", -1))), villagers.people.size()]
+
+
+# What's waiting for each job, who's at it, and what each villager's doing: as it is now.
+func _refresh_board() -> void:
+	if _board_box == null or tab != "Job Board":
+		return
+	if _board_state() != _board_shown:
+		_lay_board()
+		return
+	var v := world.village
+	var at := {}
+	for x in Villager.all:
+		if is_instance_valid(x) and x.doing() >= 0:
+			at[x.doing()] = (at.get(x.doing(), []) as Array) + [str(x.person.name)]
+	var rocks := 0
+	var trees := 0
+	if v.founded():
+		for g in Gatherable.all:
+			if is_instance_valid(g) and g.left > 0 and g.foot.distance_to(v.centre()) <= 20.0 * world.px:
+				if g.axe: trees += 1
+				else: rocks += 1
+	for r in _board_rows:
+		var text := ""
+		match int(r.job):
+			Villager.Job.LUMBERING:
+				text = "Enough wood in storage: no felling" if Kitchen.stocked(v, "Wood") else "%d trees to fell near the village  ·  wood %d of %d" % [trees, v.stored("Wood"), Kitchen.target("Wood")]
+			Villager.Job.MINING:
+				text = "Enough stone in storage: no mining" if Kitchen.stocked(v, "Stone") else "%d rocks to mine near the village  ·  stone %d of %d" % [rocks, v.stored("Stone"), Kitchen.target("Stone")]
+			Villager.Job.FARMING:
+				var ripe := 0
+				var bare := 0
+				var growing := 0
+				if farming != null:
+					for p in farming.plots:
+						if v.contains(p.pos, 3.0):
+							var st := farming.stage(p)
+							if st == 2: ripe += 1
+							elif st == 0: bare += 1
+							else: growing += 1
+				text = "%d plots ripe to harvest  ·  %d bare to plant  ·  %d growing" % [ripe, bare, growing]
+			Villager.Job.FISHING:
+				var docks := Fishing.active.village_docks().size() if Fishing.active != null else 0
+				text = "No dock the villagers can reach (build one by the water, on cleared ground)" if docks == 0 else ("Enough fish in storage: no fishing" if Kitchen.stocked(v, "Fish") else "%d docks to fish  ·  fish %d of %d" % [docks, v.stored("Fish"), Kitchen.target("Fish")])
+			Villager.Job.COOKING:
+				var dish := Kitchen.next(v)
+				text = "Nothing raw to cook" if dish.is_empty() else "%s to cook into %s  ·  %d raw in storage" % [UiKit.resource_name(dish[0]), UiKit.resource_name(dish[1]).to_lower(), v.spare(dish[0])]
+			Villager.Job.BUILDING:
+				var site := Construction.active
+				var pieces := site.pieces.size() - site.drafts() if site != null else 0
+				text = "%d pieces ready to build  ·  walls, gates and houses mended as they wear" % pieces
+			Villager.Job.CRAFTING:
+				text = "Tools, potions and gear at the workbenches, up to what the storage rules keep"
+			Villager.Job.HAULING:
+				var move := Cellars.active.to_move() if Cellars.active != null else 0
+				text = "%d food to carry down to the cellar  ·  whatever's lying about brought in" % move
+		(r.pending as Label).text = text
+		var names: Array = at.get(int(r.job), [])
+		(r.doing as Label).text = ("At it now: " + ", ".join(names)) if not names.is_empty() else "Nobody at it now"
+	for c in _board_cards:
+		var p: Dictionary = c.who
+		var body: Villager = null
+		for x in Villager.all:
+			if x.person == p:
+				body = x
+		(c.doing as Label).text = body.activity() if body != null else "Away"
+		var first := int(p.get("first", -1))
+		(c.first as Label).text = ("Put on: " + JOB_NAMES[first]) if first > 0 else ""
+
+
 func _toggle_crop(c: String) -> void:
 	var r := farming.rotation
 	if r.has(c):
@@ -493,6 +732,7 @@ func _lay_keep() -> void:
 
 
 func _refresh() -> void:
+	_refresh_board()
 	for r in _rows:
 		var p: Dictionary = r.who
 		var body: Villager = null

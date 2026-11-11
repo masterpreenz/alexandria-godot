@@ -34,17 +34,26 @@ func setup(w: World, data: Dictionary, beds: Dictionary, eat_sound: Variant) -> 
 	s = data.get("villagers", {})
 
 
+## The job board: the jobs in the order the villagers take them (the jobs window's Job Board sets it). Saved.
+var board: Array = BOARD.duplicate()
+const BOARD := [Villager.Job.BUILDING, Villager.Job.HAULING, Villager.Job.FARMING, Villager.Job.COOKING, Villager.Job.FISHING,
+	Villager.Job.CRAFTING, Villager.Job.LUMBERING, Villager.Job.MINING]
+
+
 ## The saved people (Unity's village.people).
 func from_json(json: String) -> void:
 	var data: Variant = JSON.parse_string(json)
 	people = data.get("people", []) if data is Dictionary else []
+	# (the board as saved, as long as it's every job once: else the usual order)
+	var saved: Array = (data.get("board", []) as Array).map(func(j): return int(j)) if data is Dictionary and data.get("board") is Array else []
+	board = saved if saved.size() == BOARD.size() and BOARD.all(func(j): return saved.has(j)) else BOARD.duplicate()
 	for p in people:
 		_fix(p)
 	_next_check = 0.0
 
 
 func to_json() -> String:
-	return JSON.stringify({"people": people})
+	return JSON.stringify({"people": people, "board": board})
 
 
 # Fills in what an older save hasn't got.
@@ -59,6 +68,8 @@ func _fix(p: Dictionary) -> void:
 				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
+	if p.has("first"):
+		p["first"] = int(p.first)
 	# (a save's numbers come back as fractions: the jobs ticked are whole)
 	if p.has("jobs"):
 		p["jobs"] = (p.jobs as Array).map(func(j): return int(j))
