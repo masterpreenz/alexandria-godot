@@ -167,11 +167,12 @@ func _room() -> void:
 	var px := world.px
 	var ground := Node2D.new()
 	ground.name = "CellarFloor"
-	world.add_ground_layer(ground, -9950)
+	world.add_ground_layer(ground, -9975)   # (under build mode's grid)
 	# The dark, then earth for a few cells round the room, then its cobbles.
 	var mid := f.corner(Vector2(AT) + Vector2(SIDE, SIDE) / 2.0)
 	var dark := ColorRect.new()
 	dark.color = Color(0.05, 0.04, 0.04)
+	dark.mouse_filter = Control.MOUSE_FILTER_IGNORE   # (else build mode takes the mouse to be over the interface down here)
 	dark.size = Vector2(60, 40) * px
 	dark.position = mid - dark.size / 2.0
 	ground.add_child(dark)

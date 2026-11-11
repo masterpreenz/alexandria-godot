@@ -2028,6 +2028,17 @@ func _ready() -> void:
 						await get_tree().process_frame
 					bm.set_open(true)
 					bm.select(bm.item_for("Prop", "Chest"))
+					# (the mouse over the room: is anything of the interface taken to be under it?)
+					var on_screen := get_viewport().get_canvas_transform() * world.floors.cell_centre(in_room)
+					Input.warp_mouse(on_screen)
+					var motion := InputEventMouseMotion.new()
+					motion.position = on_screen
+					motion.global_position = on_screen
+					get_viewport().push_input(motion)
+					for i in 5:
+						await get_tree().process_frame
+					var hovered := get_viewport().gui_get_hovered_control()
+					print("Cellar: under the mouse in the room: ", str(hovered.name) if hovered != null else "nothing", ", taken as interface ", bm._over_ui())
 					bm._place_prop(in_room, 1.0)
 					print("Cellar: through build mode, chest status ", bm.status_of(bm.item_for("Prop", "Chest")), ", placed ", world.props.get_prop(in_room, 0), "; a bed there says '", bm.why_not(bm.item_for("Prop", "WoodenBed"), world.floors.cell_centre(in_room + Vector2i(1, 0))), "'")
 					bm.set_open(false)
