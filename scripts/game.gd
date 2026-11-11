@@ -2261,6 +2261,49 @@ func _ready() -> void:
 						for i in 20:
 							await get_tree().process_frame
 					print("Cure: 8 hours on: rotten ", cr.corrupted_near(best, 7.0 * world.px), " of ", rot0, ", still being cured ", cr.curing.size())
+				"jobticks":
+					# The jobs window: a villager's work opened on the right and ticked; what they then will and won't do.
+					var jw: JobsWindow = $Hud/JobsWindow
+					jw.visible = true
+					jw._built_for = "-"
+					for i in 5:
+						await get_tree().process_frame
+					var p: Dictionary = people.people[1]
+					var vl: Villager = null
+					for v in Villager.all:
+						if v.person == p:
+							vl = v
+					print("Job ticks: ", p.name, " is set to ", Villager.jobs_of(p), " '", JobsWindow.jobs_text(p), "'; fishes ", vl._does(Villager.Job.FISHING), ", mines ", vl._does(Villager.Job.MINING))
+					jw.edit_jobs(p)
+					await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_all.png")
+					# All work off, then farming and fishing on (as clicked).
+					var ticks := func() -> Array:
+						var out := []
+						for row in jw._jobs_page.get_children():
+							if not row.is_queued_for_deletion() and row.get_child_count() > 0 and row.get_child(0) is CheckBox:
+								out.append(row.get_child(0))
+						return out
+					(ticks.call()[0] as CheckBox).button_pressed = false
+					await get_tree().process_frame
+					print("Job ticks: all work off: ", Villager.jobs_of(p), " '", JobsWindow.jobs_text(p), "', activity '", vl.activity(), "'")
+					for title in ["Farming", "Fishing"]:
+						for b in ticks.call():
+							if (b as CheckBox).text.begins_with(title):
+								(b as CheckBox).button_pressed = true
+						await get_tree().process_frame
+					print("Job ticks: farming and fishing ticked: ", Villager.jobs_of(p), " '", JobsWindow.jobs_text(p), "'; fishes ", vl._does(Villager.Job.FISHING), ", farms ", vl._does(Villager.Job.FARMING), ", mines ", vl._does(Villager.Job.MINING), ", hauls ", vl._does(Villager.Job.HAULING))
+					await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_two.png")
+					# All work on, then mining off: everything else stays.
+					(ticks.call()[0] as CheckBox).button_pressed = true
+					await get_tree().process_frame
+					for b in ticks.call():
+						if (b as CheckBox).text.begins_with("Mining"):
+							(b as CheckBox).button_pressed = false
+					await get_tree().process_frame
+					print("Job ticks: all, then mining off: ", Villager.jobs_of(p), " '", JobsWindow.jobs_text(p), "'; mines ", vl._does(Villager.Job.MINING), ", fells ", vl._does(Villager.Job.LUMBERING))
+					print("Job ticks: saved with jobs ", JSON.parse_string(people.to_json()).people[1].get("jobs"))
 				"veins":
 					# The corruption in the ground: open misted ground, then a crystal set by it (its edge burning back).
 					clock.forced = GameClock.Weather.CLEAR
@@ -2468,8 +2511,8 @@ func _ready() -> void:
 						if not (other.s.get("fishDown", []) as Array).is_empty() and (Shots.arg("look") == "" or int(other.person.get("look", -1)) == int(Shots.arg("look"))):
 							vl = other
 					for other in Villager.all:   # (the dock's hers: one villager to a dock)
-						other.person.job = Villager.Job.REST
-					vl.person.job = Villager.Job.FISHING
+						other.person["jobs"] = []
+					vl.person["jobs"] = [Villager.Job.FISHING]
 					vl.person.hunger = 100.0
 					vl._stand(Villager.now(), 0.0)
 					var seen := []

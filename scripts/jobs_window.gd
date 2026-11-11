@@ -8,7 +8,19 @@ extends PanelContainer
 
 const COL := 370.0
 const H := 430.0
-const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting", "Fishing"]
+const RIGHT := 450.0            ## the right side's width: wide enough for either of its pages, so it doesn't grow
+const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting", "Fishing", "Hauling"]
+## The work that can be ticked for a villager, in the order shown: [Job, what it covers, the skill it goes by or -1].
+const JOB_LIST := [
+	[Villager.Job.LUMBERING, "Felling trees and bringing the wood in", LifeSkills.Skill.LUMBERING],
+	[Villager.Job.MINING, "Mining rocks and bringing the stone in", LifeSkills.Skill.MINING],
+	[Villager.Job.FARMING, "Planting, watering, weeding and harvesting", LifeSkills.Skill.FARMING],
+	[Villager.Job.FISHING, "Fishing at the docks", LifeSkills.Skill.FISHING],
+	[Villager.Job.COOKING, "Cooking at fires and the cooking bench", LifeSkills.Skill.COOKING],
+	[Villager.Job.BUILDING, "Building, and mending walls and gates", LifeSkills.Skill.BUILDING],
+	[Villager.Job.CRAFTING, "Making things at the workbenches", -1],
+	[Villager.Job.HAULING, "Bringing in what lies about, food to the cellar", LifeSkills.Skill.STRENGTH],
+]
 const FILTERS := ["All", "Food", "Potions", "Gear", "Materials"]
 
 var world: World
@@ -22,6 +34,9 @@ var _filter_chips: Array = []
 var _query := ""
 var _filter := "All"
 var _pending: Label
+var _waiting_page: VBoxContainer   ## the right side as it stands: the work waiting
+var _jobs_page: VBoxContainer      ## ...or the work one villager's set to, to tick
+var _editing: Variant = null       ## the villager (Person) whose work is being set, or null
 var _people_box: VBoxContainer
 var _keep_box: VBoxContainer
 var _next_refresh := 0.0
@@ -180,15 +195,24 @@ func _build() -> void:
 	for e in _stock_entries():
 		_keep_row(e)
 	_lay_keep()
-	right.add_child(HudStyle.label("WORK WAITING", 11, "bold", HudStyle.color("faint")))
+	right.custom_minimum_size = Vector2(_k(RIGHT), _k(H + 24))
+	_waiting_page = VBoxContainer.new()
+	right.add_child(_waiting_page)
+	_jobs_page = VBoxContainer.new()
+	_jobs_page.add_theme_constant_override("separation", int(_k(4)))
+	_jobs_page.custom_minimum_size = Vector2(_k(RIGHT), _k(H))
+	_jobs_page.visible = false
+	right.add_child(_jobs_page)
+	_waiting_page.add_child(HudStyle.label("WORK WAITING", 11, "bold", HudStyle.color("faint")))
 	var ws := _scroller(H - 24)
-	right.add_child(ws[0])
+	_waiting_page.add_child(ws[0])
 	_pending = HudStyle.label("", 12, "body")
 	_pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pending.custom_minimum_size.x = _k(COL - 16)
 	ws[1].add_child(_pending)
 	show_tab(tab)
-	_refresh()
+	# (built again as the roster changed: whoever's work was open stays open, if they're still here)
+	edit_jobs(_editing if _editing != null and villagers.people.has(_editing) else null)
 
 
 ## Shows the page [param t] ("Jobs" or "Storage Rules").
@@ -214,55 +238,202 @@ func _bar(parent: Control) -> ColorRect:
 
 
 func _person_row(p: Dictionary) -> void:
+	# A card: their face, then their name with the button for their work, what they're doing, their bars, and their
+	# skills three to a line.
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", HudStyle.piece("well"))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_k(8)))
+	card.add_child(row)
+	var face := TextureRect.new()
+	face.custom_minimum_size = Vector2(_k(46), _k(46))
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	face.texture = _portrait(p)
+	row.add_child(face)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 0)
+	col.add_theme_constant_override("separation", int(_k(2)))
+	row.add_child(col)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", int(_k(6)))
+	col.add_child(top)
 	var nm := HudStyle.label("", 13, "bold")
 	nm.clip_text = true
 	nm.custom_minimum_size.x = _k(40)
-	col.add_child(nm)
-	var skills := HudStyle.label("", 9, "body", HudStyle.color("muted"))
-	skills.clip_text = true
-	skills.custom_minimum_size.x = _k(40)
-	col.add_child(skills)
-	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", int(_k(6)))
-	var bars := [_bar(line), _bar(line), _bar(line)]
-	col.add_child(line)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(nm)
+	# Their work: a button that opens it on the right, to tick.
+	var job := HudStyle.button("", 10, "pill", HudStyle.color("accentLight"))
+	job.custom_minimum_size = Vector2(_k(104), _k(20))
+	job.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	job.clip_text = true
+	job.pressed.connect(func():
+		if _editing == p: edit_jobs(null)   # (pressed again: back to the work waiting)
+		else: edit_jobs(p))
+	top.add_child(job)
 	var activity := HudStyle.label("", 11, "body", HudStyle.color("muted"))
 	activity.clip_text = true
 	activity.custom_minimum_size.x = _k(40)
 	col.add_child(activity)
-	row.add_child(col)
-	# The job choice: ◀ Mining ▶
-	var back := HudStyle.button("◀", 12, "slot")
-	back.custom_minimum_size = Vector2(_k(26), _k(26))
-	back.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	back.pressed.connect(_step_job.bind(p, -1))
-	row.add_child(back)
-	var job := HudStyle.label("", 12, "bold", HudStyle.color("accentLight"))
-	job.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	job.custom_minimum_size.x = _k(76)
-	job.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	row.add_child(job)
-	var on := HudStyle.button("▶", 12, "slot")
-	on.custom_minimum_size = Vector2(_k(26), _k(26))
-	on.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	on.pressed.connect(_step_job.bind(p, 1))
-	row.add_child(on)
-	_people_box.add_child(row)
-	_rows.append({"who": p, "name": nm, "skills": skills, "activity": activity, "job": job, "bars": bars})
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", int(_k(6)))
+	var bars := [_bar(line), _bar(line), _bar(line)]
+	col.add_child(line)
+	var skills := GridContainer.new()
+	skills.columns = 3
+	skills.add_theme_constant_override("h_separation", int(_k(10)))
+	skills.add_theme_constant_override("v_separation", 0)
+	col.add_child(skills)
+	_people_box.add_child(card)
+	_rows.append({"who": p, "name": nm, "skills": skills, "shown": "", "activity": activity, "job": job, "bars": bars})
 
 
-func _step_job(p: Dictionary, by: int) -> void:
-	var n := JOB_NAMES.size()
-	p.job = ((int(p.get("job", 0)) + by) % n + n) % n
-	# Cooking is only for those who can.
-	if p.job == Villager.Job.COOKING and Villagers.skill(p, LifeSkills.Skill.COOKING) <= 0:
-		p.job = ((int(p.job) + by) % n + n) % n
+static var _faces := {}
+
+
+# A villager's face: head and shoulders from their look's standing frame (as when talking with them), by look.
+func _portrait(p: Dictionary) -> Texture2D:
+	var looks: Array = villagers.d.get("looks", [])
+	var look := clampi(int(p.get("look", 0)), 0, maxi(0, looks.size() - 1))
+	if _faces.has(look):
+		return _faces[look]
+	if looks.is_empty():
+		return null
+	var info: Dictionary = world.sprites[int(looks[look].settings.idleDown)]
+	var at := AtlasTexture.new()
+	at.atlas = world._texture(info.tex)
+	var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
+	var used := frame
+	var img := at.atlas.get_image() if at.atlas != null else null
+	if img != null:
+		var r := img.get_region(frame).get_used_rect()
+		if r.size.x > 0:
+			used = Rect2i(frame.position + r.position, r.size)
+	var side := mini(used.size.x, int(used.size.y * 0.5))
+	at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
+	_faces[look] = at
+	return at
+
+
+## What a villager's work comes to, in a few words: "Any work", "Resting", the one job, or how many.
+static func jobs_text(p: Dictionary) -> String:
+	var js := Villager.jobs_of(p)
+	if js.has(Villager.Job.ANY):
+		return "Any work"
+	if js.is_empty():
+		return "Resting"
+	if js.size() == 1:
+		return JOB_NAMES[int(js[0])]
+	if js.size() == 2:
+		return "%s, %s" % [JOB_NAMES[int(js[0])], JOB_NAMES[int(js[1])]]
+	return "%d jobs" % js.size()
+
+
+## Opens [param p]'s work on the right, to tick (null: back to the work waiting).
+func edit_jobs(p: Variant) -> void:
+	_editing = p
+	_waiting_page.visible = p == null
+	_jobs_page.visible = p != null
+	for c in _jobs_page.get_children():
+		c.queue_free()
+	if p == null:
+		_refresh()
+		return
+	var person: Dictionary = p
+	var js := Villager.jobs_of(person)
+	var all := js.has(Villager.Job.ANY)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", int(_k(8)))
+	head.add_child(HudStyle.label("%s'S WORK" % str(person.name).to_upper(), 11, "bold", HudStyle.color("faint")))
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(gap)
+	var done := HudStyle.button("Done", 11)
+	done.pressed.connect(edit_jobs.bind(null))
+	head.add_child(done)
+	_jobs_page.add_child(head)
+	var hint := HudStyle.label("Tick what they'll do. With all work ticked they take whatever needs doing; tick one or two to keep them to it (a farmer, a fisher).", 11, "body", HudStyle.color("muted"))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = _k(RIGHT - 16)
+	_jobs_page.add_child(hint)
+	_jobs_page.add_child(_tick("All work", "Whatever needs doing", all, true, func(on: bool):
+		person["jobs"] = [Villager.Job.ANY] if on else []
+		edit_jobs(person)))
+	for j in JOB_LIST:
+		var id: int = j[0]
+		var lv := Villagers.skill(person, int(j[2])) if int(j[2]) >= 0 else -1
+		var can := not (id == Villager.Job.COOKING and lv <= 0)   # (cooking is only for those who can)
+		var label: String = JOB_NAMES[id] + (("   %d" % lv) if lv > 0 else "")
+		_jobs_page.add_child(_tick(label, str(j[1]) if can else "Can't cook", (all or js.has(id)) and can, can, func(on: bool):
+			# (from all work, unticking one leaves the rest ticked; ticking the last one back makes it all work again)
+			var now: Array = js.duplicate()
+			if all:
+				now = JOB_LIST.map(func(e): return int(e[0])).filter(func(e): return e != Villager.Job.COOKING or Villagers.skill(person, LifeSkills.Skill.COOKING) > 0)
+			now.erase(id)
+			if on:
+				now.append(id)
+			person["jobs"] = now
+			edit_jobs(person)))
 	_refresh()
+
+
+static var _box_icons := {}
+
+
+# A tick box drawn plainly, so an empty one shows as well as a ticked one: a gold-rimmed square, filled with a tick
+# when on; dim when it can't be changed.
+static func _box_icon(on: bool, dim: bool) -> Texture2D:
+	var key := "%s%s" % [on, dim]
+	if not _box_icons.has(key):
+		var n := roundi(18 * HudStyle.SCALE)
+		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+		var rim := Color(1.0, 0.82, 0.3, 0.35 if dim else 1.0)
+		var fill := Color(1.0, 0.82, 0.3, 0.9) if on else Color(0.1, 0.08, 0.07, 0.9)
+		if dim:
+			fill.a *= 0.4
+		var w := maxi(2, roundi(n / 9.0))
+		for y in n:
+			for x in n:
+				var edge := x < w or y < w or x >= n - w or y >= n - w
+				img.set_pixel(x, y, rim if edge else fill)
+		if on:
+			# (the tick: two strokes, dark on the gold)
+			for i in n:
+				var t := float(i) / n
+				for pt in [Vector2(lerpf(0.22, 0.42, t), lerpf(0.5, 0.74, t)), Vector2(lerpf(0.42, 0.8, t), lerpf(0.74, 0.26, t))]:
+					for dx in range(-1, 2):
+						for dy in range(-1, 2):
+							var px := clampi(roundi(pt.x * n) + dx, 0, n - 1)
+							var py := clampi(roundi(pt.y * n) + dy, 0, n - 1)
+							img.set_pixel(px, py, Color(0.12, 0.08, 0.05, 0.4 if dim else 1.0))
+		_box_icons[key] = ImageTexture.create_from_image(img)
+	return _box_icons[key]
+
+
+# One line of the ticks: a box to tick, its name, and what it covers.
+func _tick(title: String, about: String, on: bool, enabled: bool, changed: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_k(8)))
+	var box := CheckBox.new()
+	box.button_pressed = on
+	box.disabled = not enabled
+	box.text = title
+	box.custom_minimum_size = Vector2(_k(150), _k(26))
+	box.add_theme_font_override("font", HudStyle.font("bold"))
+	box.add_theme_font_size_override("font_size", roundi(_k(12)))
+	box.add_theme_color_override("font_color", HudStyle.color("text"))
+	box.add_theme_color_override("font_pressed_color", HudStyle.color("accentLight"))
+	for icon in ["checked", "unchecked", "checked_disabled", "unchecked_disabled"]:
+		box.add_theme_icon_override(icon, _box_icon(icon.begins_with("checked"), icon.ends_with("disabled")))
+	box.add_theme_constant_override("h_separation", int(_k(8)))
+	box.toggled.connect(changed)
+	row.add_child(box)
+	var what := HudStyle.label(about, 11, "body", HudStyle.color("muted") if enabled else HudStyle.color("faint"))
+	what.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(what)
+	return row
 
 
 func _toggle_crop(c: String) -> void:
@@ -373,9 +544,17 @@ func _refresh() -> void:
 			var lv := Villagers.skill(p, i)
 			if lv > 0:
 				sk.append("%s %d" % [Villagers.SKILL_NAMES[i], lv])
-		r.skills.text = "  ·  ".join(sk) if not sk.is_empty() else "no skills yet"
+		var skills_now := "|".join(sk)
+		if skills_now != r.shown:
+			r.shown = skills_now
+			for c in r.skills.get_children():
+				c.queue_free()
+			for text in (sk if not sk.is_empty() else ["no skills yet"]):
+				var l := HudStyle.label(str(text), 9, "body", HudStyle.color("muted"))
+				l.custom_minimum_size.x = _k(78)
+				r.skills.add_child(l)
 		r.activity.text = body.activity() if body != null else ("Died" if float(p.get("hp", 1.0)) <= 0.0 else "No bed: waiting for one")
-		r.job.text = JOB_NAMES[clampi(int(p.get("job", 0)), 0, JOB_NAMES.size() - 1)]
+		r.job.text = jobs_text(p) + ("  ◀" if _editing == p else "")
 		var frac := clampf(float(p.get("hp", 0.0)) / maxf(1.0, float(p.get("maxHp", 1.0))), 0.0, 1.0)
 		_set_bar(r.bars[0], frac, Color(0.55, 0.85, 0.4) if frac > 0.6 else (Color(0.95, 0.72, 0.27) if frac > 0.3 else Color(0.9, 0.33, 0.24)))
 		var fed := clampf(float(p.get("hunger", 0.0)) / 100.0, 0.0, 1.0)

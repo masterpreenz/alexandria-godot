@@ -26,7 +26,7 @@ extends CharacterBody2D
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
 	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH }
 
-enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING }
+enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING, HAULING }
 
 const BAG_TRIPS := 40             ## trips to storage a bag lasts
 const TOOL_USES := 150            ## uses a set of tools lasts
@@ -923,7 +923,7 @@ func _wake_up(t: float) -> void:
 # ---- Fishing: at a dock in or near the village, with bait from storage: a cast at a time (a bait each, slower in
 # winter), up to a good haul or till the bait's gone, then home with the fish. One villager to a dock. ----
 
-const FISH_HAUL := 6             ## fish they bring back at most
+const FISH_HAUL := 10            ## fish they bring back at most (as many as they can carry, if that's fewer)
 
 var fish_dock := Vector2.INF     ## the dock they're fishing (px), or INF
 var _caught_until := 0.0         ## the caught-one emote shows till then
@@ -932,8 +932,7 @@ var _fish_water := Vector2.ZERO  ## where their float sits (px)
 var _fish_line: FishingLine
 
 func _go_fish() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.FISHING:
+	if not _does(Job.FISHING):
 		return false
 	var f := Fishing.active
 	if f == null or carrying > 0 or world.village.stored("Bait") <= 0 or Kitchen.stocked(world.village, "Fish"):
@@ -1049,7 +1048,7 @@ var _fetching_food := false     ## off to a chest for food to carry down the cel
 # at a time), then down the cellar with it.
 func _go_move_food() -> bool:
 	var c := Cellars.active
-	if c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
+	if not _does(Job.HAULING) or c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
 		return false
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
 	if spot == null:
@@ -1882,6 +1881,21 @@ func _job() -> int:
 	return int(person.get("job", Job.ANY))
 
 
+## The work [param p] is set to (Job values): [Job.ANY] for anything, [] for none (resting). As ticked in the jobs
+## window ("jobs"); an older save's one job is read as it was.
+static func jobs_of(p: Dictionary) -> Array:
+	if p.has("jobs"):
+		return p.jobs
+	var one := int(p.get("job", Job.ANY))
+	return [] if one == Job.REST else [one]
+
+
+## Whether they're set to do work [param j] (one of Job): it's ticked for them, or "all work" is.
+func _does(j: int) -> bool:
+	var js := jobs_of(person)
+	return js.has(Job.ANY) or js.has(j)
+
+
 func _fires() -> Fires:
 	return world.player.get_node_or_null("Fires") as Fires
 
@@ -2002,15 +2016,16 @@ func _in_area(areas: Array, at: Vector2) -> bool:
 # A rock or a tree (a coin toss which they'd rather; the other if there's none), the nearest to home in a work area,
 # on cleared ground, nobody else's; not while storage holds the wood or stone it's set to keep.
 func _find_work() -> bool:
-	var choice := _job()
-	if choice in [Job.REST, Job.FARMING, Job.BUILDING, Job.COOKING, Job.CRAFTING, Job.FISHING]:
+	var can_mine := _does(Job.MINING)
+	var can_chop := _does(Job.LUMBERING)
+	if not can_mine and not can_chop:
 		return false
-	var chop := not Kitchen.stocked(world.village, "Wood")
-	var mine := not Kitchen.stocked(world.village, "Stone")
+	var chop := can_chop and not Kitchen.stocked(world.village, "Wood")
+	var mine := can_mine and not Kitchen.stocked(world.village, "Stone")
 	var spot: Gatherable = null
-	if choice == Job.MINING:
+	if not can_chop:
 		spot = _nearest_work(false) if mine else null
-	elif choice == Job.LUMBERING:
+	elif not can_mine:
 		spot = _nearest_work(true) if chop else null
 	else:
 		var first := randf() < 0.5
@@ -2174,8 +2189,8 @@ func _nearest_loose(within: float) -> Pickup:
 
 
 func _go_pick_up() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.LUMBERING and choice != Job.MINING:
+	# (what's lying about is the haulers' to bring in, and the miners' and woodcutters' own)
+	if not _does(Job.HAULING) and not _does(Job.LUMBERING) and not _does(Job.MINING):
 		return false
 	if carrying >= _carry_most():
 		return false
@@ -2279,8 +2294,7 @@ func _unload(t: float, stand := true) -> void:
 # ones planted from storage ----
 
 func _go_farm() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.FARMING:
+	if not _does(Job.FARMING):
 		return false
 	if carrying > 0 and not Farming.CROPS.has(carry_kind):
 		return false
@@ -2436,7 +2450,7 @@ func _next_tending(farm: Farming) -> Dictionary:
 ## Whether a crop in the village wants seeing to now (pests in it, or dry), for a farmer to go to first.
 func _crops_need_care() -> bool:
 	var farm := _farming_node()
-	if farm == null or carrying > 0 or not (_job() == Job.ANY or _job() == Job.FARMING):
+	if farm == null or carrying > 0 or not _does(Job.FARMING):
 		return false
 	for p in farm.plots:
 		if not tending.has(p.key) and (farm.pests(p) or farm.dry(p)) and world.village.contains(p.pos, 3.0):
@@ -2473,8 +2487,7 @@ func _cook_skill() -> int:
 
 
 func _go_cook() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.COOKING:
+	if not _does(Job.COOKING):
 		return false
 	if _cook_skill() <= 0 or Kitchen.next(world.village).is_empty():
 		return false
@@ -2721,8 +2734,7 @@ func _done_lighting(t: float) -> void:
 # ---- Building from blueprints: ready pieces, paid for from storage ----
 
 func _go_build() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.BUILDING:
+	if not _does(Job.BUILDING):
 		return false
 	var c := Construction.active
 	if c == null:
@@ -2836,8 +2848,7 @@ func _done_building(t: float) -> void:
 const REPAIR_COST := 1            ## wood a go at a barricade takes from storage
 
 func _go_repair() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.BUILDING:
+	if not _does(Job.BUILDING):
 		return false
 	var walls := world.walls
 	if walls == null or world.village.stored("Wood") < REPAIR_COST:
@@ -3066,8 +3077,7 @@ func _storage_has(cost: Array) -> bool:
 
 
 func _go_craft() -> bool:
-	var choice := _job()
-	if choice != Job.ANY and choice != Job.CRAFTING and choice != Job.COOKING:
+	if not _does(Job.CRAFTING) and not _does(Job.COOKING):
 		return false
 	var benches: Dictionary = people.d.get("workbenches", {})
 	var best := {}
@@ -3078,7 +3088,7 @@ func _go_craft() -> bool:
 		var bench: Dictionary = benches[prop]
 		var cooks: bool = bench.skill == "Cooking"
 		# The cooking bench is a cook's (those who can cook); the others a crafter's.
-		if (choice == Job.CRAFTING) if cooks else (choice == Job.COOKING):
+		if not _does(Job.COOKING if cooks else Job.CRAFTING):
 			continue
 		if cooks and _cook_skill() <= 0:
 			continue
@@ -3212,5 +3222,5 @@ func activity() -> String:
 	if _night(): return "Getting ready for bed"
 	if _hungry() and _food_in_storage() == 0: return "Hungry: no food in storage"
 	if not _work_hours(): return "Free time"
-	if _job() == Job.REST: return "Resting (no work set)"
+	if jobs_of(person).is_empty(): return "Resting (no work set)"
 	return "Idle"

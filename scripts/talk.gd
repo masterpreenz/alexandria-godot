@@ -147,7 +147,7 @@ func open(v: Villager) -> void:
 	at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
 	_face.texture = at
 	_name.text = str(v.person.name)
-	_work.text = Loc.t("job.%d" % int(v.person.get("job", 0)))
+	_work.text = JobsWindow.jobs_text(v.person)
 	_show(_greeting(v))
 	visible = true
 	_tail.visible = true
@@ -268,7 +268,7 @@ func _ask_need() -> void:
 		key = "talk.need.bed"
 	elif who._food_in_storage() == 0:
 		key = "talk.need.food"
-	elif int(p.get("job", 0)) in [Villager.Job.MINING, Villager.Job.LUMBERING] and int(p.get("toolsLeft", 0)) <= 0:
+	elif (Villager.jobs_of(p).has(Villager.Job.MINING) or Villager.jobs_of(p).has(Villager.Job.LUMBERING)) and int(p.get("toolsLeft", 0)) <= 0:
 		key = "talk.need.tools"
 	elif world.clock != null and world.clock.season() == GameClock.Season.WINTER and not bool(p.get("scarf", false)):
 		key = "talk.need.scarf"

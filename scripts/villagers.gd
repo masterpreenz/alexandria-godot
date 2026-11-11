@@ -59,6 +59,9 @@ func _fix(p: Dictionary) -> void:
 				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
+	# (a save's numbers come back as fractions: the jobs ticked are whole)
+	if p.has("jobs"):
+		p["jobs"] = (p.jobs as Array).map(func(j): return int(j))
 	# (skills added since: fishing)
 	while (p.skills.level as Array).size() < SKILL_NAMES.size():
 		(p.skills.level as Array).append(randi_range(1, 3))
