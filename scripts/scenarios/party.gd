@@ -59,6 +59,13 @@ func run() -> void:
 		if miyu.state == Villager.State.FIGHT:
 			fought = true
 	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_fight.png")
+	miyu.person["maxMana"] = 40.0
+	miyu.person["mana"] = 25.0
+	for i in 3:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_mana.png")
+	miyu.person.erase("maxMana")
+	miyu.person.erase("mana")
 	print("Party: a slime: Miyu fought ", fought, ", the slime ", "gone" if not is_instance_valid(sl) or not sl.hit.alive() else "still there")
 	if is_instance_valid(sl):
 		sl.queue_free()

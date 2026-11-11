@@ -186,6 +186,13 @@ class PartyCards extends Control:
 		_faces[look] = at
 		return at
 
+	## Whether they have mana (only those who've learned magic: villagers haven't any).
+	func _has_mana(p: Dictionary) -> bool:
+		return float(p.get("maxMana", 0.0)) > 0.0
+
+	func _height(p: Dictionary) -> float:
+		return CARD.y + (12.0 if _has_mana(p) else 0.0)
+
 	func _text(s: String, at: Vector2, sz: float, kind: String, c: Color, width := -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
 		var f := HudStyle.font(kind)
 		if f == null:
@@ -205,7 +212,7 @@ class PartyCards extends Control:
 			for v in Villager.all:
 				if is_instance_valid(v) and v.person == p:
 					body = v
-			var card := Rect2(Vector2(0, y), CARD * k)
+			var card := Rect2(Vector2(0, y), Vector2(CARD.x, _height(p)) * k)
 			draw_style_box(HudStyle.piece("panel"), card)
 			var fr := Rect2(card.position + Vector2(7, 7) * k, Vector2(FACE, FACE) * k)
 			draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
@@ -234,8 +241,23 @@ class PartyCards extends Control:
 			if frac > 0.02:
 				draw_style_box(HudStyle.piece("barFill", HudStyle.color("hp")), Rect2(back.position, Vector2(back.size.x * frac, back.size.y)))
 			_text(str(ceili(hp)), card.position + Vector2(col + col_w - 30 * k, 31 * k), 11, "pixel", HudStyle.color("text"), 30 * k, HORIZONTAL_ALIGNMENT_RIGHT)
+			# Mana, for those who have it (once they've learned magic).
+			var line := 44.0
+			if _has_mana(p):
+				var mana := float(p.get("mana", 0.0))
+				var most_mana := maxf(1.0, float(p.maxMana))
+				var drop := HudStyle.icon("drop")
+				if drop != null:
+					draw_texture_rect(drop, Rect2(card.position + Vector2(col, 34 * k), Vector2(10, 10) * k), false, HudStyle.color("mana"))
+				var mb := Rect2(card.position + Vector2(col + 14 * k, 36 * k), Vector2(col_w - 14 * k - 30 * k, 5 * k))
+				draw_style_box(HudStyle.piece("barBack"), mb)
+				var mf := clampf(mana / most_mana, 0.0, 1.0)
+				if mf > 0.02:
+					draw_style_box(HudStyle.piece("barFill", HudStyle.color("mana")), Rect2(mb.position, Vector2(mb.size.x * mf, mb.size.y)))
+				_text(str(floori(mana)), card.position + Vector2(col + col_w - 30 * k, 43 * k), 11, "pixel", HudStyle.color("text"), 30 * k, HORIZONTAL_ALIGNMENT_RIGHT)
+				line = 56.0
 			# What they're at.
 			var doing := "Away" if body == null else body.activity()
 			var low := frac < 0.3
-			_text(doing, card.position + Vector2(col, 44 * k), 10, "body", HudStyle.color("coral") if low else HudStyle.color("muted"), col_w, HORIZONTAL_ALIGNMENT_LEFT)
-			y += (CARD.y + 6) * k
+			_text(doing, card.position + Vector2(col, line * k), 10, "body", HudStyle.color("coral") if low else HudStyle.color("muted"), col_w, HORIZONTAL_ALIGNMENT_LEFT)
+			y += (_height(p) + 6) * k
