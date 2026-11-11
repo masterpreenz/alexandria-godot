@@ -29,6 +29,7 @@ var _next_doom := 0.0
 var _fires: Array = []              ## the burning houses' smoke and glow
 var _panned := false
 var _warded := true                 ## whether the village keeps the mist off (not from the attack till the crystal)
+var _no_mist := false               ## no mist anywhere yet (the story's first day, till it rolls in that night)
 var _breaks: Array = []             ## the attack's walls still to be smashed: [x, y, alongY, type]
 const BREAK_GOAL := 10               ## walls down, at least, once the attack's over
 
@@ -43,6 +44,11 @@ static func count_kill(c: Node) -> void:
 ## Whether the village keeps the mist off now (the story takes it away between the attack and the crystal).
 static func village_warded() -> bool:
 	return active == null or active._warded
+
+
+## Whether there's no mist anywhere yet (a new game's first day: it comes with that night).
+static func mist_held() -> bool:
+	return active != null and active._no_mist
 
 
 func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: Node) -> void:
@@ -72,7 +78,7 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 
 
 func to_json() -> String:
-	return JSON.stringify({"beat": beat, "warded": _warded, "doomed": _doomed_left, "breaks": _breaks})
+	return JSON.stringify({"beat": beat, "warded": _warded, "doomed": _doomed_left, "breaks": _breaks, "noMist": _no_mist})
 
 
 func from_json(json: String) -> void:
@@ -82,6 +88,10 @@ func from_json(json: String) -> void:
 		_warded = bool(s.get("warded", true))
 		_doomed_left = s.get("doomed", [])
 		_breaks = s.get("breaks", [])
+		_no_mist = bool(s.get("noMist", false))
+		if _no_mist and world.mist != null:
+			world.mist.refresh(true)
+			world.mist.snap()
 		if beat >= 0:
 			_begin(beat, true)
 
@@ -94,11 +104,17 @@ func begin_new_game() -> void:
 	world.clock.hours = float(st.get("hour", 14.0))
 	world.clock.speed = 0.0 if bool(st.get("frozen", true)) else 1.0
 	Villagers.closed = true
-	# Her own necklace, on: the mist can't touch her.
-	var slot := miko.bag.free_slot()
-	if slot >= 0:
-		miko.bag.items[slot] = "ShrineNecklace"
-		miko.stats.equip(miko.bag, slot)
+	# No mist yet: it comes that night.
+	_no_mist = true
+	if world.mist != null:
+		world.mist.refresh(true)
+		world.mist.snap()
+	# Her own necklace, on (the mist can't touch her), and her staff in her hands.
+	for item in ["ShrineNecklace", "ApprenticeStaff"]:
+		var slot := miko.bag.free_slot()
+		if slot >= 0:
+			miko.bag.items[slot] = item
+			miko.stats.equip(miko.bag, slot)
 	for who in d.get("people", []):
 		var p := people.add_person(str(who.name), int(who.look))
 		p["storyRole"] = str(who.role)
@@ -255,6 +271,7 @@ func _act(a: Dictionary) -> void:
 			_messenger()
 		"mist_in":
 			_warded = false
+			_no_mist = false
 			if world.mist != null:
 				world.mist.refresh(true)
 		"attack":

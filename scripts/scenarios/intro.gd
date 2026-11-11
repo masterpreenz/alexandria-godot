@@ -33,7 +33,7 @@ func run() -> void:
 	await wait(30)
 	var nd: Needs = miko.get_node("Needs")
 	print("Intro: beat ", beat_id(), " '", st._title.text, "'; Sera at ", world.floors.cell_at(miko.position), ", ", snappedf(clock.hour(), 0.1), "h, clock speed ", clock.speed,
-		"; necklace ", miko.stats.worn_in("Necklace"), "; people ", people.people.map(func(p): return "%s(%s)" % [p.name, p.get("storyRole", p.get("unique", ""))]))
+		"; necklace ", miko.stats.worn_in("Necklace"), ", in her hands ", miko.stats.worn_in("LeftHand"), "; trees and rocks within 20 ", world.gatherables.filter(func(g): return g.position.distance_to(miko.position) < 20.0 * world.px).size(), "; mist where she is ", world.mist.tier_at(miko.position), ", at the village ", world.mist.tier_at(world.village.centre()), ", far off ", world.mist.tier_at(Vector2(-300, 100) * world.px), "; people ", people.people.map(func(p): return "%s(%s)" % [p.name, p.get("storyRole", p.get("unique", ""))]))
 	shot("start")
 	# Walk.
 	for i in 14:
@@ -57,7 +57,12 @@ func run() -> void:
 	miko.bag.add("Wood", 10)
 	miko.bag.add("Stone", 5)
 	await wait()
-	print("Intro: after gathering, beat ", beat_id(), "; monsters about ", Creature.all.size())
+	var kinds := {}
+	for c in Creature.all:
+		if is_instance_valid(c):
+			var k := str(c.get_script().get_global_name())
+			kinds[k] = int(kinds.get(k, 0)) + 1
+	print("Intro: after gathering, beat ", beat_id(), "; monsters about ", kinds, "; mist 40 west of the village ", world.mist.tier_at(world.village.centre() + Vector2(-40, 0) * world.px))
 	kill_near("Boar")
 	await wait()
 	print("Intro: camp: ", snappedf(clock.hour(), 0.1), "h, clock running ", clock.speed > 0.0)
@@ -138,6 +143,9 @@ func run() -> void:
 	await wait()
 	world.village.stash["Meal"] = int(world.village.stash.get("Meal", 0)) + 3
 	await wait()
+	for v in Villager.all:
+		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
+			elder = v
 	talk.open(elder)
 	await get_tree().process_frame
 	said = []

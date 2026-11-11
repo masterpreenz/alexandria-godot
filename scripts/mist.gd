@@ -91,6 +91,17 @@ func setup(w: World, d: Dictionary) -> void:
 	veil_layer.z_index = 4050  # over everything, the outline included
 
 
+## Shows the mist as it now is at once (no easing; a new game, or a game loaded).
+func snap() -> void:
+	for i in target.size():
+		_shown[i] = target[i]
+	_moving.clear()
+	_from.clear()
+	for i in _shown.size():
+		_put(i)
+	texture.update(_image)   # (the same texture: the layers and the ground hold it)
+
+
 func _centre(x: int, y: int) -> Vector2:
 	return rect.position + Vector2((x + 0.5) * cell, (y + 0.5) * cell)
 
@@ -168,7 +179,7 @@ func _process_timed(delta: float) -> void:
 
 # Everything that clears mist, as a string: when it changes, the mist is worked out again.
 func _source_key() -> String:
-	var s := "V" + world.village.shape_key() + ("" if Story.village_warded() else "|unwarded")
+	var s := "V" + world.village.shape_key() + ("" if Story.village_warded() else "|unwarded") + ("|none" if Story.mist_held() else "")
 	for p in world.props_named("TeleportCrystal"):
 		s += "|%.0f,%.0f" % [p.x, p.y]
 	for p in world.props_named("CleansingCrystal"):
@@ -198,6 +209,8 @@ func refresh(force := false) -> void:
 		_clear_circle(p, data.crystalRadius, Tier.NORMAL)
 	for p in world.props_named("CleansingCrystal"):
 		_clear_circle(p, data.wardRadius, Tier.NORMAL)
+	if Story.mist_held():
+		target.fill(Tier.CLEAR)   # (a new game's first day: none yet)
 	_fixed = target.duplicate()
 	_apply_personal({})
 	# Ease only what changed. What's newly cleared waits its turn: the clearing spreads out from the nearest crystal

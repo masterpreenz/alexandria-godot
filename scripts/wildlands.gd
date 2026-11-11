@@ -29,8 +29,14 @@ static func on_road(c: Vector2i) -> bool:
 	return absi(c.x - ROAD_NORTH_X) <= ROAD_HALF and c.y >= ROAD_TURN_Y and c.y <= WEST_VILLAGE.position.y + 4
 
 
+## The woods either side of the road where the story begins (cells): a few trees and rocks to gather from.
+const INTRO_WOODS := Rect2i(-18, -132, 37, 42)
+const INTRO_ROAD_HALF := 5          ## the road itself, kept clear: |x| up to this
+
+
 ## Grows the wilds into [param w]: its trees and rocks, and its undergrowth. Called as the world loads.
 static func grow(w: World, gather: Dictionary) -> void:
+	_intro_woods(w, gather)
 	var b := w.floors.bounds
 	if b.position.x > FROM_X:
 		return   # (the map hasn't the wilds in it)
@@ -74,6 +80,32 @@ static func grow(w: World, gather: Dictionary) -> void:
 					w.show_frame(sp, id, Vector2(size if pick < 0.5 else -size, size))
 					sp.position = at
 					holder.add_child(sp)
+
+
+# The trees and rocks by the road where the story begins (the same every time; off the road, clear of what's there).
+static func _intro_woods(w: World, gather: Dictionary) -> void:
+	var trees: Array = gather.spots.filter(func(s): return str(s.resource) == "Wood" and int(s.get("planted", 0)) == 0 and int(s.s) in [623, 625])
+	var rocks: Array = gather.spots.filter(func(s): return str(s.resource) == "Stone")
+	if trees.is_empty() or rocks.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SEED + 1
+	var wood := int(gather.miner.treeWood)
+	var taken: Array = w.gatherables.map(func(g): return g.position)
+	for x in range(INTRO_WOODS.position.x, INTRO_WOODS.end.x):
+		for y in range(INTRO_WOODS.position.y, INTRO_WOODS.end.y):
+			var roll := rng.randf()
+			var pick := rng.randf()
+			var at := w.floors.corner(Vector2(x + rng.randf_range(0.2, 0.8), y + rng.randf_range(0.2, 0.8)))
+			if absi(x) <= INTRO_ROAD_HALF or roll >= 0.075 or not w.floors.bounds.has_point(Vector2i(x, y)):
+				continue
+			if taken.any(func(p): return p.distance_to(at) < 1.6 * w.px):
+				continue
+			taken.append(at)
+			if roll < 0.05:
+				_spot(w, trees[int(pick * trees.size()) % trees.size()], at, wood)
+			else:
+				_spot(w, rocks[int(pick * rocks.size()) % rocks.size()], at, wood)
 
 
 # One of gather.json's trees or rocks, moved to [param at] (its collider with it).
