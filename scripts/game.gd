@@ -2122,6 +2122,12 @@ func _ready() -> void:
 						elif world.village.tier < 3:
 							world.village.tier += 1
 							print("Dock limit: the village grows (", world.village.growths(), "): limit ", bm.limit_of(dock_item), ", now '", bm.why_not(dock_item, world.floors.cell_centre(free[i])), "'")
+				"limits":
+					# What's limited, how many stand, and what the ghost says in the village's middle.
+					var bm := BuildMode.active
+					for it in bm.items:
+						if bm.limit_of(it) >= 0:
+							print("Limits: ", it.display, ": ", world.props_named(str(it.name)).size(), " of ", bm.limit_of(it), " (by level ", it.limit, "), village grown ", world.village.growths(), "; placing one: '", bm.why_not(it, world.village.centre() + Vector2(3, 2) * world.px), "'")
 				"fishing":
 					# A dock by the river: where one may go; Miko's casts; a villager set to fish.
 					var fz: Fishing = $Fishing
