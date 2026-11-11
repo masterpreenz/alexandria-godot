@@ -1994,12 +1994,24 @@ func _ready() -> void:
 				"cellardoor":
 					# The doors used three times in quick succession, then left: opened once, shut once.
 					var cl: Cellars = $Cellars
+					if Shots.arg("winter") != "":
+						clock.forced = -1
+						clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4) + 2) * 24.0 + 10.0
+						snow._last_hours = -1.0
 					var door_at := world.floors.cell_centre(world.floors.cell_at(world.village.centre()) + Vector2i(4, -5))
 					world.props.place(world.floors.cell_at(door_at), "Cellar", 1.0, 0)
 					for i in 5:
 						await get_tree().process_frame
 					print("Cellar door: sounds ", snappedf(Sfx.stream(Cellars.OPEN_SOUND).get_length(), 0.1), " s open, ", snappedf(Sfx.stream(Cellars.CLOSE_SOUND).get_length(), 0.1), " s close")
 					world.props.place(world.floors.cell_at(door_at) + Vector2i(4, 0), "Cellar", 1.0, 1)
+					# One placed freely (off the grid), as with Alt held.
+					var free_at := door_at + Vector2(-3.3, 1.7) * world.px
+					world.props.place_free(free_at, "Cellar", 1.0, 0)
+					for i in 5:
+						await get_tree().process_frame
+					cl.use_doors(free_at)
+					var fn: Node2D = world.props.last_free_node()
+					print("Cellar door: one placed freely shows ", world.sprites[int((fn.get_child(0) as Sprite2D).get_meta("sprite", 0))].name)
 					miko.place(door_at + Vector2(2.0, 2.5) * world.px)
 					for i in 5:
 						await get_tree().process_frame
@@ -2016,6 +2028,34 @@ func _ready() -> void:
 					while not cl._open_until.is_empty() and Time.get_ticks_msec() - t0 < 15000:
 						await get_tree().process_frame
 					print("Cellar door: open after each use ", states, "; shut by itself after ", snappedf((Time.get_ticks_msec() - t0) / 1000.0, 0.1), " s more")
+				"cookfetch":
+					# A cook with raw food in storage: to storage first, then the fire; what's cooked.
+					var v := world.village
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 9.5
+					for r in Spoilage.PER_DAY:
+						v.stash[r] = 0
+					v.stash["Potato"] = 40
+					v.reserve = {}
+					var cook: Villager = null
+					while Villager.all.size() < 2:
+						await get_tree().process_frame
+					for q in Villager.all:
+						q.person.hunger = 100.0
+						if q._cook_skill() > 0 and cook == null:
+							cook = q
+					print("Cook fetch: cook ", cook.person.name if cook != null else "none", ", goes ", cook._go_cook() if cook != null else false, ", '", cook.activity() if cook != null else "", "'")
+					var seen := []
+					var t0 := Time.get_ticks_msec()
+					while cook != null and Time.get_ticks_msec() - t0 < 70000:
+						await get_tree().process_frame
+						var what := "%s%s" % [Villager.State.keys()[cook.state], " (holding %d %s)" % [cook._raw_left, cook._raw_kind] if cook._raw_left > 0 else ""]
+						if seen.is_empty() or str(seen[-1]).split(" ")[0] != what.split(" ")[0]:
+							seen.append(what)
+						if cook.state == Villager.State.STAND and seen.size() > 3:
+							break
+					print("Cook fetch: went ", seen)
+					print("Cook fetch: potatoes ", v.stored("Potato"), ", baked ", v.stored("BakedPotato"))
 				"cellarsnow":
 					# Deep winter: a chest down in the cellar, no snow on it.
 					clock.forced = -1

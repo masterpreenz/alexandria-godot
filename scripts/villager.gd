@@ -639,7 +639,8 @@ func _arrive(t: float) -> void:
 		State.TO_CHAT: _start_chat(t)
 		State.TO_WORK: _start_work(t)
 		State.TO_STORE:
-			if _via_cellar: _go_down(t, "store")
+			if _via_cellar: _go_down(t, "raw" if _fetching_raw else "store")
+			elif _fetching_raw: _take_raw(t)
 			elif _fetching_food: _fetch_food(t)
 			else: _unload(t)
 		State.TO_PICKUP: _pick_up(t)
@@ -986,6 +987,8 @@ func _in_cellar(t: float) -> void:
 			Cellars.active.put(carrying)
 		Cellars.movers.erase(self)
 		_unload(t)
+	elif _cellar_for == "raw":
+		_take_raw(t)
 	else:
 		_eat(t)
 
@@ -2349,13 +2352,47 @@ func _go_cook() -> bool:
 	if not fires.lit(best) and not _can_pay(best):
 		VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light a fire for cooking")
 		return false
+	# To storage first, for what's to be cooked (the cellar, where there is one); then to the fire with it.
+	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
+	_via_cellar = false
+	if Cellars.active != null:
+		var cellar: Variant = Cellars.active.deposit_spot(position)
+		if cellar != null and VillagerRoute.find(world, position, cellar) != null:
+			spot = cellar
+			_via_cellar = true
+	if spot == null:
+		return false
 	stove = best
 	cooking_at[stove.key] = true
+	_fetching_raw = true
+	_raw_kind = ""
+	_raw_left = 0
+	state = State.TO_STORE
+	clock = 0.0
+	_set_goal(spot)
+	return true
+
+
+var _fetching_raw := false       ## off to storage for what they'll cook
+var _raw_kind := ""              ## the raw food they hold for cooking, and the dish it makes
+var _raw_dish := ""
+var _raw_left := 0
+
+# At storage: a batch of the raw food the kitchen wants cooked next, then off to the fire with it.
+func _take_raw(t: float) -> void:
+	_fetching_raw = false
+	var nxt := Kitchen.next(world.village)
+	var n := mini(8, world.village.spare(nxt[0])) if not nxt.is_empty() else 0
+	if n <= 0 or stove.is_empty() or not world.village.take_from_stash(nxt[0], n):
+		_done_cooking(t)
+		return
+	_raw_kind = nxt[0]
+	_raw_dish = nxt[1]
+	_raw_left = n
 	state = State.TO_COOK
 	clock = 0.0
-	state_until = now() + 40.0
+	state_until = t + 40.0
 	_set_goal(_beside(stove.pos, 0.7))
-	return true
 
 
 func _can_pay(f: Dictionary) -> bool:
@@ -2404,11 +2441,10 @@ func _start_cooking(t: float) -> void:
 			VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light a fire for cooking")
 			_done_cooking(t)
 			return
-	var nxt := Kitchen.next(world.village)
-	if nxt.is_empty():
+	if _raw_left <= 0:
 		_done_cooking(t)
 		return
-	dish = nxt[1]
+	dish = _raw_dish
 	state = State.COOK
 	clock = 0.0
 	dishes = 0
@@ -2440,13 +2476,14 @@ func _cooking(t: float, delta: float) -> void:
 	if clock < length:
 		return
 	clock = 0.0
-	var nxt := Kitchen.next(world.village)
-	if not nxt.is_empty() and world.village.take_from_stash(nxt[0], 1):
-		world.village.deposit(nxt[1], 1, position)
-		FloatingText.spawn(world, "+1 " + UiKit.resource_name(nxt[1]), position + Vector2(0, -1.4 * world.px), Color(0.96, 0.68, 0.32))
+	# One of what they brought, cooked.
+	if _raw_left > 0:
+		_raw_left -= 1
+		world.village.deposit(_raw_dish, 1, position)
+		FloatingText.spawn(world, "+1 " + UiKit.resource_name(_raw_dish), position + Vector2(0, -1.4 * world.px), Color(0.96, 0.68, 0.32))
 		people.practise(person, LifeSkills.Skill.COOKING)
 		dishes += 1
-	if dishes >= 8 or Kitchen.next(world.village).is_empty():
+	if _raw_left <= 0 or Kitchen.stocked(world.village, _raw_dish):
 		if dishes > 0:
 			show_mood("success", 2.5)   # the cooking done
 		_done_cooking(t)
@@ -2470,6 +2507,11 @@ func _sizzle_on() -> void:
 
 
 func _done_cooking(t: float) -> void:
+	# What they brought and didn't cook goes back.
+	_fetching_raw = false
+	if _raw_left > 0 and _raw_kind != "":
+		world.village.put_in_stash(_raw_kind, _raw_left)
+	_raw_left = 0
 	if _sizzle != null:
 		Sfx.keep_going(_sizzle, false)
 	if not stove.is_empty():
@@ -2993,7 +3035,7 @@ func activity() -> String:
 		State.HOME: return "Going home to bed"
 		State.TO_WORK: return ("Off to fell " if what == "a tree" else "Off to mine ") + what if job != null else "Off to work"
 		State.WORK: return (("Felling " if what == "a tree" else "Mining ") + what + (" (carrying %d)" % carrying if carrying > 0 else "")) if job != null else "Working"
-		State.TO_STORE: return ("Fetching food to carry down the cellar" if _fetching_food else ("Taking %d %s to the cellar" if _via_cellar else "Taking %d %s to storage") % [carrying, lower.call(carry_kind)])
+		State.TO_STORE: return "Fetching food to cook" if _fetching_raw else ("Fetching food to carry down the cellar" if _fetching_food else ("Taking %d %s to the cellar" if _via_cellar else "Taking %d %s to storage") % [carrying, lower.call(carry_kind)])
 		State.TO_EAT: return "Going to get something to eat"
 		State.TO_MEAL: return "Taking %s off to eat" % lower.call(meal)
 		State.EATING: return "Eating %s" % lower.call(meal)

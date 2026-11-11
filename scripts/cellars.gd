@@ -157,11 +157,11 @@ func use_doors(near: Vector2) -> void:
 
 # The doors at [param at] (px) drawn open or shut (their art for the way they face).
 func _show_doors(at: Vector2, open: bool) -> void:
-	for e in world.props.entries_named("Cellar"):
+	# (by its drawn node: one placed freely, off the grid, has no cell to look it up by)
+	for e in world.props.drawn_named("Cellar"):
 		if e.pos.distance_to(at) > 0.3 * world.px:
 			continue
-		var cell := world.floors.cell_at(e.pos)
-		var node := world.props.node_at(cell, int(world.props.types["Cellar"].slot))
+		var node: Node2D = e.node
 		if node == null or not is_instance_valid(node) or node.get_child_count() == 0:
 			return
 		var which := ("CellarOpen" if open else "Cellar") + ("SE" if int(e.e.turn) % 2 == 1 else "SW")
