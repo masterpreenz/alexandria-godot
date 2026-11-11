@@ -46,6 +46,9 @@ var pose_mirror := false
 var _knock := Vector2.ZERO
 var _knock_left := 0.0
 var _knock_time := 1.0
+## Her name, as everyone says it (Miko, shrine maiden, is what she is; the code still calls her that).
+const NAME := "Sera"
+
 const JUMP_HEIGHT := 0.7       ## units (Unity's CharacterJump)
 const JUMP_TIME := 0.5          ## seconds
 # Off her feet, jumping (Space) or thrown (Unity's CharacterJump.Toss): how high (units), how long, and how far through

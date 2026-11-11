@@ -267,7 +267,7 @@ func _build_equipment() -> Control:
 	box.add_theme_constant_override("separation", int(_k(6)))
 	well.add_child(box)
 	var head := HBoxContainer.new()
-	var nm := HudStyle.label("Miko", 18, "bold")
+	var nm := HudStyle.label(Miko.NAME, 18, "bold")
 	head.add_child(nm)
 	head.add_child(_gap())
 	head.add_child(_label("level", 14, "pixel", HudStyle.color("accentLight")))

@@ -71,9 +71,9 @@ func _draw() -> void:
 	_text(str(stats.level), badge.position + Vector2(0, badge.size.y * 0.75), 12, "pixel", HudStyle.color("ink"), badge.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 	var col_w := CARD.x - COL_X - 8.0
 	# Name, her level beside it, and coins.
-	_text("Miko", Vector2(COL_X, 20) * k, 14, "bold", HudStyle.color("text"))
+	_text(Miko.NAME, Vector2(COL_X, 20) * k, 14, "bold", HudStyle.color("text"))
 	var nf := HudStyle.font("bold")
-	var nw := nf.get_string_size("Miko", HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * k)).x if nf else 36.0 * k
+	var nw := nf.get_string_size(Miko.NAME, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * k)).x if nf else 36.0 * k
 	_text("Lv %d" % stats.level, Vector2(COL_X * k + nw + 6 * k, 20 * k), 12, "pixel", HudStyle.color("accentLight"))
 	var coins := miko.bag.count("Gold") + world.village.stored("Gold")
 	var coin_text := str(coins)

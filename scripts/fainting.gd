@@ -128,7 +128,7 @@ func faint() -> void:
 	miko.velocity = Vector2.ZERO
 	LostBag.drop(world, miko.bag, looted, miko.position)
 	looted = {}
-	dark_text.text = "Miko fainted…"
+	dark_text.text = "%s fainted…" % Miko.NAME
 
 
 func _wake_up() -> void:

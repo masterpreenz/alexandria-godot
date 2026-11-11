@@ -174,7 +174,7 @@ func close() -> void:
 
 # What they open with: by how they are (hungry, worn out, no bed), else a plain hello.
 func _greeting(v: Villager) -> String:
-	var vals := {"miko": "Miko", "name": v.person.name}
+	var vals := {"miko": Miko.NAME, "name": v.person.name}
 	if v._hungry():
 		return Loc.pick("talk.hello.hungry", vals)
 	if v.chill() > 0:
@@ -237,7 +237,7 @@ func _add(text: String, act: Callable, gold := false) -> void:
 func _ask_rumor() -> void:
 	var rumor: Dictionary = Rumors.active.offer_from(who)
 	if rumor.is_empty():
-		_show(Loc.pick("talk.reply.norumor", {"miko": "Miko"}))
+		_show(Loc.pick("talk.reply.norumor", {"miko": Miko.NAME}))
 		return
 	who.show_mood("idea", 3.0)
 	_show(Rumors.active.hear(str(rumor.id), who))
@@ -265,7 +265,7 @@ func _ask_topic(topic: Dictionary) -> void:
 	var replies := []
 	for r in topic.get("replies", []):
 		replies.append([str(r.text), _answer_topic.bind(topic, r)])
-	_show_replies(str(topic.says).format({"miko": "Miko"}), replies)
+	_show_replies(str(topic.says).format({"miko": Miko.NAME}), replies)
 
 
 func _answer_topic(topic: Dictionary, reply: Dictionary) -> void:
@@ -312,7 +312,7 @@ func _closer(by: float) -> void:
 func _ask_how() -> void:
 	var doing := who.activity().to_lower()
 	who.show_mood("cheerful", 3.0)
-	_show(Loc.pick("talk.reply.how", {"doing": doing, "doing_cap": who.activity(), "miko": "Miko"}))
+	_show(Loc.pick("talk.reply.how", {"doing": doing, "doing_cap": who.activity(), "miko": Miko.NAME}))
 
 
 # The best food in her bag to hand over (the villagers' own order of liking), or "".
@@ -325,7 +325,7 @@ func _food_to_give() -> String:
 
 func _give_food(food: String) -> void:
 	if float(who.person.get("hunger", 100.0)) >= 95.0:
-		_show(Loc.pick("talk.reply.full", {"miko": "Miko"}))
+		_show(Loc.pick("talk.reply.full", {"miko": Miko.NAME}))
 		return
 	var fills := 20.0
 	for f in Villager.FOODS:
@@ -336,7 +336,7 @@ func _give_food(food: String) -> void:
 	who.person.hunger = minf(100.0, float(who.person.get("hunger", 0.0)) + fills)
 	FloatingText.spawn(world, "-1 " + UiKit.resource_name(food), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
 	who.show_mood("affection", 4.0)
-	_show(Loc.pick("talk.reply.food", {"food": UiKit.resource_name(food), "miko": "Miko"}))
+	_show(Loc.pick("talk.reply.food", {"food": UiKit.resource_name(food), "miko": Miko.NAME}))
 
 
 # What they need most: a bed, food in storage, tools for their work; else nothing.
@@ -352,12 +352,12 @@ func _ask_need() -> void:
 	elif world.clock != null and world.clock.season() == GameClock.Season.WINTER and not bool(p.get("scarf", false)):
 		key = "talk.need.scarf"
 	who.show_mood("relaxed" if key == "talk.need.nothing" else "worried", 4.0)
-	_show(Loc.pick(key, {"miko": "Miko"}))
+	_show(Loc.pick(key, {"miko": Miko.NAME}))
 
 
 func _say_bye() -> void:
 	if who != null and is_instance_valid(who):
-		who.bark("talk.reply.bye", {"miko": "Miko"}, true)
+		who.bark("talk.reply.bye", {"miko": Miko.NAME}, true)
 	close()
 
 
