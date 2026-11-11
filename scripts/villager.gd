@@ -131,6 +131,7 @@ var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
 var mend: Variant = null           ## the barricade (wall key) they're repairing, or null
 var flee_from: Damageable = null   ## the monster they're running from
+var _hit_at := -99.0                ## when they were last hit
 var _threat_told := 0.0            ## when being in danger outside the village may next be told
 ## For their dust (DustTrail): moving at all, and running (fleeing).
 var moving: bool:
@@ -184,6 +185,7 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 	hit.setup(world, Damageable.Team.ALLY, float(who.get("maxHp", 40.0)), 0.18 * world.px, 0.9 * world.px)
 	hit.hp = clampf(float(who.get("hp", hit.max_hp)), 1.0, hit.max_hp)
 	hit.damaged.connect(func(_a):
+		_hit_at = now()
 		bark("bark.hurt")
 		person.hp = hit.hp
 		VillageLog.event("hurt:" + name, "%s is under attack!" % name, VillageLog.Kind.DANGER))
@@ -341,12 +343,12 @@ func _physics_process_timed(delta: float) -> void:
 	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
 		next_look = t + 0.5
 		var danger := _danger() if _low() else null
-		# Out of the village with a monster close: the village hears of it, and they call out.
+		# Out of the village and in a fight: the village hears of it, and they call out.
 		if not world.village.contains(position, 1.0) and world.village.founded() and t >= _threat_told:
-			var near := danger if danger != null else _danger(4.0)
-			if near != null:
+			# (only once it's a fight: they've just been hit, or they're fighting or running)
+			if t - _hit_at < 6.0 or state == State.FIGHT or state == State.FLEE:
 				_threat_told = t + 20.0
-				VillageLog.problem("threat:" + name, "%s is in danger outside the village: a monster is after them" % person.name, VillageLog.Kind.DANGER)
+				VillageLog.problem("threat:" + name, "%s is in danger outside the village: under attack" % person.name, VillageLog.Kind.DANGER)
 				bark("bark.threat", {}, true)
 				show_mood("alarm", 4.0)
 		if danger != null:
