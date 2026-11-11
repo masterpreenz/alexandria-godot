@@ -150,10 +150,14 @@ func _build() -> void:
 	var right := VBoxContainer.new()
 	sides.add_child(right)
 	_pages["Jobs"] = sides
+	# (both pages the same size, so the window doesn't change as the tabs are switched)
+	var page_size := Vector2(_k(COL + 14.0 + RIGHT), _k(H + 24.0))
+	sides.custom_minimum_size = page_size
 	# ---- The other tab: what to keep in storage.
 	var rules := VBoxContainer.new()
 	rules.add_child(HudStyle.label("KEEP IN STORAGE  ·  the villagers stop once there's this much", 11, "bold", HudStyle.color("faint")))
-	var ks := _scroller(H, COL * 2.0 + 14.0)
+	rules.custom_minimum_size = page_size
+	var ks := _scroller(H, COL + 14.0 + RIGHT)
 	rules.add_child(ks[0])
 	var stock: VBoxContainer = ks[1]
 	root.add_child(rules)

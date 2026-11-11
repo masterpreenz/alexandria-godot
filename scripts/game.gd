@@ -2303,6 +2303,22 @@ func _ready() -> void:
 							(b as CheckBox).button_pressed = false
 					await get_tree().process_frame
 					print("Job ticks: all, then mining off: ", Villager.jobs_of(p), " '", JobsWindow.jobs_text(p), "'; mines ", vl._does(Villager.Job.MINING), ", fells ", vl._does(Villager.Job.LUMBERING))
+					var sizes := []
+					for t in ["Jobs", "Storage Rules", "Jobs"]:
+						jw.edit_jobs(null)
+						jw.show_tab(t)
+						for i in 4:
+							await get_tree().process_frame
+						sizes.append(jw.size)
+					jw.edit_jobs(p)
+					for i in 4:
+						await get_tree().process_frame
+					sizes.append(jw.size)
+					print("Job ticks: the window's size on Jobs, Storage Rules, Jobs, a villager's work: ", sizes)
+					jw.show_tab("Storage Rules")
+					for i in 4:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_rules.png")
 					print("Job ticks: saved with jobs ", JSON.parse_string(people.to_json()).people[1].get("jobs"))
 				"veins":
 					# The corruption in the ground: open misted ground, then a crystal set by it (its edge burning back).
