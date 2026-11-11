@@ -1300,7 +1300,46 @@ document.addEventListener('keydown', ev => { if ((ev.ctrlKey || ev.metaKey) && !
 document.addEventListener('dragover', ev => ev.preventDefault());
 document.addEventListener('drop', ev => { ev.preventDefault(); if (ev.dataTransfer && ev.dataTransfer.files.length) openFiles([...ev.dataTransfer.files]); });
 window.addEventListener('beforeunload', ev => { if (anyDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
-window.LoreEditor = {A, Core, loadTexts, readDir, saveAll, render, serialize, goto};
+/* ---- served by serve.py: the game's data folder, loaded by itself ---- */
+// A stand-in for a folder handle that reads and writes through the launcher, so readDir, Reload and saving work as
+// with a folder picked by hand.
+const served = location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost');
+const serverDir = {
+ name: 'data',
+ async getFileHandle(name, opts) {
+  const url = '/data/' + name;
+  const probe = await fetch(url, {cache: 'no-store'});
+  if (!probe.ok && !(opts && opts.create)) { const e = new Error(name + ' not found'); e.name = 'NotFoundError'; throw e; }
+  return {
+   async getFile() { const res = await fetch(url, {cache: 'no-store'}); if (!res.ok) throw new Error(name + ': ' + res.status); const t = await res.text(); return {text: async () => t}; },
+   async createWritable() {
+    let out = '';
+    return {async write(t) { out += t; }, async close() {
+     const res = await fetch(url, {method: 'PUT', body: out, headers: {'Content-Type': 'application/json'}});
+     if (!res.ok) throw new Error('the launcher refused ' + name + ' (' + (await res.text()) + ')');
+    }};
+   },
+  };
+ },
+};
+async function autoLoad() {
+ if (!served) {
+  say('Not loaded: open this through the launcher, tools/lore_editor/lore_editor.bat (or python tools/lore_editor/serve.py), and the game’s data loads by itself. Or open the data folder by hand.', 'err');
+  return;
+ }
+ try {
+  const res = await fetch('/data/rumors.json', {cache: 'no-store'});
+  if (!res.ok) {
+   const where = await fetch('/where').then(r => r.json()).catch(() => ({}));
+   say('Could not find the game’s data: ' + (where.data ? where.data + '/rumors.json' : 'data/rumors.json') + ' is missing.', 'err');
+   return;
+  }
+  await readDir(serverDir);
+ } catch (e) { say('Could not load the game’s data (' + e.message + '). Is the launcher still running?', 'err'); }
+}
+if (served) { $('#bDir').hidden = true; $('#bFiles').hidden = true; }
+autoLoad();
+window.LoreEditor = {A, Core, loadTexts, readDir, saveAll, render, serialize, goto, serverDir};
 datalists(); render();
 })();
 </script>

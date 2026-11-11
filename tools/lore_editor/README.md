@@ -6,12 +6,14 @@ including what's lost when a rumor is left too long.
 
 ## Opening it
 
-Open `index.html` in Chrome or Edge (double-click it; no server, no build, no network).
+Double-click `lore_editor.bat` (or run `python tools/lore_editor/serve.py`). It opens the editor in the browser with
+the game's `data` folder already loaded: `rumors.json`, `uniques.json`, `lore.json` and `traits.json`. **Save**
+(Ctrl+S) writes the first three straight back; `traits.json` is only read. If the data can't be found, the page says
+where it looked. The launcher serves only this computer (127.0.0.1, port 8765); close its window to stop it.
 
-- **Open data folder**: choose the project's `data` folder. It reads `rumors.json`, `uniques.json`, `lore.json` and
-  `traits.json`, and **Save** (Ctrl+S) writes the first three back in place. `traits.json` is only read.
-- **Open files…** (or drop the files on the page): for a browser without folder access (Firefox, Safari). Saving
-  then downloads the changed files, to be put back in `data` by hand.
+Opened on its own (double-clicking `index.html`), the page can't reach the folder by itself: it says so, and the old
+way still works: **Open data folder** (Chrome, Edge), or **Open files…** / dropping the files on the page, where
+saving downloads the changed files instead.
 
 The top bar says which files have unsaved changes.
 
