@@ -24,7 +24,7 @@ var _last_at := Vector2.INF
 var _card: PanelContainer
 var _marks: StoryMarks               ## arrows to (and outlines on) the monsters it sends at her
 var _title: Label
-var _hint: Label
+var _hint: RichTextLabel
 var _doomed_left: Array = []        ## the attack's doomed (names), still to fall
 var _next_doom := 0.0
 var _fires: Array = []              ## the burning houses' smoke and glow
@@ -68,9 +68,15 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 	col.add_theme_constant_override("separation", int(3 * HudStyle.SCALE))
 	_card.add_child(col)
 	_title = HudStyle.label("", 15, "bold", HudStyle.color("accentLight"))
-	_hint = HudStyle.label("", 12, "body", HudStyle.color("text"))
+	_hint = RichTextLabel.new()
+	_hint.bbcode_enabled = true
+	_hint.fit_content = true
+	_hint.scroll_active = false
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.custom_minimum_size.x = 340 * HudStyle.SCALE
+	_hint.add_theme_font_override("normal_font", HudStyle.font("body"))
+	_hint.add_theme_font_size_override("normal_font_size", int(12 * HudStyle.SCALE))
+	_hint.add_theme_color_override("default_color", HudStyle.color("text"))
 	for l in [_title, _hint]:
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(l)
@@ -127,6 +133,83 @@ func begin_new_game() -> void:
 	_begin(0, false)
 
 
+# ---- The card: the beat's objective, and its hint a part at a time, each lit up once she's done it ----
+
+var _did := {}                  ## the hint's parts done this beat: key -> true
+var _swings_from := 0
+var _hunger_was := 0.0
+
+
+func _needs() -> Needs:
+	return miko.get_node_or_null("Needs") as Needs
+
+
+# Just over her head (a few px clear of it), kept on the screen.
+func _place_card() -> void:
+	var xf := get_viewport().get_canvas_transform()
+	var box := World.sprite_rect(miko.art) if miko.art != null else Rect2(miko.position - Vector2(30, 120), Vector2(60, 120))
+	var head: Vector2 = xf * Vector2(miko.drawn_position().x, box.position.y)
+	var view := get_viewport().get_visible_rect()
+	var at := Vector2(head.x - _card.size.x / 2.0, head.y - _card.size.y - 6.0 * HudStyle.SCALE)
+	_card.position = Vector2(clampf(at.x, 8.0, view.size.x - _card.size.x - 8.0), clampf(at.y, 8.0, view.size.y - _card.size.y - 8.0))
+
+
+# The hint as shown: its parts (intro.json's "parts": [text, what does it]) joined by dots, those done in green with a
+# tick; or just its text.
+func _show_hint() -> void:
+	if beat < 0 or beat >= _beats().size():
+		return
+	var b: Dictionary = _beats()[beat]
+	var parts: Array = b.get("parts", [])
+	if parts.is_empty():
+		_hint.text = str(b.get("hint", ""))
+		return
+	var bits := []
+	for p in parts:
+		var text := str(p[0])
+		var key := str(p[1]) if p.size() > 1 else ""
+		if key != "" and _did.has(key):
+			bits.append("[color=#%s]✓ %s[/color]" % [HudStyle.color("green").to_html(false), text])
+		else:
+			bits.append(text)
+	var lead := str(b.get("hint", ""))
+	_hint.text = (lead + "  " if lead != "" else "") + "  ·  ".join(bits)
+
+
+# Ticks off what she's done of the hint's parts (walk, run, jump, strike, eat, sleep; have:Thing:n in her bag,
+# built:Prop since the beat began, stored:Thing:n more in storage).
+func _tick_parts() -> void:
+	var parts: Array = _beats()[beat].get("parts", [])
+	if parts.is_empty():
+		return
+	var nd := _needs()
+	var changed := false
+	for p in parts:
+		var key := str(p[1]) if p.size() > 1 else ""
+		if key == "" or _did.has(key):
+			continue
+		var bits := key.split(":")
+		var done := false
+		match bits[0]:
+			"walk": done = _walked >= 1.5
+			"run": done = miko.running and miko.velocity.length() > 1.0
+			"jump": done = miko.airborne()
+			"strike": done = Melee.swings > _swings_from
+			"eat": done = nd != null and nd.hunger > _hunger_was + 1.0
+			"sleep": done = nd != null and nd.sleeping()
+			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
+			"built": done = world.props_named(bits[1]).size() > int(_from.props.get(bits[1], 0))
+			"stored": done = world.village.stored(bits[1]) - int(_from.stash.get(bits[1], 0)) >= int(bits[2]) or world.village.stored(bits[1]) >= int(bits[2])
+		if done:
+			_did[key] = true
+			changed = true
+	if nd != null:
+		_hunger_was = minf(_hunger_was, nd.hunger)
+	if changed:
+		_show_hint()
+		_card.reset_size()
+
+
 func _beats() -> Array:
 	return d.get("beats", [])
 
@@ -148,7 +231,10 @@ func _begin(i: int, loading: bool) -> void:
 		for a in b.get("start", []):
 			_act(a)
 	_title.text = str(b.objective)
-	_hint.text = str(b.get("hint", ""))
+	_did = {}
+	_swings_from = Melee.swings
+	_hunger_was = _needs().hunger if _needs() != null else 0.0
+	_show_hint()
 	_card.visible = true
 
 
@@ -163,7 +249,8 @@ func _process(delta: float) -> void:
 	if beat < 0:
 		return
 	_card.reset_size()
-	_card.position = Vector2((get_viewport().get_visible_rect().size.x - _card.size.x) / 2.0, 14 * HudStyle.SCALE)
+	_place_card()
+	_tick_parts()
 	if _last_at != Vector2.INF and miko.position.distance_to(_last_at) < 2.0 * world.px:
 		_walked += miko.position.distance_to(_last_at) / world.px
 	_last_at = miko.position

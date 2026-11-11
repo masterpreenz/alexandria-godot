@@ -22,6 +22,7 @@ var _was_locked := false
 var _toward := Vector2.RIGHT
 var _hit_sound: AudioStream
 var _next_swing := 0.0
+static var swings := 0        ## every swing she's made (the story's hints tick "strike" off by it)
 var _held := false            ## the button's still down from a swing she started
 var _swing_sound: AudioStream
 
@@ -59,6 +60,7 @@ func _swing(screen: Vector2) -> void:
 	var speed := miko.stats.stat("attackSpeed") if miko.stats != null else 0.0
 	_next_swing = Time.get_ticks_msec() / 1000.0 + SWING_EVERY / (1.0 + maxf(0.0, speed) / 100.0)
 	_swinging = true
+	swings += 1
 	_held = true
 	_struck = false
 	_slashed = false
