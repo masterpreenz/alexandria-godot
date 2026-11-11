@@ -5,7 +5,7 @@ extends Control
 ## the maps), gone once she's inside the ring: from there it's hers to find. Shows the rumor tracked last.
 
 const ARROW_OUT := 1.5            ## units from Miko the arrow floats
-const CARD_WIDTH := 210.0
+const CARD_WIDTH := 270.0
 
 var rumors: Rumors
 var miko: Miko
@@ -31,11 +31,11 @@ func setup(r: Rumors, w: World, who: Miko, map: Control) -> void:
 	add_child(_card)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", roundi(2 * HudStyle.SCALE))
+	box.add_theme_constant_override("separation", roundi(4 * HudStyle.SCALE))
 	_card.add_child(box)
-	_title = HudStyle.label("", 11, "bold", HudStyle.color("accentLight"))
-	_note = HudStyle.label("", 10, "body", HudStyle.color("text"))
-	_way = HudStyle.label("", 9, "body", HudStyle.color("muted"))
+	_title = HudStyle.label("", 15, "bold", HudStyle.color("accentLight"))
+	_note = HudStyle.label("", 14, "body", HudStyle.color("text"))
+	_way = HudStyle.label("", 12, "body", HudStyle.color("muted"))
 	for l in [_title, _note, _way]:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = CARD_WIDTH * HudStyle.SCALE

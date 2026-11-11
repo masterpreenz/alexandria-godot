@@ -2314,6 +2314,7 @@ func _ready() -> void:
 					chat.open(teller)
 					await get_tree().process_frame
 					print("Rumors: talk's choices ", chat._choices.get_children().filter(func(c): return not c.is_queued_for_deletion()).map(func(c): return c.text))
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_ask.png")
 					chat._ask_rumor()
 					await get_tree().process_frame
 					print("Rumors: told '", chat._line.text, "'")

@@ -8,6 +8,8 @@ extends PanelContainer
 
 const RANGE := 1.1               ## units from her to talk to someone
 
+const GOLD := Color(1.0, 0.82, 0.3)   ## the option that leads to a rumor
+
 var world: World
 var miko: Miko
 var prompt: Label
@@ -187,14 +189,29 @@ func _show(line: String) -> void:
 	var food := _food_to_give()
 	if food != "":
 		_add(Loc.t("talk.choice.food", {"food": UiKit.resource_name(food).to_lower()}), _give_food.bind(food))
+	# (with a rumor to tell, the way to ask stands out: a gold border)
 	if Rumors.active != null:
-		_add(Loc.t("talk.choice.rumor"), _ask_rumor)
+		_add(Loc.t("talk.choice.rumor"), _ask_rumor, Rumors.active.has_offer(who))
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
 
-func _add(text: String, act: Callable) -> void:
-	var b := HudStyle.button("%d   %s" % [_acts.size() + 1, text], 12, "pill")
+func _add(text: String, act: Callable, gold := false) -> void:
+	var tint: Variant = null
+	if gold:
+		tint = GOLD
+	var b := HudStyle.button("%d   %s" % [_acts.size() + 1, text], 12, "pill", tint)
+	if gold:
+		var rim := Panel.new()
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(GOLD, 0.1)
+		box.border_color = GOLD
+		box.set_border_width_all(maxi(2, roundi(2 * HudStyle.SCALE)))
+		box.set_corner_radius_all(roundi(14 * HudStyle.SCALE))
+		rim.add_theme_stylebox_override("panel", box)
+		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rim.set_anchors_preset(Control.PRESET_FULL_RECT)
+		b.add_child(rim)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size.y = 28 * HudStyle.SCALE
 	b.pressed.connect(act)
