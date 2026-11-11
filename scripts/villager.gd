@@ -1331,7 +1331,7 @@ func _status() -> void:
 		State.TO_STORE: e = "transporting" if carrying > 0 else ""
 		State.TO_PICKUP: e = "gathering"
 		State.COOK: e = "cooking"
-		State.TO_FARM, State.FARM: e = {"pests": "pests", "water": "watering", "plant": "planting"}.get(farm_task, "")
+		State.TO_FARM, State.FARM: e = {"pests": "pests", "water": "watering", "plant": "planting", "harvest": "harvesting"}.get(farm_task, "")
 		State.BUILD: e = "building"
 		State.TO_REPAIR, State.REPAIR: e = "repairing"
 		State.FLEE: e = "crying"
