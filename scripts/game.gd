@@ -2088,9 +2088,24 @@ func _ready() -> void:
 								on_solid += 1
 								break
 					print("Routes: ", solid.size(), " solid squares; of 200 ways ", ways, " found, ", none, " none, ", on_solid, " stepping on something solid")
+				"fishdishes":
+					# The fish dishes: made at the cooking workbench, eaten, how they keep.
+					var recipes: Array = world._load_json("res://data/build.json").workbenches.CookingWorkbench.recipes
+					var nd: Needs = miko.get_node("Needs")
+					for dish in ["SmokedFish", "FishSoup", "FishStew"]:
+						var made: Array = recipes.filter(func(r): return r.resource == dish)
+						miko.bag.counts[dish] = 2
+						nd.hunger = 10.0
+						var ate := nd.eat(dish)
+						print("Fish dishes: ", UiKit.resource_name(dish), ": recipe ", made[0].cost if not made.is_empty() else "NONE", " -> ", made[0].amount if not made.is_empty() else 0,
+							"; eaten ", ate, ", hunger 10 -> ", nd.hunger, ", buff ", Needs.FOOD_BUFFS.get(dish, {}), ", spoils ", Spoilage.PER_DAY.get(dish, "never"), " a day, takes cooking ", 3 if dish in WorkbenchWindow.FINE_DISHES else 1,
+							", villagers eat it for ", Villager.FOODS.filter(func(f): return f[0] == dish))
 				"fishing":
 					# A dock by the river: where one may go; Miko's casts; a villager set to fish.
 					var fz: Fishing = $Fishing
+					# (by day throughout: the save may be at bedtime)
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 8.0
 					var bm := BuildMode.active
 					var v := world.village
 					var dock_item := bm.item_for("Prop", "FishingDock")
@@ -2149,8 +2164,6 @@ func _ready() -> void:
 					for i in 240:
 						await get_tree().process_frame
 					print("Fishing: a cleansing crystal by it: on cleared ground ", Villager.safe_ground(world, dock_at), ", docks the villagers work ", fz.village_docks().size())
-					clock.forced = GameClock.Weather.CLEAR
-					clock.hours = float(clock.day() - 1) * 24.0 + 9.0
 					v.put_in_stash("Bait", 12)
 					v.stash["Fish"] = 0
 					var vl: Villager = Villager.all[0]

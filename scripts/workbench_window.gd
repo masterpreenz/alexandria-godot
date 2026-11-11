@@ -6,6 +6,7 @@ extends PanelContainer
 ## villagers go straight into the village's storage; everything else into her bag, or storage when the bag is full.
 ## Some of the cooking bench's dishes need a skilled cook.
 
+const FINE_DISHES := ["CarrotStew", "CabbageSoup", "FishSoup", "FishStew"]   ## these take cooking 3
 const COLUMNS := 4
 const CELL := 64.0
 
@@ -188,7 +189,7 @@ func _skill() -> int:
 
 ## The skill level a recipe takes here: the cooking bench's stews and soups take a skilled cook.
 func _need(r: Dictionary) -> int:
-	return 3 if str(bench.get("skill", "")) == "Cooking" and bool(r.makesResource) and r.resource in ["CarrotStew", "CabbageSoup"] else 1
+	return 3 if str(bench.get("skill", "")) == "Cooking" and bool(r.makesResource) and r.resource in FINE_DISHES else 1
 
 
 static func recipe_name(r: Dictionary) -> String:

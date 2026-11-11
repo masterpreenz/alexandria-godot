@@ -46,8 +46,8 @@ static var unreachable := {}      ## blueprint piece -> until when it's left (wa
 static var mending := {}          ## barricade (wall key) -> true: someone's on the way to repair it, or at it
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
-const FOODS := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
-	["GrilledFish", 50.0], ["Candy", 35.0], ["Food", 20.0], ["Fish", 15.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
+const FOODS := [["FishStew", 65.0], ["FishSoup", 60.0], ["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
+	["GrilledFish", 50.0], ["Candy", 35.0], ["Food", 20.0], ["SmokedFish", 40.0], ["Fish", 15.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
 const EMOTE_FPS := 5.0
 const BOB_HEIGHT := 0.045
 const BOB_SPEED := 4.0
@@ -3054,7 +3054,7 @@ func _go_craft() -> bool:
 				continue
 			for r in bench.recipes:
 				var need := 1
-				if cooks and bool(r.makesResource) and r.resource in ["CarrotStew", "CabbageSoup"]:
+				if cooks and bool(r.makesResource) and r.resource in WorkbenchWindow.FINE_DISHES:
 					need = 3
 				if sk >= 0 and need > Villagers.skill(person, sk):
 					continue

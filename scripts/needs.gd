@@ -13,11 +13,13 @@ extends Node
 ## - Some dishes give a buff for five minutes (FoodBuffs).
 
 const MAX := 100.0
-const EAT_ORDER := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", "mealFills"], ["BakedPotato", "bakedPotatoFills"],
-	["GrilledFish", 50.0], ["Bread", 40.0], ["Candy", "candyFills"], ["Food", "meatFills"], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", "potatoFills"]]
+const EAT_ORDER := [["FishStew", 65.0], ["FishSoup", 60.0], ["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", "mealFills"], ["BakedPotato", "bakedPotatoFills"],
+	["GrilledFish", 50.0], ["Bread", 40.0], ["SmokedFish", 40.0], ["Candy", "candyFills"], ["Food", "meatFills"], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", "potatoFills"]]
 const FOOD_BUFFS := {
 	"CarrotStew": {"hpRegen": 1.5, "gatherSpeed": 15.0},
 	"CabbageSoup": {"defense": 3.0, "manaRegen": 1.0},
+	"FishSoup": {"manaRegen": 1.5, "hpRegen": 1.0},
+	"FishStew": {"attack": 3.0, "defense": 2.0},
 }
 const FOOD_LASTS := 300.0
 

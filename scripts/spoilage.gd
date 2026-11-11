@@ -7,7 +7,7 @@ extends Node
 
 const PER_DAY := {
 	"Food": 0.35, "Jelly": 0.2, "Potato": 0.12, "Meal": 0.15, "BakedPotato": 0.08, "Candy": 0.03, "Carrot": 0.1,
-	"Cabbage": 0.12, "Wheat": 0.01, "Flour": 0.02, "Bread": 0.05, "CarrotStew": 0.2, "CabbageSoup": 0.45, "Fish": 0.4, "GrilledFish": 0.12,
+	"Cabbage": 0.12, "Wheat": 0.01, "Flour": 0.02, "Bread": 0.05, "CarrotStew": 0.2, "CabbageSoup": 0.45, "Fish": 0.4, "GrilledFish": 0.12, "SmokedFish": 0.015, "FishSoup": 0.4, "FishStew": 0.2,
 }
 
 var world: World
