@@ -308,6 +308,10 @@ func _show(where: Vector2, e: Dictionary, bias: float) -> Node2D:
 	if t.solid:
 		# A rounded footprint at its base: much flatter and characters slide round it instead of stopping.
 		var body := StaticBody2D.new()
+		# (furniture, a bed or a fireplace, on a layer of its own: the villagers pass through it; Sera and the
+		# monsters don't)
+		if str(t.get("category", "")) == "Furniture":
+			body.collision_layer = FURNITURE_LAYER
 		var shape := CollisionShape2D.new()
 		var cap := CapsuleShape2D.new()
 		var r: float = t.footprint * scale
@@ -323,6 +327,10 @@ func _show(where: Vector2, e: Dictionary, bias: float) -> Node2D:
 	if String(world.sprites[id].name).contains("tree") if id >= 0 else false:
 		world.add_occluder(sprite)
 	return holder
+
+
+## The physics layer furniture stands on (not the fixed world's: villagers don't bump into it).
+const FURNITURE_LAYER := 16
 
 
 ## What [method remove_one] would take off [param cell]: the latest free prop there, else the tallest placed one; "".

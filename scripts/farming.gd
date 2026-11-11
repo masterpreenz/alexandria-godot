@@ -390,18 +390,26 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
+	var __s := Time.get_ticks_usec()
 	_keep_seed()
+	Perf.add(&"farming: seed kept back", __s)
 	var keys := _keys
 	_keys = {}
+	var __t := Time.get_ticks_usec()
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version
 		_look()
+	Perf.add(&"farming: finding plots", __t)
+	__t = Time.get_ticks_usec()
 	var now := _hours()
 	if _tended_at > -INF:
 		_tend(clampf(now - _tended_at, 0.0, 240.0))
 	_tended_at = now
+	Perf.add(&"farming: growing", __t)
+	__t = Time.get_ticks_usec()
 	for p in plots:
 		_show(p)
+	Perf.add(&"farming: drawing plots", __t)
 	var fires: Fires = miko.get_node_or_null("Fires")
 	var p := {} if miko.locked or (fires != null and fires.cooking) else nearest(miko.position, RANGE * world.px)
 	if p.is_empty():
@@ -476,13 +484,18 @@ func _keep_seed() -> void:
 		return
 	_next_reserve = now + 2.0
 	var want := {}
+	# (a field at a time: its crop worked out once, a seed kept for each of its plots)
+	var done := {}
 	for p in plots:
-		if not world.village.contains(p.pos, 3.0):
+		if done.has(p.pos) or not world.village.contains(p.pos, 3.0):
 			continue
+		var field := field_of(p)
+		for q in field:
+			done[q.pos] = true
 		var c: String = _field_crop(p, func(_seed: String) -> bool: return true)[1]
 		if CROPS.has(c):
 			var seed_name: String = CROPS[c].seed
-			want[seed_name] = int(want.get(seed_name, 0)) + 1
+			want[seed_name] = int(want.get(seed_name, 0)) + field.filter(func(q): return world.village.contains(q.pos, 3.0)).size()
 	world.village.reserve = want
 
 
@@ -573,11 +586,13 @@ func _field_crop(p: Dictionary, has_seed: Callable) -> Array:
 ## The plots joined to [param p] (its field, [param p] among them): plots next to one another, and on from those.
 func field_of(p: Dictionary) -> Array:
 	var field: Array = [p]
+	var in_it := {p.pos: true}
 	var i := 0
 	while i < field.size():
 		for q in plots:
-			if not field.has(q) and q.pos.distance_to(field[i].pos) < 0.8 * world.px:
+			if not in_it.has(q.pos) and q.pos.distance_to(field[i].pos) < 0.8 * world.px:
 				field.append(q)
+				in_it[q.pos] = true
 		i += 1
 	return field
 

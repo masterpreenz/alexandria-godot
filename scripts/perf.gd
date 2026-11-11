@@ -10,7 +10,7 @@ extends CanvasLayer
 
 const SPIKE_MS := 25.0          ## a frame this slow counts as a spike...
 const SPIKE_FACTOR := 1.8       ## ...or this many times the recent average
-const SHOWN := 14
+const SHOWN := 24
 
 static var active: Perf
 static var on := true           ## timing (cheap); the overlay is separate
@@ -85,9 +85,9 @@ func _ready() -> void:
 	_label.fit_content = true
 	_label.scroll_active = false
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_label.custom_minimum_size.x = 440
+	_label.custom_minimum_size.x = 400
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label.add_theme_font_size_override("normal_font_size", 12)
+	_label.add_theme_font_size_override("normal_font_size", 11)
 	_label.add_theme_font_override("normal_font", ThemeDB.fallback_font)
 	_panel.add_child(_label)
 	_panel.visible = Shots.arg("perf") == "show"
@@ -159,6 +159,8 @@ func _process(delta: float) -> void:
 	_added_now = {}
 	_frame.clear()
 	var t := Time.get_ticks_msec() / 1000.0
+	if _panel.visible:
+		_place()
 	if t - _shown_at >= 0.5:
 		if _panel.visible:
 			_show(t - _shown_at)
@@ -275,10 +277,28 @@ func _sorted(table: Dictionary, per: float) -> Array:
 	return rows
 
 
+# The debug list (F3): right under the FPS meter, its right edge with the map's.
+func _place() -> void:
+	if Minimap.active == null or not is_instance_valid(Minimap.active):
+		return
+	var at := Minimap.active.below_meter()
+	_panel.reset_size()
+	_panel.position = Vector2(at.x - _panel.size.x, at.y)
+
+
 func _show(_seconds: float) -> void:
 	var frames := maxf(1.0, _frames)
 	var e := _engine()
-	var t := "[b]%d FPS[/b]  ·  frame %.1f ms avg, %.1f worst  ·  F3 hides\n" % [e.fps, _frame_ms_sum / frames, _worst_frame]
+	# What's taking the time, the costliest first (each part's own timers; "part: what" are pieces inside a part).
+	var t := "[b]Debug[/b] (F3)  ·  %d FPS  ·  frame %.1f ms avg, %.1f worst\n" % [e.fps, _frame_ms_sum / frames, _worst_frame]
+	t += "[color=#9c8b72]ms/frame  calls  worst ms  function[/color]\n"
+	var rows := _sorted(_window, frames)
+	for i in mini(SHOWN, rows.size()):
+		var r: Array = rows[i]
+		var c := "#ff8a6a" if r[1] > 2.0 else ("#f2b544" if r[1] > 0.5 else "#e8dcc8")
+		var sub := String(r[0]).contains(":")
+		t += "[color=%s]%7.2f[/color]  %5.1f  %7.2f  %s%s\n" % [c, r[1], r[2], int(_worst.get(r[0], 0)) / 1000.0, "   " if sub else "", r[0]]
+	t += "[color=#9c8b72]engine[/color]\n"
 	t += "process %.1f ms · physics %.1f ms · render cpu %.1f gpu %.1f ms\n" % [e["process ms"], e["physics ms"], e["render cpu ms"], e["render gpu ms"]]
 	t += "draw calls %d · objects %d · nodes %d · bodies %d\n" % [e["draw calls"], e.objects, e.nodes, e["physics bodies"]]
 	var th := engine_things()
@@ -298,12 +318,6 @@ func _show(_seconds: float) -> void:
 	for k in e:
 		if k.ends_with(" render ms") and not k.begins_with("render"):
 			t += "%s %.2f\n" % [k, e[k]]
-	t += "[color=#9c8b72]ms per frame · calls per frame · worst ms[/color]\n"
-	var rows := _sorted(_window, frames)
-	for i in mini(SHOWN, rows.size()):
-		var r: Array = rows[i]
-		var c := "#ff8a6a" if r[1] > 2.0 else ("#f2b544" if r[1] > 0.5 else "#e8dcc8")
-		t += "[color=%s]%6.2f[/color]  %5.1f  %6.2f  %s\n" % [c, r[1], r[2], int(_worst.get(r[0], 0)) / 1000.0, r[0]]
 	_label.text = t
 
 

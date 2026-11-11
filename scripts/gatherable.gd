@@ -9,6 +9,8 @@ extends Node2D
 ## The node sits at its sort point (for the y-sort); its art and collider at its foot.
 
 static var all: Array[Gatherable] = []
+const GRID := 512.0                ## the squares (px) they're filed under by their foot, to find those near quickly
+static var _grid := {}             ## Vector2i -> Array of Gatherables whose foot is in that square
 static var version := 0          ## counts every change in how one looks (felled, regrown, new, gone): the maps redraw
 
 ## Played when a tree crashes down, and the log's art (from the miner's settings).
@@ -85,10 +87,13 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 		world._collider_into(body, d.collider)
 		add_child(body)
 	all.append(self)
+	_grid.get_or_add(_square(foot), []).append(self)
 
 
 func _exit_tree() -> void:
 	all.erase(self)
+	var here: Array = _grid.get(_square(foot), [])
+	here.erase(self)
 	version += 1
 
 
@@ -159,10 +164,27 @@ func distance_to(p: Vector2) -> float:
 
 
 ## The nearest one with something left within [param range] of [param p], or null.
+static func _square(p: Vector2) -> Vector2i:
+	return Vector2i(floori(p.x / GRID), floori(p.y / GRID))
+
+
+## The trees and rocks whose foot may be within [param reach] of [param p] (those in the squares it touches).
+static func near(p: Vector2, reach: float) -> Array:
+	if not p.is_finite() or not is_finite(reach) or reach > 8.0 * GRID:
+		return all   # (nowhere in particular, or far and wide: all of them)
+	var out := []
+	var a := _square(p - Vector2(reach, reach))
+	var b := _square(p + Vector2(reach, reach))
+	for x in range(a.x, b.x + 1):
+		for y in range(a.y, b.y + 1):
+			out.append_array(_grid.get(Vector2i(x, y), []))
+	return out
+
+
 static func nearest(p: Vector2, reach: float) -> Gatherable:
 	var best: Gatherable = null
 	var best_d := reach
-	for g in all:
+	for g: Gatherable in near(p, reach + 200.0):
 		# The cheap distance check first: depleted() asks a planted tree's age, which looks up her growth talent.
 		if g.foot.distance_squared_to(p) > (reach + 200.0) * (reach + 200.0) or g.depleted():
 			continue

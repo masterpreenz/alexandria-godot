@@ -46,7 +46,9 @@ func _process_timed(_delta: float) -> void:
 	var t := _now()
 	if t >= _next_look:
 		_next_look = t + float(d.rabbitSpawner.lookEvery)
+		var __t := Time.get_ticks_usec()
 		look()
+		Perf.add(&"warren: finding holes", __t)
 	# The world's share of holes, once the saved one is in; and one more each new day while short.
 	if not _dug_at_start and t >= _dig_from:
 		_dug_at_start = true
@@ -54,8 +56,10 @@ func _process_timed(_delta: float) -> void:
 	# One try a frame, so digging the world's share never stalls a frame.
 	if _to_dig > 0:
 		_to_dig -= 1
+		var __t := Time.get_ticks_usec()
 		if not _dig():
 			_to_dig = 0
+		Perf.add(&"warren: digging", __t)
 	var day: int = world.clock.day() if world.clock != null else 1
 	if day != _last_day:
 		var first := _last_day < 0
@@ -116,15 +120,15 @@ func _dig() -> bool:
 # Open grass at the edge of a wood: a few steps out from a tree that has others round it, with no tree right on top
 # of it (or in front, where its top would hide it), away from the other holes, the village and Miko.
 func _forest_edge() -> Variant:
-	var trees := []
-	for g in Gatherable.all:
-		if g.axe and not g.depleted():
-			trees.append(g.foot)
-	if trees.is_empty():
+	if Gatherable.all.is_empty():
 		return null
 	var px := world.px
 	for tries in 60:
-		var tree: Vector2 = trees[randi() % trees.size()]
+		# (a tree at random: picked straight from them all, not gathered into a list first)
+		var g: Gatherable = Gatherable.all[randi() % Gatherable.all.size()]
+		if not is_instance_valid(g) or not g.axe or g.depleted():
+			continue
+		var tree := g.foot
 		if Wilds.trees_near(tree, 3.2 * px).size() - 1 < 2:
 			continue
 		var a := randf() * TAU

@@ -25,7 +25,11 @@ var _drawn_at := -INF
 var _drawn_stamp := 0
 
 
+static var active: Minimap
+
+
 func setup(w: World, who: Miko, card: TimeCard) -> void:
+	active = self
 	world = w
 	miko = who
 	time_card = card
@@ -198,6 +202,12 @@ func _meter(delta: float) -> void:
 	_fps.add_theme_color_override("font_color", HudStyle.color("green") if fps >= 55 else (HudStyle.color("accent") if fps >= 30 else HudStyle.color("coral")))
 	_fps.reset_size()
 	_fps.position = Vector2(size.x - _fps.size.x - 4.0, size.y + 2.0)
+
+
+## Where the debug list (F3) begins: just under the FPS meter, or the map if that's hidden (screen px).
+func below_meter() -> Vector2:
+	var r := _fps.get_global_rect() if _fps.visible else get_global_rect()
+	return Vector2(get_global_rect().end.x, r.end.y + 6.0)
 
 
 ## A zoom button: a dark key with a bright plus or minus drawn on it (the icons' own art is too dark to read there).

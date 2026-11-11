@@ -51,7 +51,7 @@ func _ready() -> void:
 	world.player = miko
 	# Her own layer: creatures pass by her rather than shove her about (only the fixed world blocks her).
 	miko.collision_layer = 4
-	miko.collision_mask = 1
+	miko.collision_mask = 1 | PropMap.FURNITURE_LAYER
 	# Gathering, and her bag from the save.
 	var miner := Miner.new()
 	miner.name = "Miner"

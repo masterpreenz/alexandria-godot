@@ -4,11 +4,7 @@ class_name Wilds
 ## where the trees are, and which woods are healthy (grass all round, trees close together) for the wildlife.
 ## (Corrupted trees come with corruption: until then every wood counts as healthy.)
 
-const GRID := 4.0 * 128.0          ## px: trees are kept by squares this size, so "trees near here" is quick
 
-static var _grid := {}             ## Vector2i -> [Vector2] tree feet
-static var _grid_count := -1
-static var _grid_at := -99.0
 static var _circle: CircleShape2D
 
 
@@ -74,37 +70,12 @@ static func find_spot(w: World, ok: Callable, tries := 80) -> Variant:
 	return null
 
 
-static func _key(p: Vector2) -> Vector2i:
-	return Vector2i(floori(p.x / GRID), floori(p.y / GRID))
-
-
-# Rebuilt when trees come or go, and now and then anyway.
-static func _ensure_grid() -> void:
-	var now := Time.get_ticks_msec() / 1000.0
-	if Gatherable.all.size() == _grid_count and now < _grid_at + 15.0:
-		return
-	_grid_count = Gatherable.all.size()
-	_grid_at = now
-	_grid.clear()
-	for g in Gatherable.all:
-		if g.axe and not g.depleted():
-			var k := _key(g.foot)
-			if not _grid.has(k):
-				_grid[k] = []
-			_grid[k].append(g.foot)
-
-
-## The trees standing within [param radius] px of [param at].
+## The trees standing within [param radius] px of [param at] (their feet).
 static func trees_near(at: Vector2, radius: float) -> Array:
-	_ensure_grid()
 	var out := []
-	var lo := _key(at - Vector2(radius, radius))
-	var hi := _key(at + Vector2(radius, radius))
-	for x in range(lo.x, hi.x + 1):
-		for y in range(lo.y, hi.y + 1):
-			for t in _grid.get(Vector2i(x, y), []):
-				if t.distance_squared_to(at) <= radius * radius:
-					out.append(t)
+	for g: Gatherable in Gatherable.near(at, radius):
+		if is_instance_valid(g) and g.axe and g.foot.distance_squared_to(at) <= radius * radius and not g.depleted():
+			out.append(g.foot)
 	return out
 
 

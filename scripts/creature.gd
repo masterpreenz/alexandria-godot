@@ -42,7 +42,7 @@ func build(w: World, d: Dictionary, hp: float, hit_radius: float, hit_height: fl
 	s = d.settings
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	collision_layer = 2            # creatures
-	collision_mask = 1 | 2         # the fixed world and each other (Miko is on her own layer)
+	collision_mask = 1 | 2 | PropMap.FURNITURE_LAYER   # the fixed world, furniture and each other (Miko's on her own layer)
 	var c := CollisionShape2D.new()
 	shape = CircleShape2D.new()
 	shape.radius = float(d.collider.r)

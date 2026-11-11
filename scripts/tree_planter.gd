@@ -94,7 +94,7 @@ func why_not(at: Vector2) -> String:
 	if world.props.get_prop(cell, PropMap.Slot.TALL) != "":
 		return "Too close to another tree"
 	var centre := f.cell_centre(cell)
-	for g in Gatherable.all:
+	for g: Gatherable in Gatherable.near(centre, ROOM * world.px):
 		if is_instance_valid(g) and g.left + g.stone > 0 and g.foot.distance_to(centre) < ROOM * world.px:
 			return "Too close to another tree" if g.axe else "Too close to a rock"
 	if world.village.contains(centre) and world.roofs != null and world.roofs.covers(centre):
@@ -118,7 +118,7 @@ func _say(text: String, at: Vector2) -> void:
 func _show_growth() -> void:
 	var near: Gatherable = null
 	var best := 1.1 * world.px
-	for g in Gatherable.all:
+	for g: Gatherable in Gatherable.near(miko.position, best):
 		if not is_instance_valid(g) or g.planted_at < 0.0 or g.hours_to_next() <= 0.0 or g._fall >= 0.0:
 			continue
 		var d := g.foot.distance_to(miko.position)

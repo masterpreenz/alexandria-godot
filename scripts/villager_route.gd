@@ -28,9 +28,25 @@ static func square_centre(walls: WallMap, sq: Vector2i) -> Vector2:
 ## The way from [param from] to [param to] as points (ending at [param to]), or null when walls leave no way through.
 static func find(w: World, from: Vector2, to: Vector2) -> Variant:
 	var t := Time.get_ticks_usec()
+	# (a way just looked for and not found isn't looked for again for a moment: the search is costly when it fails)
+	var key := Vector4i(0, 0, 0, 0)
+	if w.walls != null:
+		var a := square_at(w.walls, from)
+		var b := square_at(w.walls, to)
+		key = Vector4i(a.x, a.y, b.x, b.y)
+		if t < int(_failed.get(key, 0)):
+			return null
 	var r: Variant = _find(w, from, to)
+	if r == null and w.walls != null:
+		if _failed.size() > 400:
+			_failed.clear()
+		_failed[key] = t + FAILED_FOR_USEC
 	Perf.add(&"AI: route finding", t)
 	return r
+
+
+const FAILED_FOR_USEC := 3000000
+static var _failed := {}         ## Vector4i (from square, to square) -> until when (usec) it's known there's no way
 
 
 static var _wet_squares := {}    ## square -> whether it's water (the rivers and ponds don't move)
@@ -46,6 +62,7 @@ static func _wet(w: World, c: Vector2i) -> bool:
 
 
 static var _solid := {}          ## squares something solid stands on
+static var _core := {}           ## the squares solid things stand on themselves (not those a big one reaches over)
 static var _solid_key := ""
 
 
@@ -56,18 +73,20 @@ static func solid_squares(w: World) -> Dictionary:
 		return _solid
 	_solid_key = key
 	_solid = {}
+	_core = {}
 	var f := w.floors
 	for k in w.props.cells:
 		var t: Dictionary = w.props.types.get(w.props.cells[k].prop, {})
-		if bool(t.get("solid", false)):
+		if bool(t.get("solid", false)) and str(t.get("category", "")) != "Furniture":   # (they walk through furniture)
 			_cover(f, f.cell_centre(Vector2i(k.x, k.y)), float(t.get("footprint", 0.0)) * PropMap._scale(float(w.props.cells[k].scale)))
 	for e in w.props.free:
 		var t: Dictionary = w.props.types.get(e.prop, {})
-		if bool(t.get("solid", false)):
+		if bool(t.get("solid", false)) and str(t.get("category", "")) != "Furniture":
 			_cover(f, e.pos, float(t.get("footprint", 0.0)) * PropMap._scale(float(e.get("scale", 1.0))))
 	for g in Gatherable.all:
 		if is_instance_valid(g) and not g.depleted():
 			_solid[f.cell_at(g.foot)] = true
+			_core[f.cell_at(g.foot)] = true
 	return _solid
 
 
@@ -76,6 +95,7 @@ static func solid_squares(w: World) -> Dictionary:
 static func _cover(f: FloorMap, at: Vector2, radius: float) -> void:
 	var c := f.cell_at(at)
 	_solid[c] = true
+	_core[c] = true
 	if radius < 70.0:
 		return
 	for dx in range(-1, 2):
@@ -89,9 +109,17 @@ static func _cover(f: FloorMap, at: Vector2, radius: float) -> void:
 static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 	if w.walls == null:
 		return null
-	# Clear of everything solid if there's such a way; else through the walls alone.
+	# Clear of everything solid if there's such a way; else squeezing past the big things (a bed, a fireplace) in a
+	# small room, round only the squares they stand on; else through the walls alone.
 	var way: Variant = _search(w, from, to, solid_squares(w), true)
+	if way == null:
+		way = _search(w, from, to, _core, true)
 	return way if way != null else _search(w, from, to, {})
+
+
+# Squares still to go from [param s] to [param b], at the least.
+static func _left(s: Vector2i, b: Vector2i) -> int:
+	return absi(s.x - b.x) + absi(s.y - b.y)
 
 
 static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry := false) -> Variant:
@@ -100,13 +128,22 @@ static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry
 	var b := square_at(walls, to)
 	var lo := Vector2i(mini(a.x, b.x), mini(a.y, b.y)) - Vector2i.ONE * MARGIN
 	var hi := Vector2i(maxi(a.x, b.x), maxi(a.y, b.y)) + Vector2i.ONE * MARGIN
+	# Towards where they're going first (A*: by squares come plus squares still to go, in buckets by that sum, the
+	# latest found first among equals), so a long way across the village looks at few squares beside it.
 	var came := {a: a}
-	var open: Array[Vector2i] = [a]
-	var head := 0
+	var gone := {a: 0}
+	var buckets := {}
+	var f_lo := _left(a, b)
+	var f_hi := f_lo
+	buckets[f_lo] = [a]
 	var found := a == b
-	while head < open.size() and not found and came.size() < MOST_SQUARES:
-		var at: Vector2i = open[head]
-		head += 1
+	while not found and came.size() < MOST_SQUARES:
+		while f_lo <= f_hi and (buckets.get(f_lo, []) as Array).is_empty():
+			f_lo += 1
+		if f_lo > f_hi:
+			break
+		var at: Vector2i = (buckets[f_lo] as Array).pop_back()
+		var g_next: int = int(gone[at]) + 1
 		for step in STEPS:
 			var nxt: Vector2i = at + step
 			if nxt.x < lo.x or nxt.y < lo.y or nxt.x > hi.x or nxt.y > hi.y or came.has(nxt):
@@ -120,7 +157,10 @@ static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry
 			if nxt == b:
 				found = true
 				break
-			open.append(nxt)
+			gone[nxt] = g_next
+			var f := g_next + _left(nxt, b)
+			(buckets.get_or_add(f, []) as Array).append(nxt)
+			f_hi = maxi(f_hi, f)
 	if not found:
 		return null
 	var squares := []

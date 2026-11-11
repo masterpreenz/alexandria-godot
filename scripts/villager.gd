@@ -482,7 +482,7 @@ func errand_gather() -> bool:
 		return false
 	var best: Gatherable = null
 	var best_d := 8.0 * world.px
-	for g in Gatherable.all:
+	for g: Gatherable in Gatherable.near(world.player.position, best_d):
 		if not is_instance_valid(g) or g.depleted() or claimed.has(g):
 			continue
 		var dd := g.foot.distance_to(world.player.position)
@@ -579,10 +579,14 @@ func _physics_process_timed(delta: float) -> void:
 			_show_idle()
 		_status()
 		return
+	var __t := Time.get_ticks_usec()
 	_needs()
+	Perf.add(&"villager: needs", __t)
+	__t = Time.get_ticks_usec()
 	_unstick(t, delta)
 	_close_behind()
 	_status()
+	Perf.add(&"villager: unstick, doors, status", __t)
 	# Talking with Miko: standing still, facing her.
 	if talking and world.player != null:
 		velocity = Vector2.ZERO
@@ -599,6 +603,7 @@ func _physics_process_timed(delta: float) -> void:
 		_stand(t, 0.0)
 	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
 		next_look = t + 0.5
+		var __tl := Time.get_ticks_usec()
 		var danger := _danger() if _low() else null
 		# Out of the village and in a fight: the village hears of it, and they call out.
 		if not world.village.contains(position, 1.0) and world.village.founded() and t >= _threat_told:
@@ -614,6 +619,8 @@ func _physics_process_timed(delta: float) -> void:
 			var threat := _threat() if not _low() else null
 			if threat != null:
 				_fight(threat)
+		Perf.add(&"villager: looking for danger", __tl)
+	__t = Time.get_ticks_usec()
 	match state:
 		State.STAND:
 			velocity = Vector2.ZERO
@@ -725,12 +732,15 @@ func _physics_process_timed(delta: float) -> void:
 			else: _walk(t, delta)
 		State.FOLLOW:
 			_following(t, delta)
+	Perf.add(&"villager: deciding, walking", __t)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
 		Sfx.keep_going(_sizzle, false)
 	if not in_bed:
+		__t = Time.get_ticks_usec()
 		_keep_out_of_mist(t, delta)
 		move_and_slide()
+		Perf.add(&"villager: moving (physics)", __t)
 
 
 # ---- Walking ----
@@ -2417,8 +2427,13 @@ func _nearest_work(axe: bool) -> Gatherable:
 	var home_at := _home_at()
 	var candidates := []
 	var in_mist := false
-	for g in Gatherable.all:
-		if g.axe != axe or not _workable(g) or claimed.has(g) or not _in_area(areas, g.foot):
+	# (only those near a sign: the trees and rocks filed by where they stand)
+	var near := {}
+	for a in areas:
+		for g: Gatherable in Gatherable.near(a[0], a[1]):
+			near[g] = true
+	for g: Gatherable in near:
+		if g.axe != axe or not _in_area(areas, g.foot) or claimed.has(g) or not _workable(g):
 			continue
 		if not safe_ground(world, g.foot):
 			in_mist = true
