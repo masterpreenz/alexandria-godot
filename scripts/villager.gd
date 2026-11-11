@@ -24,9 +24,9 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH }
 
-enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
+enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING }
 
 const BAG_TRIPS := 40             ## trips to storage a bag lasts
 const TOOL_USES := 150            ## uses a set of tools lasts
@@ -47,7 +47,7 @@ static var mending := {}          ## barricade (wall key) -> true: someone's on 
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 const FOODS := [["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
-	["Candy", 35.0], ["Food", 20.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
+	["GrilledFish", 50.0], ["Candy", 35.0], ["Food", 20.0], ["Fish", 15.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
 const EMOTE_FPS := 5.0
 const BOB_HEIGHT := 0.045
 const BOB_SPEED := 4.0
@@ -374,6 +374,7 @@ func _physics_process_timed(delta: float) -> void:
 				elif _work_hours() and _go_move_food(): pass
 				elif _work_hours() and (randf() < chance or _crops_need_care()) and _go_farm(): pass
 				elif _work_hours() and randf() < chance and _go_cook(): pass
+				elif _work_hours() and randf() < chance and _go_fish(): pass
 				elif _work_hours() and randf() < chance and _go_build(): pass
 				elif _work_hours() and _go_pick_up(): pass
 				elif _work_hours() and randf() < chance and _go_craft(): pass
@@ -463,6 +464,11 @@ func _physics_process_timed(delta: float) -> void:
 			else: _walk(t, delta)
 		State.CRAFT:
 			_crafting(t, delta)
+		State.TO_FISH:
+			if _night() or fish_dock == Vector2.INF or t > state_until: _done_fishing(t)
+			else: _walk(t, delta)
+		State.FISH:
+			_fishing(t)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
 		Sfx.keep_going(_sizzle, false)
@@ -618,6 +624,10 @@ func _walk(t: float, delta: float) -> void:
 			if mend != null and position.distance_to(_mend_at()) < 1.6 * world.px: _arrive(t)
 			else: _done_repairing(t)
 			return
+		if state == State.TO_FISH:
+			if fish_dock != Vector2.INF and position.distance_to(fish_dock) < 1.8 * world.px: _arrive(t)
+			else: _done_fishing(t)
+			return
 		if state == State.TO_BUILD:
 			# Close enough to reach it: build from here. Otherwise leave it a while and do something else.
 			if dir.length() < world.px or (not piece.is_empty() and position.distance_to(Construction.active.position_of(piece)) < 1.1 * world.px): _arrive(t)
@@ -651,6 +661,7 @@ func _arrive(t: float) -> void:
 		State.TO_REPAIR: _start_repairing(t)
 		State.FLEE: _next_refuge = 0.0   # (somewhere further next: still running)
 		State.TO_CRAFT: _start_crafting(t)
+		State.TO_FISH: _start_fishing(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
 			if not home.is_empty() and not Needs.occupants.has(Needs.bed_key(home.pos)):
@@ -663,7 +674,7 @@ func _arrive(t: float) -> void:
 
 func _going() -> bool:
 	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
-		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR, State.FLEE]
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR, State.FLEE, State.TO_FISH]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -900,6 +911,97 @@ func _wake_up(t: float) -> void:
 	visible = true
 	facing_up = false
 	_stand(t, randf_range(0.1, 0.5))   # (up and off: not standing by the bed)
+
+
+# ---- Fishing: at a dock in or near the village, with bait from storage: a cast at a time (a bait each, slower in
+# winter), up to a good haul or till the bait's gone, then home with the fish. One villager to a dock. ----
+
+const FISH_HAUL := 6             ## fish they bring back at most
+
+var fish_dock := Vector2.INF     ## the dock they're fishing (px), or INF
+var _caught_until := 0.0         ## the caught-one emote shows till then
+
+func _go_fish() -> bool:
+	var choice := _job()
+	if choice != Job.ANY and choice != Job.FISHING:
+		return false
+	var f := Fishing.active
+	if f == null or carrying > 0 or world.village.stored("Bait") <= 0 or Kitchen.stocked(world.village, "Fish"):
+		return false
+	var best := Vector2.INF
+	var best_d := INF
+	for at in f.village_docks():
+		var by: Variant = Fishing.taken.get(at)
+		if by != null and is_instance_valid(by) and by != self and (by.state == State.TO_FISH or by.state == State.FISH):
+			continue
+		var dd: float = at.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = at
+	if best == Vector2.INF:
+		return false
+	var goal := _beside(best, 0.9)
+	if not _safe_way_to(goal) or VillagerRoute.find(world, position, goal) == null:
+		return false
+	fish_dock = best
+	Fishing.taken[best] = self
+	state = State.TO_FISH
+	clock = 0.0
+	state_until = now() + 180.0
+	_set_goal(goal)
+	return true
+
+
+func _start_fishing(t: float) -> void:
+	if fish_dock == Vector2.INF:
+		_done_fishing(t)
+		return
+	state = State.FISH
+	clock = 0.0
+	carry_kind = "Fish"
+	var to: Vector2 = fish_dock - position
+	facing_up = to.y < -0.02 * world.px
+	facing_right = to.x > 0.0
+	state_until = t + _cast_time()
+
+
+# How long one of their casts takes: slower than Miko's, quicker with skill.
+func _cast_time() -> float:
+	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING)) * 1.6 / _tool_pace()
+
+
+# Waiting on the line; then a bait gone and, most times, a fish; again till there's a haul or no bait.
+func _fishing(t: float) -> void:
+	velocity = Vector2.ZERO
+	_show_idle()
+	if _night() or not _work_hours() or fish_dock == Vector2.INF:
+		_done_fishing(t)
+		return
+	if t < state_until:
+		return
+	if not world.village.take_from_stash("Bait", 1):
+		_done_fishing(t)
+		return
+	var n := Fishing.catch_now(Villagers.skill(person, LifeSkills.Skill.FISHING))
+	people.practise(person, LifeSkills.Skill.FISHING)
+	if n > 0:
+		carrying = mini(_carry_most(), carrying + n)
+		_caught_until = t + Fishing.CAUGHT_SHOWS
+		FloatingText.spawn(world, "+%d Fish" % n, position + Vector2(0, -2.0 * world.px), Color(0.6, 0.85, 1.0))
+	if carrying >= mini(FISH_HAUL, _carry_most()) or world.village.stored("Bait") <= 0:
+		_done_fishing(t)
+		return
+	state_until = t + _cast_time()
+
+
+# Home with what they caught (to the cellar, where there is one).
+func _done_fishing(t: float) -> void:
+	if fish_dock != Vector2.INF:
+		Fishing.taken.erase(fish_dock)
+	fish_dock = Vector2.INF
+	if carrying > 0 and _go_store():
+		return
+	_stand(t, randf_range(0.5, 1.5))
 
 
 # ---- Down the cellar: at its doors they go down (they're in its room a moment, among its shelves), then come back
@@ -1335,6 +1437,7 @@ func _status() -> void:
 		State.BUILD: e = "building"
 		State.TO_REPAIR, State.REPAIR: e = "repairing"
 		State.FLEE: e = "crying"
+		State.FISH: e = "fishing_caught" if now() < _caught_until else "fishing"
 		State.CRAFT:
 			if craft_bench.get("skill", "") == "Cooking": e = "cooking"
 			elif str(craft_bench.get("title", "")).contains("Alchemy"): e = "alchemy"
@@ -1350,6 +1453,8 @@ func _emote_frame(e: String) -> int:
 	var frames: Array = people.d.get("emotes", {}).get(e, [])
 	if frames.is_empty():
 		return -1
+	if e == "fishing_caught":   # (played once, not round and round)
+		return int(frames[Fishing.once(frames.size(), now() - (_caught_until - Fishing.CAUGHT_SHOWS))])
 	return int(frames[int(now() / 0.16) % frames.size()])
 
 
@@ -1763,6 +1868,7 @@ func _abandon(t: float) -> void:
 			if not piece.is_empty(): unreachable[piece] = t + 30.0
 			_done_building(t)
 		State.TO_CRAFT: _done_crafting(t)
+		State.TO_FISH: _done_fishing(t)
 		State.TO_REPAIR: _done_repairing(t)
 		State.FLEE: _next_refuge = 0.0   # (stuck: somewhere else to run, still running)
 		State.TO_PICKUP:
@@ -1781,6 +1887,7 @@ func _let_go() -> void:
 	if not fire.is_empty(): lighting.erase(fire.key)
 	if not piece.is_empty(): building.erase(piece)
 	if mend != null: mending.erase(mend)
+	if fish_dock != Vector2.INF: Fishing.taken.erase(fish_dock)
 	if not craft_recipe.is_empty(): crafting_now.erase(_recipe_key(craft_recipe))
 
 
@@ -1862,7 +1969,7 @@ func _in_area(areas: Array, at: Vector2) -> bool:
 # on cleared ground, nobody else's; not while storage holds the wood or stone it's set to keep.
 func _find_work() -> bool:
 	var choice := _job()
-	if choice in [Job.REST, Job.FARMING, Job.BUILDING, Job.COOKING, Job.CRAFTING]:
+	if choice in [Job.REST, Job.FARMING, Job.BUILDING, Job.COOKING, Job.CRAFTING, Job.FISHING]:
 		return false
 	var chop := not Kitchen.stocked(world.village, "Wood")
 	var mine := not Kitchen.stocked(world.village, "Stone")
@@ -2258,6 +2365,8 @@ func _farming(t: float) -> void:
 			_done_farming(t, true)
 			return
 		var got := farm.harvest(plot)
+		if int(got[1]) > 0 and randf() < Farming.BAIT_CHANCE:
+			world.village.put_in_stash("Bait", 1)
 		if int(got[2]) > 0:
 			world.village.deposit(Farming.CROPS[kind].seed, int(got[2]), plot.pos)
 		if int(got[1]) > 0:
@@ -3063,6 +3172,8 @@ func activity() -> String:
 		State.FIGHT: return "Fighting a slime"
 		State.FLEE: return "Running for their life"
 		State.CELLAR: return "Down in the cellar"
+		State.TO_FISH: return "Off to the dock to fish"
+		State.FISH: return "Fishing (%d caught)" % carrying
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"
 	if _hungry() and _food_in_storage() == 0: return "Hungry: no food in storage"

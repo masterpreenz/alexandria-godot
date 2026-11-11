@@ -33,6 +33,18 @@ static func find(w: World, from: Vector2, to: Vector2) -> Variant:
 	return r
 
 
+static var _wet_squares := {}    ## square -> whether it's water (the rivers and ponds don't move)
+
+
+# Whether a square is water: no way through (the route goes round, to a bridge or the bank).
+static func _wet(w: World, c: Vector2i) -> bool:
+	var known: Variant = _wet_squares.get(c)
+	if known == null:
+		known = w.water_depth(w.floors.cell_centre(c)) > 0.05
+		_wet_squares[c] = known
+	return known
+
+
 static var _solid := {}          ## squares something solid stands on
 static var _solid_key := ""
 
@@ -78,11 +90,11 @@ static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 	if w.walls == null:
 		return null
 	# Clear of everything solid if there's such a way; else through the walls alone.
-	var way: Variant = _search(w, from, to, solid_squares(w))
+	var way: Variant = _search(w, from, to, solid_squares(w), true)
 	return way if way != null else _search(w, from, to, {})
 
 
-static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary) -> Variant:
+static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry := false) -> Variant:
 	var walls := w.walls
 	var a := square_at(walls, from)
 	var b := square_at(walls, to)
@@ -102,7 +114,7 @@ static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary) -> 
 			if not passable(walls, crossing(at, step)):
 				continue
 			# (round what's solid: but where they're going may be right by, or on, such a square)
-			if nxt != b and solid.has(nxt):
+			if nxt != b and (solid.has(nxt) or (dry and _wet(w, nxt))):
 				continue
 			came[nxt] = at
 			if nxt == b:

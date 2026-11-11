@@ -454,6 +454,8 @@ func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 		return "Only inside a house"
 	if bool(it.get("outdoorsOnly", false)) and world.roofs != null and world.roofs.covers(at):
 		return "Only outdoors"
+	if bool(it.get("nearWater", false)) and not Fishing.water_near(world, at):
+		return "Only by the water (a river, a lake or a pond)"
 	if bool(it.get("villageOnly", false)) and not world.village.contains(at):
 		return "Only inside the village" if world.village.founded() else "Place a town banner first"
 	if bool(it.get("onlyOne", false)) and world.props.has(it.name) and moving.is_empty():

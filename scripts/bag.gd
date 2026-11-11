@@ -14,7 +14,7 @@ const BASE_SLOTS := 8
 ## The resources, in Unity's order (the save's stack slots are by this order).
 const RESOURCES := ["Gold", "Wood", "Stone", "Seed", "Food", "Tea", "Meal", "Hide", "Crystal", "Jelly", "Candy", "Potato",
 	"BakedPotato", "Rabbit", "Bottle", "HpPotion", "ManaPotion", "Carrot", "Cabbage", "Wheat", "Cotton", "CabbageSeed",
-	"WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber"]
+	"WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber", "Fish", "GrilledFish", "Bait"]
 
 var counts := {}       ## resource -> how many
 var items: Array = []  ## SIZE slots: an item's name, or "" (gear)

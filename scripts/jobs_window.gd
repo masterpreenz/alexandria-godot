@@ -8,7 +8,7 @@ extends PanelContainer
 
 const COL := 370.0
 const H := 430.0
-const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting"]
+const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting", "Fishing"]
 const FILTERS := ["All", "Food", "Potions", "Gear", "Materials"]
 
 var world: World

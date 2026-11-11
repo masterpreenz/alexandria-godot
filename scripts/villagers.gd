@@ -12,7 +12,7 @@ extends Node2D
 
 const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"],
 	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"]]
-const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina"]
+const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina", "fishing"]
 
 static var heart := 1.0          ## how much faster the villagers work now (Village Heart, with Miko in the village)
 
@@ -59,6 +59,11 @@ func _fix(p: Dictionary) -> void:
 				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
+	# (skills added since: fishing)
+	while (p.skills.level as Array).size() < SKILL_NAMES.size():
+		(p.skills.level as Array).append(randi_range(1, 3))
+	while (p.skills.xp as Array).size() < SKILL_NAMES.size():
+		(p.skills.xp as Array).append(0)
 	for k in ["hunger", "energy", "hp", "maxHp", "atk", "level", "xp", "toolsLeft", "bagSlots", "bagLeft", "job"]:
 		if not p.has(k):
 			p[k] = {"hunger": 80.0, "energy": 100.0, "hp": 40.0, "maxHp": 40.0, "atk": 6.0, "level": 1}.get(k, 0)

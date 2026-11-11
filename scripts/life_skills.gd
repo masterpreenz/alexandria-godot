@@ -1,28 +1,28 @@
 class_name LifeSkills
-## Miko's life skills (from Unity's LifeSkills / PlayerSkills): Lumbering, Mining, Strength, Farming, Cooking, Building
-## and Stamina, each from 1 up to [constant MOST]. Practising one (chopping, mining, running, ...) adds to it; 8 times
+## Miko's life skills (from Unity's LifeSkills / PlayerSkills): Lumbering, Mining, Strength, Farming, Cooking, Building,
+## Stamina and Fishing, each from 1 up to [constant MOST]. Practising one (chopping, mining, running, ...) adds to it; 8 times
 ## its level and it goes up a level. Each level makes what it's for a little better ([method factor]).
 
-enum Skill { LUMBERING, MINING, STRENGTH, FARMING, COOKING, BUILDING, STAMINA }
+enum Skill { LUMBERING, MINING, STRENGTH, FARMING, COOKING, BUILDING, STAMINA, FISHING }
 
 const MOST := 12
-const NAMES := ["Lumbering", "Mining", "Strength", "Farming", "Cooking", "Building", "Stamina"]
+const NAMES := ["Lumbering", "Mining", "Strength", "Farming", "Cooking", "Building", "Stamina", "Fishing"]
 
-static var level: Array = [1, 1, 1, 1, 1, 1, 1]
-static var xp: Array = [0, 0, 0, 0, 0, 0, 0]
+static var level: Array = [1, 1, 1, 1, 1, 1, 1, 1]
+static var xp: Array = [0, 0, 0, 0, 0, 0, 0, 0]
 
 
 ## The saved skills (Unity's player.skills: {level: [...], xp: [...]}); an empty set starts every skill at 1.
 static func from_json(json: String) -> void:
 	var d: Variant = JSON.parse_string(json)
-	level = [1, 1, 1, 1, 1, 1, 1]
-	xp = [0, 0, 0, 0, 0, 0, 0]
+	level = [1, 1, 1, 1, 1, 1, 1, 1]
+	xp = [0, 0, 0, 0, 0, 0, 0, 0]
 	if d is Dictionary:
 		var l: Array = d.get("level", [])
 		var x: Array = d.get("xp", [])
-		for i in mini(l.size(), 7):
+		for i in mini(l.size(), level.size()):
 			level[i] = clampi(int(l[i]), 1, MOST)
-		for i in mini(x.size(), 7):
+		for i in mini(x.size(), xp.size()):
 			xp[i] = maxi(0, int(x[i]))
 
 

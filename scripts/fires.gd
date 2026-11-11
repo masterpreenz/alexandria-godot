@@ -9,7 +9,7 @@ extends Node
 ## burns till is saved (world.fires).
 
 const LIGHT_RANGE := 1.2
-const RECIPES := [["Food", "Meal", "raw meat"], ["Potato", "BakedPotato", "potatoes"], ["Jelly", "Candy", "slime jelly"]]
+const RECIPES := [["Food", "Meal", "raw meat"], ["Potato", "BakedPotato", "potatoes"], ["Jelly", "Candy", "slime jelly"], ["Fish", "GrilledFish", "fish"]]
 
 static var _soft: Texture2D
 static var _glow_tex: Texture2D

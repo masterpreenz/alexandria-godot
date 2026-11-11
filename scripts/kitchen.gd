@@ -6,7 +6,7 @@ class_name Kitchen
 const STEP := 5
 const MOST := 300
 const MATERIALS := ["Wood", "Stone"]
-const RECIPES := [["Food", "Meal"], ["Potato", "BakedPotato"], ["Jelly", "Candy"]]  ## the fire's dishes: raw, cooked
+const RECIPES := [["Food", "Meal"], ["Potato", "BakedPotato"], ["Jelly", "Candy"], ["Fish", "GrilledFish"]]  ## the fire's dishes: raw, cooked
 
 static var targets := {}
 static var seeds_given := false
@@ -29,6 +29,7 @@ static func _default(key: String) -> int:
 	match key:
 		"Wood", "Stone": return 60
 		"Candy": return 10
+		"Fish": return 12
 		"item:Tools": return 3
 		"item:Sachet": return 2
 		"Bread", "CarrotStew", "CabbageSoup": return 10

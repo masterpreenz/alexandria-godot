@@ -14,7 +14,7 @@
 	"raid.dawn": "At dawn the horde fell back into the mist",
 
 	"job.0": "Any work", "job.1": "Miner", "job.2": "Woodcutter", "job.3": "Resting", "job.4": "Farmer",
-	"job.5": "Builder", "job.6": "Cook", "job.7": "Crafter",
+	"job.5": "Builder", "job.6": "Cook", "job.7": "Crafter", "job.8": "Fisher",
 
 	"bark.hungry": ["I'm starving...", "Time for a bite.", "My stomach's growling.", "Food, food, food."],
 	"bark.no_food": ["No food left?!", "The stores are empty...", "Nothing to eat..."],
