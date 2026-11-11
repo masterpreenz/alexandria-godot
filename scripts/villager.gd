@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH, TO_WELL }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH, TO_WELL, FOLLOW }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING, HAULING }
 
@@ -269,6 +269,8 @@ func _wake_time() -> bool:
 
 # Bedtime: 21 to 6, or from 18 when worn out (and any time when exhausted).
 func _night() -> bool:
+	if _in_party():
+		return false
 	# (a raid on: nobody who can fight goes to bed, or stays there)
 	if Raids.on() and not (s.stabDown as Array).is_empty() and not _low():
 		return false
@@ -409,6 +411,95 @@ func _at_well(t: float) -> void:
 	_stand(t, randf_range(0.6, 1.2))
 
 
+# ---- In Sera's party: following her, fighting beside her, an errand when she asks ----
+
+var _next_follow := 0.0
+
+
+func _in_party() -> bool:
+	return Party.active != null and Party.active.has_member(person)
+
+
+func _follow_start(t: float) -> void:
+	state = State.FOLLOW
+	clock = 0.0
+	_next_follow = 0.0
+	state_until = t
+
+
+func _following(t: float, delta: float) -> void:
+	if not _in_party():
+		_stand(t, 0.5)
+		return
+	var me: Node2D = world.player
+	var at := Party.active.spot_for(person)
+	var far := position.distance_to(at)
+	# A long way behind (she teleported, or ran off): brought up to her.
+	if me != null and position.distance_to(me.position) > Party.CATCH_UP * world.px and not Party.active.waiting.has(str(person.unique)):
+		position = at
+		reset_physics_interpolation()
+		route = null
+		far = 0.0
+	if far < 0.5 * world.px:
+		velocity = Vector2.ZERO
+		if me != null:
+			var to := me.position - position
+			facing_right = to.x > 0.0
+			facing_up = to.y < 0.0
+		_show_idle()
+		return
+	# After her: the way found again now and then as she moves; quicker when she's pulling away.
+	if t >= _next_follow:
+		_next_follow = t + 0.4
+		_set_goal(at)
+	_walk(t, delta)
+	state = State.FOLLOW   # (walking there isn't arriving anywhere)
+
+
+# The monster nearest Sera (or them) going for either: a party member's fight.
+func _party_threat() -> Damageable:
+	if (s.stabDown as Array).is_empty() or world.player == null:
+		return null
+	var me: Vector2 = world.player.position
+	var best: Damageable = null
+	var best_d := Party.GUARD * world.px
+	for d in Damageable.all:
+		if not d.alive() or not d.get_parent() is Creature:
+			continue
+		var c: Creature = d.get_parent()
+		if c is Rabbit:
+			continue
+		var near := minf(d.global_position.distance_to(me), d.global_position.distance_to(position))
+		if near < best_d and (c.hostile() or near < 3.0 * world.px):
+			best_d = near
+			best = d
+	return best
+
+
+## Sera's errand: the nearest tree or rock to her, chopped or mined; what it gives into her bag. Whether there was one.
+func errand_gather() -> bool:
+	if world.player == null:
+		return false
+	var best: Gatherable = null
+	var best_d := 8.0 * world.px
+	for g in Gatherable.all:
+		if not is_instance_valid(g) or g.depleted() or claimed.has(g):
+			continue
+		var dd := g.foot.distance_to(world.player.position)
+		if dd < best_d:
+			best_d = dd
+			best = g
+	if best == null:
+		return false
+	job = best
+	claimed[job] = true
+	state = State.TO_WORK
+	clock = 0.0
+	state_until = now() + 30.0
+	_set_goal(_work_spot(job))
+	return true
+
+
 func _work_hours() -> bool:
 	var h := _hour(world)
 	return h >= 6.0 + Traits.add(person, "start") and h < 18.0 + Traits.add(person, "end")
@@ -517,7 +608,8 @@ func _physics_process_timed(delta: float) -> void:
 			elif t >= state_until:
 				var chance := float(s.workChance)
 				# Three meals a day; between them only when they're close to starving.
-				if (_meal_due() or float(person.get("hunger", 100.0)) < 12.0) and _go_eat(): pass
+				if _in_party(): _follow_start(t)
+				elif (_meal_due() or float(person.get("hunger", 100.0)) < 12.0) and _go_eat(): pass
 				elif float(person.get("thirst", 100.0)) < THIRSTY and _go_well("drink"): pass
 				# (the village short of food: whoever can sees to it first, whatever their work's set to and the hour)
 				elif _urgent(): pass
@@ -617,6 +709,8 @@ func _physics_process_timed(delta: float) -> void:
 		State.TO_WELL:
 			if t > state_until: _stand(t, 1.0)
 			else: _walk(t, delta)
+		State.FOLLOW:
+			_following(t, delta)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
 		Sfx.keep_going(_sizzle, false)
@@ -1353,8 +1447,8 @@ func _needs() -> void:
 		return
 	var dh := minf(2.0, h - _last_hours)
 	_last_hours = h
-	if dh <= 0.0:
-		return
+	if dh <= 0.0 or _in_party():
+		return   # (out with Sera, she looks after them: for now their needs wait)
 	var p := person
 	var sleeping := state == State.ASLEEP
 	# A night's sleep leaves them hungry for breakfast, but never starving.
@@ -1903,6 +1997,8 @@ func _home_at() -> Vector2:
 func _threat() -> Damageable:
 	if (s.stabDown as Array).is_empty():
 		return null
+	if _in_party():
+		return _party_threat()
 	var best: Damageable = null
 	var raid := Raids.on()
 	# (a raid: the nearest of the horde, wherever it is; else a monster in the village and near them or their home)
@@ -1947,9 +2043,10 @@ func _fighting(t: float, delta: float) -> void:
 			return
 	# Gone, or out of the village (they don't follow it out): back to it.
 	# (a raid: met wherever they come into the village, not only near home)
-	var raid := foe != null and is_instance_valid(foe) and Raids.on() and Raids.raider(foe.get_parent())
-	if foe == null or not is_instance_valid(foe) or not foe.alive() or not world.village.contains(foe.global_position, 10.0 if raid else 0.5) \
-			or (not raid and foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px):
+	var raid := foe != null and is_instance_valid(foe) and ((Raids.on() and Raids.raider(foe.get_parent())) or _in_party())
+	if foe == null or not is_instance_valid(foe) or not foe.alive() or (not _in_party() and not world.village.contains(foe.global_position, 10.0 if raid else 0.5)) \
+			or (not raid and foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px) \
+			or (_in_party() and world.player != null and foe.global_position.distance_to(world.player.position) > Party.GUARD * 1.8 * world.px):
 		foe = null
 		_stand(t, randf_range(1.0, 2.0))
 		return
@@ -2390,6 +2487,11 @@ func _strike() -> void:
 		Sfx.play(world, Sfx.stream(path), job.foot, float(s.toolVolume), 0.08)
 	var spot := job
 	var got := spot.strike()
+	# (an errand for Sera: what it gives goes straight into her bag)
+	if _in_party() and got > 0 and world.player != null:
+		world.village.give(world.player.bag, world.player, spot.resource, got, spot.foot)
+		people.practise(person, LifeSkills.Skill.LUMBERING if spot.axe else LifeSkills.Skill.MINING)
+		return
 	# Felling a tree: now and then a seed, brought home for planting.
 	if spot.axe and spot.depleted() and randf() < 0.35:
 		world.village.deposit("Seed", 1, spot.foot)
@@ -2408,6 +2510,9 @@ func _stop_work(t: float) -> void:
 	if job != null:
 		claimed.erase(job)
 	job = null
+	if _in_party():
+		_stand(t, 0.2)   # (back to her side)
+		return
 	if carrying > 0 and _go_store():
 		return
 	_stand(t, randf_range(2.0, 5.0))
@@ -3498,6 +3603,7 @@ func activity() -> String:
 		State.CELLAR: return "Down in the cellar"
 		State.TO_FISH: return "Off to the dock to fish"
 		State.TO_WELL: return "Going to the well to drink" if _well_for == "drink" else "Fetching water for the crops"
+		State.FOLLOW: return "Waiting where Sera asked" if Party.active != null and Party.active.waiting.has(str(person.get("unique", ""))) else "With Sera"
 		State.FISH: return "Fishing (%d caught)" % carrying
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"

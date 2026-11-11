@@ -78,7 +78,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_E:
 			_say_bye()
 			get_viewport().set_input_as_handled()
-		elif event.keycode >= KEY_1 and event.keycode <= KEY_7:
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			var i: int = event.keycode - KEY_1
 			if i < _acts.size():
 				(_acts[i] as Callable).call()
@@ -211,6 +211,14 @@ func _show(line: String) -> void:
 		if not topic.is_empty():
 			_add(str(topic.ask), _ask_topic.bind(topic))
 		_add(Loc.t("talk.choice.gift"), _pick_gift)
+	# (one of her party: orders; a unique who's joined her before, or been asked by the story: come along)
+	if Party.active != null and Party.active.has_member(who.person):
+		_add("Chop or mine here", _order_gather)
+		if Party.active.waiting.has(str(who.person.unique)): _add("Follow me", _order_follow)
+		else: _add("Wait here", _order_wait)
+		_add("Go home", _order_home)
+	elif Party.active != null and Traits.has(who.person, "unique") and Chronicle.active != null and Chronicle.active.happened("party:" + str(who.person.unique)) and not Party.active.full():
+		_add("Come with me", _order_join)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
@@ -312,6 +320,39 @@ func _closer(by: float) -> void:
 	if by == 0.0:
 		return
 	FloatingText.spawn(world, ("♥ +%d" if by > 0.0 else "♥ %d") % roundi(by), who.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.55, 0.7) if by > 0.0 else Color(0.7, 0.7, 0.8), 20, 1.6)
+
+
+# ---- Orders for her party ----
+
+func _order_gather() -> void:
+	var v := who
+	close()
+	if not v.errand_gather():
+		v.show_mood("ellipsis", 2.5)
+		FloatingText.spawn(world, "Nothing to chop or mine near here", miko.position + Vector2(0, -1.8 * world.px), Color(0.85, 0.8, 0.7))
+
+
+func _order_wait() -> void:
+	Party.active.wait_here(who.person, who.position)
+	_show("I'll wait here.")
+
+
+func _order_follow() -> void:
+	Party.active.follow(who.person)
+	_show("Right behind you.")
+
+
+func _order_home() -> void:
+	var p := who.person
+	Party.active.leave(str(p.unique))
+	who._stand(Villager.now(), 0.5)
+	_show("I'll head back to the village, then.")
+
+
+func _order_join() -> void:
+	Party.active.join(str(who.person.unique))
+	who._follow_start(Villager.now())
+	_show("Let's go!")
 
 
 func _ask_how() -> void:

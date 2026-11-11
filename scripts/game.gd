@@ -390,6 +390,13 @@ func _ready() -> void:
 	rumors.setup(world, miko)
 	if sv.get("sections", {}).has("world.rumors"):
 		rumors.from_json(sv.sections["world.rumors"])
+	# Sera's party.
+	var party := Party.new()
+	party.name = "Party"
+	add_child(party)
+	party.setup(world, miko, get_node("Villagers") as Villagers, $Hud)
+	if sv.get("sections", {}).has("world.party"):
+		party.from_json(sv.sections["world.party"])
 	# Miyu's rescue (as her rumor plays out).
 	var rescue := Rescue.new()
 	rescue.name = "Rescue"
