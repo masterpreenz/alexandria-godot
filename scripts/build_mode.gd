@@ -48,6 +48,9 @@ var _last_cell: Variant = null
 var _last_free: Variant = null
 var _wall_along_y: Variant = null
 var _tool_clicked := false
+var area := Rect2i()                ## the area picked with "Save area" (cells), or none
+var _area_from := Vector2i.ZERO
+var _area_dragging := false
 var _said := 0.0
 # What's drawn this frame.
 var _cells: Array = []            ## cells under the cursor
@@ -177,6 +180,8 @@ func set_tool(t: String) -> void:
 		put_back_carried()
 	if t != "Inspect":
 		picked_room = null
+	if t != "Area":
+		area = Rect2i()
 	_house_ghost = {}
 	tool = t
 	_tool_clicked = true
@@ -222,6 +227,8 @@ func tool_hint() -> String:
 		return "Click anything built to copy it"
 	if tool == "Inspect":
 		return "Click a house to see what it is and change its roof"
+	if tool == "Area":
+		return "Drag over an area to save what's built there as a village template"
 	if kind_of(selected) == "House":
 		return "Click to build the house · R turns it"
 	if selected.is_empty():
@@ -322,6 +329,9 @@ func _process_timed(delta: float) -> void:
 	elif tool == "Inspect":
 		_house_ghost = {}
 		_inspect(point, over)
+	elif tool == "Area":
+		_house_ghost = {}
+		_pick_area(cell, over)
 	elif kind_of(selected) == "House":
 		_cells.clear()
 		_wall_ghost = null
@@ -881,6 +891,14 @@ func _draw() -> void:
 	if not open:
 		return
 	_draw_more()
+	# The area picked for a template: its outline, gold.
+	if tool == "Area" and area.size != Vector2i.ZERO:
+		var a := Vector2(area.position)
+		var b := Vector2(area.end)
+		var ring := PackedVector2Array([world.floors.corner(a), world.floors.corner(Vector2(b.x, a.y)), world.floors.corner(b), world.floors.corner(Vector2(a.x, b.y))])
+		draw_colored_polygon(ring, Color(1.0, 0.82, 0.3, 0.08))
+		ring.append(ring[0])
+		draw_polyline(ring, Color(1.0, 0.82, 0.3, 0.95), 0.06 * world.px, true)
 	var f := world.floors
 	for c in _cells:
 		if _floor_art != "":
@@ -1057,6 +1075,41 @@ func _house_item(p: Dictionary, display: String) -> Dictionary:
 
 
 ## Which house the cursor is over in Inspect, and clicking picks it.
+# Dragging out an area (corner to corner), for saving as a template.
+func _pick_area(cell: Vector2i, over_ui: bool) -> void:
+	_cells.clear()
+	_wall_ghost = null
+	_wall_art = []
+	_floor_art = ""
+	_prop_ghost = {}
+	_group_ghost = []
+	_ring = 0.0
+	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if not down:
+		_tool_clicked = false
+		if _area_dragging:
+			_area_dragging = false
+			changed.emit()
+		return
+	if _tool_clicked:
+		return
+	if not _area_dragging:
+		if over_ui:
+			return
+		_area_dragging = true
+		_area_from = cell
+	var lo := Vector2i(mini(_area_from.x, cell.x), mini(_area_from.y, cell.y))
+	var hi := Vector2i(maxi(_area_from.x, cell.x), maxi(_area_from.y, cell.y))
+	area = Rect2i(lo, hi - lo + Vector2i.ONE)
+
+
+## Saves what's built over the picked area as the template [param nm]; whether it was written.
+func save_area(nm: String) -> bool:
+	if area.size == Vector2i.ZERO or nm.strip_edges() == "":
+		return false
+	return VillageTemplate.save(VillageTemplate.capture(world, area, nm.strip_edges().to_snake_case()))
+
+
 func _inspect(point: Vector2, over_ui: bool) -> void:
 	_cells.clear()
 	_wall_ghost = null

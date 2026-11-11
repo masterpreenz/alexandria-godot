@@ -27,6 +27,7 @@ var clock: GameClock      ## the time of day (set by the game)
 var village: Village      ## the village's extent (its banner, square and blocks)
 var mist: Mist            ## the purple mist over the wild
 var gatherables: Array[Gatherable] = []  ## every tree and rock to gather from
+var cleared := {}                ## cells cleared of trees and rocks to build on (saved: they don't grow back on loading)
 var _wet := {}            # Vector2i (half-cell) -> true: under a water or bank mesh, edges and all (wet())
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
 ## The rivers' flow, vertex by vertex: [position, one cell downstream (px), one cell across (px), speed (cells/s)],
@@ -138,6 +139,14 @@ func _ready() -> void:
 	village = Village.new(self)
 	if sections.has("village"):
 		village.from_json(sections["village"])
+	# Cleared ground stays clear.
+	if sections.has("world.cleared"):
+		var cl: Variant = JSON.parse_string(sections["world.cleared"])
+		for c in (cl if cl is Array else []):
+			clear_cell(Vector2i(int(c[0]), int(c[1])))
+	# A new game: the village as it stands when the story begins (data/villages/home_village.json).
+	if not sections.has("world.props") and VillageTemplate.exists("home_village"):
+		VillageTemplate.stamp(self, VillageTemplate.load_named("home_village"))
 	# The mist, once the village and the crystals stand.
 	if FileAccess.file_exists("res://data/mist.json"):
 		var md: Dictionary = _load_json("res://data/mist.json")
@@ -462,6 +471,22 @@ func drawn_at(sprite: Sprite2D, p: Vector2) -> bool:
 	if px_at.x >= img.get_width() or px_at.y >= img.get_height():
 		return false
 	return img.get_pixel(px_at.x, px_at.y).a > 0.4
+
+
+## Clears the trees and rocks standing on [param cell] for good (to build there): they're gone, and stay gone in the
+## save.
+func clear_cell(cell: Vector2i) -> void:
+	cleared[cell] = true
+	var at := floors.cell_centre(cell)
+	for g in Gatherable.all.duplicate():
+		if is_instance_valid(g) and floors.cell_at(g.foot) == cell or (is_instance_valid(g) and g.foot.distance_to(at) < 0.6 * px):
+			Gatherable.all.erase(g)
+			gatherables.erase(g)
+			g.queue_free()
+
+
+func cleared_json() -> String:
+	return JSON.stringify(cleared.keys().map(func(c): return [c.x, c.y]))
 
 
 ## Whether something's laid over the grass at [param p] (a path, stone, boards).

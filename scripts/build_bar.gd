@@ -86,6 +86,50 @@ func _build_pill() -> void:
 	add_child(_pill)
 
 
+var _area_panel: PanelContainer
+var _area_name: LineEdit
+var _area_size: Label
+var _area_said: Label
+
+
+# The card for a picked area: how big, a name, and Save (it writes data/villages/<name>.json).
+func _area_card() -> void:
+	var up: bool = build.tool == "Area" and build.area.size != Vector2i.ZERO
+	if _area_panel == null:
+		if not up:
+			return
+		_area_panel = PanelContainer.new()
+		_area_panel.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", int(_k(6)))
+		_area_panel.add_child(col)
+		col.add_child(HudStyle.label("Village template", 14, "bold", HudStyle.color("accentLight")))
+		_area_size = HudStyle.label("", 11, "body", HudStyle.color("muted"))
+		col.add_child(_area_size)
+		_area_name = LineEdit.new()
+		_area_name.text = "home_village"
+		_area_name.custom_minimum_size = Vector2(_k(220), _k(28))
+		_area_name.add_theme_stylebox_override("normal", HudStyle.piece("well"))
+		_area_name.add_theme_stylebox_override("focus", HudStyle.piece("well"))
+		_area_name.add_theme_font_size_override("font_size", roundi(_k(12)))
+		col.add_child(_area_name)
+		var save := HudStyle.button("Save template", 12)
+		save.pressed.connect(func():
+			var ok: bool = build.save_area(_area_name.text)
+			_area_said.text = ("Saved data/villages/%s.json: a new game builds it there." % _area_name.text.strip_edges().to_snake_case()) if ok else "Couldn't save it.")
+		col.add_child(save)
+		_area_said = HudStyle.label("", 10, "body", HudStyle.color("faint"))
+		_area_said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_area_said.custom_minimum_size.x = _k(220)
+		col.add_child(_area_said)
+		add_child(_area_panel)
+	_area_panel.visible = up
+	if up:
+		_area_size.text = "%d × %d cells, from (%d, %d)" % [build.area.size.x, build.area.size.y, build.area.position.x, build.area.position.y]
+		_area_panel.reset_size()
+		_area_panel.position = Vector2(get_viewport_rect().size.x - _area_panel.size.x - _k(16), _k(90))
+
+
 func _rail_button(key: String, text: String, tip: String, act: Callable) -> Button:
 	var b := HudStyle.button(text, 11, "slot")
 	b.custom_minimum_size = Vector2(_k(96), _k(32))
@@ -105,6 +149,7 @@ func _build_rail() -> void:
 	col.add_child(_rail_button("Move", "Move  M", "Pick up a prop and put it somewhere else", func(): build.set_tool("Place" if build.tool == "Move" else "Move")))
 	col.add_child(_rail_button("Copy", "Copy  V", "Click anything built to pick the same", func(): build.set_tool("Place" if build.tool == "Copy" else "Copy")))
 	col.add_child(_rail_button("Inspect", "Inspect  H", "Click a house: what it's given to, what's in it, its roof, and saving it", func(): build.set_tool("Place" if build.tool == "Inspect" else "Inspect")))
+	col.add_child(_rail_button("Area", "Save area", "Drag over an area and save what's built there as a village template (data/villages/)", func(): build.set_tool("Place" if build.tool == "Area" else "Area")))
 	col.add_child(_rail_button("Hide", "Hide  U", "Hide walls, roofs and plans to see the ground", build.toggle_hide_buildings))
 	col.add_child(_rail_button("Plan", "Blueprint  N", "Blueprint mode: walls and floors you place become plans for the villagers to build", build.toggle_blueprint))
 	col.add_child(_rail_button("Undo", "Undo", "Ctrl+Z", build.undo))
@@ -361,6 +406,8 @@ func _refresh() -> void:
 	_light("Move", build.tool == "Move")
 	_light("Copy", build.tool == "Copy")
 	_light("Inspect", build.tool == "Inspect")
+	_light("Area", build.tool == "Area")
+	_area_card()
 	_light("Hide", build.hide_buildings)
 	_card_for = null
 	_rail_buttons.Undo.disabled = not build.can_undo()

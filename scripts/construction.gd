@@ -155,11 +155,8 @@ func build(p: Dictionary) -> bool:
 	else:
 		var cell := Vector2i(int(p.x), int(p.y))
 		world.props.remove_all(cell)
-		# Anything growing there (a tree, a rock) is cleared.
-		var at := world.floors.cell_centre(cell)
-		for g in Gatherable.all.duplicate():
-			if g.foot.distance_to(at) < 0.6 * world.px:
-				g.queue_free()
+		# Anything growing there (a tree, a rock) is cleared, for good.
+		world.clear_cell(cell)
 		world.floors.paint(cell, p.type, bool(p.get("turned", false)))
 		if str(p.get("roof", "")) != "":
 			world.roofs.set_roof([cell], p.roof)

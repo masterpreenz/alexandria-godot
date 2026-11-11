@@ -231,6 +231,7 @@ func capture() -> Dictionary:
 	s["world.clock"] = world.clock.to_json() if world.clock != null else null
 	put.call("world.explored", at.call("Exploration"), func(n): return n.to_json())
 	s["world.floors"] = world.floors.to_json()
+	s["world.cleared"] = world.cleared_json()
 	s["world.walls"] = world.walls.to_json()
 	s["world.props"] = world.props.to_json()
 	if world.roofs != null:
