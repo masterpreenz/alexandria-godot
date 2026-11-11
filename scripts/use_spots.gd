@@ -79,7 +79,7 @@ static func nearest_chest_spot(w: World, from: Vector2) -> Variant:
 	var best: Variant = null
 	var best_d := INF
 	for c in w.props.entries_named("Chest"):
-		if not w.village.contains(c.pos):
+		if not w.village.contains(c.pos) or Cellars.room_has(w.floors.cell_at(c.pos)):   # (they don't go down the cellar)
 			continue
 		var dd: float = c.pos.distance_to(from)
 		if dd >= best_d:

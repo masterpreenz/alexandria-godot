@@ -63,7 +63,7 @@ func _process_timed(delta: float) -> void:
 
 ## Whether [param p] (a spot on the ground) is inside a roofed room.
 func covers(p: Vector2) -> bool:
-	return room_on(p) != null
+	return room_on(p) != null or Cellars.room_has(floors.cell_at(p))   # (down in the cellar is indoors)
 
 
 ## The cells of the closed room whose floor [param p] stands on, or null.

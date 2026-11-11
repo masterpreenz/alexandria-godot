@@ -131,7 +131,7 @@ func cell_at(p: Vector2) -> Vector2i:
 
 
 func in_bounds(cell: Vector2i) -> bool:
-	return bounds.has_point(cell)
+	return bounds.has_point(cell) or Cellars.room_has(cell)   # (the cellar's room, off the map, can be built in)
 
 
 # ---- Reading ----

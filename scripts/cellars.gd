@@ -75,6 +75,12 @@ static func inside(at: Vector2) -> bool:
 	return c.x > -3.0 and c.y > -3.0 and c.x < SIDE + 3.0 and c.y < SIDE + 3.0
 
 
+## Whether [param cell] is one of the cellar room's floor cells: things can be built there (it counts as in the
+## village and indoors), though the villagers don't go down.
+static func room_has(cell: Vector2i) -> bool:
+	return cell.x >= AT.x and cell.y >= AT.y and cell.x < AT.x + SIDE and cell.y < AT.y + SIDE
+
+
 # The doorway's cell (in the front wall along y = AT.y), and where she arrives: a step inside it.
 func _door_cell() -> Vector2i:
 	@warning_ignore("integer_division")

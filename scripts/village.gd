@@ -432,6 +432,8 @@ func contains(p: Vector2, margin := 0.0) -> bool:
 	_update()
 	if not _founded:
 		return false
+	if Cellars.room_has(world.floors.cell_at(p)):
+		return true   # (the cellar is the village's, wherever its room is)
 	var d := world.floors.fractional_cell(p) - _centre_cell
 	if maxf(absf(d.x), absf(d.y)) <= half_size() + margin:
 		return true

@@ -25,6 +25,9 @@ var _pending: Label
 var _people_box: VBoxContainer
 var _keep_box: VBoxContainer
 var _next_refresh := 0.0
+var tab := "Jobs"            ## which page shows: "Jobs" (the villagers and the work waiting) or "Storage Rules"
+var _pages := {}             # tab -> its page
+var _tab_buttons := {}
 
 
 func setup(w: World, people: Villagers, farms: Farming) -> void:
@@ -43,6 +46,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_ESCAPE and visible:
 			visible = false
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_TAB and visible:
+			show_tab("Storage Rules" if tab == "Jobs" else "Jobs")
 			get_viewport().set_input_as_handled()
 
 
@@ -72,10 +78,10 @@ func _k(v: float) -> float:
 	return v * HudStyle.SCALE
 
 
-func _scroller(h: float) -> Array:
+func _scroller(h: float, w := COL) -> Array:
 	var s := ScrollContainer.new()
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	s.custom_minimum_size = Vector2(_k(COL), _k(h))
+	s.custom_minimum_size = Vector2(_k(w), _k(h))
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", int(_k(4)))
@@ -95,11 +101,20 @@ func _build() -> void:
 	root.add_theme_constant_override("separation", int(_k(6)))
 	add_child(root)
 	var head := HBoxContainer.new()
-	head.add_child(HudStyle.label("Villagers' jobs", 16, "pixel", HudStyle.color("accentLight")))
+	head.add_theme_constant_override("separation", int(_k(8)))
+	head.add_child(HudStyle.label("Village", 16, "pixel", HudStyle.color("accentLight")))
+	# The tabs.
+	_tab_buttons.clear()
+	_pages.clear()
+	for t in ["Jobs", "Storage Rules"]:
+		var tb := HudStyle.button(t, 12)
+		tb.pressed.connect(show_tab.bind(t))
+		head.add_child(tb)
+		_tab_buttons[t] = tb
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	head.add_child(HudStyle.label("J or Esc to close  ·  scroll each side", 11, "body", HudStyle.color("muted")))
+	head.add_child(HudStyle.label("J or Esc to close  ·  Tab switches", 11, "body", HudStyle.color("muted")))
 	root.add_child(head)
 	var sides := HBoxContainer.new()
 	sides.add_theme_constant_override("separation", int(_k(14)))
@@ -118,11 +133,16 @@ func _build() -> void:
 	_people_box.add_child(HudStyle.label("bars: health · food · rest  (hungry, they eat from storage, cooked food first)", 10, "body", HudStyle.color("faint")))
 	# ---- Right: what to keep in storage, then the work waiting.
 	var right := VBoxContainer.new()
-	right.add_child(HudStyle.label("KEEP IN STORAGE  ·  the villagers stop once there's this much", 11, "bold", HudStyle.color("faint")))
-	var ks := _scroller(250)
-	right.add_child(ks[0])
-	var stock: VBoxContainer = ks[1]
 	sides.add_child(right)
+	_pages["Jobs"] = sides
+	# ---- The other tab: what to keep in storage.
+	var rules := VBoxContainer.new()
+	rules.add_child(HudStyle.label("KEEP IN STORAGE  ·  the villagers stop once there's this much", 11, "bold", HudStyle.color("faint")))
+	var ks := _scroller(H, COL * 2.0 + 14.0)
+	rules.add_child(ks[0])
+	var stock: VBoxContainer = ks[1]
+	root.add_child(rules)
+	_pages["Storage Rules"] = rules
 	# The crop rotation: what bare plots left to the village are planted with, in turn.
 	if farming != null:
 		stock.add_child(HudStyle.label("Crop rotation (click to add or remove)", 11, "bold", HudStyle.color("faint")))
@@ -161,13 +181,24 @@ func _build() -> void:
 		_keep_row(e)
 	_lay_keep()
 	right.add_child(HudStyle.label("WORK WAITING", 11, "bold", HudStyle.color("faint")))
-	var ws := _scroller(H - 250 - 24)
+	var ws := _scroller(H - 24)
 	right.add_child(ws[0])
 	_pending = HudStyle.label("", 12, "body")
 	_pending.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pending.custom_minimum_size.x = _k(COL - 16)
 	ws[1].add_child(_pending)
+	show_tab(tab)
 	_refresh()
+
+
+## Shows the page [param t] ("Jobs" or "Storage Rules").
+func show_tab(t: String) -> void:
+	tab = t
+	for k in _pages:
+		(_pages[k] as Control).visible = k == t
+	for k in _tab_buttons:
+		(_tab_buttons[k] as Button).modulate = Color.WHITE if k == t else Color(1, 1, 1, 0.55)
+	reset_size()
 
 
 func _bar(parent: Control) -> ColorRect:

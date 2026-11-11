@@ -95,6 +95,8 @@ func winter() -> bool:
 ## Whether the villagers see to this fire: it's in the village, or out of it on ground a cleansing crystal keeps clear
 ## (a torch on the road out, a camp by a crystal).
 func tended(f: Dictionary) -> bool:
+	if Cellars.room_has(world.floors.cell_at(f.pos)):
+		return false   # (down in the cellar: hers to light)
 	if world.village.contains(f.pos, 2.0):
 		return true
 	for at in world.props_named("CleansingCrystal"):

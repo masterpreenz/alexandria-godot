@@ -552,7 +552,10 @@ func _ready() -> void:
 				"grow":
 					vd.growth.begin()
 					get_viewport().warp_mouse(get_viewport().get_visible_rect().size * Vector2(0.75, 0.3))
-				"jobs": ($Hud/JobsWindow as JobsWindow).visible = true
+				"jobs":
+					($Hud/JobsWindow as JobsWindow).visible = true
+					if Shots.arg("tab") != "":
+						($Hud/JobsWindow as JobsWindow).tab = Shots.arg("tab")
 				"character":
 					var cp: CharacterPanel = $Hud/CharacterPanel
 					cp.toggle()
@@ -1999,6 +2002,11 @@ func _ready() -> void:
 					vl._go_store()
 					print("Cellar: a villager with potatoes heads ", snappedf(food_goes, 0.1), " units from the trapdoor; with wood, ", snappedf(vl.target.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1))
 					vl.carrying = 0
+					var bm := BuildMode.active
+					var in_room := Cellars.AT + Vector2i(1, 3)
+					print("Cellar: building down there: a chest '", bm.why_not(bm.item_for("Prop", "Chest"), world.floors.cell_centre(in_room)), "', a bed '", bm.why_not(bm.item_for("Prop", "WoodenBed"), world.floors.cell_centre(in_room)), "', in bounds ", world.floors.in_bounds(in_room), ", no-build ", bm.no_build(in_room))
+					world.props.place(in_room, "Chest")
+					print("Cellar: a chest placed down there ", world.props.get_prop(in_room, 0), "; the villagers' chest spot is in the room ", Cellars.room_has(world.floors.cell_at(UseSpots.nearest_chest_spot(world, v.centre()))))
 					print("Cellar: back up, ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
