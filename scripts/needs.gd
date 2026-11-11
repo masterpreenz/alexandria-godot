@@ -14,7 +14,7 @@ extends Node
 
 const MAX := 100.0
 const EAT_ORDER := [["FishStew", 65.0], ["FishSoup", 60.0], ["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", "mealFills"], ["BakedPotato", "bakedPotatoFills"],
-	["GrilledFish", 50.0], ["Bread", 40.0], ["SmokedFish", 40.0], ["Candy", "candyFills"], ["Food", "meatFills"], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", "potatoFills"]]
+	["GrilledFish", 50.0], ["Bread", 40.0], ["SmokedFish", 40.0], ["Candy", "candyFills"], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", "potatoFills"]]
 const FOOD_BUFFS := {
 	"CarrotStew": {"hpRegen": 1.5, "gatherSpeed": 15.0},
 	"CabbageSoup": {"defense": 3.0, "manaRegen": 1.0},

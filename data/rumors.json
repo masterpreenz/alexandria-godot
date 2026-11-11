@@ -34,7 +34,7 @@
    "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 2},
    "done": {"kind": "reach", "within": 3}}
  ],
- "reward": {"effects": [], "gifts": [["Bait", 5]], "log": "Worms under every log in the cleared woods: good bait."},
+ "reward": {"effects": [], "gifts": [["Food", 3]], "log": "The cleared woods are full of rabbits now: a few for the pot."},
  "leads": {}
 },
 {

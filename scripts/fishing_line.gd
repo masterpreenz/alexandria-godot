@@ -24,6 +24,8 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
+	# (it stands where its float sits, to be sorted there; what it draws is given in the world's own px)
+	draw_set_transform(-position)
 	# The line: a curve hanging between the two (tauter in the air and on a bite).
 	var sag := (0.1 if bite or not landed else 0.32) * unit
 	var mid := (tip + float_at) / 2.0 + Vector2(0, sag)
@@ -38,9 +40,9 @@ func _draw() -> void:
 		var now := Time.get_ticks_msec() / 1000.0
 		for n in 2:
 			var age := fmod(now * (1.6 if bite else 0.7) + n * 0.5, 1.0)
-			draw_set_transform(water_at, 0.0, Vector2(1.0, 0.5))
+			draw_set_transform(water_at - position, 0.0, Vector2(1.0, 0.5))
 			draw_arc(Vector2.ZERO, r * (1.5 + age * 4.0), 0.0, TAU, 28, Color(1, 1, 1, 0.5 * (1.0 - age)), maxf(1.0, unit * 0.012), true)
-		draw_set_transform(Vector2.ZERO)
+		draw_set_transform(-position)
 	# The float: white below, red on top, a dark stalk the line's tied to.
 	draw_line(float_at + Vector2(0, -r * 2.2), float_at + Vector2(0, -r), DARK, maxf(1.0, unit * 0.014))
 	draw_circle(float_at, r * 1.15, DARK)

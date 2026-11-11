@@ -1,10 +1,10 @@
 class_name Fishing
 extends Node
 ## Fishing: food all year round, winter too. A Fishing Dock is built by the water (a river, a lake, a pond). With a
-## fishing rod in her bag, E at one casts Miko's line: a few seconds' wait, a bait gone, and most times a fish (now
+## fishing rod in her bag, E at one casts Miko's line: a few seconds' wait, and most times a fish (now
 ## and then two, now and then nothing). Slower in winter. Villagers set to fish (or to any work) work the docks in and
-## near the village the same way, with bait from storage (Villager's fishing). Fish spoils fast raw; grilled at a
-## fire it keeps and fills. Bait turns up when harvesting, or is made at the tool workbench.
+## near the village the same way (Villager's fishing). Fish spoils fast raw; grilled at a
+## fire it keeps and fills. It takes a rod and nothing else (there was bait once: it only got in the way).
 
 const RANGE := 1.6               ## units from a dock to fish at it
 const CAST := 3.5                ## seconds a cast takes
@@ -138,10 +138,9 @@ static func cast_frame(t: float, frames: int) -> int:
 
 
 static func new_line(w: World) -> FishingLine:
+	# (among the things standing, sorted where its float sits: a tree nearer than that is drawn over it)
 	var l := FishingLine.new()
-	l.z_as_relative = false
-	l.z_index = 3990
-	w.add_child(l)
+	w.things.add_child(l)
 	return l
 
 
@@ -165,6 +164,7 @@ static func draw_line_from(w: World, line: FishingLine, tip: Vector2, target: Ve
 		at.y += sin(now * 2.6) * 0.02 * w.px + (absf(sin(now * 14.0)) * 0.07 * w.px if line.bite else 0.0)
 	line.float_at = at
 	line.water_at = target
+	line.position = target
 	line.unit = w.px
 	line.queue_redraw()
 
@@ -212,16 +212,12 @@ func _process(_delta: float) -> void:
 			near = at
 	if near == null:
 		return
-	var bait := world.village.have(miko.bag, miko, "Bait")
 	prompt.visible = true
 	WorldPrompts.at(prompt, (near as Vector2) + Vector2(0, -0.8 * world.px))
 	if not _has_rod():
 		prompt.text = "Fishing dock  ·  needs a fishing rod (tool workbench)"
 		return
-	if bait <= 0:
-		prompt.text = "Fishing dock  ·  no bait (from harvests, or the tool workbench)"
-		return
-	prompt.text = "E  Fish  ·  %d bait" % bait
+	prompt.text = "E  Fish"
 	if not Villager.safe_ground(world, near):
 		prompt.text += "
 In the mist: villagers won't fish here (a cleansing crystal clears it)"
@@ -237,13 +233,11 @@ In the mist: villagers won't fish here (a cleansing crystal clears it)"
 		miko.facing_up = to.y < 0.0
 
 
-# The line comes in: the bait's gone either way.
+# The line comes in.
 func _land() -> void:
 	casting = false
 	miko.locked = false
 	_reel_until = Time.get_ticks_msec() / 1000.0 + REEL
-	if not world.village.take(miko.bag, miko, "Bait", 1):
-		return
 	var n := catch_now(LifeSkills.get_level(LifeSkills.Skill.FISHING))
 	LifeSkills.practise(LifeSkills.Skill.FISHING, miko)
 	var over := miko.position + Vector2(0, -2.0 * world.px)

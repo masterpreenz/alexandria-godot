@@ -46,8 +46,9 @@ static var unreachable := {}      ## blueprint piece -> until when it's left (wa
 static var mending := {}          ## barricade (wall key) -> true: someone's on the way to repair it, or at it
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
+## What they eat, and how much each fills. Raw meat, raw fish and slime jelly aren't food till they're cooked.
 const FOODS := [["FishStew", 65.0], ["FishSoup", 60.0], ["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
-	["GrilledFish", 50.0], ["Candy", 35.0], ["Food", 20.0], ["SmokedFish", 40.0], ["Fish", 15.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
+	["GrilledFish", 50.0], ["Candy", 35.0], ["SmokedFish", 40.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
 const EMOTE_FPS := 5.0
 const BOB_HEIGHT := 0.045
 const BOB_SPEED := 4.0
@@ -920,9 +921,10 @@ func _wake_up(t: float) -> void:
 	_stand(t, randf_range(0.1, 0.5))   # (up and off: not standing by the bed)
 
 
-# ---- Fishing: at a dock in or near the village, with bait from storage: a cast at a time (a bait each, slower in
-# winter), up to a good haul or till the bait's gone, then home with the fish. One villager to a dock. ----
+# ---- Fishing: at a dock on cleared ground: a cast at a time (slower in winter), up to a good haul, then home with
+# the fish. One villager to a dock. ----
 
+const READ_ONE_WAY := ["quest", "excl", "note", "mood.info", "mood.idea", "mood.alarm"]   ## emotes never mirrored (a "?" backwards is wrong)
 const FISH_HAUL := 10            ## fish they bring back at most (as many as they can carry, if that's fewer)
 
 var fish_dock := Vector2.INF     ## the dock they're fishing (px), or INF
@@ -932,10 +934,10 @@ var _fish_water := Vector2.ZERO  ## where their float sits (px)
 var _fish_line: FishingLine
 
 func _go_fish() -> bool:
-	if not _does(Job.FISHING):
+	if not _wants(Job.FISHING):
 		return false
 	var f := Fishing.active
-	if f == null or carrying > 0 or world.village.stored("Bait") <= 0 or Kitchen.stocked(world.village, "Fish"):
+	if f == null or carrying > 0 or Kitchen.stocked(world.village, "Fish"):
 		return false
 	var best := Vector2.INF
 	var best_d := INF
@@ -982,7 +984,7 @@ func _cast_time() -> float:
 	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING)) * 1.6 / _tool_pace()
 
 
-# Waiting on the line; then a bait gone and, most times, a fish; again till there's a haul or no bait.
+# Waiting on the line; then, most times, a fish; again till there's a haul.
 func _fishing(t: float) -> void:
 	velocity = Vector2.ZERO
 	_show_fishing(t)
@@ -991,16 +993,13 @@ func _fishing(t: float) -> void:
 		return
 	if t < state_until:
 		return
-	if not world.village.take_from_stash("Bait", 1):
-		_done_fishing(t)
-		return
 	var n := Fishing.catch_now(Villagers.skill(person, LifeSkills.Skill.FISHING))
 	people.practise(person, LifeSkills.Skill.FISHING)
 	if n > 0:
 		carrying = mini(_carry_most(), carrying + n)
 		_caught_until = t + Fishing.CAUGHT_SHOWS
 		FloatingText.spawn(world, "+%d Fish" % n, position + Vector2(0, -2.0 * world.px), Color(0.6, 0.85, 1.0))
-	if carrying >= mini(FISH_HAUL, _carry_most()) or world.village.stored("Bait") <= 0:
+	if carrying >= mini(FISH_HAUL, _carry_most()):
 		_done_fishing(t)
 		return
 	_fish_from = t
@@ -1048,7 +1047,7 @@ var _fetching_food := false     ## off to a chest for food to carry down the cel
 # at a time), then down the cellar with it.
 func _go_move_food() -> bool:
 	var c := Cellars.active
-	if not _does(Job.HAULING) or c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
+	if not _wants(Job.HAULING) or c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
 		return false
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
 	if spot == null:
@@ -1522,7 +1521,7 @@ func _emote(e: String) -> void:
 	var info: Dictionary = world.sprites[id]
 	var k := EMOTE_WIDTH * world.px / float(info.rect[2])
 	world.show_frame(emote, id, Vector2.ONE * k * float(info.ppu) / world.px)
-	emote.flip_h = not facing_right  # the tail towards their head
+	emote.flip_h = not facing_right and not e in READ_ONE_WAY  # the tail towards their head (not what would read backwards)
 	var bob := sin(now() * BOB_SPEED) * BOB_HEIGHT * world.px
 	emote.position = Vector2((0.24 if facing_right else -0.24) * world.px, -_top() - 0.06 * world.px + bob)
 	var inner: Sprite2D = emote.get_child(0)
@@ -1881,19 +1880,57 @@ func _job() -> int:
 	return int(person.get("job", Job.ANY))
 
 
-## The work [param p] is set to (Job values): [Job.ANY] for anything, [] for none (resting). As ticked in the jobs
-## window ("jobs"); an older save's one job is read as it was.
-static func jobs_of(p: Dictionary) -> Array:
+## The jobs there are to set, in the order the jobs window shows them.
+const JOBS := [Job.LUMBERING, Job.MINING, Job.FARMING, Job.FISHING, Job.COOKING, Job.BUILDING, Job.CRAFTING, Job.HAULING]
+
+
+## How much of job [param j] the villager [param p] is set to do: 1 (none of it) to 10 (as much as there is), as
+## set in the jobs window ("weights"). Older saves: what was ticked, or their one job, counts 10 and the rest 1.
+static func weight_of(p: Dictionary, j: int) -> int:
+	if p.has("weights"):
+		return clampi(int(p.weights.get(str(j), 10)), 1, 10)
 	if p.has("jobs"):
-		return p.jobs
+		return 10 if (p.jobs as Array).has(Job.ANY) or (p.jobs as Array).has(j) else 1
 	var one := int(p.get("job", Job.ANY))
-	return [] if one == Job.REST else [one]
+	return 10 if one == Job.ANY or one == j else 1
 
 
-## Whether they're set to do work [param j] (one of Job): it's ticked for them, or "all work" is.
+static func set_weight(p: Dictionary, j: int, w: int) -> void:
+	if not p.has("weights"):
+		var each := {}
+		for k in JOBS:
+			each[str(k)] = weight_of(p, k)
+		p["weights"] = each
+	p.weights[str(j)] = clampi(w, 1, 10)
+
+
+## Sets [param p] to do only [param jobs] (each as much as there is), and none of the rest.
+static func only(p: Dictionary, jobs: Array) -> void:
+	for k in JOBS:
+		set_weight(p, k, 10 if jobs.has(k) or jobs.has(Job.ANY) else 1)
+
+
+## The jobs [param p] does at all (those set above 1): none, and they rest.
+static func jobs_of(p: Dictionary) -> Array:
+	return JOBS.filter(func(j): return weight_of(p, j) > 1)
+
+
+## Whether they do work [param j] (one of Job) at all.
 func _does(j: int) -> bool:
-	var js := jobs_of(person)
-	return js.has(Job.ANY) or js.has(j)
+	return weight_of(person, j) > 1
+
+
+## Whether they'll take work [param j] this time: by how much of it they're set to, against the job they're set to
+## most (that one always; one set half as high, about half the times it comes up; one set to 1, never).
+func _wants(j: int) -> bool:
+	var w := weight_of(person, j)
+	if w <= 1:
+		return false
+	var most := 1
+	for k in JOBS:
+		most = maxi(most, weight_of(person, k))
+	return randf() < float(w - 1) / float(most - 1)
+
 
 
 func _fires() -> Fires:
@@ -2020,6 +2057,11 @@ func _find_work() -> bool:
 	var can_chop := _does(Job.LUMBERING)
 	if not can_mine and not can_chop:
 		return false
+	# (by how much of each they're set to: whether at all this time, and which first)
+	var keen_chop := weight_of(person, Job.LUMBERING) - 1
+	var keen_mine := weight_of(person, Job.MINING) - 1
+	if not (_wants(Job.LUMBERING) if keen_chop >= keen_mine else _wants(Job.MINING)):
+		return false
 	var chop := can_chop and not Kitchen.stocked(world.village, "Wood")
 	var mine := can_mine and not Kitchen.stocked(world.village, "Stone")
 	var spot: Gatherable = null
@@ -2028,7 +2070,7 @@ func _find_work() -> bool:
 	elif not can_mine:
 		spot = _nearest_work(true) if chop else null
 	else:
-		var first := randf() < 0.5
+		var first := randf() * float(keen_chop + keen_mine) < float(keen_chop)
 		if (chop if first else mine): spot = _nearest_work(first)
 		if spot == null and (mine if first else chop): spot = _nearest_work(not first)
 	if spot == null:
@@ -2190,7 +2232,7 @@ func _nearest_loose(within: float) -> Pickup:
 
 func _go_pick_up() -> bool:
 	# (what's lying about is the haulers' to bring in, and the miners' and woodcutters' own)
-	if not _does(Job.HAULING) and not _does(Job.LUMBERING) and not _does(Job.MINING):
+	if not _wants(Job.HAULING) and not _wants(Job.LUMBERING) and not _wants(Job.MINING):
 		return false
 	if carrying >= _carry_most():
 		return false
@@ -2294,7 +2336,7 @@ func _unload(t: float, stand := true) -> void:
 # ones planted from storage ----
 
 func _go_farm() -> bool:
-	if not _does(Job.FARMING):
+	if not _wants(Job.FARMING):
 		return false
 	if carrying > 0 and not Farming.CROPS.has(carry_kind):
 		return false
@@ -2413,8 +2455,6 @@ func _farming(t: float) -> void:
 			_done_farming(t, true)
 			return
 		var got := farm.harvest(plot)
-		if int(got[1]) > 0 and randf() < Farming.BAIT_CHANCE:
-			world.village.put_in_stash("Bait", 1)
 		if int(got[2]) > 0:
 			world.village.deposit(Farming.CROPS[kind].seed, int(got[2]), plot.pos)
 		if int(got[1]) > 0:
@@ -2487,7 +2527,7 @@ func _cook_skill() -> int:
 
 
 func _go_cook() -> bool:
-	if not _does(Job.COOKING):
+	if not _wants(Job.COOKING):
 		return false
 	if _cook_skill() <= 0 or Kitchen.next(world.village).is_empty():
 		return false
@@ -2734,7 +2774,7 @@ func _done_lighting(t: float) -> void:
 # ---- Building from blueprints: ready pieces, paid for from storage ----
 
 func _go_build() -> bool:
-	if not _does(Job.BUILDING):
+	if not _wants(Job.BUILDING):
 		return false
 	var c := Construction.active
 	if c == null:
@@ -2848,7 +2888,7 @@ func _done_building(t: float) -> void:
 const REPAIR_COST := 1            ## wood a go at a barricade takes from storage
 
 func _go_repair() -> bool:
-	if not _does(Job.BUILDING):
+	if not _wants(Job.BUILDING):
 		return false
 	var walls := world.walls
 	if walls == null or world.village.stored("Wood") < REPAIR_COST:
@@ -3088,7 +3128,7 @@ func _go_craft() -> bool:
 		var bench: Dictionary = benches[prop]
 		var cooks: bool = bench.skill == "Cooking"
 		# The cooking bench is a cook's (those who can cook); the others a crafter's.
-		if not _does(Job.COOKING if cooks else Job.CRAFTING):
+		if not _wants(Job.COOKING if cooks else Job.CRAFTING):
 			continue
 		if cooks and _cook_skill() <= 0:
 			continue

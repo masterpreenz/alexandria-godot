@@ -30,7 +30,6 @@ const ORDER := ["Potato", "Carrot", "Wheat", "Cotton"]   ## (no cabbages for now
 const WET_FOR := 24.0            ## game hours a watering lasts
 const DRY_RATE := 0.5            ## how fast a dry crop grows
 const PEST_PER_HOUR := 0.015     ## the chance a growing crop gets pests, each game hour (about one in three crops a 24 h)
-const BAIT_CHANCE := 0.3         ## a harvest turns up a bait this often
 const WATER_SOUND := "res://assets/Sounds/watering_sound.mp3"
 const PEST_SHEET := "res://assets/Resources/Emotes/Emote_pests.png"
 
@@ -706,10 +705,6 @@ func _harvest(p: Dictionary) -> void:
 	LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 	world.village.give(miko.bag, miko, c, n, p.pos)
 	var text := "+%d %s" % [n, info.plural.capitalize()]
-	# Worms turned up with the crop, now and then: bait for fishing.
-	if randf() < BAIT_CHANCE:
-		world.village.give(miko.bag, miko, "Bait", 1, p.pos)
-		text += ", +1 bait"
 	if seeds > 0:
 		world.village.give(miko.bag, miko, info.seed, seeds, p.pos)
 		text += ", +%d seeds" % seeds
