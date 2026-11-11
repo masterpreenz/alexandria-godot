@@ -449,6 +449,8 @@ func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 		return "Keep clear: the way in to a bed or chest"
 	if bool(it.get("indoorsOnly", false)) and (world.roofs == null or not world.roofs.covers(at)):
 		return "Only inside a house"
+	if bool(it.get("outdoorsOnly", false)) and world.roofs != null and world.roofs.covers(at):
+		return "Only outdoors"
 	if bool(it.get("villageOnly", false)) and not world.village.contains(at):
 		return "Only inside the village" if world.village.founded() else "Place a town banner first"
 	if bool(it.get("onlyOne", false)) and world.props.has(it.name) and moving.is_empty():

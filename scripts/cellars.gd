@@ -1,6 +1,6 @@
 class_name Cellars
 extends Node
-## Cellars: cold storage under a house. Each Cellar (a trapdoor in the floor) keeps [constant HOLDS] of the village's
+## Cellars: cold storage underground. Each Cellar (its doors set in the ground outdoors, in the village) keeps [constant HOLDS] of the village's
 ## food cold, where it spoils a quarter as fast (Spoilage asks [method cold_share]). E at one takes Miko down into the
 ## cellar itself, fading to black and out again: one underground room for all of them, cobbled, stone walls round
 ## it, earth beyond, lit by a lamp, free of mist. Walking out through the doorway in its front wall brings her back
