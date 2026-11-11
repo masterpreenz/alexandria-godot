@@ -1969,16 +1969,14 @@ func _ready() -> void:
 					v.stash["Food"] = 80
 					v.stash["Potato"] = 120
 					print("Cellar: none yet, cold share ", cl.cold_share())
-					var room: Dictionary = world.roofs.roofs[0].cells
-					var spot := Vector2i.ZERO
-					for c in room:
-						if world.props.peek_where(c, func(_n): return true) == "" and not BuildMode.active._use_cells().has(c):
-							spot = c
-					world.props.place(spot, "Cellar")
+					var spot := world.floors.cell_at(v.centre()) + Vector2i(4, -5)
+					world.props.place(spot, "Cellar", 1.0, 0)
+					world.props.place(spot + Vector2i(4, 0), "Cellar", 1.0, 1)
 					for i in 5:
 						await get_tree().process_frame
 					print("Cellar: one built, holds ", cl.holds(), " of 200 food: cold share ", cl.cold_share(), " (storage's food spoils at ", snappedf(1.0 - cl.cold_share() * (1.0 - Cellars.COLD_RATE), 0.01), " of the usual)")
-					miko.place(world.floors.cell_centre(spot) + Vector2(0.3, 0.3) * world.px)
+					miko.place(world.floors.cell_centre(spot) + Vector2(2.0, 1.2) * world.px)
+					miko.position = world.floors.cell_centre(spot) + Vector2(0.4, 1.3) * world.px
 					for i in 30:
 						await get_tree().process_frame
 					print("Cellar: prompt '", cl.prompt.text, "' showing ", cl.prompt.visible)
@@ -2001,7 +1999,7 @@ func _ready() -> void:
 					vl._go_store()
 					print("Cellar: a villager with potatoes heads ", snappedf(food_goes, 0.1), " units from the trapdoor; with wood, ", snappedf(vl.target.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1))
 					vl.carrying = 0
-					print("Cellar: back up, in the house ", world.roofs.covers(miko.position), ", ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
+					print("Cellar: back up, ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

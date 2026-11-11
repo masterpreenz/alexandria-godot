@@ -4488,5 +4488,7 @@
 {"name":"FireplaceSE","tex":"res://assets/Art/Environment/Props/FireplaceSE.png","rect":[0,0,505,795],"pivot":[255.0,669.5],"ppu":524.2},
 {"name":"FireplaceIcon","tex":"res://assets/Art/UI/Icons/FireplaceIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
 {"name":"Cellar","tex":"res://assets/Art/Environment/Props/Cellar.png","rect":[0,0,256,128],"pivot":[128.0,64.0],"ppu":300},
-{"name":"CellarIcon","tex":"res://assets/Art/UI/Icons/CellarIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100}
+{"name":"CellarIcon","tex":"res://assets/Art/UI/Icons/CellarIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
+{"name":"CellarSW","tex":"res://assets/Art/Environment/Props/CellarSW.png","rect":[0,0,781,553],"pivot":[390.5,357.8],"ppu":390.5},
+{"name":"CellarSE","tex":"res://assets/Art/Environment/Props/CellarSE.png","rect":[0,0,773,546],"pivot":[386.5,352.8],"ppu":386.5}
 ]

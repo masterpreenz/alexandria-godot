@@ -2383,8 +2383,8 @@ func _go_light() -> bool:
 	for f in fires.fires:
 		if fires.lit(f) or lighting.has(f.key) or not fires.tended(f):
 			continue
-		# A house's fireplace: only on winter evenings, for the night.
-		if bool(f.s.get("hearth", false)) and not (fires.winter() and _hour(world) >= 17.5):
+		# A house's fireplace: every evening, for the night (not by day).
+		if bool(f.s.get("hearth", false)) and _hour(world) < 17.5:
 			continue
 		var dd: float = f.pos.distance_to(position)
 		if dd < best_d:

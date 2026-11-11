@@ -8,7 +8,7 @@ extends Node
 
 const HOLDS := 100                ## food a cellar keeps cold
 const COLD_RATE := 0.25           ## how fast cold food spoils, of the usual
-const RANGE := 0.9                ## units from a trapdoor to use it
+const RANGE := 1.7                ## units from the cellar's doors to use them (they're two tiles across)
 ## The room: its first cell (well off the map, past the outskirts) and how many cells a side (more, levelled up
 ## some day). A doorway in the middle of its front wall is the way out.
 const AT := Vector2i(300, -300)
@@ -92,7 +92,7 @@ func deposit_spot(from: Vector2) -> Variant:
 	for at in all():
 		if at.distance_to(from) < best_d:
 			best_d = at.distance_to(from)
-			best = at + Vector2(0, 0.45 * world.px)
+			best = at + Vector2(0, 1.25 * world.px)   # (in front of the doors, clear of them)
 	return best
 
 
@@ -122,7 +122,7 @@ func _process(_delta: float) -> void:
 		return
 	prompt.visible = true
 	prompt.text = "E  Cellar  ·  keeps %d food cold" % HOLDS
-	WorldPrompts.at(prompt, (near as Vector2) + Vector2(0, -0.3 * world.px))
+	WorldPrompts.at(prompt, (near as Vector2) + Vector2(0, -0.5 * world.px))
 	if pressed:
 		_came_from = near
 		_go(true)
@@ -137,7 +137,7 @@ func _go(down: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(_fade, "color:a", 1.0, 0.3)
 	await tw.finished
-	var up: Vector2 = _came_from + Vector2(0, 0.5 * world.px) if _came_from != Vector2.INF else world.village.centre()
+	var up: Vector2 = _came_from + Vector2(0, 1.25 * world.px) if _came_from != Vector2.INF else world.village.centre()
 	miko.place(_arrive() if down else up)
 	miko.velocity = Vector2.ZERO
 	await get_tree().create_timer(0.15).timeout
