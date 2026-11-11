@@ -2052,10 +2052,37 @@ func _ready() -> void:
 						var what := "%s%s" % [Villager.State.keys()[cook.state], " (holding %d %s)" % [cook._raw_left, cook._raw_kind] if cook._raw_left > 0 else ""]
 						if seen.is_empty() or str(seen[-1]).split(" ")[0] != what.split(" ")[0]:
 							seen.append(what)
+						if cook.state == Villager.State.TO_COOK:
+							cook.set_meta("dbg", "%.1f units from the fire, stuck %s, %.0f s left, leg %d of %d, goal %.1f from the fire" % [cook.position.distance_to(cook.stove.pos) / world.px, cook.steer.stuck, cook.state_until - Villager.now(), cook.leg, (cook.route as Array).size() if cook.route != null else -1, cook.target.distance_to(cook.stove.pos) / world.px])
+						elif cook.has_meta("dbg"):
+							print("Cook fetch: left TO_COOK for ", Villager.State.keys()[cook.state], " at ", cook.get_meta("dbg"))
+							cook.remove_meta("dbg")
 						if cook.state == Villager.State.STAND and seen.size() > 3:
 							break
 					print("Cook fetch: went ", seen)
 					print("Cook fetch: potatoes ", v.stored("Potato"), ", baked ", v.stored("BakedPotato"))
+				"routes":
+					# Ways across the village: how many squares something solid stands on, and whether any planned way
+					# steps on one (other than where it ends). Then every villager sent across it: who gets stuck.
+					var solid := VillagerRoute.solid_squares(world)
+					var c := world.village.centre()
+					var h := world.village.half_size() * world.px * 0.8
+					var ways := 0
+					var none := 0
+					var on_solid := 0
+					for i in 200:
+						var from_at := c + Vector2(randf_range(-h, h), randf_range(-h, h) * 0.5)
+						var to_at := c + Vector2(randf_range(-h, h), randf_range(-h, h) * 0.5)
+						var way: Variant = VillagerRoute.find(world, from_at, to_at)
+						if way == null:
+							none += 1
+							continue
+						ways += 1
+						for k in (way as Array).size() - 1:
+							if solid.has(world.floors.cell_at(way[k].at)) and world.floors.cell_at(way[k].at) != world.floors.cell_at(from_at):
+								on_solid += 1
+								break
+					print("Routes: ", solid.size(), " solid squares; of 200 ways ", ways, " found, ", none, " none, ", on_solid, " stepping on something solid")
 				"cellarsnow":
 					# Deep winter: a chest down in the cellar, no snow on it.
 					clock.forced = -1

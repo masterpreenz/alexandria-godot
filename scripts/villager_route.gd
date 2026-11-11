@@ -1,8 +1,11 @@
 class_name VillagerRoute
 ## A villager's way round walls (from Unity's VillagerRoute): a breadth-first search over the squares between wall
-## vertices, crossing only where there's no wall, a doorway, or a door (which they open). Everything else in the way
-## (props, rocks, trees) is left to Steer. The way comes back as points to walk through; the ones at doors are kept
-## exactly, so they go straight through the opening.
+## vertices, crossing only where there's no wall, a doorway, or a door (which they open), and going round the squares
+## something solid stands on (furniture, chests, fires, crystals, the cellar's doors, standing trees and rocks), so the
+## way planned is one that can be walked, not one that runs them into things for Steer to get them out of. Where
+## there's no way that keeps clear of everything, the way through the walls alone is given (and Steer does what it
+## can). The way comes back as points to walk through; the ones at doors are kept exactly, so they go straight through
+## the opening.
 ##
 ## A point: {at (px), exact (walk to it exactly, no cutting the corner), door (a door just ahead: opened here if
 ## shut), door_edge (its starting edge)}.
@@ -30,10 +33,57 @@ static func find(w: World, from: Vector2, to: Vector2) -> Variant:
 	return r
 
 
+static var _solid := {}          ## squares something solid stands on
+static var _solid_key := ""
+
+
+## The squares something solid stands on (worked out again when the props, or the trees and rocks, change).
+static func solid_squares(w: World) -> Dictionary:
+	var key := "%d %d" % [w.props.version, Gatherable.version]
+	if key == _solid_key:
+		return _solid
+	_solid_key = key
+	_solid = {}
+	var f := w.floors
+	for k in w.props.cells:
+		var t: Dictionary = w.props.types.get(w.props.cells[k].prop, {})
+		if bool(t.get("solid", false)):
+			_cover(f, f.cell_centre(Vector2i(k.x, k.y)), float(t.get("footprint", 0.0)) * PropMap._scale(float(w.props.cells[k].scale)))
+	for e in w.props.free:
+		var t: Dictionary = w.props.types.get(e.prop, {})
+		if bool(t.get("solid", false)):
+			_cover(f, e.pos, float(t.get("footprint", 0.0)) * PropMap._scale(float(e.get("scale", 1.0))))
+	for g in Gatherable.all:
+		if is_instance_valid(g) and not g.depleted():
+			_solid[f.cell_at(g.foot)] = true
+	return _solid
+
+
+# The squares a solid thing at [param at] with a footprint [param radius] px wide covers: its own, and (a big one)
+# those whose middles it reaches.
+static func _cover(f: FloorMap, at: Vector2, radius: float) -> void:
+	var c := f.cell_at(at)
+	_solid[c] = true
+	if radius < 70.0:
+		return
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var n := c + Vector2i(dx, dy)
+			var d: Vector2 = f.cell_centre(n) - at
+			if Vector2(d.x, d.y * 2.0).length() < radius:
+				_solid[n] = true
+
+
 static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
-	var walls := w.walls
-	if walls == null:
+	if w.walls == null:
 		return null
+	# Clear of everything solid if there's such a way; else through the walls alone.
+	var way: Variant = _search(w, from, to, solid_squares(w))
+	return way if way != null else _search(w, from, to, {})
+
+
+static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary) -> Variant:
+	var walls := w.walls
 	var a := square_at(walls, from)
 	var b := square_at(walls, to)
 	var lo := Vector2i(mini(a.x, b.x), mini(a.y, b.y)) - Vector2i.ONE * MARGIN
@@ -50,6 +100,9 @@ static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 			if nxt.x < lo.x or nxt.y < lo.y or nxt.x > hi.x or nxt.y > hi.y or came.has(nxt):
 				continue
 			if not passable(walls, crossing(at, step)):
+				continue
+			# (round what's solid: but where they're going may be right by, or on, such a square)
+			if nxt != b and solid.has(nxt):
 				continue
 			came[nxt] = at
 			if nxt == b:

@@ -968,6 +968,7 @@ func _go_down(t: float, what: String) -> void:
 	state_until = t + randf_range(2.0, 3.0)
 	position = Cellars.active.stand_spot()
 	reset_physics_interpolation()
+	steer.reset()
 	facing_up = true
 	_show_idle()
 
@@ -979,6 +980,11 @@ func _in_cellar(t: float) -> void:
 		return
 	position = _cellar_from
 	reset_physics_interpolation()
+	# (a jump, not a walk: the steering's watch on their progress starts afresh, or it takes them for stuck and
+	# whatever they came up to do next is given up at once)
+	steer.reset()
+	_stuck_from = position
+	_trying_for = 0.0
 	facing_up = false
 	Cellars.active.use_doors(position)
 	if _cellar_for == "store":
