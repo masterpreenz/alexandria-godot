@@ -67,7 +67,7 @@ def main() -> int:
         send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"processId": None, "rootUri": ROOT.as_uri(), "capabilities": {}}})
         take(read(2))
         send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
-        files = sorted((ROOT / "scripts").glob("*.gd"))
+        files = sorted((ROOT / "scripts").rglob("*.gd"))   # (and the folders under it: scripts/scenarios)
         for f in files:
             send({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
                 "uri": f.as_uri(), "languageId": "gdscript", "version": 1, "text": f.read_text(encoding="utf-8")}}})
@@ -78,7 +78,7 @@ def main() -> int:
     sev = {1: "ERROR", 2: "WARNING", 3: "INFO", 4: "HINT"}
     lines = []
     for uri, ds in sorted(diags.items()):
-        name = uri.rsplit("/", 1)[-1]
+        name = uri.split("/scripts/", 1)[-1]
         for d in ds:
             lines.append(f"{sev.get(d.get('severity'), '?')}  scripts/{name}:{d['range']['start']['line'] + 1}  {d['message']}")
     (ROOT / "warnings.txt").write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
