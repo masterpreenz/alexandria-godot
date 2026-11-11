@@ -7,7 +7,8 @@ extends Node2D
 const STRIDE := 0.3              ## units walked between prints
 const GAIT := 0.06               ## units each foot is from the middle of her path
 const LIFETIME := 40.0           ## seconds a print takes to fill back in
-const MOST := 120
+const MOST := 360                ## prints kept (she lays about ten a second running: 40 seconds' worth)
+const OLDEST_FADE := 40          ## with the most there can be, the oldest this many fade out towards the end of the line
 const TINT := Color(0.5, 0.58, 0.75, 0.7)
 
 static var _print: Texture2D
@@ -46,9 +47,15 @@ func _process(_delta: float) -> void:
 	# Filling back in with time, and going with the snow.
 	var now := Time.get_ticks_msec() / 1000.0
 	var lying := clampf(snow.cover * 3.0, 0.0, 1.0)
-	for p in _prints:
+	# (near the most there can be, the oldest thin out to nothing, so the one taken for the next step is already
+	# gone: taken while still showing, it blinked out behind her)
+	var crowd := clampf((_prints.size() - (MOST - OLDEST_FADE)) / float(OLDEST_FADE), 0.0, 1.0)
+	for i in _prints.size():
+		var p: Array = _prints[i]
 		var sp: Sprite2D = p[0]
 		var a := TINT.a * clampf(1.0 - (now - float(p[1])) / LIFETIME, 0.0, 1.0) * lying
+		if crowd > 0.0 and i < OLDEST_FADE:
+			a *= lerpf(1.0, float(i) / OLDEST_FADE, crowd)
 		sp.modulate.a = a
 		sp.visible = a > 0.01
 
@@ -68,7 +75,8 @@ func _press(at: Vector2, dir: Vector2) -> void:
 		sp = _prints.pop_front()[0]
 	sp.position = at + side
 	sp.rotation = dir.angle() + PI / 2.0
-	sp.modulate = TINT
+	sp.modulate = Color(TINT, 0.0)   # (shown from the next frame, at its strength: not a frame at full first)
+	sp.visible = true
 	_prints.append([sp, Time.get_ticks_msec() / 1000.0])
 
 
