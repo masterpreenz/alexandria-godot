@@ -835,11 +835,11 @@ func sleep_pose() -> String:
 
 
 ## Puts them where they lie on their bed: head on the pillow, turned along it, and then as adjusted by hand
-## (SleepTune: x, y px and degrees for their look and pose, mirrored with them).
+## (SleepTune: x, y px and degrees by which way the bed faces, mirrored with them).
 func lie_in_bed() -> void:
 	var lying: Variant = look.get("lying", {}).get(sleep_pose())
 	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right, 1.0)
-	var tune := SleepTune.of(int(person.get("look", 0)), sleep_pose())
+	var tune := SleepTune.of(facing_right)
 	var side := -1.0 if facing_right else 1.0
 	position = (lie[0] as Vector2) + Vector2(float(tune[0]) * side, float(tune[1]))
 	art.rotation = float(lie[1]) + deg_to_rad(float(tune[2])) * side
