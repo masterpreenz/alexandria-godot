@@ -212,6 +212,8 @@ func _ready() -> void:
 	cellars.name = "Cellars"
 	add_child(cellars)
 	cellars.setup(world, miko, $Hud)
+	if sv.get("sections", {}).has("world.cellars"):
+		cellars.from_json(sv.sections["world.cellars"])
 	# Whether the village uses more than it brings in.
 	var ledger := Ledger.new()
 	ledger.name = "Ledger"
@@ -1963,6 +1965,30 @@ func _ready() -> void:
 					print("Ledger: a day's change food ", roundi(lg.a_day("Food")), ", wood ", roundi(lg.a_day("Wood")), ", stone ", roundi(lg.a_day("Stone")))
 					for k in ["Food", "Wood", "Stone"]:
 						print("  ", k, ": ", VillageLog._entries.get("running-down:" + k, {}).get("text", "(nothing)"))
+				"movefood":
+					# A cellar built with 150 food up in the chests: the villagers carry it down, load by load.
+					var cl: Cellars = $Cellars
+					var v := world.village
+					for r in Spoilage.PER_DAY:
+						v.stash[r] = 0
+					v.stash["Potato"] = 100
+					v.stash["BakedPotato"] = 50
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 9.0
+					for vl in Villager.all:
+						vl.person.hunger = 100.0
+					world.props.place(world.floors.cell_at(v.centre()) + Vector2i(4, -5), "Cellar", 1.0, 0)
+					for i in 5:
+						await get_tree().process_frame
+					print("Move food: cellar holds ", cl.holds(), ", food ", cl.food_stored(), ", cold ", cl.cold, ", to move ", cl.to_move(), ", cold share ", cl.cold_share())
+					var t0 := Time.get_ticks_msec()
+					var last := -1
+					while Time.get_ticks_msec() - t0 < int(Shots.arg("moveseconds", "100")) * 1000 and cl.to_move() > 0:
+						await get_tree().process_frame
+						if cl.cold != last:
+							last = cl.cold
+							print("Move food ", floori((Time.get_ticks_msec() - t0) / 1000.0), " s: cold ", cl.cold, " of ", cl.holds(), ", movers ", Cellars.movers.keys().map(func(q): return q.person.name + " " + q.activity()))
+					print("Move food end: cold ", cl.cold, ", food still ", cl.food_stored(), ", cold share ", snappedf(cl.cold_share(), 0.01), ", saved ", cl.to_json())
 				"cellarsnow":
 					# Deep winter: a chest down in the cellar, no snow on it.
 					clock.forced = -1

@@ -371,6 +371,7 @@ func _physics_process_timed(delta: float) -> void:
 				elif (_hour(world) >= 17.5 or (_fires() != null and _fires().winter() and not _night())) and _go_light(): pass
 				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
 				elif _work_hours() and _go_repair(): pass
+				elif _work_hours() and _go_move_food(): pass
 				elif _work_hours() and (randf() < chance or _crops_need_care()) and _go_farm(): pass
 				elif _work_hours() and randf() < chance and _go_cook(): pass
 				elif _work_hours() and randf() < chance and _go_build(): pass
@@ -639,6 +640,7 @@ func _arrive(t: float) -> void:
 		State.TO_WORK: _start_work(t)
 		State.TO_STORE:
 			if _via_cellar: _go_down(t, "store")
+			elif _fetching_food: _fetch_food(t)
 			else: _unload(t)
 		State.TO_PICKUP: _pick_up(t)
 		State.TO_FARM: _start_farming(t)
@@ -906,6 +908,54 @@ var _via_cellar := false         ## on their way to the cellar's doors (not a ch
 var _cellar_from := Vector2.ZERO
 var _cellar_for := ""
 
+var _fetching_food := false     ## off to a chest for food to carry down the cellar
+
+# Food still up in the chests, and room for it down the cellar: off to a chest for a load of it (one villager at it
+# at a time), then down the cellar with it.
+func _go_move_food() -> bool:
+	var c := Cellars.active
+	if c == null or carrying > 0 or not movers_free() or c.to_move() <= 0 or c.deposit_spot(position) == null:
+		return false
+	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
+	if spot == null:
+		return false
+	_fetching_food = true
+	_via_cellar = false
+	Cellars.movers[self] = true
+	state = State.TO_STORE
+	clock = 0.0
+	_set_goal(spot)
+	return true
+
+
+func movers_free() -> bool:
+	for v in Cellars.movers.keys():
+		if not is_instance_valid(v) or (v.state != State.TO_STORE and v.state != State.CELLAR):
+			Cellars.movers.erase(v)
+	return Cellars.movers.size() < 2   # (two at it at most)
+
+
+# At the chest: a load of whatever food there's most of, then off to the cellar with it.
+func _fetch_food(t: float) -> void:
+	_fetching_food = false
+	var v := world.village
+	var most := ""
+	for r in Spoilage.PER_DAY:
+		if v.stored(r) > 0 and (most == "" or v.stored(r) > v.stored(most)):
+			most = r
+	var n := mini(mini(_carry_most(), Cellars.active.to_move()), v.stored(most) if most != "" else 0)
+	if n <= 0 or not v.take_from_stash(most, n):
+		Cellars.movers.erase(self)
+		_stand(t, 1.0)
+		return
+	carrying = n
+	carry_kind = most
+	if not _go_store() or not _via_cellar:
+		# (no way to the cellar after all: back it goes)
+		Cellars.movers.erase(self)
+		_unload(t)
+
+
 func _go_down(t: float, what: String) -> void:
 	_via_cellar = false
 	_cellar_from = position
@@ -929,6 +979,10 @@ func _in_cellar(t: float) -> void:
 	reset_physics_interpolation()
 	facing_up = false
 	if _cellar_for == "store":
+		# What they carried down is in the cold now.
+		if Spoilage.PER_DAY.has(carry_kind):
+			Cellars.active.put(carrying)
+		Cellars.movers.erase(self)
 		_unload(t)
 	else:
 		_eat(t)
@@ -2937,7 +2991,7 @@ func activity() -> String:
 		State.HOME: return "Going home to bed"
 		State.TO_WORK: return ("Off to fell " if what == "a tree" else "Off to mine ") + what if job != null else "Off to work"
 		State.WORK: return (("Felling " if what == "a tree" else "Mining ") + what + (" (carrying %d)" % carrying if carrying > 0 else "")) if job != null else "Working"
-		State.TO_STORE: return "Taking %d %s to storage" % [carrying, lower.call(carry_kind)]
+		State.TO_STORE: return ("Fetching food to carry down the cellar" if _fetching_food else ("Taking %d %s to the cellar" if _via_cellar else "Taking %d %s to storage") % [carrying, lower.call(carry_kind)])
 		State.TO_EAT: return "Going to get something to eat"
 		State.TO_MEAL: return "Taking %s off to eat" % lower.call(meal)
 		State.EATING: return "Eating %s" % lower.call(meal)

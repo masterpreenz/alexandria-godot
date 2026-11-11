@@ -59,15 +59,47 @@ func holds() -> int:
 	return all().size() * HOLDS
 
 
-## The share of the village's food that's in the cold (0 to 1): the cellars' room over all the food stored.
-func cold_share() -> float:
-	var room := holds()
-	if room <= 0:
-		return 0.0
+var cold := 0                     ## how much of the village's food has been carried down (saved; never more than
+                                  ## the cellars hold, or than there is)
+static var movers := {}           ## Villager -> true: carrying food to a cellar from a chest now
+
+
+## All the food in storage, of every kind.
+func food_stored() -> int:
 	var food := 0
 	for r in Spoilage.PER_DAY:
 		food += world.village.stored(r)
-	return 1.0 if food <= room else float(room) / float(food)
+	return food
+
+
+## Food carried down: that much more is in the cold (as far as there's room).
+func put(amount: int) -> void:
+	cold = clampi(cold + amount, 0, mini(holds(), food_stored()))
+
+
+## How much food still up in the chests there's room for down here.
+func to_move() -> int:
+	cold = clampi(cold, 0, mini(holds(), food_stored()))
+	return mini(holds(), food_stored()) - cold
+
+
+## The share of the village's food that's in the cold (0 to 1): what's been carried down, over all the food stored.
+func cold_share() -> float:
+	var food := food_stored()
+	if food <= 0 or holds() <= 0:
+		return 0.0
+	cold = clampi(cold, 0, mini(holds(), food))
+	return float(cold) / float(food)
+
+
+func to_json() -> String:
+	return JSON.stringify({"cold": cold})
+
+
+func from_json(json: String) -> void:
+	var d: Variant = JSON.parse_string(json)
+	if d is Dictionary:
+		cold = int(d.get("cold", 0))
 
 
 ## Whether [param at] (px) is down in the cellar (underground: out of the mist and the cold).
@@ -99,6 +131,16 @@ func stand_spot() -> Vector2:
 	return world.floors.cell_centre(AT + Vector2i(randi_range(1, SIDE - 2), randi_range(2, SIDE - 1))) + Vector2(randf_range(-0.2, 0.2), randf_range(-0.1, 0.1)) * world.px
 
 
+## In front of the cellar doors at [param at] (px): just off the middle of their low edge, the way they open (down-left,
+## or turned, down-right), where whoever uses them stands and comes back up.
+func front_of(at: Vector2) -> Vector2:
+	var right := false
+	for e in world.props.entries_named("Cellar"):
+		if e.pos.distance_to(at) < 0.3 * world.px:
+			right = int(e.e.turn) % 2 == 1
+	return at + Vector2(0.95 if right else -0.95, 0.48) * world.px
+
+
 ## Where a villager stands to put food in the cellar nearest [param from] (px): beside its trapdoor; null with none.
 func deposit_spot(from: Vector2) -> Variant:
 	var best: Variant = null
@@ -106,7 +148,7 @@ func deposit_spot(from: Vector2) -> Variant:
 	for at in all():
 		if at.distance_to(from) < best_d:
 			best_d = at.distance_to(from)
-			best = at + Vector2(0, 1.25 * world.px)   # (in front of the doors, clear of them)
+			best = front_of(at)
 	return best
 
 
@@ -151,7 +193,7 @@ func _go(down: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(_fade, "color:a", 1.0, 0.3)
 	await tw.finished
-	var up: Vector2 = _came_from + Vector2(0, 1.25 * world.px) if _came_from != Vector2.INF else world.village.centre()
+	var up: Vector2 = front_of(_came_from) if _came_from != Vector2.INF else world.village.centre()
 	miko.place(_arrive() if down else up)
 	miko.velocity = Vector2.ZERO
 	await get_tree().create_timer(0.15).timeout
