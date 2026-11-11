@@ -2261,6 +2261,62 @@ func _ready() -> void:
 						for i in 20:
 							await get_tree().process_frame
 					print("Cure: 8 hours on: rotten ", cr.corrupted_near(best, 7.0 * world.px), " of ", rot0, ", still being cured ", cr.curing.size())
+				"urgent":
+					# Only raw fish and jelly in storage, evening, nobody set to cook: someone cooks anyway, and they eat.
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 18.6
+					var v := world.village
+					for f in Villager.FOODS:
+						v.stash[f[0]] = 0
+					v.stash["Fish"] = 10
+					v.stash["Jelly"] = 5
+					v.stash["Wood"] = maxi(40, v.stored("Wood"))
+					v.stash["Stone"] = maxi(40, v.stored("Stone"))
+					for vl in Villager.all:
+						Villager.only(vl.person, [])
+						vl.person.hunger = 20.0
+						vl.person.energy = 90.0
+						vl._stand(Villager.now(), 0.0)
+					Villager._short_at = -1.0
+					await get_tree().process_frame
+					print("Urgent: hour ", snappedf(clock.hour(), 0.1), ", work hours ", Villager.all[0]._work_hours(), ", food short ", Villager.food_short(world), ", raw to cook ", Villager.raw_to_cook(world), ", everyone's set to no work; cooks here ", Villager.all.filter(func(x): return x._cook_skill() > 0).map(func(x): return x.person.name))
+					var seen := {}
+					var t0 := Time.get_ticks_msec()
+					while Time.get_ticks_msec() - t0 < 100000 and v.stored("GrilledFish") + v.stored("Candy") <= 0:
+						await get_tree().process_frame
+						for vl in Villager.all:
+							var what: String = "%s %s" % [vl.person.name, Villager.State.keys()[vl.state]]
+							if not seen.has(what):
+								seen[what] = snappedf((Time.get_ticks_msec() - t0) / 1000.0, 0.1)
+					print("Urgent: after ", snappedf((Time.get_ticks_msec() - t0) / 1000.0, 1.0), " s: grilled fish ", v.stored("GrilledFish"), ", candy ", v.stored("Candy"), ", raw fish ", v.stored("Fish"), "; seen ", seen.keys().filter(func(k): return k.contains("COOK") or k.contains("STORE") or k.contains("EAT")))
+				"chatway":
+					# Nobody chats in a doorway or by the storage: who's in the way now, and many tries at a chat.
+					clock.hours = float(clock.day() - 1) * 24.0 + 19.0
+					for i in 10:
+						await get_tree().process_frame
+					var chest: Variant = UseSpots.nearest_chest_spot(world, world.village.centre())
+					var door: Array = world.walls.nearest_door(world.village.centre(), 40.0 * world.px)
+					print("Chat way: by the chest ", chest != null and Villager.in_the_way(world, chest), ", on open ground ", Villager.in_the_way(world, world.village.centre() + Vector2(3.0, 2.2) * world.px), ", a door found ", not door.is_empty())
+					var a: Villager = Villager.all[0]
+					var b: Villager = Villager.all[1]
+					var blocked := 0
+					var met := 0
+					for where in [chest, world.village.centre() + Vector2(3.0, 2.2) * world.px]:
+						if where == null:
+							continue
+						for i in 20:
+							for vl in [a, b]:
+								vl.partner = null
+								vl._stand(Villager.now(), 0.0)
+							b.position = where
+							a.position = (where as Vector2) + Vector2(randf_range(-2.5, 2.5), randf_range(-1.2, 1.2)) * world.px
+							for other in Villager.all:
+								if other != a and other != b:
+									other.position = world.village.centre() + Vector2(-30, -30) * world.px
+							if a._go_chat(Villager.now()):
+								met += 1
+								blocked += 1 if Villager.in_the_way(world, a.target) or Villager.in_the_way(world, b.position) else 0
+						print("Chat way: 20 tries with one of them ", "by the chest" if where == chest else "on open ground", ": chats begun so far ", met, ", of them in the way ", blocked)
 				"jobtable":
 					# The jobs window: every villager a row, every job a column of ten boxes; set, and what they then do.
 					var jw: JobsWindow = $Hud/JobsWindow

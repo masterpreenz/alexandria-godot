@@ -262,6 +262,36 @@ func _night() -> bool:
 	return h >= 21.0 or h < 6.0 or (tired < 25.0 and h >= 18.0) or tired < 5.0
 
 
+# ---- What's urgent: the village short of food to eat. Then getting some comes before everything but eating and
+# sleeping, for everyone, whatever work they're set to (even none) and outside working hours: cooking what's raw in
+# storage first (anyone, if nobody here can cook), then harvesting what's ripe, then fishing. ----
+
+static var _short := false
+static var _short_at := -1.0
+
+## Whether the village is short of food that can be eaten as it is: less than a meal each in storage (what's kept
+## for planting not counted). Looked at once a second.
+static func food_short(w: World) -> bool:
+	if now() - _short_at >= 1.0 or now() < _short_at:
+		_short_at = now()
+		var n := 0
+		for f in FOODS:
+			n += w.village.spare(f[0])
+		_short = w.village.founded() and not all.is_empty() and n < maxi(3, all.size())
+	return _short
+
+
+## Raw food in storage that wants cooking before it's any use (meat, fish, slime jelly).
+static func raw_to_cook(w: World) -> int:
+	return w.village.stored("Food") + w.village.stored("Fish") + w.village.stored("Jelly")
+
+
+func _urgent() -> bool:
+	if _night() or not food_short(world):
+		return false
+	return _go_cook(true) or _go_farm(true) or _go_fish(true)
+
+
 func _work_hours() -> bool:
 	var h := _hour(world)
 	return h >= 6.0 and h < 18.0
@@ -367,6 +397,8 @@ func _physics_process_timed(delta: float) -> void:
 				var chance := float(s.workChance)
 				# Three meals a day; between them only when they're close to starving.
 				if (_meal_due() or float(person.get("hunger", 100.0)) < 12.0) and _go_eat(): pass
+				# (the village short of food: whoever can sees to it first, whatever their work's set to and the hour)
+				elif _urgent(): pass
 				elif _go_door_duty(): pass
 				# (in winter the fires and torches are kept burning all day: lit again as each burns down)
 				elif (_hour(world) >= 17.5 or (_fires() != null and _fires().winter() and not _night())) and _go_light(): pass
@@ -933,8 +965,8 @@ var _fish_from := 0.0            ## when this cast began
 var _fish_water := Vector2.ZERO  ## where their float sits (px)
 var _fish_line: FishingLine
 
-func _go_fish() -> bool:
-	if not _wants(Job.FISHING):
+func _go_fish(urgent := false) -> bool:
+	if not urgent and not _wants(Job.FISHING):
 		return false
 	var f := Fishing.active
 	if f == null or carrying > 0 or Kitchen.stocked(world.village, "Fish"):
@@ -1245,7 +1277,8 @@ func _food_in_storage() -> int:
 # Off to the nearest chest in the village, if there's food in storage.
 func _go_eat() -> bool:
 	if _food_in_storage() == 0:
-		VillageLog.problem("no-food", "No food in storage: the villagers are hungry")
+		var raw := raw_to_cook(world)
+		VillageLog.problem("no-food", ("Nothing cooked in storage: %d raw to cook first (meat, fish, jelly)" % raw) if raw > 0 else "No food in storage: the villagers are hungry")
 		return false
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
 	# The food's down the cellar, where there is one.
@@ -1595,6 +1628,21 @@ func _free() -> bool:
 
 
 # Free time: two villagers get together and talk, in little picture bubbles.
+## Whether [param at] is somewhere others need to get by: a doorway or gate, the way up to a chest, the cellar's
+## doors. Nobody stops there to talk.
+static func in_the_way(w: World, at: Vector2) -> bool:
+	if w.walls != null and not w.walls.nearest_door(at, 1.6 * w.px).is_empty():
+		return true
+	var chest: Variant = UseSpots.nearest_chest_spot(w, at)
+	if chest != null and (chest as Vector2).distance_to(at) < 1.5 * w.px:
+		return true
+	if Cellars.active != null:
+		var cellar: Variant = Cellars.active.deposit_spot(at)
+		if cellar != null and (cellar as Vector2).distance_to(at) < 1.6 * w.px:
+			return true
+	return false
+
+
 func _go_chat(t: float) -> bool:
 	if (s.emojis as Array).is_empty():
 		return false
@@ -1603,12 +1651,22 @@ func _go_chat(t: float) -> bool:
 	for v in all:
 		if v == self or v.partner != null or not v._free() or not v.visible:
 			continue
+		# (not with someone standing in a doorway or by the storage: the two of them would block it)
+		if in_the_way(world, v.position):
+			continue
 		var dd := v.position.distance_to(position)
 		if dd < best_d:
 			best_d = dd
 			best = v
 	if best == null:
 		return false
+	var away := position - best.position
+	var beside := best.position + (away.normalized() if away.length_squared() > 1.0 else Vector2.RIGHT) * 0.75 * world.px
+	# (nor would this one stand in the way: the other side of them, or not at all)
+	if in_the_way(world, beside):
+		beside = best.position - (beside - best.position)
+		if in_the_way(world, beside):
+			return false
 	partner = best
 	best.partner = self
 	# They wait while this one comes over.
@@ -1617,8 +1675,7 @@ func _go_chat(t: float) -> bool:
 	best.velocity = Vector2.ZERO
 	state = State.TO_CHAT
 	clock = 0.0
-	var away := position - best.position
-	_set_goal(best.position + (away.normalized() if away.length_squared() > 1.0 else Vector2.RIGHT) * 0.75 * world.px)
+	_set_goal(beside)
 	return true
 
 
@@ -2335,8 +2392,8 @@ func _unload(t: float, stand := true) -> void:
 # ---- Farming: ripe plots first (the crop carried to storage), then pests cleared, then dry crops watered, then bare
 # ones planted from storage ----
 
-func _go_farm() -> bool:
-	if not _wants(Job.FARMING):
+func _go_farm(urgent := false) -> bool:
+	if not urgent and not _wants(Job.FARMING):
 		return false
 	if carrying > 0 and not Farming.CROPS.has(carry_kind):
 		return false
@@ -2526,10 +2583,12 @@ func _cook_skill() -> int:
 	return Villagers.skill(person, LifeSkills.Skill.COOKING)
 
 
-func _go_cook() -> bool:
-	if not _wants(Job.COOKING):
+func _go_cook(urgent := false) -> bool:
+	if not urgent and not _wants(Job.COOKING):
 		return false
-	if _cook_skill() <= 0 or Kitchen.next(world.village).is_empty():
+	# (cooking is for those who can; with the village short of food and nobody here who can, anyone will)
+	var can := _cook_skill() > 0 or (urgent and not all.any(func(v): return is_instance_valid(v) and v._cook_skill() > 0))
+	if not can or Kitchen.next(world.village).is_empty():
 		return false
 	var fires := _fires()
 	if fires == null:
