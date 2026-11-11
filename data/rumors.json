@@ -3,10 +3,10 @@
 "rumors": [
 {
  "id": "forest_clearing",
- "title": "The woods could live again",
+ "title": "The woods could still be saved",
  "teller": {"any": true},
  "appears": {"afterDay": 1, "after": [], "unless": []},
- "told": "They say the great woods to the {dir} were full of life once, before the mist came down on them. If someone drove it off, the plants would come back, and the animals after them. It'd be a fine thing for the village.",
+ "told": "You know the great woods to the {dir}? We gathered there every week, right up until the mist came down. It hasn't had them long. If someone drove it off before the rot sets in, the plants would hold, and the animals would come back. It'd be a fine thing for the village.",
  "expires": {"days": 12},
  "steps": [
   {"id": "find", "note": "{teller} spoke of the great misted woods to the {dir} of the village. Find the way into them.",
@@ -20,7 +20,7 @@
    "done": {"kind": "days", "days": 2}}
  ],
  "reward": {"effects": ["rabbit_hole"], "gifts": [["WheatSeed", 3], ["Fiber", 4]],
-  "log": "The woods to the {dir} are alive again: there are rabbits among the trees."},
+  "log": "The woods to the {dir} are safe from the mist: the rabbits are back among the trees."},
  "leads": {"done": ["forest_bounty"], "ignored": ["forest_stirs"]}
 },
 {
@@ -42,7 +42,7 @@
  "title": "Something in the misted woods",
  "teller": {"any": true},
  "appears": {"after": [{"event": "ignored:forest_clearing", "days": 0}], "unless": ["done:forest_clearing"]},
- "told": "Those woods to the {dir}, the ones nobody did anything about? The mist's thicker there than ever. Folk hear things moving in it at night. I wouldn't leave it much longer.",
+ "told": "Those woods to the {dir}, the ones we talked about? The mist's had them a good while now, and it's thicker than when it first came. Folk hear things moving in it at night. I wouldn't leave it much longer.",
  "steps": [
   {"id": "look", "note": "{teller} says the mist has thickened in the woods to the {dir}, and something moves in it. See for yourself.",
    "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 5},
