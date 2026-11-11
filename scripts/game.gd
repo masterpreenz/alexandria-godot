@@ -2229,8 +2229,12 @@ func _ready() -> void:
 					Input.parse_input_event(key)
 					for i in 20:
 						await get_tree().process_frame
-					print("Fishing: E pressed: casting ", fz.casting, ", Miko held ", miko.locked, ", emote showing ", fz._emote != null and fz._emote.visible)
+					print("Fishing: E pressed: casting ", fz.casting, ", Miko held ", miko.locked, ", emote showing ", fz._emote != null and fz._emote.visible, ", pose ", miko.pose)
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_cast.png")
+					for i in 70:
+						await get_tree().process_frame
+					print("Fishing: the line out ", fz._line != null and fz._line.visible, ", float in the water ", fz._line != null and fz._line.landed, ", water there ", snappedf(world.water_depth(fz._float_at), 0.01), ", ", snappedf(fz._float_at.distance_to(dock_at) / world.px, 0.1), " from the dock, pose ", miko.pose)
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_line.png")
 					while fz.casting:
 						await get_tree().process_frame
 					for i in 10:

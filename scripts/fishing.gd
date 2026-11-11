@@ -11,6 +11,13 @@ const CAST := 3.5                ## seconds a cast takes
 const WINTER_SLOW := 1.7         ## times longer in winter
 const CATCH := 0.85              ## the chance a cast lands something
 const TWO := 0.2                 ## ...and that it's two
+const CAST_FPS := 10.0           ## the cast's frames a second
+const CAST_FRAMES := 12          ## how many of the sheet's frames are the cast (the rest: waiting, looped)
+const WAIT_FPS := 3.0
+const LINE_FROM := 8.0           ## the frame the line goes out on
+const FLIES := 0.35              ## seconds the float's in the air
+const BITES := 0.7               ## seconds before the cast's end the float's tugged under
+const REEL := 0.45               ## seconds the rod's held up after
 const CAUGHT_SHOWS := 1.7         ## seconds the caught-one emote shows: played through once, then held on its last frame
 const SKILL_FASTER := 0.05       ## quicker casts per level of the fishing skill
 const SKILL_LUCK := 0.04         ## and likelier a second fish
@@ -27,6 +34,11 @@ var _cast_until := 0.0
 var _dock := Vector2.ZERO
 var _emote: Sprite2D             ## over Miko: the line out, then what she caught
 var _caught_until := 0.0
+var _anim: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/player.json")).get("fishing", {})
+var _cast_at := 0.0               ## when the cast began (seconds)
+var _float_at := Vector2.ZERO     ## where the float sits in the water (px)
+var _reel_until := 0.0            ## the rod's held up till then, the line come in
+var _line: FishingLine
 var _emotes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/villagers.json")).get("emotes", {})
 
 
@@ -70,6 +82,77 @@ static func once(frames: int, since: float) -> int:
 	return clampi(int(since / 0.16), 0, frames - 1)
 
 
+## Where a line cast from [param from] at the dock at [param dock] comes down (px): the water nearest the dock, a
+## little way out from its bank.
+static func water_spot(w: World, dock: Vector2, from: Vector2) -> Vector2:
+	var best := dock + (dock - from).normalized() * 1.5 * w.px
+	var best_d := INF
+	for ring in [1.0, 1.4, 1.8, 2.2, 2.6, 3.0]:
+		for i in 24:
+			var a := i * TAU / 24.0
+			var p := dock + Vector2(cos(a), sin(a) * 0.5) * float(ring) * w.px
+			if w.water_depth(p) < 0.25:
+				continue
+			# (nearer the dock is better, and the far side of it from her better still)
+			var d := p.distance_to(dock) + 0.35 * p.distance_to(dock + (dock - from))
+			if d < best_d:
+				best_d = d
+				best = p
+	return best
+
+
+# Miko's fishing, a frame at a time: the cast (the rod back, then out), then waiting on it; the rod up as the line
+# comes in. The line and its float are drawn from the rod's tip once it's out.
+func _animate(now: float) -> void:
+	var frames: Array = _anim.get("up" if miko.facing_up else "down", [])
+	if frames.is_empty():
+		return
+	if not casting:
+		if _line != null:
+			_line.visible = false
+		if _reel_until > 0.0:
+			if now < _reel_until:
+				miko.pose = int(frames[3])   # (the rod up)
+				miko.pose_mirror = miko.facing_right
+			else:
+				_reel_until = 0.0
+				miko.pose = -1
+		return
+	var t := now - _cast_at
+	var i := int(t * CAST_FPS)
+	if i >= CAST_FRAMES:
+		i = CAST_FRAMES + int((t - CAST_FRAMES / CAST_FPS) * WAIT_FPS) % (frames.size() - CAST_FRAMES)
+	miko.pose = int(frames[i])
+	miko.pose_mirror = miko.facing_right
+	# The line: out from the frame the rod comes forward.
+	if _line == null:
+		_line = FishingLine.new()
+		_line.z_as_relative = false
+		_line.z_index = 3990
+		world.add_child(_line)
+	var out_at := LINE_FROM / CAST_FPS
+	_line.visible = t >= out_at
+	if not _line.visible:
+		return
+	var tip: Array = _anim.get("tipsUp" if miko.facing_up else "tipsDown", [])[i]
+	var k: float = world.px / float(_anim.get("ppu", 153)) * miko.art_scale.x
+	_line.tip = miko.position + Vector2(-float(tip[0]) if miko.facing_right else float(tip[0]), float(tip[1])) * k
+	var fly := clampf((t - out_at) / FLIES, 0.0, 1.0)
+	if fly >= 1.0 and not _line.landed:
+		Sfx.play(world, Sfx.stream(Farming.WATER_SOUND), _float_at, 0.35, 0.1)
+	_line.landed = fly >= 1.0
+	# (through the air in an arc; then sitting in the water, bobbing; a tug or two as the cast comes to its end)
+	var at := _line.tip.lerp(_float_at, fly) + Vector2(0, -sin(fly * PI) * 0.9 * world.px)
+	var left := _cast_until - now
+	_line.bite = left < BITES
+	if fly >= 1.0:
+		at.y += sin(now * 2.6) * 0.02 * world.px + (absf(sin(now * 14.0)) * 0.07 * world.px if _line.bite else 0.0)
+	_line.float_at = at
+	_line.water_at = _float_at
+	_line.unit = world.px
+	_line.queue_redraw()
+
+
 ## Whether there's water within [param reach] units of [param at] (px): where a dock may be built.
 static func water_near(w: World, at: Vector2, reach := 2.2) -> bool:
 	for ring in [0.6, 1.0]:
@@ -94,6 +177,7 @@ func _process(_delta: float) -> void:
 	_pressed = false
 	var now := Time.get_ticks_msec() / 1000.0
 	_show_emote("fishing" if casting else ("fishing_caught" if now < _caught_until else ""), now)
+	_animate(now)
 	if casting:
 		prompt.visible = true
 		prompt.text = "Fishing…"
@@ -130,16 +214,18 @@ In the mist: villagers won't fish here (a cleansing crystal clears it)"
 		casting = true
 		_cast_until = now + cast_time(LifeSkills.get_level(LifeSkills.Skill.FISHING))
 		miko.locked = true
-		var to: Vector2 = _dock - miko.position
+		_cast_at = now
+		_float_at = water_spot(world, _dock, miko.position)
+		var to: Vector2 = _float_at - miko.position
 		miko.facing_right = to.x > 0.0
 		miko.facing_up = to.y < 0.0
-		Puffs.burst(world, _dock + Vector2(0, 0.2 * world.px), 0.4, 5)
 
 
 # The line comes in: the bait's gone either way.
 func _land() -> void:
 	casting = false
 	miko.locked = false
+	_reel_until = Time.get_ticks_msec() / 1000.0 + REEL
 	if not world.village.take(miko.bag, miko, "Bait", 1):
 		return
 	var n := catch_now(LifeSkills.get_level(LifeSkills.Skill.FISHING))
