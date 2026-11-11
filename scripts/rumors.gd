@@ -19,7 +19,11 @@ extends Node
 ##              "of" ("rumor", "step": another rumor's) | "village" | "cell" ("x", "y"), "vague": the ring's radius, units}
 ##     done    {"kind": "reach" ("within" units) | "cleared" ("radius" units round it, "share" of it out of the mist) |
 ##              "days" ("days" since the step began) | "event" ("event": in the chronicle)}
-##   reward    never shown: {"gifts": [[resource, n]], "effects": ["rabbit_hole"], "log": the village log's line}
+##   reward    never shown: {"gifts": [[resource, n]], "effects": [...], "log": the village log's line}
+##   failed    the same, for when it's left too long: {"effects": [...], "log"}
+##     effects "rabbit_hole" | "unique_arrives:<id>" (a unique character comes to the village) |
+##             "unique_lost:<id>" (they're lost for good) | "record:<event>" (written in the chronicle)
+##   appears   may also ask "unless": ["unique:miyu", "lost:miyu"]: whatever's in the chronicle
 ##   leads     {"done": [ids], "ignored": [ids]}: for whoever's reading the file (what appears is by "appears")
 
 signal changed
@@ -120,7 +124,12 @@ func _offer() -> void:
 			continue
 		# (someone with nothing else to tell, if there is one)
 		var free := tellers.filter(func(v): return not offers.values().has(v.person.name))
-		offers[id] = (free if not free.is_empty() else tellers).pick_random().person.name
+		# (and of those, by their traits: a gossip hears it first, the tight-lipped last)
+		var from: Array = free if not free.is_empty() else tellers
+		var keenest := -INF
+		for v in from:
+			keenest = maxf(keenest, Traits.add(v.person, "gossip"))
+		offers[id] = from.filter(func(v): return Traits.add(v.person, "gossip") >= keenest).pick_random().person.name
 		if not Chronicle.active.happened("known:" + id):
 			Chronicle.active.record("known:" + id, {"by": offers[id]})
 	if was != offers:
@@ -327,12 +336,27 @@ func _end(def: Dictionary, st: Dictionary, how: String) -> void:
 		VillageLog.event("rumor." + id, line if line != "" else "%s: it came to something" % str(def.title))
 		FloatingText.spawn(world, "Rumor resolved", miko.position + Vector2(0, -2.2 * world.px), Color(0.7, 1.0, 0.7), 20, 2.0)
 	else:
-		VillageLog.event("rumor." + id, "%s: nothing was done about it" % str(def.title), VillageLog.Kind.WARNING)
+		# Left too long: what comes of that.
+		var fl: Dictionary = def.get("failed", {})
+		for e in fl.get("effects", []):
+			_effect(str(e), place_of(st, def, int(st.step)))
+		var lost_line := _fill(str(fl.get("log", "")), def, st)
+		VillageLog.event("rumor." + id, lost_line if lost_line != "" else "%s: nothing was done about it" % str(def.title), VillageLog.Kind.DANGER if lost_line != "" else VillageLog.Kind.WARNING)
 	changed.emit()
 
 
 # What a rumor's reward does in the world, by name.
 func _effect(e: String, at: Vector2) -> void:
+	var people: Villagers = get_parent().get_node_or_null("Villagers")
+	if e.begins_with("unique_arrives:") and people != null:
+		Uniques.arrive(people, e.get_slice(":", 1))
+		return
+	if e.begins_with("unique_lost:"):
+		Uniques.lose(e.get_slice(":", 1))
+		return
+	if e.begins_with("record:"):
+		Chronicle.active.record(e.trim_prefix("record:"))
+		return
 	match e:
 		"rabbit_hole":
 			# Rabbits move in: a hole at the wood, on open ground out of the mist.

@@ -147,7 +147,7 @@ func open(v: Villager) -> void:
 	at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
 	_face.texture = at
 	_name.text = str(v.person.name)
-	_work.text = JobsWindow.jobs_text(v.person)
+	_work.text = JobsWindow.jobs_text(v.person) + "".join(Traits.shown(v.person).map(func(x): return "  ·  " + str(x[0])))
 	_show(_greeting(v))
 	visible = true
 	_tail.visible = true

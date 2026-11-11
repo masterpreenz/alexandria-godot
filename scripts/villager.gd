@@ -191,8 +191,13 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 		person.hp = hit.hp
 		VillageLog.event("hurt:" + name, "%s is under attack!" % name, VillageLog.Kind.DANGER))
 	hit.died.connect(func():
-		person.hp = 0.0
-		VillageLog.event("died:" + name, "%s has died" % name, VillageLog.Kind.DANGER)
+		# (a unique who's joined the village isn't lost: struck down, carried home, back on their feet in time)
+		if person.has("unique"):
+			person.hp = maxf(1.0, float(person.get("maxHp", 40.0)) * 0.2)
+			VillageLog.event("died:" + name, "%s was struck down, and has been carried home" % name, VillageLog.Kind.DANGER)
+		else:
+			person.hp = 0.0
+			VillageLog.event("died:" + name, "%s has died" % name, VillageLog.Kind.DANGER)
 		move_out())
 	var wade := Wading.new()
 	wade.name = "Wading"
@@ -343,7 +348,7 @@ func doing() -> int:
 
 func _work_hours() -> bool:
 	var h := _hour(world)
-	return h >= 6.0 and h < 18.0
+	return h >= 6.0 + Traits.add(person, "start") and h < 18.0 + Traits.add(person, "end")
 
 
 ## Bedtime to morning (21 to 6): every door shut, even in houses kept open.
@@ -451,7 +456,7 @@ func _physics_process_timed(delta: float) -> void:
 				elif _go_door_duty(): pass
 				# (in winter the fires and torches are kept burning all day: lit again as each burns down)
 				elif (_hour(world) >= 17.5 or (_fires() != null and _fires().winter() and not _night())) and _go_light(): pass
-				elif not _work_hours() and not _night() and randf() < 0.45 and _go_chat(t): pass
+				elif not _work_hours() and not _night() and randf() < 0.45 * Traits.mul(person, "chat") and _go_chat(t): pass
 				# (work: the job they've been put on first, then each in the job board's order)
 				elif _work_hours() and _board_work(t, chance): pass
 				elif _pick_spot():
@@ -666,7 +671,7 @@ func _walk(t: float, delta: float) -> void:
 	var frames: Array = s.walkUp if facing_up else s.walkDown
 	if not frames.is_empty():
 		_show(int(frames[int(clock * float(s.walkFps)) % frames.size()]))
-	var speed := float(s.walkSpeed) * world.px * (1.7 if state == State.FLEE else 1.0)   # (running for it)
+	var speed := float(s.walkSpeed) * world.px * (1.7 if state == State.FLEE else 1.0) * Traits.mul(person, "speed")   # (running for it)
 	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
 	v = steer.around(v, delta)
 	if steer.stuck:
@@ -1053,7 +1058,7 @@ func _start_fishing(t: float) -> void:
 
 # How long one of their casts takes: slower than Miko's, quicker with skill.
 func _cast_time() -> float:
-	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING)) * VILLAGER_WAIT / _tool_pace()
+	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING) + int(Traits.add(person, "fishing"))) * VILLAGER_WAIT / _tool_pace()
 
 
 # Waiting on the line; then, most times, a fish; again till there's a haul.
@@ -1065,7 +1070,7 @@ func _fishing(t: float) -> void:
 		return
 	if t < state_until:
 		return
-	var n := Fishing.catch_now(Villagers.skill(person, LifeSkills.Skill.FISHING))
+	var n := Fishing.catch_now(Villagers.skill(person, LifeSkills.Skill.FISHING) + int(Traits.add(person, "fishing")))
 	people.practise(person, LifeSkills.Skill.FISHING)
 	if n > 0:
 		carrying = mini(_carry_most(), carrying + n)
@@ -1219,7 +1224,8 @@ func chill() -> int:
 	if fires != null and fires.warm(position, Needs.WARMTH * world.px):
 		return 0
 	var cold := 2 if c.weather() == GameClock.Weather.SNOW else 1
-	return maxi(0, cold - (1 if bool(person.get("scarf", false)) else 0))
+	# (their traits: thick-skinned don't feel it, thin-blooded feel it worse)
+	return clampi(cold - (1 if bool(person.get("scarf", false)) else 0) + int(Traits.add(person, "cold")), 0, 2)
 
 
 # Winter, and no scarf: one from storage, if there is one. And now and then, cold, they say so.
@@ -1272,7 +1278,7 @@ func _needs() -> void:
 	var sleeping := state == State.ASLEEP
 	# A night's sleep leaves them hungry for breakfast, but never starving.
 	var hunger := float(p.hunger)
-	p.hunger = maxf(minf(hunger, 15.0), hunger - 7.0 * dh) if sleeping else maxf(0.0, hunger - 4.0 * dh)
+	p.hunger = maxf(minf(hunger, 15.0), hunger - 7.0 * dh) if sleeping else maxf(0.0, hunger - 4.0 * dh * Traits.mul(p, "hunger"))
 	var stamina := 1.0 + 0.06 * (maxi(1, Villagers.skill(p, LifeSkills.Skill.STAMINA)) - 1)
 	# Asleep in winter with no fire burning in the house: a cold night. They rest half as well, don't mend, and
 	# work slower the day after.
@@ -1893,7 +1899,7 @@ const DANGER_RANGE := 6.0        ## units: a monster this near sends them runnin
 const SAFE_RANGE := 9.0          ## units: this far from it, they stop
 
 func _low() -> bool:
-	return hit != null and hit.hp < hit.max_hp * FLEE_BELOW
+	return hit != null and hit.hp < hit.max_hp * minf(0.8, FLEE_BELOW * Traits.mul(person, "flee"))
 
 
 # The nearest monster within [param within] units (any, in the village or out), or null.
@@ -2076,7 +2082,7 @@ func _let_go() -> void:
 # Strength lets them carry more: one more for every two levels past the first, and a bag more again.
 func _carry_most() -> int:
 	@warning_ignore("integer_division")
-	return int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0))
+	return maxi(2, int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0)) + int(Traits.add(person, "carry")))
 
 
 func _has_tools() -> bool:
@@ -2084,7 +2090,7 @@ func _has_tools() -> bool:
 
 
 func _tool_pace() -> float:
-	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0) * [1.0, 0.88, 0.72][chill()]   # (Village Heart: quicker with Miko about)
+	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0) * [1.0, 0.88, 0.72][chill()] * Traits.mul(person, "work")   # (Village Heart: quicker with Miko about; their traits)
 
 
 # Tools and a bag from storage, picked up when they start on work that wants them.

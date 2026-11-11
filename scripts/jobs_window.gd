@@ -321,6 +321,11 @@ func _person_row(p: Dictionary) -> void:
 	line.add_theme_constant_override("separation", int(_k(6)))
 	var bars := [_bar(line), _bar(line), _bar(line)]
 	col.add_child(line)
+	var traits := HudStyle.label("", 9, "body", HudStyle.color("accentLight"))
+	traits.clip_text = true
+	traits.custom_minimum_size.x = _k(40)
+	traits.mouse_filter = Control.MOUSE_FILTER_STOP
+	col.add_child(traits)
 	var pips := {}
 	var levels := {}
 	for j in JOB_LIST:
@@ -342,7 +347,7 @@ func _person_row(p: Dictionary) -> void:
 		pips[id] = boxes
 		levels[id] = lv
 	_people_box.add_child(card)
-	_rows.append({"who": p, "name": nm, "activity": activity, "bars": bars, "pips": pips, "levels": levels})
+	_rows.append({"who": p, "name": nm, "activity": activity, "bars": bars, "pips": pips, "levels": levels, "traits": traits})
 
 
 ## Ten boxes in a row, one of them picked: how much of a job a villager does. The first alone is none of it (shown
@@ -747,7 +752,10 @@ func _refresh() -> void:
 		for v in Villager.all:
 			if v.person == p:
 				body = v
-		r.name.text = "%s   Lv %d" % [p.name, int(p.get("level", 1))]
+		r.name.text = "%s%s   Lv %d" % ["★ " if p.has("unique") else "", p.name, int(p.get("level", 1))]
+		var traits := Traits.shown(p)
+		(r.traits as Label).text = "  ·  ".join(traits.map(func(x): return str(x[0])))
+		(r.traits as Label).tooltip_text = "\n".join(traits.map(func(x): return "%s: %s" % [x[0], x[2]]))
 		for j in JOB_LIST:
 			var id: int = j[0]
 			var lv := Villagers.skill(p, int(j[2])) if int(j[2]) >= 0 else -1

@@ -1,0 +1,13 @@
+{
+"_about": "Unique characters: named people who exist once. Never rolled as an ordinary newcomer. A rumor's effects bring one to the village (unique_arrives:<id>) or lose them for good (unique_lost:<id>). See scripts/uniques.gd.",
+"uniques": [
+{
+ "id": "miyu",
+ "name": "Miyu",
+ "look": 2,
+ "about": "The village elder's granddaughter. She was away in the next village when the mist came down.",
+ "traits": ["unique", "quick_learner", "thin_blooded"],
+ "level": 1
+}
+]
+}

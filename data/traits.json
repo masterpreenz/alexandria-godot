@@ -1,0 +1,32 @@
+{
+"_about": "Villager traits: permanent, rolled when a villager arrives (one good, one bad, sometimes a third). mods are multiplied (work, hunger, speed, flee, chat, hp, atk) or added (carry, cold, start, end, fishing, learn, gossip). See scripts/traits.gd.",
+"traits": [
+{"id":"hard_worker","name":"Hard Worker","good":true,"about":"Works a fifth faster, and gets hungry a little sooner.","mods":{"work":1.2,"hunger":1.15},"opposite":["lazy"],"rare":false},
+{"id":"lazy","name":"Lazy","good":false,"about":"Works a fifth slower.","mods":{"work":0.8},"opposite":["hard_worker"],"rare":false},
+{"id":"early_riser","name":"Early Riser","good":true,"about":"Starts work an hour and a half earlier.","mods":{"start":-1.5},"opposite":["night_owl"],"rare":false},
+{"id":"night_owl","name":"Night Owl","good":true,"about":"Works two hours later into the evening, and starts an hour late.","mods":{"start":1.0,"end":2.0},"opposite":["early_riser"],"rare":false},
+{"id":"strong_back","name":"Strong Back","good":true,"about":"Carries 6 more.","mods":{"carry":6},"opposite":["frail"],"rare":false},
+{"id":"frail","name":"Frail","good":false,"about":"Carries 4 less, and has less health.","mods":{"carry":-4,"hp":0.8},"opposite":["strong_back","hardy"],"rare":false},
+{"id":"hardy","name":"Hardy","good":true,"about":"A quarter more health.","mods":{"hp":1.25},"opposite":["sickly","frail"],"rare":false},
+{"id":"sickly","name":"Sickly","good":false,"about":"A quarter less health.","mods":{"hp":0.75},"opposite":["hardy"],"rare":false},
+{"id":"small_appetite","name":"Small Appetite","good":true,"about":"Gets hungry a third slower.","mods":{"hunger":0.67},"opposite":["glutton"],"rare":false},
+{"id":"glutton","name":"Glutton","good":false,"about":"Gets hungry half again as fast.","mods":{"hunger":1.5},"opposite":["small_appetite"],"rare":false},
+{"id":"thick_skinned","name":"Thick-Skinned","good":true,"about":"The cold doesn't slow them.","mods":{"cold":-2},"opposite":["thin_blooded"],"rare":false},
+{"id":"thin_blooded","name":"Thin-Blooded","good":false,"about":"Feels the cold worse: a scarf matters.","mods":{"cold":1},"opposite":["thick_skinned"],"rare":false},
+{"id":"brave","name":"Brave","good":true,"about":"Stands and fights until badly hurt.","mods":{"flee":0.5},"opposite":["coward"],"rare":false},
+{"id":"coward","name":"Coward","good":false,"about":"Runs from a fight at the first real wound.","mods":{"flee":2.5},"opposite":["brave"],"rare":false},
+{"id":"sure_footed","name":"Sure-Footed","good":true,"about":"Walks a fifth faster.","mods":{"speed":1.2},"opposite":["slow_walker"],"rare":false},
+{"id":"slow_walker","name":"Slow Walker","good":false,"about":"Walks a fifth slower.","mods":{"speed":0.8},"opposite":["sure_footed"],"rare":false},
+{"id":"quick_learner","name":"Quick Learner","good":true,"about":"Skills improve half again as fast.","mods":{"learn":0.5},"opposite":["set_in_ways"],"rare":false},
+{"id":"set_in_ways","name":"Set in Their Ways","good":false,"about":"Skills improve a third slower.","mods":{"learn":-0.33},"opposite":["quick_learner"],"rare":false},
+{"id":"born_angler","name":"Born Angler","good":true,"about":"Fishes as if three levels better.","mods":{"fishing":3},"opposite":[],"rare":false},
+{"id":"chatterbox","name":"Chatterbox","good":false,"about":"Stops to talk twice as often, and hears more rumors.","mods":{"chat":2.0,"gossip":2},"opposite":["loner","tight_lipped"],"rare":false},
+{"id":"loner","name":"Loner","good":true,"about":"Never stops to chat, and works a little faster for it.","mods":{"chat":0.0,"work":1.08},"opposite":["chatterbox","gossip"],"rare":false},
+{"id":"gossip","name":"Gossip","good":true,"about":"The first to hear a rumor.","mods":{"gossip":4},"opposite":["tight_lipped","loner"],"rare":false},
+{"id":"tight_lipped","name":"Tight-Lipped","good":false,"about":"The last to pass a rumor on.","mods":{"gossip":-4},"opposite":["gossip","chatterbox"],"rare":false},
+{"id":"old_soldier","name":"Old Soldier","good":true,"about":"Hits half again as hard, and has more health.","mods":{"atk":1.5,"hp":1.15},"opposite":["coward"],"rare":true},
+{"id":"tireless","name":"Tireless","good":true,"about":"Works a tenth faster and walks a tenth faster.","mods":{"work":1.1,"speed":1.1},"opposite":["lazy","slow_walker"],"rare":true},
+{"id":"jinxed","name":"Jinxed","good":false,"about":"A tenth slower at everything.","mods":{"work":0.9,"speed":0.9},"opposite":["tireless"],"rare":true},
+{"id":"unique","name":"Unique","good":true,"about":"One of a kind. There is only one of them, and they can become more than a villager.","mods":{},"opposite":[],"rare":true}
+]
+}

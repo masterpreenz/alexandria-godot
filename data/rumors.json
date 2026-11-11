@@ -2,6 +2,22 @@
 "_about": "Rumors: what the villagers tell Miko, in place of quests. Everything about them is here (nothing in the scripts), so this file can be edited by hand or by a tool. See scripts/rumors.gd for what each field means.",
 "rumors": [
 {
+ "id": "find_miyu",
+ "title": "The elder's granddaughter",
+ "teller": {"any": true},
+ "appears": {"afterDay": 1, "after": [], "unless": ["unique:miyu", "lost:miyu"]},
+ "told": "The elder's granddaughter, Miyu, was away in the next village to the {dir} when the mist came down. Nobody's had word from there since. The elder won't say it, but he's sick with worry. If anyone could reach her, {miko}, it's you. Don't leave it long.",
+ "expires": {"days": 6},
+ "steps": [
+  {"id": "reach", "note": "{teller} says Miyu, the elder's granddaughter, was in the village to the {dir} when the mist came. Get there before it's too late.",
+   "place": {"kind": "forest", "section": "C6", "vague": 8},
+   "done": {"kind": "reach", "within": 4}}
+ ],
+ "reward": {"effects": ["unique_arrives:miyu"], "gifts": [], "log": "You found Miyu hiding among the trees, frightened but unhurt. She's on her way to the village."},
+ "failed": {"effects": ["unique_lost:miyu"], "log": "Word has come from the {dir}: nobody was left alive in the next village. Miyu is gone."},
+ "leads": {"done": [], "ignored": []}
+},
+{
  "id": "forest_clearing",
  "title": "The woods could still be saved",
  "teller": {"any": true},

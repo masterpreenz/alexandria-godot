@@ -49,6 +49,11 @@ func from_json(json: String) -> void:
 	board = saved if saved.size() == BOARD.size() and BOARD.all(func(j): return saved.has(j)) else BOARD.duplicate()
 	for p in people:
 		_fix(p)
+	Uniques.promote(self)
+	# (those from before there were traits: rolled now)
+	for p in people:
+		if not p.has("traits"):
+			Traits.roll(p)
 	_next_check = 0.0
 
 
@@ -94,7 +99,9 @@ func practise(p: Dictionary, sk: int) -> void:
 	var lv: Array = p.skills.level
 	var xp: Array = p.skills.xp
 	if int(lv[sk]) > 0 and int(lv[sk]) < LifeSkills.MOST:
-		xp[sk] = int(xp[sk]) + 1
+		# (traits: a quick learner's go counts double now and then, one set in their ways misses some)
+		var learn := Traits.add(p, "learn")
+		xp[sk] = int(xp[sk]) + (0 if learn < 0.0 and randf() < -learn else (2 if randf() < learn else 1))
 		if int(xp[sk]) >= 8 * maxi(1, int(lv[sk])):
 			xp[sk] = 0
 			lv[sk] = int(lv[sk]) + 1
@@ -239,7 +246,7 @@ func _newcomer() -> Dictionary:
 	var pool: Array = NAMES[mini(look, NAMES.size() - 1)]
 	var nm := ""
 	for n in pool:
-		if not people.any(func(q): return q.name == n):
+		if not Uniques.name_taken(n) and not people.any(func(q): return q.name == n):
 			nm = n
 			break
 	if nm == "":
@@ -249,6 +256,7 @@ func _newcomer() -> Dictionary:
 		"maxHp": 30.0 + 10.0 * level, "hp": 30.0 + 10.0 * level, "atk": 4.0 + 2.0 * level,
 		"hunger": randf_range(60.0, 100.0), "energy": 100.0, "job": 0, "toolsLeft": 0, "bag": "", "bagSlots": 0, "bagLeft": 0}
 	_fix(p)
+	Traits.roll(p)
 	people.append(p)
 	return p
 
