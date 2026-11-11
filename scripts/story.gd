@@ -22,6 +22,7 @@ var _from := {}                     ## what things were as the beat began (kills
 var _walked := 0.0
 var _last_at := Vector2.INF
 var _card: PanelContainer
+var _marks: StoryMarks               ## arrows to (and outlines on) the monsters it sends at her
 var _title: Label
 var _hint: Label
 var _doomed_left: Array = []        ## the attack's doomed (names), still to fall
@@ -75,6 +76,10 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 		col.add_child(l)
 	_card.visible = false
 	hud.add_child(_card)
+	_marks = StoryMarks.new()
+	_marks.name = "StoryMarks"
+	_marks.setup(world)
+	hud.add_child(_marks)
 
 
 func to_json() -> String:
@@ -296,10 +301,14 @@ func _spawn(kind: String, near: float) -> void:
 		if Wilds.open(world, p, 0.5, 0.3):
 			at = p
 			break
+	var c: Creature = null
 	match kind:
-		"slime": Slime.spawn(world, monster_data.slime, false, at, 1.0)
-		"boar": Boar.spawn(world, monster_data.boar, at)
-		"mutatedVillager": MutatedVillager.spawn(world, monster_data.mutatedVillager, at)
+		"slime": c = Slime.spawn(world, monster_data.slime, false, at, 1.0)
+		"boar": c = Boar.spawn(world, monster_data.boar, at)
+		"mutatedVillager": c = MutatedVillager.spawn(world, monster_data.mutatedVillager, at)
+	# (marked: an arrow to it, its outline on, so she can find it)
+	if c != null and _marks != null:
+		_marks.mark(c)
 
 
 func _villager(role: String) -> Villager:

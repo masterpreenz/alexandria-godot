@@ -609,7 +609,7 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["magic", "Magic", ""], ["hpRegen", "HP Regen", "/s"], ["manaRegen", "Mana Regen", "/s"], ["castSpeed", "Cast Speed", "%"],
 	["spellDamage", "Spell Damage", "%"], ["cooldownReduction", "Cooldown Reduction", "%"], ["summonEffect", "Summon Effect", "%"],
 	["summonDuration", "Summon Duration", "%"], ["summonDamage", "Summon Damage", "%"], ["summonHp", "Summon HP", "%"],
-	["maxSummons", "Max Shikigami", ""], ["summonSeconds", "s Summon Duration", ""],
+	["attackSpeed", "Attack Speed", "%"], ["maxSummons", "Max Shikigami", ""], ["summonSeconds", "s Summon Duration", ""],
 	["summonAttackSpeed", "Shikigami Attack Speed", "%"], ["summonDoubleAttack", "Chance to Strike Twice", "%"],
 	["summonCritChance", "Shikigami Critical Chance", "%"], ["summonCritDamage", "Shikigami Critical Damage", "%"],
 	["summonMagicToAttack", "of Magic as Shikigami Attack", "%"], ["summonHeal", "Shikigami Healing", "%"],
