@@ -44,6 +44,9 @@ func setup(w: World, who: Miko, hud: Node) -> void:
 	_fade.z_index = 100
 	hud.add_child(_fade)
 	_room()
+	# No snow down there, on the floor or on what stands on it.
+	world.set_snow_param("floor_origin", Vector2(world.floors.origin.x, -world.floors.origin.y) / world.px)
+	world.set_snow_param("underground", Vector4(AT.x - 6, AT.y - 6, SIDE + 12, SIDE + 12))
 
 
 ## The cellars in the village: where each trapdoor is (px).

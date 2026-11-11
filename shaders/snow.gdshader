@@ -23,6 +23,7 @@ uniform float clear_on = 0.0;
 uniform vec2 clear_origin = vec2(0.0);   // the map's first cell
 uniform float clear_size = 128.0;        // cells a side
 uniform vec2 floor_origin = vec2(0.0);   // the floor grid's corner (0, 0), in units (y up)
+uniform vec4 underground = vec4(0.0);    // cells where no snow ever lies (the cellar's room and round it): x, y, w, h
 
 varying vec2 world;
 varying float stands_clear;
@@ -47,11 +48,13 @@ float luma(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }
 
 // How clear of snow the ground is at w (units, y up): 0 to 1.
 float cleared(vec2 w) {
-	if (clear_on < 0.5) return 0.0;
 	vec2 d = w - floor_origin;
 	float u = d.x / 0.5;
 	float v = d.y / 0.25;
-	vec2 uv = (vec2((u + v) * 0.5, (v - u) * 0.5) - clear_origin) / clear_size;
+	vec2 cell = vec2((u + v) * 0.5, (v - u) * 0.5);
+	if (underground.z > 0.0 && cell.x >= underground.x && cell.y >= underground.y && cell.x < underground.x + underground.z && cell.y < underground.y + underground.w) return 1.0;
+	if (clear_on < 0.5) return 0.0;
+	vec2 uv = (cell - clear_origin) / clear_size;
 	if (uv.x <= 0.0 || uv.y <= 0.0 || uv.x >= 1.0 || uv.y >= 1.0) return 0.0;
 	return textureLod(clear_map, uv, 0.0).r;
 }
