@@ -4,19 +4,169 @@
 {
  "id": "elders_thanks",
  "speaker": "elder",
- "when": {"after": ["miyu_home"], "unless": ["village_given"]},
+ "when": {
+  "after": [
+   "miyu_home"
+  ],
+  "unless": [
+   "village_given"
+  ]
+ },
  "lines": [
-  ["elder", "Sera. You brought her back. You brought my Miyu back."],
-  ["elder_wife", "She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you."],
-  ["sera", "You don't have to. I'm glad I got there in time. The village she was in... there was nobody else."],
-  ["elder", "Then it's as we feared. Whatever is coming, it isn't stopping at our fence."],
-  ["elder", "I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it."],
-  ["elder", "Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all."],
-  ["sera", "...All right. I'll look after them. All of them."],
-  ["elder_wife", "And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came."],
-  ["elder", "Look after her too."]
+  [
+   "elder",
+   "Sera. You brought her back. You brought my Miyu back."
+  ],
+  [
+   "elder_wife",
+   "She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you."
+  ],
+  [
+   "sera",
+   "You don't have to. I'm glad I got there in time. The village she was in... there was nobody else."
+  ],
+  [
+   "elder",
+   "Then it's as we feared. Whatever is coming, it isn't stopping at our fence."
+  ],
+  [
+   "elder",
+   "I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it."
+  ],
+  [
+   "elder",
+   "Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all."
+  ],
+  [
+   "sera",
+   "...All right. I'll look after them. All of them."
+  ],
+  [
+   "elder_wife",
+   "And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came."
+  ],
+  [
+   "elder",
+   "Look after her too."
+  ]
  ],
- "records": ["village_given", "party_join:miyu"]
+ "records": [
+  "village_given",
+  "party_join:miyu"
+ ]
+},
+{
+ "id": "messenger",
+ "speaker": "",
+ "when": {},
+ "lines": [
+  [
+   "Taro",
+   "Hey! You there! Please... you have to help us!"
+  ],
+  [
+   "sera",
+   "Slow down. What's happened?"
+  ],
+  [
+   "Taro",
+   "The village, just up the road. Monsters, out of the mist. Slimes, boars, and... things that used to be people. They came all at once."
+  ],
+  [
+   "Taro",
+   "They never come at us like this. They're not acting right. Please, we can't hold them!"
+  ],
+  [
+   "sera",
+   "Show me the way. Stay behind me."
+  ]
+ ],
+ "records": []
+},
+{
+ "id": "aftermath",
+ "speaker": "elder",
+ "when": {
+  "after": [
+   "village_warded"
+  ]
+ },
+ "lines": [
+  [
+   "elder",
+   "It's quiet. Is it... is it over?"
+  ],
+  [
+   "Hana",
+   "For now. Look at the crystal: the mist's pulling back from it."
+  ],
+  [
+   "Kenji",
+   "What was that? The mist, the monsters, all of it. Where did it come from?"
+  ],
+  [
+   "Yui",
+   "And those things that looked like people. They were people, weren't they."
+  ],
+  [
+   "sera",
+   "I don't know all of it. The mist came down from the north. Whatever's in it changes what it touches, and the monsters follow it."
+  ],
+  [
+   "sera",
+   "You're safe while the crystal stands. I came to help, and I'll stay to help. First let's see to your homes."
+  ],
+  [
+   "elder_wife",
+   "Thank the gods you came when you did."
+  ],
+  [
+   "elder",
+   "We've lost good people tonight. But we're still here. Tell us what to do."
+  ]
+ ],
+ "records": [
+  "aftermath_done"
+ ]
+},
+{
+ "id": "peculiar",
+ "speaker": "elder",
+ "when": {
+  "after": [
+   "intro_houses_mended",
+   "intro_fed"
+  ]
+ },
+ "lines": [
+  [
+   "elder",
+   "You knew just what to do with that crystal. As if you'd done it before."
+  ],
+  [
+   "sera",
+   "I have. The mist is already in other places, further off. I go where it goes, and help where I can."
+  ],
+  [
+   "elder",
+   "A wanderer, then. And a peculiar one, if you'll forgive an old man for saying it."
+  ],
+  [
+   "elder",
+   "It's not often we see one of your kind, with ears like those, helping folk like us. Not with how your people are treated."
+  ],
+  [
+   "sera",
+   "I suppose I'm a little unique that way."
+  ],
+  [
+   "elder_wife",
+   "Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself."
+  ]
+ ],
+ "records": [
+  "peculiar_done"
+ ]
 }
 ]
 }

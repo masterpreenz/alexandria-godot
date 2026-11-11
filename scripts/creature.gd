@@ -63,6 +63,7 @@ func build(w: World, d: Dictionary, hp: float, hit_radius: float, hit_height: fl
 	add_child(hit)
 	hit.setup(world, Damageable.Team.ENEMY, hp, hit_radius * world.px, hit_height * world.px)
 	hit.damaged.connect(_hurt)
+	hit.died.connect(func(): Story.count_kill(self))
 	hit.died.connect(_died)
 	steer = Steer.new(self, shape, c.position, look * world.px)
 	var wade := Wading.new()

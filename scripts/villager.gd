@@ -189,15 +189,15 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 		_hit_at = now()
 		bark("bark.hurt")
 		person.hp = hit.hp
-		VillageLog.event("hurt:" + name, "%s is under attack!" % name, VillageLog.Kind.DANGER))
+		VillageLog.event("hurt:" + name, "%s is under attack!" % person.name, VillageLog.Kind.DANGER))
 	hit.died.connect(func():
 		# (a unique who's joined the village isn't lost: struck down, carried home, back on their feet in time)
 		if person.has("unique"):
 			person.hp = maxf(1.0, float(person.get("maxHp", 40.0)) * 0.2)
-			VillageLog.event("died:" + name, "%s was struck down, and has been carried home" % name, VillageLog.Kind.DANGER)
+			VillageLog.event("died:" + name, "%s was struck down, and has been carried home" % person.name, VillageLog.Kind.DANGER)
 		else:
 			person.hp = 0.0
-			VillageLog.event("died:" + name, "%s has died" % name, VillageLog.Kind.DANGER)
+			VillageLog.event("died:" + name, "%s has died" % person.name, VillageLog.Kind.DANGER)
 		move_out())
 	# Their HP beside them in a fight (no mana: they've none).
 	var bars := HeadBars.new()
@@ -563,8 +563,22 @@ func _physics_process(delta: float) -> void:
 	Perf.add(&"villager.physics", __t)
 
 
+## Held by the story (the messenger running to Sera): their own day set aside; the story moves them.
+var held := false
+var _held_moving := false
+
+
 func _physics_process_timed(delta: float) -> void:
 	var t := now()
+	if held:
+		velocity = Vector2.ZERO
+		var frames: Array = s.walkUp if facing_up else s.walkDown
+		if _held_moving and not frames.is_empty():
+			_show(int(frames[int(t * float(s.walkFps)) % frames.size()]))
+		else:
+			_show_idle()
+		_status()
+		return
 	_needs()
 	_unstick(t, delta)
 	_close_behind()
@@ -1415,7 +1429,7 @@ func _winter_wear(t: float) -> void:
 				v.items.remove_at(i)
 				v.changed.emit()
 				person["scarf"] = true
-				VillageLog.event("scarf:" + name, "%s took a scarf from storage" % name)
+				VillageLog.event("scarf:" + name, "%s took a scarf from storage" % person.name)
 				bark("bark.scarf", {}, true)
 				show_mood("relaxed", 4.0)
 				break
@@ -1486,10 +1500,10 @@ func _needs() -> void:
 			hit.hurt(loss)
 		else:
 			hit.hp -= loss
-		VillageLog.problem("starving:" + name, "%s is starving: put food in storage" % name, VillageLog.Kind.DANGER)
+		VillageLog.problem("starving:" + name, "%s is starving: put food in storage" % person.name, VillageLog.Kind.DANGER)
 	p.hp = hit.hp
 	if hit.alive() and hit.hp < hit.max_hp * 0.3:
-		VillageLog.problem("dying:" + name, "%s is badly hurt (%d HP)" % [name, ceili(hit.hp)], VillageLog.Kind.DANGER)
+		VillageLog.problem("dying:" + name, "%s is badly hurt (%d HP)" % [person.name, ceili(hit.hp)], VillageLog.Kind.DANGER)
 
 
 func _food_in_storage() -> int:
@@ -2335,7 +2349,7 @@ func _wear_tools() -> void:
 		return
 	person.toolsLeft = int(person.toolsLeft) - 1
 	if int(person.toolsLeft) == 0:
-		VillageLog.event("tools:" + name, "%s's tools wore out: make more at the workbench" % name, VillageLog.Kind.WARNING)
+		VillageLog.event("tools:" + name, "%s's tools wore out: make more at the workbench" % person.name, VillageLog.Kind.WARNING)
 
 
 func _workable(g: Gatherable) -> bool:
@@ -2638,7 +2652,7 @@ func _unload(t: float, stand := true) -> void:
 		if str(person.get("bag", "")) != "":
 			person.bagLeft = int(person.bagLeft) - 1
 			if int(person.bagLeft) <= 0:
-				VillageLog.event("bag:" + name, "%s's bag wore through: make more at the workbench" % name, VillageLog.Kind.WARNING)
+				VillageLog.event("bag:" + name, "%s's bag wore through: make more at the workbench" % person.name, VillageLog.Kind.WARNING)
 				person.bag = ""
 				person.bagSlots = 0
 				person.bagLeft = 0

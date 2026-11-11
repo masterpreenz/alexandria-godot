@@ -98,13 +98,21 @@ func _physics_process_timed(delta: float) -> void:
 			_pick_wander()
 	# A barricade in the way: that first.
 	var bar := barricade_ahead(prey.position) if chasing else []
+	# Raiding with nobody about to go for: at the nearest house's walls.
+	var house := {}
+	if not chasing and raid_to != Vector2.INF and Raids.active != null:
+		house = Raids.active.house_wall_near(at, 9.0 * world.px)
 	if chasing:
 		target = prey.position if bar.is_empty() else bar[1]
+	elif not house.is_empty():
+		target = house.mid
 	elif at.distance_to(home) > float(s.leash) * world.px:
 		target = home
 	_animate(t, delta)
 	if not bar.is_empty():
 		_bite_barricade(t, bar)
+	elif not house.is_empty():
+		_bite_house(t, house)
 	elif prey_body != null:
 		_bite_villager(t, prey_body, prey.position - at)
 	elif p != null:
@@ -197,6 +205,14 @@ func _bite_barricade(t: float, bar: Array) -> void:
 		return
 	last_hit = t
 	world.walls.damage(bar[0], float(s.damage) * (2.5 if large else 1.0) * power)
+
+
+# Raiding: at a house's wall (from Raids.house_wall_near), biting at it now and then.
+func _bite_house(t: float, w: Dictionary) -> void:
+	if t - last_hit < float(s.hitEvery) or position.distance_to(w.mid) > (0.3 * _scale() + 0.45) * world.px:
+		return
+	last_hit = t
+	Raids.active.strike_house_wall(w, float(s.damage) * (2.5 if large else 1.0) * power)
 
 
 # Touching a villager hurts them, now and then.

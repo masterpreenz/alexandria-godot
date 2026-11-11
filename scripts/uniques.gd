@@ -59,7 +59,7 @@ static func _note(id: String) -> void:
 
 ## The unique [param id] comes to the village (needing a bed, like any newcomer). False if they're here already, or
 ## lost.
-static func arrive(people: Villagers, id: String) -> bool:
+static func arrive(people: Villagers, id: String, quiet := false) -> bool:
 	var u: Dictionary = all().get(id, {})
 	if u.is_empty() or lost(id) or not person(people, id).is_empty():
 		return false
@@ -71,7 +71,8 @@ static func arrive(people: Villagers, id: String) -> bool:
 	people._fix(p)
 	people.people.append(p)
 	_note(id)
-	VillageLog.event("arrived:" + str(u.name), "%s has come to the village and needs a bed in a house" % str(u.name))
+	if not quiet:
+		VillageLog.event("arrived:" + str(u.name), "%s has come to the village and needs a bed in a house" % str(u.name))
 	return true
 
 

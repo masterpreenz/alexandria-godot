@@ -47,8 +47,12 @@
   "name": "Genzo"
  },
  "appears": {
-  "afterDay": 1,
-  "after": [],
+  "after": [
+   {
+    "event": "intro_done",
+    "days": 0
+   }
+  ],
   "unless": [
    "unique:miyu",
    "lost:miyu"
@@ -61,7 +65,7 @@
  "steps": [
   {
    "id": "reach",
-   "note": "The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today.",
+   "note": "The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.",
    "place": {
     "kind": "cell",
     "x": -250,

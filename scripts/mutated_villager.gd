@@ -25,6 +25,7 @@ var _attack_clock := 0.0
 var _hit_done := false
 var _slashed := false
 var _bar_key: Variant = null      ## the barricade it's swinging at (null: at her)
+var _house_wall := {}             ## raiding: the house wall it's smashing at (Raids.house_wall_near), or {}
 var prey: Node2D = null            ## who it's after: Miko, or (raiding) a villager too
 
 
@@ -74,10 +75,18 @@ func _physics_process_timed(delta: float) -> void:
 			# A barricade in the way: that first.
 			var bar := barricade_ahead(goal)
 			_bar_key = null if bar.is_empty() else bar[0]
+			# Raiding with nobody about to go for: at the nearest house, smashing its walls in.
+			if prey == null and bar.is_empty() and raid_to != Vector2.INF and Raids.active != null:
+				if not Raids.active.standing(_house_wall):
+					_house_wall = Raids.active.house_wall_near(position, 9.0 * world.px)
+			else:
+				_house_wall = {}
 			var to: Vector2 = (goal if bar.is_empty() else bar[1]) - position
-			var reach := float(s.attackReach) * world.px * (1.0 if bar.is_empty() else 1.3)
+			if not _house_wall.is_empty():
+				to = _house_wall.mid - position
+			var reach := float(s.attackReach) * world.px * (1.0 if bar.is_empty() and _house_wall.is_empty() else 1.3)
 			face(to, 0.1)
-			if prey == null and bar.is_empty():
+			if prey == null and bar.is_empty() and _house_wall.is_empty():
 				# Marching on the village: round what's in the way; there, on to somewhere else in it.
 				if to.length() < 1.2 * world.px:
 					raid_to = Raids.spot_in_village(world)
@@ -99,6 +108,8 @@ func _physics_process_timed(delta: float) -> void:
 			var to_her := prey.position - position if prey != null else Vector2.ZERO
 			if _bar_key != null and world.walls.walls.has(_bar_key):
 				to_her = world.walls.wall_middle(_bar_key) - position
+			elif not _house_wall.is_empty():
+				to_her = _house_wall.mid - position
 			if f >= int(s.hitFrame) - 1 and not _slashed:
 				_slashed = true
 				Slash.play(world, position, to_her if to_her != Vector2.ZERO else (Vector2.RIGHT if flip else Vector2.LEFT), Color(0.85, 0.4, 1.0, 0.85), 0.9)
@@ -107,6 +118,8 @@ func _physics_process_timed(delta: float) -> void:
 				# The slam lands where she was: she's hit only if she's still in reach.
 				if _bar_key != null:
 					world.walls.damage(_bar_key, float(s.attackDamage) * 2.0)
+				elif not _house_wall.is_empty() and Raids.active != null:
+					Raids.active.strike_house_wall(_house_wall, float(s.attackDamage) * 2.0)
 				elif prey is Villager and to_her.length() <= float(s.attackReach) * 1.4 * world.px:
 					(prey as Villager).hit.hurt(float(s.attackDamage))
 				elif prey is Damageable and to_her.length() <= float(s.attackReach) * 1.4 * world.px:

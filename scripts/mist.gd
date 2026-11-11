@@ -73,6 +73,9 @@ func setup(w: World, d: Dictionary) -> void:
 				strong = c.x < float(Wildlands.TO_X) + 30.0 or absf(c.y) > 130.0
 			elif c.x < -40.0 and absf(c.y) <= 8.0:
 				strong = false
+			# (the road in from the south-east, where the story begins: ordinary mist, not the strong)
+			elif c.y < -40.0 and absf(c.x) <= 10.0:
+				strong = false
 			_base[i0 + x] = Tier.STRONG if strong else Tier.NORMAL
 	_note_obstacles(d.obstacles)
 	_image = Image.create(width, height, false, Image.FORMAT_RGBA8)
@@ -165,7 +168,7 @@ func _process_timed(delta: float) -> void:
 
 # Everything that clears mist, as a string: when it changes, the mist is worked out again.
 func _source_key() -> String:
-	var s := "V" + world.village.shape_key()
+	var s := "V" + world.village.shape_key() + ("" if Story.village_warded() else "|unwarded")
 	for p in world.props_named("TeleportCrystal"):
 		s += "|%.0f,%.0f" % [p.x, p.y]
 	for p in world.props_named("CleansingCrystal"):
@@ -185,7 +188,7 @@ func refresh(force := false) -> void:
 	if not village.founded():
 		# A clearing round the middle of the map to start from, until there's a village to clear its own ground.
 		_clear_circle(Vector2.ZERO, data.homeRadius, Tier.NORMAL)
-	else:
+	elif Story.village_warded():
 		var margin: float = data.villageMargin
 		var box := village.bounds(margin)
 		_for_cells(box, func(i: int, at: Vector2) -> void:

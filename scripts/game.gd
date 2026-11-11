@@ -390,6 +390,13 @@ func _ready() -> void:
 	rumors.setup(world, miko)
 	if sv.get("sections", {}).has("world.rumors"):
 		rumors.from_json(sv.sections["world.rumors"])
+	# The story's opening, on a new game (and where it's at, in one under way).
+	var story := Story.new()
+	story.name = "Story"
+	add_child(story)
+	story.setup(world, miko, get_node("Villagers") as Villagers, monsters_data, self, $Hud)
+	if sv.get("sections", {}).has("world.story"):
+		story.from_json(sv.sections["world.story"])
 	# Sera's party.
 	var party := Party.new()
 	party.name = "Party"
@@ -404,11 +411,13 @@ func _ready() -> void:
 	rescue.setup(world, miko, get_node("Villagers") as Villagers, monsters_data, $Hud)
 	if sv.get("sections", {}).has("world.rescue"):
 		rescue.from_json(sv.sections["world.rescue"])
-	# A new game: the village's own people from the start (the elders, as the template has it).
+	# A new game: the village's own people from the start (the elders, as the template has it), and the story begins.
 	if not sv.get("sections", {}).has("world.props") and has_node("Villagers"):
 		for t_name in world.stamped_villages:
 			for who in VillageTemplate.load_named(str(t_name)).get("residents", []):
-				Uniques.arrive(get_node("Villagers") as Villagers, str(who))
+				Uniques.arrive(get_node("Villagers") as Villagers, str(who), true)   # (they live there: no news of it)
+		if FileAccess.file_exists(Story.FILE) and Shots.arg("nostory") == "":
+			story.begin_new_game()
 	var journal := RumorsWindow.new()
 	journal.name = "RumorsWindow"
 	$Hud.add_child(journal)

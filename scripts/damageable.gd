@@ -11,6 +11,8 @@ enum Team { ALLY, ENEMY }
 
 static var all: Array[Damageable] = []
 
+var unkillable := false          ## hurt, but never below 1 HP (the story's survivors, through the attack)
+
 var team := Team.ENEMY
 var max_hp := 100.0
 var hp := 100.0
@@ -73,7 +75,7 @@ func hurt(amount: float, by_player := false, crit := false) -> void:
 		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height - 0.1 * world.px), Color(1.0, 0.9, 0.2), 34, 1.4, Color(0.85, 0.08, 0.05))
 	else:
 		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height), Color(1, 0.82, 0.35))
-	hp = maxf(1.0, hp - amount) if dummy else maxf(0.0, hp - amount)
+	hp = maxf(1.0, hp - amount) if dummy or unkillable else maxf(0.0, hp - amount)
 	damaged.emit(amount)
 	if team == Team.ENEMY and hp > 0.0:
 		_bar_until = _last_hit + 3.0

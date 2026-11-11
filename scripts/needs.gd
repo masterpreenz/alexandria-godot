@@ -341,6 +341,9 @@ func _penalties() -> void:
 func _mist(dt: float) -> void:
 	var tier := world.mist.tier_at(miko.position) if world.mist != null else Mist.Tier.CLEAR
 	var cap := 2.0 if tier == Mist.Tier.STRONG else (1.0 if tier == Mist.Tier.NORMAL else 0.0)
+	# (her own necklace keeps the mist off her altogether)
+	if bool(stats.item_stats.get(stats.worn_in("Necklace"), {}).get("mistWard", false)):
+		cap = 0.0
 	var was := mist_sickness
 	if mist_sickness < cap:
 		# (Clear Lungs, Iron Stomach: it builds more slowly)

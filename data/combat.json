@@ -103,6 +103,7 @@
 "OakWand":{"stats":{"magic":2,"manaRegen":1,"castSpeed":5},"grantsSpell":""},
 "Sachet":{"stats":{},"grantsSpell":""},
 "ShrineCharm":{"stats":{"maxHp":15,"hpRegen":0.5},"grantsSpell":""},
+"ShrineNecklace":{"stats":{},"grantsSpell":"","light":{"radius":1.9,"energy":0.55,"color":[1.0,0.82,0.86]},"clearRadius":2.6,"mistWard":true},
 "CrystalNecklace":{"stats":{},"grantsSpell":"","durability":900,"light":{"radius":1.7,"energy":0.5,"color":[0.7,0.86,1.0]},"clearRadius":2.4},
 "Scarf":{"stats":{},"grantsSpell":""},
 "Bucket":{"stats":{},"grantsSpell":""},"Mug":{"stats":{},"grantsSpell":""},"FishingRod":{"stats":{},"grantsSpell":""},

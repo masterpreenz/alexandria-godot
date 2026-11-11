@@ -26,12 +26,22 @@ static func _now() -> float:
 
 
 ## Raises (or keeps up) an ongoing problem under [param key]; it fades a while after it's no longer raised.
+## Whether the log's kept quiet: a game the story began, until the village is given into Sera's keeping (it isn't
+## hers to hear about till then).
+static func muted() -> bool:
+	return Chronicle.active != null and Chronicle.active.happened("intro_started") and not Chronicle.active.happened("village_given")
+
+
 static func problem(key: String, text: String, kind := Kind.WARNING) -> void:
+	if muted():
+		return
 	_put(key, text, kind, PROBLEM_LASTS)
 
 
 ## Something that just happened (shown for a little while); the same key again just refreshes it.
 static func event(key: String, text: String, kind := Kind.NEWS) -> void:
+	if muted():
+		return
 	_put(key, text, kind, EVENT_LASTS)
 
 
@@ -89,7 +99,7 @@ func _process_timed(_delta: float) -> void:
 	_dirty = false
 	for c in _list.get_children():
 		c.queue_free()
-	visible = not _order.is_empty()
+	visible = not _order.is_empty() and not muted()
 	if not visible:
 		return
 	var title := Label.new()

@@ -71,6 +71,11 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_J:
+			if not visible and Chronicle.active != null and Chronicle.active.happened("intro_started") and not Chronicle.active.happened("village_given"):
+				var w := world
+				FloatingText.spawn(w, "The village isn't yours to run yet.", w.player.position + Vector2(0, -2.0 * w.px), Color(0.9, 0.85, 0.75))
+				get_viewport().set_input_as_handled()
+				return
 			visible = not visible
 			_built_for = "-"
 			get_viewport().set_input_as_handled()

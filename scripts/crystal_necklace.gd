@@ -51,7 +51,8 @@ func _process_timed(delta: float) -> void:
 		_light.texture_scale = float(l.radius) * 2.0 * world.px / float(_light.texture.get_width())
 		# A small light, like a candle carried: it flickers a little, shows in the dark and hardly at all by day (the
 		# fires' undoing of the night's tint, the other way round), and dims as it wears thin, to half at the end.
-		var left := maxf(0.0, miko.stats.durability_left(item))
+		var dl := miko.stats.durability_left(item)
+		var left := 1.0 if dl < 0.0 else dl   # (one that never wears out: full)
 		var t := Time.get_ticks_msec() / 1000.0
 		var flicker := 0.92 + 0.05 * sin(t * 9.1) + 0.03 * sin(t * 23.7 + 1.3)
 		var day := 1.0

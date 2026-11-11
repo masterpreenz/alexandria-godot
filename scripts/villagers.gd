@@ -36,6 +36,7 @@ func setup(w: World, data: Dictionary, beds: Dictionary, eat_sound: Variant) -> 
 
 ## The job board: the jobs in the order the villagers take them (the jobs window's Job Board sets it). Saved.
 var board: Array = BOARD.duplicate()
+static var closed := false            ## nobody new comes while it's set (the story has its own people at its start)
 const BOARD := [Villager.Job.BUILDING, Villager.Job.HAULING, Villager.Job.FARMING, Villager.Job.COOKING, Villager.Job.FISHING,
 	Villager.Job.CRAFTING, Villager.Job.LUMBERING, Villager.Job.MINING]
 
@@ -188,7 +189,7 @@ func _process_timed(_delta: float) -> void:
 		_clear_waiting()
 		return
 	# There's always someone hoping to move in: a newcomer turns up when no one's waiting.
-	if _homeless() == null and people.size() < int(s.get("most", 16)) and not _full():
+	if not closed and _homeless() == null and people.size() < int(s.get("most", 16)) and not _full():
 		_arrive()
 	_notice(beds)
 	for b in beds:
@@ -199,7 +200,7 @@ func _process_timed(_delta: float) -> void:
 			continue
 		var who: Variant = _claimant(b)
 		if who == null: who = _homeless()
-		if who == null and not _full(): who = _newcomer()
+		if who == null and not _full() and not closed: who = _newcomer()
 		if who != null:
 			_settle(who, b)
 	_wanderers()
@@ -244,8 +245,8 @@ func _homeless() -> Variant:
 
 # A newcomer: by turns, a woman first, so the village gets a mix; a name not yet taken.
 func _newcomer() -> Dictionary:
-	# (the looks in turn: a woman, a man, the other woman)
-	var turn := [1, 0, 2]
+	# (the looks in turn; not one that's someone's own, as Miyu's is)
+	var turn := [1, 0, 2].filter(func(l): return l < d.looks.size() and str(d.looks[l].settings.get("uniqueTo", "")) == "")
 	var look: int = turn[(turn.find(int(people[-1].look)) + 1) % turn.size()] if not people.is_empty() else 1
 	# (a look nobody here has yet comes first)
 	for l in turn:
@@ -268,6 +269,19 @@ func _newcomer() -> Dictionary:
 	_fix(p)
 	Traits.roll(p)
 	people.append(p)
+	return p
+
+
+## Someone in particular comes to the village (the story's people): named [param nm], of look [param look].
+func add_person(nm: String, look: int) -> Dictionary:
+	var level := randi_range(1, 3)
+	var p := {"name": nm, "look": look, "hasBed": false, "bedX": 0.0, "bedY": 0.0, "level": level, "xp": 0,
+		"maxHp": 30.0 + 10.0 * level, "hp": 30.0 + 10.0 * level, "atk": 4.0 + 2.0 * level,
+		"hunger": randf_range(70.0, 100.0), "energy": 100.0, "job": 0, "toolsLeft": 0, "bag": "", "bagSlots": 0, "bagLeft": 0}
+	_fix(p)
+	Traits.roll(p)
+	people.append(p)
+	_next_check = 0.0
 	return p
 
 
@@ -300,7 +314,7 @@ func _wanderers() -> void:
 		v.setup(world, self, _look_for(p), p, {})
 		waiting[p.name] = v
 	for nm in waiting.keys():
-		var v: Villager = waiting[nm]
+		var v: Variant = waiting[nm]   # (untyped: it may have died and been freed)
 		var p: Variant = null
 		for q in people:
 			if q.name == nm:
