@@ -41,6 +41,11 @@ func from_json(json: String) -> void:
 			stash[a.resource] = int(a.amount)
 	items = d.get("items", []).duplicate()
 	crystal_names = d.get("crystalNames", [])
+	# Once: 40 potatoes into storage (so there's seed kept for planting and still some to eat).
+	gifts = d.get("gifts", []).duplicate()
+	if not gifts.has("potatoes40"):
+		gifts.append("potatoes40")
+		stash["Potato"] = stored("Potato") + 40
 	changed.emit()
 
 
@@ -51,7 +56,7 @@ func to_json() -> String:
 	var bl := []
 	for b in blocks:
 		bl.append({"x": b.position.x, "y": b.position.y, "w": b.size.x, "h": b.size.y})
-	return JSON.stringify({"tier": tier, "stash": list, "items": items, "crystalNames": crystal_names, "blocks": bl})
+	return JSON.stringify({"tier": tier, "stash": list, "items": items, "crystalNames": crystal_names, "blocks": bl, "gifts": gifts})
 
 
 # ---- Storage ----
@@ -88,6 +93,8 @@ func item_slots() -> int:
 		total += ITEM_SLOTS_PER_CHEST * _multiplier(at)
 	return total
 
+
+var gifts: Array = []       ## one-off gifts to storage already given (saved, so each comes once)
 
 ## Kept back in storage for planting (Farming sets it): resource -> how many. Eating, cooking and crafting leave
 ## that much alone.
