@@ -1978,6 +1978,11 @@ func _done_pick_up(t: float) -> void:
 
 func _go_store() -> bool:
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
+	# Food goes down the cellar, where there is one.
+	if Cellars.active != null and Spoilage.PER_DAY.has(carry_kind):
+		var cellar: Variant = Cellars.active.deposit_spot(position)
+		if cellar != null and VillagerRoute.find(world, position, cellar) != null:
+			spot = cellar
 	if spot == null:
 		VillageLog.problem("no-storage", "No storage: build a chest in the village for the villagers' haul")
 		return false

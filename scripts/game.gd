@@ -1989,13 +1989,18 @@ func _ready() -> void:
 						await get_tree().process_frame
 					print("Cellar: down there ", Cellars.inside(miko.position), ", mist ", world.mist.tier_at(miko.position))
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_down.png")
-					miko.place(cl._steps())
-					for i in 10:
+					miko.place(world.floors.cell_centre(cl._door_cell() + Vector2i(0, -1)))
+					for i in 120:
 						await get_tree().process_frame
-					print("Cellar: at the steps, prompt '", cl.prompt.text, "'")
-					cl._go(false)
-					for i in 90:
-						await get_tree().process_frame
+					var vl: Villager = Villager.all[0]
+					vl.carrying = 3
+					vl.carry_kind = "Potato"
+					vl._go_store()
+					var food_goes := vl.target.distance_to(world.floors.cell_centre(spot)) / world.px
+					vl.carry_kind = "Wood"
+					vl._go_store()
+					print("Cellar: a villager with potatoes heads ", snappedf(food_goes, 0.1), " units from the trapdoor; with wood, ", snappedf(vl.target.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1))
+					vl.carrying = 0
 					print("Cellar: back up, in the house ", world.roofs.covers(miko.position), ", ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
