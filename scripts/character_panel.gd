@@ -18,7 +18,7 @@ const USES := {
 	"Tea": "Restores 30 energy.", "Hide": "From boars. For crafting.",
 	"Crystal": "Dropped by slimes from the mist. Builds cleansing crystals, which clear it away.",
 	"Jelly": "From slimes. Too slimy to eat raw: cook it at a bonfire.", "Candy": "Fills 35 hunger.",
-	"Potato": "Fills 10 hunger raw. Plant it in a farm plot, or bake it at a bonfire.", "BakedPotato": "Fills 45 hunger.", "Fish": "Raw fish, caught at a fishing dock. Grill it at a fire. Spoils fast.", "GrilledFish": "Fills 50 hunger.", "SmokedFish": "Fills 40 hunger. Keeps for a very long time: food for the winter.",
+	"Potato": "Fills 10 hunger raw. Plant it in a farm plot, or bake it at a bonfire.", "BakedPotato": "Fills 45 hunger.", "Fish": "Raw fish, caught at a fishing dock. Grill it at a fire. Spoils fast.", "GrilledFish": "Fills 50 hunger.", "Water": "From a well, carried in a bucket. A drink (G, with a mug), or water for a dry crop (E at the plot).", "SmokedFish": "Fills 40 hunger. Keeps for a very long time: food for the winter.",
 	"FishSoup": "Fills 60 hunger, and mana and HP come back faster for a while.", "FishStew": "Fills 65 hunger, with more attack and defense for a while.",
 	"Bait": "Fishing used to take this. It doesn't any more.",
 	"Bottle": "From the alchemy workbench: potions are made in it.",

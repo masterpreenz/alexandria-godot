@@ -448,8 +448,11 @@ func _process_timed(_delta: float) -> void:
 					FloatingText.spawn(world, "Pests cleared", p.pos + Vector2(0, -0.6 * world.px), Color(0.62, 0.86, 0.5))
 					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 			elif dry(p):
-				_say("%s dry  ·  growing at half speed  ·  E water the field" % nm)
-				if keys.has("e"):
+				# (watering takes water: a bucket filled at a well)
+				var have := miko.bag.count("Water")
+				_say(("%s dry  ·  growing at half speed  ·  E water the field (%d water)" % [nm, have]) if have > 0 else "%s dry  ·  growing at half speed  ·  needs water: fill a bucket at a well" % nm)
+				if keys.has("e") and have > 0:
+					miko.bag.spend("Water", 1)
 					water(p)
 					FloatingText.spawn(world, "Watered", p.pos + Vector2(0, -0.6 * world.px), Color(0.55, 0.78, 1.0))
 					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)

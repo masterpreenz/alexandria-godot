@@ -127,7 +127,7 @@ func _ready() -> void:
 		needs.setup(world, miko, world._load_json("res://data/needs.json"), $Hud)
 		if sv.get("sections", {}).has("player"):
 			var pl: Dictionary = JSON.parse_string(sv.sections.player)
-			needs.set_levels(float(pl.get("hunger", Needs.MAX)), float(pl.get("energy", Needs.MAX)))
+			needs.set_levels(float(pl.get("hunger", Needs.MAX)), float(pl.get("energy", Needs.MAX)), float(pl.get("thirst", Needs.MAX)))
 		bars.needs = needs
 	# The fires (lighting them, cooking at bonfires) and the farm plots.
 	if FileAccess.file_exists("res://data/farm.json"):
@@ -207,6 +207,11 @@ func _ready() -> void:
 	outskirts.name = "Outskirts"
 	add_child(outskirts)
 	outskirts.setup(world)
+	# The wells.
+	var wells := Wells.new()
+	wells.name = "Wells"
+	add_child(wells)
+	wells.setup(world, miko, $Hud)
 	# Fishing, at the docks.
 	var fishing := Fishing.new()
 	fishing.name = "Fishing"

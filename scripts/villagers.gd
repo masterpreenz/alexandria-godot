@@ -86,6 +86,8 @@ func _fix(p: Dictionary) -> void:
 		(p.skills.level as Array).append(randi_range(1, 3))
 	while (p.skills.xp as Array).size() < SKILL_NAMES.size():
 		(p.skills.xp as Array).append(0)
+	if not p.has("thirst"):
+		p["thirst"] = 100.0
 	for k in ["hunger", "energy", "hp", "maxHp", "atk", "level", "xp", "toolsLeft", "bagSlots", "bagLeft", "job"]:
 		if not p.has(k):
 			p[k] = {"hunger": 80.0, "energy": 100.0, "hp": 40.0, "maxHp": 40.0, "atk": 6.0, "level": 1}.get(k, 0)

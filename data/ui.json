@@ -52,6 +52,7 @@
 "SmokedFish":{"name":"Smoked fish","icon":{"tex":"res://assets/Icons/Resources/SmokedFish.png"},"usable":true,"group":"Consumables"},
 "FishSoup":{"name":"Fish soup","icon":{"tex":"res://assets/Icons/Resources/FishSoup.png"},"usable":true,"group":"Consumables"},
 "FishStew":{"name":"Fish stew","icon":{"tex":"res://assets/Icons/Resources/FishStew.png"},"usable":true,"group":"Consumables"},
+"Water":{"name":"Water","icon":{"tex":"res://assets/Icons/Resources/Water.png"},"usable":true,"group":"Consumables"},
 "Fish":{"name":"Fish","icon":{"tex":"res://assets/Icons/Resources/Fish.png"},"usable":false,"group":"Consumables"},
 "GrilledFish":{"name":"Grilled fish","icon":{"tex":"res://assets/Icons/Resources/GrilledFish.png"},"usable":true,"group":"Consumables"},
 "Bait":{"name":"Bait","icon":{"tex":"res://assets/Icons/Resources/Bait.png"},"usable":false,"group":"Materials"},
@@ -75,6 +76,8 @@
 "ShrineCharm":{"name":"Shrine Charm","kind":"Necklace","label":"Necklace","icon":-1,"bagSlots":0,"wearable":true,"description":"A blessed charm on a cord.","stats":[["Max HP",15,""],["HP Regen",0.5,"/s"]]},
 "CrystalNecklace":{"name":"Crystal Necklace","kind":"Necklace","label":"Necklace","icon":-1,"bagSlots":0,"wearable":true,"description":"A mist crystal on a fibre cord. Worn, it glows round her like a lantern and keeps the mist back a little way; it wears thin as it's worn, and breaks.","stats":[]},
 "Scarf":{"name":"Scarf","kind":"Scarf","label":"Scarf","icon":-1,"bagSlots":0,"wearable":false,"description":"A warm scarf for a villager: in winter they feel the cold a step less (cold in the snow, not at all otherwise). Put it in storage and whoever has none takes it when winter comes.","stats":[]},
+"Bucket":{"name":"Bucket","kind":"Bucket","label":"Bucket","icon":{"tex":"res://assets/Icons/Resources/Bucket.png"},"bagSlots":0,"wearable":false,"description":"Carries up to 10 water from a well, for watering the crops (one each). Keep it in your bag.","stats":[]},
+"Mug":{"name":"Mug","kind":"Mug","label":"Mug","icon":{"tex":"res://assets/Icons/Resources/Mug.png"},"bagSlots":0,"wearable":false,"description":"For a drink of the water you carry, away from a well (G). Keep it in your bag.","stats":[]},
 "FishingRod":{"name":"Fishing Rod","kind":"Rod","label":"Rod","icon":-1,"bagSlots":0,"wearable":false,"description":"For fishing at a fishing dock (E): keep it in your bag.","stats":[]},
 "Tools":{"name":"Tools","kind":"Tools","label":"Tools","icon":-1,"bagSlots":0,"wearable":false,"description":"A set of tools for a villager: felling, mining, farming, building and planting go quicker. Wears out after 150 uses. Put it in storage and a villager takes it.","stats":[]},
 "WoodenShield":{"name":"Wooden Shield","kind":"Shield","label":"Shield","icon":-1,"bagSlots":0,"wearable":true,"description":"Planks bound with iron.","stats":[["Defense",3,""]]}}

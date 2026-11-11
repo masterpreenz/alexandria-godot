@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH, TO_WELL }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING, HAULING }
 
@@ -354,6 +354,57 @@ func doing() -> int:
 	return -1
 
 
+# ---- Water: drinking at the village's well, and a bucket filled there before watering ----
+
+const THIRSTY := 35.0            ## they go for a drink under this
+var _well := Vector2.INF         ## the well they're going to
+var _well_for := ""              ## "drink" or "fill"
+var _bucket := 0                 ## water in their bucket, for watering
+
+
+func _wells() -> Wells:
+	return Wells.active
+
+
+func _go_well(why: String) -> bool:
+	var w := _wells()
+	if w == null:
+		return false
+	var at := w.nearest(position)
+	if at == Vector2.INF:
+		return false
+	var goal := _beside(at, 0.75)
+	if VillagerRoute.find(world, position, goal) == null:
+		return false
+	_well = at
+	_well_for = why
+	state = State.TO_WELL
+	clock = 0.0
+	state_until = now() + 40.0
+	_set_goal(goal)
+	return true
+
+
+# At the well: a long drink, or the bucket filled; then on (a farmer back to the crops).
+func _at_well(t: float) -> void:
+	velocity = Vector2.ZERO
+	var to := _well - position
+	facing_up = to.y < 0.0
+	facing_right = to.x > 0.0
+	if _well_for == "drink":
+		person["thirst"] = 100.0
+		show_mood("relaxed", 2.0)
+	else:
+		_bucket = Wells.BUCKET_HOLDS
+	Sfx.play(world, Sfx.stream(Farming.WATER_SOUND), _well, 0.35, 0.1)
+	var was := _well_for
+	_well = Vector2.INF
+	_well_for = ""
+	if was == "fill" and _go_farm(true):
+		return
+	_stand(t, randf_range(0.6, 1.2))
+
+
 func _work_hours() -> bool:
 	var h := _hour(world)
 	return h >= 6.0 + Traits.add(person, "start") and h < 18.0 + Traits.add(person, "end")
@@ -463,6 +514,7 @@ func _physics_process_timed(delta: float) -> void:
 				var chance := float(s.workChance)
 				# Three meals a day; between them only when they're close to starving.
 				if (_meal_due() or float(person.get("hunger", 100.0)) < 12.0) and _go_eat(): pass
+				elif float(person.get("thirst", 100.0)) < THIRSTY and _go_well("drink"): pass
 				# (the village short of food: whoever can sees to it first, whatever their work's set to and the hour)
 				elif _urgent(): pass
 				elif _go_door_duty(): pass
@@ -558,6 +610,9 @@ func _physics_process_timed(delta: float) -> void:
 			else: _walk(t, delta)
 		State.FISH:
 			_fishing(t)
+		State.TO_WELL:
+			if t > state_until: _stand(t, 1.0)
+			else: _walk(t, delta)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
 		Sfx.keep_going(_sizzle, false)
@@ -751,6 +806,7 @@ func _arrive(t: float) -> void:
 		State.FLEE: _next_refuge = 0.0   # (somewhere further next: still running)
 		State.TO_CRAFT: _start_crafting(t)
 		State.TO_FISH: _start_fishing(t)
+		State.TO_WELL: _at_well(t)
 		State.HOME:
 			# Into bed, unless Miko's in it: then they wait beside it till morning.
 			if not home.is_empty() and not Needs.occupants.has(Needs.bed_key(home.pos)):
@@ -763,7 +819,7 @@ func _arrive(t: float) -> void:
 
 func _going() -> bool:
 	return state in [State.WALK, State.HOME, State.TO_EAT, State.TO_MEAL, State.TO_CHAT, State.TO_DOOR, State.TO_WORK,
-		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR, State.FLEE, State.TO_FISH]
+		State.TO_STORE, State.TO_PICKUP, State.TO_FARM, State.TO_COOK, State.TO_LIGHT, State.TO_BUILD, State.TO_CRAFT, State.TO_REPAIR, State.FLEE, State.TO_FISH, State.TO_WELL]
 
 
 # Time spent trying to get somewhere adds up until they get more than a step from where it started. Five seconds of
@@ -1295,6 +1351,10 @@ func _needs() -> void:
 	# A night's sleep leaves them hungry for breakfast, but never starving.
 	var hunger := float(p.hunger)
 	p.hunger = maxf(minf(hunger, 15.0), hunger - 7.0 * dh) if sleeping else maxf(0.0, hunger - 4.0 * dh * Traits.mul(p, "hunger"))
+	var thirst := float(p.get("thirst", 100.0))
+	p["thirst"] = maxf(minf(thirst, 25.0), thirst - 2.5 * dh) if sleeping else maxf(0.0, thirst - 5.0 * dh)
+	if float(p.thirst) < THIRSTY and _wells() != null and _wells().village().is_empty() and world.village.founded():
+		VillageLog.problem("no-well", "The villagers are thirsty: build a well in the village")
 	var stamina := 1.0 + 0.06 * (maxi(1, Villagers.skill(p, LifeSkills.Skill.STAMINA)) - 1)
 	# Asleep in winter with no fire burning in the house: a cold night. They rest half as well, don't mend, and
 	# work slower the day after.
@@ -2082,6 +2142,10 @@ func _abandon(t: float) -> void:
 			_done_building(t)
 		State.TO_CRAFT: _done_crafting(t)
 		State.TO_FISH: _done_fishing(t)
+		State.TO_WELL:
+			# (up against it, a step short: close enough to draw)
+			if _well != Vector2.INF and position.distance_to(_well) < 1.6 * world.px: _at_well(t)
+			else: _stand(t, 1.0)
 		State.TO_REPAIR: _done_repairing(t)
 		State.FLEE: _next_refuge = 0.0   # (stuck: somewhere else to run, still running)
 		State.TO_PICKUP:
@@ -2115,7 +2179,7 @@ func _has_tools() -> bool:
 
 
 func _tool_pace() -> float:
-	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0) * [1.0, 0.88, 0.72][chill()] * Traits.mul(person, "work")   # (Village Heart: quicker with Miko about; their traits)
+	return (TOOL_BOOST if _has_tools() else 1.0) * Villagers.heart * (0.8 if bool(person.get("cold", false)) else 1.0) * [1.0, 0.88, 0.72][chill()] * Traits.mul(person, "work") * (0.75 if float(person.get("thirst", 100.0)) <= 0.0 else 1.0)   # (Village Heart: quicker with Miko about; their traits; parched, slower)
 
 
 # Tools and a bag from storage, picked up when they start on work that wants them.
@@ -2504,6 +2568,9 @@ func _go_farm(urgent := false) -> bool:
 	farm_task = "harvest"
 	# Tending what's growing (not with a crop in their arms: that goes to storage first).
 	if goal.is_empty() and carrying == 0:
+		# (watering takes water: with none in their bucket, a dry plot's left for now, or the well first)
+		if pest.is_empty() and not dry.is_empty() and _bucket <= 0:
+			return _go_well("fill")
 		goal = pest if not pest.is_empty() else dry
 		farm_task = "pests" if not pest.is_empty() else "water"
 	if goal.is_empty() and not bare.is_empty():
@@ -2561,7 +2628,8 @@ func _farming(t: float) -> void:
 			farm.clear_pests(plot)
 			show_mood("success", 2.5)
 			people.practise(person, LifeSkills.Skill.FARMING)
-		elif farm_task == "water" and farm.dry(plot):
+		elif farm_task == "water" and farm.dry(plot) and _bucket > 0:
+			_bucket -= 1
 			farm.water(plot, false)   # (heard while they were at it)
 			people.practise(person, LifeSkills.Skill.FARMING)
 		# On to the next plot close by wanting the same (the rest of the field), before anything else.
@@ -3400,6 +3468,7 @@ func activity() -> String:
 		State.FLEE: return "Running for their life"
 		State.CELLAR: return "Down in the cellar"
 		State.TO_FISH: return "Off to the dock to fish"
+		State.TO_WELL: return "Going to the well to drink" if _well_for == "drink" else "Fetching water for the crops"
 		State.FISH: return "Fishing (%d caught)" % carrying
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"

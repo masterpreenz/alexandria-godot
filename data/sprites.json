@@ -4648,5 +4648,7 @@
 {"name":"villager1_fishing_up_12","tex":"res://assets/Art/Characters/Villager/Villager_1m/villager1_fishing_nw.png","rect":[0,1536,512,512],"pivot":[240.0,431.6],"ppu":160.4},
 {"name":"villager1_fishing_up_13","tex":"res://assets/Art/Characters/Villager/Villager_1m/villager1_fishing_nw.png","rect":[512,1536,512,512],"pivot":[240.0,431.6],"ppu":160.4},
 {"name":"villager1_fishing_up_14","tex":"res://assets/Art/Characters/Villager/Villager_1m/villager1_fishing_nw.png","rect":[1024,1536,512,512],"pivot":[240.0,431.6],"ppu":160.4},
-{"name":"villager1_fishing_up_15","tex":"res://assets/Art/Characters/Villager/Villager_1m/villager1_fishing_nw.png","rect":[1536,1536,512,512],"pivot":[240.0,431.6],"ppu":160.4}
+{"name":"villager1_fishing_up_15","tex":"res://assets/Art/Characters/Villager/Villager_1m/villager1_fishing_nw.png","rect":[1536,1536,512,512],"pivot":[240.0,431.6],"ppu":160.4},
+{"name":"Well","tex":"res://assets/Art/Environment/Props/Well.png","rect":[0,0,288,360],"pivot":[135.35999999999999,309.6],"ppu":230.4},
+{"name":"WellIcon","tex":"res://assets/Art/UI/Icons/WellIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100}
 ]

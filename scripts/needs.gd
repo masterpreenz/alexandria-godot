@@ -32,6 +32,7 @@ var s: Dictionary                 ## needs.json's needs
 var data: Dictionary              ## needs.json
 var hunger := MAX
 var energy := MAX
+var thirst := MAX
 var mist_sickness := 0.0
 var sleep := Sleep.AWAKE
 var comfort := ""                 ## "Well rested", "Rested", "Stiff" or ""
@@ -81,9 +82,18 @@ func setup(w: World, who: Miko, d: Dictionary, hud: Node) -> void:
 
 
 ## Hunger and energy from the save (Unity's player section).
-func set_levels(h: float, e: float) -> void:
+func set_levels(h: float, e: float, t := MAX) -> void:
 	hunger = clampf(h, 0.0, MAX)
 	energy = clampf(e, 0.0, MAX)
+	thirst = clampf(t, 0.0, MAX)
+
+
+func thirsty() -> bool:
+	return thirst <= float(s.get("thirstyBelow", 25))
+
+
+func parched() -> bool:
+	return thirst <= 0.0
 
 
 func starving() -> bool:
@@ -116,6 +126,10 @@ func effects() -> Array:
 			% [roundi(float(s.starveSlow)), pct.call(float(s.starvingWeaker)), str(s.starvePang), str(s.starveEvery)]])
 	elif hungry():
 		list.append(["Hungry", false, "HP regen -%d%%, attack, defense and magic -%d%%. Eat something (F)." % [pct.call(1.0 - float(s.hungryRegen)), pct.call(float(s.hungryWeaker))]])
+	if parched():
+		list.append(["Parched", false, "%d%% slower, no HP regen, attack, defense and magic -%d%%. Drink at a well, or water with a mug (G)." % [roundi(float(s.parchedSlow)), roundi(float(s.parchedWeaker) * 100.0)]])
+	elif thirsty():
+		list.append(["Thirsty", false, "HP regen halved. Drink at a well, or water with a mug (G)."])
 	if exhausted():
 		list.append(["Exhausted", false, "Can't run, 25% slower, mana regen -50%. Rest, sleep (Z) or drink tea (G)."])
 	match cold():
@@ -194,8 +208,9 @@ func _process_timed(dt: float) -> void:
 			elif sleep != Sleep.GETTING_UP: get_up()
 		if sleep == Sleep.AWAKE and keys.has("f"): eat()
 		if sleep == Sleep.AWAKE and keys.has("g"): drink()
-	# Hunger: always going, half as fast asleep.
+	# Hunger: always going, half as fast asleep. Thirst too (a little faster).
 	hunger = maxf(0.0, hunger - MAX / float(s.hungerEmptyTime) * (0.5 if sleeping() else 1.0) * dt)
+	thirst = maxf(0.0, thirst - MAX / float(s.get("thirstEmptyTime", 1100)) * (0.5 if sleeping() else 1.0) * dt)
 	_still_for = 0.0 if miko.moving or sleep != Sleep.AWAKE else _still_for + dt
 	if sleep == Sleep.ASLEEP:
 		var bonus := float(_bed.settings.restBonus) if not _bed.is_empty() else 1.0
@@ -286,7 +301,7 @@ const WARMTH := 4.0              ## units from a burning fire or torch she's kep
 
 func _penalties() -> void:
 	var chill := cold()
-	if not hungry() and not exhausted() and chill == 0:
+	if not hungry() and not exhausted() and chill == 0 and not thirsty():
 		if stats.buffs.has(self): stats.set_buff(self, null)
 		return
 	var total := stats.unbuffed()
@@ -301,6 +316,14 @@ func _penalties() -> void:
 		var weaker := float(s.starvingWeaker) if starving() else float(s.hungryWeaker)
 		for k in ["attack", "defense", "magic"]:
 			b[k] = -maxf(0.0, float(total.get(k, 0.0))) * weaker
+	# Thirsty: mending at half; parched, none, slower and weaker.
+	if parched():
+		b.hpRegen = -hp_regen
+		b.moveSpeed = float(b.get("moveSpeed", 0.0)) - float(s.parchedSlow)
+		for k in ["attack", "defense", "magic"]:
+			b[k] = float(b.get(k, 0.0)) - maxf(0.0, float(total.get(k, 0.0))) * float(s.parchedWeaker)
+	elif thirsty():
+		b.hpRegen = minf(float(b.get("hpRegen", 0.0)), -hp_regen * 0.5)
 	if exhausted():
 		b.moveSpeed = float(b.get("moveSpeed", 0.0)) - 25.0
 		b.manaRegen = -maxf(0.0, float(total.get("manaRegen", 0.0))) * 0.5
@@ -370,10 +393,16 @@ func eat(food := "") -> bool:
 	return false
 
 
-## Drinks one tea; false if she's full of energy or there's none.
+## A drink (G): water she carries, with a mug, when she's thirsty; else tea, for energy. False if there's nothing.
 func drink() -> bool:
 	if sleeping():
 		return false
+	if thirst < MAX - 5.0 and miko.bag.count("Water") > 0 and Wells.has_mug(miko.bag):
+		miko.bag.spend("Water", 1)
+		thirst = minf(MAX, thirst + float(s.get("waterFills", 40)))
+		_say("+%d thirst" % roundi(float(s.get("waterFills", 40))), Color(0.55, 0.78, 1.0))
+		_sound("drinkSound")
+		return true
 	if energy >= MAX - 1.0:
 		_say("Not thirsty", Color(0.85, 0.8, 0.7))
 		return false
@@ -381,6 +410,7 @@ func drink() -> bool:
 		_say("Nothing to drink", Color(1, 0.6, 0.5))
 		return false
 	energy = minf(MAX, energy + float(s.teaFills))
+	thirst = minf(MAX, thirst + float(s.get("teaThirst", 20)))
 	_say("+%d energy" % roundi(float(s.teaFills)), Color(0.62, 0.86, 0.5))
 	_sound("drinkSound")
 	return true
