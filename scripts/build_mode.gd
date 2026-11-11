@@ -438,6 +438,15 @@ func _turn_on(prop_name: String, cell: Vector2i) -> int:
 
 
 ## Why [param it] (a prop) can't stand at [param at], or "".
+## How many of [param it] may stand now (its "limit": one number for each time the village has grown, the last
+## standing for any more), or -1 for as many as you like.
+func limit_of(it: Dictionary) -> int:
+	var l: Variant = it.get("limit")
+	if not (l is Array) or (l as Array).is_empty():
+		return -1
+	return int(l[clampi(world.village.growths(), 0, (l as Array).size() - 1)])
+
+
 func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 	if it.is_empty():
 		return ""
@@ -460,6 +469,12 @@ func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 		return "Only inside the village" if world.village.founded() else "Place a town banner first"
 	if bool(it.get("onlyOne", false)) and world.props.has(it.name) and moving.is_empty():
 		return "There's already a %s" % it.display
+	# So many of it and no more, by how far the village has grown.
+	var most := limit_of(it)
+	if most >= 0 and moving.is_empty() and world.props_named(str(it.name)).size() >= most:
+		if most >= int((it.limit as Array).max()):
+			return "No more than %d of these" % most
+		return "Only %d at this village level (grow the village for more)" % most
 	# Furniture stands within one room or yard: never across a wall or fence.
 	var t := int(moving.turn) if not moving.is_empty() else prop_turn
 	var sc := float(moving.scale) if not moving.is_empty() else 1.0

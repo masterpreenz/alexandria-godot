@@ -412,6 +412,10 @@ func _tooltip() -> void:
 		var it: Dictionary = (over as ItemTile).item
 		var st := build.status_of(it)
 		var note := ("Needs a %s first" % it.lockedBy) if st == "Locked" else _wrap(str(it.get("description", "")), 40)
+		var most := build.limit_of(it)
+		if most >= 0 and st != "Locked":
+			note += "
+%d of %d built" % [build.world.props_named(str(it.name)).size(), most]
 		h = {"show": true, "title": it.display, "tier": int(it.get("tier", 1)), "status": st, "costs": it.cost, "note": note,
 			"note_plain": st != "Locked"}
 	elif h.is_empty() or not bool(h.get("show", false)) or (over != null and over.mouse_filter != Control.MOUSE_FILTER_IGNORE):
