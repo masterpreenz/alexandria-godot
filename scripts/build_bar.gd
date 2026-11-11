@@ -14,6 +14,7 @@ var build: BuildMode
 var world: World
 var miko: Miko
 var category := ""
+var _was_in_cellar := false
 var query := ""
 var _dirty := true
 var _pill: PanelContainer
@@ -241,8 +242,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+# Down in the cellar only storage can be built: the bar shows that tab alone, and only what goes there.
+func _in_cellar() -> bool:
+	return build.miko != null and Cellars.inside(build.miko.position)
+
+
 func _categories() -> Array:
 	var out := []
+	if _in_cellar():
+		return ["Storage"]
 	for c in BuildMode.CATEGORIES:
 		for it in build.items:
 			if it.category == c:
@@ -258,6 +266,9 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
+	if _in_cellar() != _was_in_cellar:
+		_was_in_cellar = not _was_in_cellar
+		_dirty = true
 	visible = build.open
 	if not visible:
 		return
@@ -295,7 +306,12 @@ func _refresh() -> void:
 	for ch in _items.get_children():
 		_items.remove_child(ch)
 		ch.queue_free()
+	var cellar := _in_cellar()
+	if cellar:
+		category = "Storage"
 	for it in build.items:
+		if cellar and (it.category != "Storage" or bool(it.get("outdoorsOnly", false))):
+			continue
 		if query != "":
 			if not (str(it.display).to_lower().contains(query) or str(it.category).to_lower().contains(query)):
 				continue

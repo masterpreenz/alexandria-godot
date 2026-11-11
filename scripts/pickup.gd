@@ -51,10 +51,19 @@ static func launch(w: World, res: String, amt: int, sprite_id: int, from: Vector
 	if sprite_id >= 0:
 		w.show_frame(p.art, sprite_id, Vector2(sc, sc))
 		# Centred on the spot, not standing on its pivot.
-		p.art.centered = true
-		p.art.offset = Vector2.ZERO
+		p.art.offset = -p.art.region_rect.size / 2.0
 	p.art.rotation_degrees = randf_range(-30.0, 30.0)
 	p.add_child(p.art)
+	# Findable behind things: outlined (in gold) over whatever hides it.
+	if sprite_id >= 0:
+		var o := OccludedOutline.new()
+		o.name = "OccludedOutline"
+		o.fade_covers = false
+		o.cover_needed = 0.6
+		o.cover_keep = 0.45
+		o.low_counts = true
+		p.add_child(o)
+		o.setup(w, p.art, Color(1.0, 0.86, 0.4, 1))
 	w.things.add_child(p)
 	p.position = from
 	return p

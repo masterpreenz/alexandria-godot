@@ -441,6 +441,9 @@ func _turn_on(prop_name: String, cell: Vector2i) -> int:
 func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
 	if it.is_empty():
 		return ""
+	# Down in the cellar: storage only (chests and the like).
+	if Cellars.room_has(world.floors.cell_at(at)) and str(it.get("category", "")) != "Storage":
+		return "Only storage goes in the cellar"
 	if str(it.name) == "Fireplace":
 		var facing := hearth_turn(world.floors.cell_at(at))
 		if facing < 0:

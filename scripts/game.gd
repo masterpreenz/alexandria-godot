@@ -2023,9 +2023,94 @@ func _ready() -> void:
 					var bm := BuildMode.active
 					var in_room := Cellars.AT + Vector2i(1, 3)
 					print("Cellar: building down there: a chest '", bm.why_not(bm.item_for("Prop", "Chest"), world.floors.cell_centre(in_room)), "', a bed '", bm.why_not(bm.item_for("Prop", "WoodenBed"), world.floors.cell_centre(in_room)), "', in bounds ", world.floors.in_bounds(in_room), ", no-build ", bm.no_build(in_room))
+					miko.place(world.floors.cell_centre(Cellars.AT + Vector2i(2, 2)))
+					for i in 10:
+						await get_tree().process_frame
+					bm.set_open(true)
+					bm.select(bm.item_for("Prop", "Chest"))
+					bm._place_prop(in_room, 1.0)
+					print("Cellar: through build mode, chest status ", bm.status_of(bm.item_for("Prop", "Chest")), ", placed ", world.props.get_prop(in_room, 0), "; a bed there says '", bm.why_not(bm.item_for("Prop", "WoodenBed"), world.floors.cell_centre(in_room + Vector2i(1, 0))), "'")
+					bm.set_open(false)
 					world.props.place(in_room, "Chest")
 					print("Cellar: a chest placed down there ", world.props.get_prop(in_room, 0), "; the villagers' chest spot is in the room ", Cellars.room_has(world.floors.cell_at(UseSpots.nearest_chest_spot(world, v.centre()))))
 					print("Cellar: back up, ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
+				"loothidden":
+					# Loot dropped behind a house's back wall and out in the open: which is outlined.
+					var room: Dictionary = world.roofs.roofs[0].cells
+					var top := Vector2i(-99999, -99999)
+					for c in room:
+						if c.x + c.y > top.x + top.y:
+							top = c
+					var behind := world.floors.cell_centre(top + Vector2i(1, 1)) + Vector2(0, 0.2 * world.px)
+					var open_at := world.village.centre() + Vector2(7.0, 5.0) * world.px
+					var made := []
+					for spot_at in [behind, open_at]:
+						var pk := Pickup.launch_icon(world, "Crystal", 1, spot_at)
+						pk.ground = spot_at
+						pk.velocity = Vector2.ZERO
+						pk.rise = 0.0
+						pk.height = 0.0
+						pk.landed_at = 0.0
+						made.append(pk)
+					miko.place(behind + Vector2(-3.0, 3.5) * world.px)
+					for i in 60:
+						await get_tree().process_frame
+					print("Loot: behind the house, outlined ", (made[0].get_node("OccludedOutline") as OccludedOutline).covered, "; in the open, outlined ", (made[1].get_node("OccludedOutline") as OccludedOutline).covered)
+				"plotjitter":
+					# A 3x3 field, then one more plot placed beside it through build mode: what changes on the old plots
+					# over the next frames (scales, places, what shows).
+					var fm: Farming = miko.get_node("Farming")
+					if Shots.arg("winter") != "":
+						clock.forced = -1
+						clock.hours = float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4) + 2) * 24.0 + 12.0
+						snow._last_hours = -1.0
+					var bm := BuildMode.active
+					var c0 := world.floors.cell_at(world.village.centre()) + Vector2i(5, 4)
+					for x in 3:
+						for y in 3:
+							world.props.place(c0 + Vector2i(x, y), "FarmPlot")
+					for i in 30:
+						await get_tree().process_frame
+					var snap := func() -> Array:
+						var out := []
+						for pl in fm.plots:
+							if world.floors.cell_at(pl.pos) == c0 + Vector2i(3, 1):
+								continue
+							var holder: Node2D = pl.node
+							var sp: Sprite2D = holder.get_child(0)
+							var fl: Sprite2D = pl.flat.get_child(0)
+							out.append([holder.scale, holder.position.round(), sp.scale, sp.visible, sp.get_meta("sprite", -1), fl.scale, fl.visible, fl.get_meta("sprite", -1), holder.modulate.a])
+						return out
+					var before: Array = snap.call()
+					bm.set_open(true)
+					bm.select(bm.item_for("Prop", "FarmPlot"))
+					bm._place_prop(c0 + Vector2i(3, 1), 1.0)
+					var seen := {}
+					miko.place(world.floors.cell_centre(c0) + Vector2(-2.0, 0.5) * world.px)
+					bm.set_open(false)
+					for i in 40:
+						await get_tree().process_frame
+					var fr: Fires = miko.get_node("Fires")
+					var lights_before := fr.fires.map(func(f): return f.light)
+					world.props.place(c0 + Vector2i(3, 2), "FarmPlot")
+					await get_tree().process_frame
+					await get_tree().process_frame
+					print("Plot jitter: fires' lights kept through a plot placed ", fr.fires.map(func(f): return f.light) == lights_before, " (", fr.fires.size(), " fires)")
+					for i in 60:
+						await get_tree().process_frame
+						if i < 24 or i == 59:
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_f%02d.png" % i)
+						var now_is: Array = snap.call()
+						if now_is.size() != before.size():
+							seen["count %d -> %d" % [before.size(), now_is.size()]] = i
+							continue
+						for j in now_is.size():
+							for k in 9:
+								if now_is[j][k] != before[j][k]:
+									var what: String = ["holder scale", "holder place", "crop scale", "crop shown", "crop art", "soil scale", "soil shown", "soil art", "alpha"][k]
+									if not seen.has(what):
+										seen[what] = "frame %d: %s -> %s" % [i, before[j][k], now_is[j][k]]
+					print("Plot jitter: plots ", fm.plots.size(), "; changed on the old plots: ", seen)
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

@@ -183,16 +183,26 @@ func keep_burning(f: Dictionary) -> void:
 
 
 func _look() -> void:
+	# The fires still standing as they were keep their flames and light (dressing them all again at every change
+	# anywhere made every fire flicker out and back); only new ones are dressed, and gone ones cleared away.
+	var old := {}
 	for f in fires:
-		for p in f.parts:
-			if is_instance_valid(p): p.queue_free()
-		if is_instance_valid(f.light): f.light.queue_free()
+		old[f.node] = f
 	fires.clear()
 	for type in d.get("fires", {}):
 		for e in world.props.drawn_named(type):
+			var kept: Variant = old.get(e.node)
+			if kept != null and is_instance_valid(e.node) and str(kept.type) == type:
+				old.erase(e.node)
+				fires.append(kept)
+				continue
 			var f := {"pos": e.pos, "type": type, "s": d.fires[type], "node": e.node, "key": _key(e.pos), "parts": [], "light": null, "shown": true}
 			_dress(f)
 			fires.append(f)
+	for f in old.values():
+		for p in f.parts:
+			if is_instance_valid(p): p.queue_free()
+		if is_instance_valid(f.light): f.light.queue_free()
 	# The save's burn times go to the fires standing where they were (within half a unit).
 	for sv in _saved:
 		var at := Vector2(float(sv.x), -float(sv.y)) * world.px

@@ -17,6 +17,7 @@ var cover_needed := 0.9
 var cover_keep := 0.8
 var cover_alpha := 0.45
 var cover_fade_speed := 5.0
+var low_counts := false          ## small things (loot) are hidden by anything standing in front, however low
 var hidden_when: Callable        ## if set, says whether it's hidden (instead of looking at what's drawn in front)
 
 var outline: Sprite2D
@@ -86,7 +87,7 @@ func _covered() -> bool:
 		if (sprite.get_parent() as Node2D).global_position.y <= mine:
 			continue
 		var r := World.sprite_rect(sprite)
-		if r.size.y < b.size.y * 0.75 or not r.intersects(b):
+		if (not low_counts and r.size.y < b.size.y * 0.75) or not r.intersects(b):
 			continue  # nothing low (a stump, a fence, a rock) hides anyone
 		front.append([sprite, r])
 	if front.is_empty():

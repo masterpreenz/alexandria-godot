@@ -92,15 +92,26 @@ func _direction(at: Vector2, from: Vector2) -> int:
 # ---- Building their looks ----
 
 func _look() -> void:
+	# The crystals still standing as they were keep their glow, sparkles and curtain (dressing them all again at every
+	# change anywhere made them blink); only new ones are dressed, and gone ones cleared away.
+	var old := {}
 	for c in teleports + wards:
-		for n in c.get("nodes", []):
-			if is_instance_valid(n): n.queue_free()
+		old[c.get("holder")] = c
 	teleports.clear()
 	wards.clear()
 	for e in world.props.drawn_named("TeleportCrystal"):
-		teleports.append(_dress_teleport(e))
+		var c: Dictionary = old[e.node] if old.has(e.node) and is_instance_valid(e.node) else _dress_teleport(e)
+		c["holder"] = e.node
+		old.erase(e.node)
+		teleports.append(c)
 	for e in world.props.drawn_named("CleansingCrystal"):
-		wards.append(_dress_ward(e))
+		var c: Dictionary = old[e.node] if old.has(e.node) and is_instance_valid(e.node) else _dress_ward(e)
+		c["holder"] = e.node
+		old.erase(e.node)
+		wards.append(c)
+	for c in old.values():
+		for n in c.get("nodes", []):
+			if is_instance_valid(n): n.queue_free()
 	# How much of each one's edge shows (not inside another's clearing): fixed while the crystals stay put.
 	for wd in wards:
 		var edge := PackedFloat32Array()
