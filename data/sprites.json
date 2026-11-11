@@ -4501,7 +4501,7 @@
 {"name":"Emote_harvesting_5","tex":"res://assets/Resources/Emotes/Emote_harvesting.png","rect":[795,0,159,150],"pivot":[79.5,150],"ppu":380},
 {"name":"Emote_harvesting_6","tex":"res://assets/Resources/Emotes/Emote_harvesting.png","rect":[954,0,159,150],"pivot":[79.5,150],"ppu":380},
 {"name":"Emote_harvesting_7","tex":"res://assets/Resources/Emotes/Emote_harvesting.png","rect":[1113,0,159,150],"pivot":[79.5,150],"ppu":380},
-{"name":"FishingDock","tex":"res://assets/Art/Environment/Props/FishingDock.png","rect":[0,0,256,190],"pivot":[128.0,128],"ppu":128},
+{"name":"FishingDock","tex":"res://assets/Art/Environment/Props/FishingDockSW.png","rect":[0,0,697,569],"pivot":[348.5,382.5],"ppu":331.9},
 {"name":"FishingDockIcon","tex":"res://assets/Art/UI/Icons/FishingDockIcon.png","rect":[0,0,144,144],"pivot":[72,72],"ppu":100},
 {"name":"Emote_fishing_0","tex":"res://assets/Resources/Emotes/Emote_fishing.png","rect":[0,0,123,150],"pivot":[61.5,150],"ppu":380},
 {"name":"Emote_fishing_1","tex":"res://assets/Resources/Emotes/Emote_fishing.png","rect":[123,0,123,150],"pivot":[61.5,150],"ppu":380},
@@ -4518,5 +4518,7 @@
 {"name":"Emote_fishing_caught_4","tex":"res://assets/Resources/Emotes/Emote_fishing_caught.png","rect":[612,0,153,150],"pivot":[76.5,150],"ppu":380},
 {"name":"Emote_fishing_caught_5","tex":"res://assets/Resources/Emotes/Emote_fishing_caught.png","rect":[765,0,153,150],"pivot":[76.5,150],"ppu":380},
 {"name":"Emote_fishing_caught_6","tex":"res://assets/Resources/Emotes/Emote_fishing_caught.png","rect":[918,0,153,150],"pivot":[76.5,150],"ppu":380},
-{"name":"Emote_fishing_caught_7","tex":"res://assets/Resources/Emotes/Emote_fishing_caught.png","rect":[1071,0,153,150],"pivot":[76.5,150],"ppu":380}
+{"name":"Emote_fishing_caught_7","tex":"res://assets/Resources/Emotes/Emote_fishing_caught.png","rect":[1071,0,153,150],"pivot":[76.5,150],"ppu":380},
+{"name":"FishingDockSW","tex":"res://assets/Art/Environment/Props/FishingDockSW.png","rect":[0,0,697,569],"pivot":[348.5,382.5],"ppu":331.9},
+{"name":"FishingDockNW","tex":"res://assets/Art/Environment/Props/FishingDockNW.png","rect":[0,0,768,477],"pivot":[384.0,267.0],"ppu":365.7}
 ]

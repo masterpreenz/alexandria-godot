@@ -27,7 +27,7 @@
 {"name":"LeafBed","display":"Leaf bed","category":"Outdoor","slot":0,"sprite":3133,"icon":-1,"turnSprites":[3133,3134,3135,3136],"turns":4,"solid":false,"footprint":77.632,"randomFlip":false,"attach":"LeafBed","material":""},
 {"name":"WoodenBed","display":"Bed","category":"Furniture","slot":0,"sprite":3137,"icon":3138,"turnSprites":[3137,3139],"turns":2,"solid":true,"footprint":53.76,"randomFlip":false,"attach":"WoodenBed","material":""},
 {"name":"Cellar","display":"Cellar","category":"Furniture","slot":1,"sprite":4490,"icon":4489,"turnSprites":[4490,4491],"turns":2,"solid":true,"footprint":96.0,"randomFlip":false,"attach":"","material":""},
-{"name":"FishingDock","display":"Fishing Dock","category":"Outdoor","slot":1,"sprite":4502,"icon":4503,"turnSprites":[],"turns":2,"solid":true,"footprint":70.0,"randomFlip":false,"attach":"","material":""},
+{"name":"FishingDock","display":"Fishing Dock","category":"Outdoor","slot":1,"sprite":4520,"icon":4503,"turnSprites":[4520,4521],"turns":2,"solid":true,"footprint":70.0,"randomFlip":false,"attach":"","material":""},
 {"name":"Chest","display":"Chest","category":"Outdoor","slot":0,"sprite":3140,"icon":-1,"turnSprites":[],"turns":2,"solid":true,"footprint":38.4,"randomFlip":false,"attach":"Chest","material":""},
 {"name":"TownBanner","display":"Town Banner","category":"Outdoor","slot":1,"sprite":3141,"icon":-1,"turnSprites":[],"turns":1,"solid":true,"footprint":20.48,"randomFlip":true,"attach":"TownBannerFlag","material":""},
 {"name":"TeleportCrystal","display":"Teleport Crystal","category":"Outdoor","slot":1,"sprite":3142,"icon":-1,"turnSprites":[],"turns":1,"solid":true,"footprint":30.72,"randomFlip":true,"attach":"TeleportCrystal","material":""},

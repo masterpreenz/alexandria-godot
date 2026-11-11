@@ -2167,6 +2167,26 @@ func _ready() -> void:
 					miko.place(world.floors.cell_centre(Cellars.AT + Vector2i(3, 3)))
 					for i in 30:
 						await get_tree().process_frame
+				"dockart":
+					# The dock's two views, side by side by the river.
+					var bm := BuildMode.active
+					var dock_item := bm.item_for("Prop", "FishingDock")
+					var c0 := world.floors.cell_at(world.village.centre())
+					var spot := c0
+					for r in range(1, 60):
+						for dx in range(-r, r + 1):
+							for dy in range(-r, r + 1):
+								var cc := c0 + Vector2i(dx, dy)
+								if spot == c0 and maxi(absi(dx), absi(dy)) == r and not bm.no_build(cc) and bm.why_not(dock_item, world.floors.cell_centre(cc)) == "":
+									spot = cc
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 11.0
+					world.props.place(spot, "FishingDock", 1.0, 0)
+					world.props.place(spot + Vector2i(4, -4), "FishingDock", 1.0, 1)
+					world.props.place(spot + Vector2i(1, -1), "CleansingCrystal")
+					miko.place(world.floors.cell_centre(spot + Vector2i(3, -1)))
+					for i in 240:
+						await get_tree().process_frame
 				"fishing":
 					# A dock by the river: where one may go; Miko's casts; a villager set to fish.
 					var fz: Fishing = $Fishing

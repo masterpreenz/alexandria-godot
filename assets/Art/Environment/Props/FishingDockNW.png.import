@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqf1sxxgkj7mn"
-path="res://.godot/imported/FishingDock.png-043dc49771e847553f05a31dd55bf1e8.ctex"
+uid="uid://dapneny03276v"
+path="res://.godot/imported/FishingDockNW.png-d446b1ec4c81589f91654b0bcd7d928a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Art/Environment/Props/FishingDock.png"
-dest_files=["res://.godot/imported/FishingDock.png-043dc49771e847553f05a31dd55bf1e8.ctex"]
+source_file="res://assets/Art/Environment/Props/FishingDockNW.png"
+dest_files=["res://.godot/imported/FishingDockNW.png-d446b1ec4c81589f91654b0bcd7d928a.ctex"]
 
 [params]
 
