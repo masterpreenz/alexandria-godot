@@ -19,6 +19,7 @@ var miko: Miko
 var d: Dictionary                 ## farm.json
 var fires: Array = []             ## [{pos, type, s, node, key, parts: [CPUParticles2D], light}]
 var lit_until := {}               ## Vector2i key -> game hour it burns till
+static var start_out := {}        ## fires that stand cold when they're first seen (a template's: the ruined village's), by cell
 var _saved: Array = []            ## the save's fires, matched to the fires as they're found
 var _looked_at := -1
 var _clock := 0.0
@@ -214,7 +215,10 @@ func _look() -> void:
 	# Placed (not loaded): lit, for the night to come.
 	for f in fires:
 		if not lit_until.has(f.key):
-			light(f)
+			if start_out.has(world.floors.cell_at(f.pos)):
+				lit_until[f.key] = -1.0
+			else:
+				light(f)
 
 
 # The flames, sparks and light on a fire's prop.

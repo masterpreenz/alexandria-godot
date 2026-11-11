@@ -232,6 +232,7 @@ func capture() -> Dictionary:
 	put.call("world.explored", at.call("Exploration"), func(n): return n.to_json())
 	s["world.floors"] = world.floors.to_json()
 	s["world.cleared"] = world.cleared_json()
+	s["world.stamped"] = JSON.stringify(world.stamped_villages)
 	s["world.walls"] = world.walls.to_json()
 	s["world.props"] = world.props.to_json()
 	if world.roofs != null:

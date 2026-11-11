@@ -27,6 +27,7 @@ var clock: GameClock      ## the time of day (set by the game)
 var village: Village      ## the village's extent (its banner, square and blocks)
 var mist: Mist            ## the purple mist over the wild
 var gatherables: Array[Gatherable] = []  ## every tree and rock to gather from
+var stamped_villages: Array = []   ## the village templates built into this game (saved)
 var cleared := {}                ## cells cleared of trees and rocks to build on (saved: they don't grow back on loading)
 var _wet := {}            # Vector2i (half-cell) -> true: under a water or bank mesh, edges and all (wet())
 var _depths := {}         # Vector2i (half-cell corner) -> how deep the water is there, cells in from its edge
@@ -146,9 +147,16 @@ func _ready() -> void:
 		var cl: Variant = JSON.parse_string(sections["world.cleared"])
 		for c in (cl if cl is Array else []):
 			clear_cell(Vector2i(int(c[0]), int(c[1])))
-	# A new game: the village as it stands when the story begins (data/villages/home_village.json).
-	if not sections.has("world.props") and VillageTemplate.exists("home_village"):
-		VillageTemplate.stamp(self, VillageTemplate.load_named("home_village"))
+	# A new game: the village as it stands when the story begins (data/villages/home_village.json), and the other
+	# places built ahead (the next village, overrun); a game already going gets those it hasn't had yet.
+	var stamped: Array = JSON.parse_string(sections.get("world.stamped", "[]")) if sections.has("world.stamped") else []
+	for nm in VillageTemplate.all_names():
+		var t := VillageTemplate.load_named(nm)
+		if stamped.has(nm) or (sections.has("world.props") and not bool(t.get("addToSaves", false))):
+			continue
+		VillageTemplate.stamp(self, t)
+		stamped.append(nm)
+	stamped_villages = stamped
 	# The mist, once the village and the crystals stand.
 	if FileAccess.file_exists("res://data/mist.json"):
 		var md: Dictionary = _load_json("res://data/mist.json")

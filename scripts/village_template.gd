@@ -6,7 +6,7 @@ class_name VillageTemplate
 ##
 ## A file: {name, at: [x, y] (its first cell, where it goes), width, height, tier (the village's size, if it has a
 ## banner), floors: [{x, y, ground, laid, turned, roof}], walls: [{x, y, alongY, type, turned, hp}],
-## props: [{x, y, type, turn, scale}], free: [{x, y, type, turn, scale}]} (x, y from its first cell; free ones in
+## props: [{x, y, type, turn, scale, out (a fire that's out)}], free: [{x, y, type, turn, scale}]} (x, y from its first cell; free ones in
 ## fractions of cells).
 
 const FOLDER := "res://data/villages/"
@@ -14,6 +14,16 @@ const FOLDER := "res://data/villages/"
 
 static func path_of(nm: String) -> String:
 	return FOLDER + nm + ".json"
+
+
+## Every template there is (their names).
+static func all_names() -> Array:
+	var out := []
+	for f in DirAccess.get_files_at(FOLDER):
+		if f.ends_with(".json"):
+			out.append(f.get_basename())
+	out.sort()
+	return out
 
 
 static func exists(nm: String) -> bool:
@@ -32,7 +42,7 @@ static func save(t: Dictionary) -> bool:
 		return false
 	# (one entry to a line: readable, and git shows what changed)
 	var lines := []
-	for k in ["name", "at", "width", "height", "tier"]:
+	for k in ["name", "at", "width", "height", "tier", "addToSaves"]:
 		if t.has(k):
 			lines.append('"%s": %s' % [k, JSON.stringify(t[k])])
 	for k in ["floors", "walls", "props", "free"]:
@@ -118,6 +128,8 @@ static func stamp(w: World, t: Dictionary, at := Vector2i(1 << 30, 0)) -> void:
 	for r in t.get("props", []):
 		if w.props.types.has(str(r.type)):
 			w.props.place(lo + Vector2i(int(r.x), int(r.y)), str(r.type), float(r.get("scale", 1.0)), int(r.get("turn", 0)))
+			if bool(r.get("out", false)):
+				Fires.start_out[lo + Vector2i(int(r.x), int(r.y))] = true   # (a fire that's gone out)
 	for r in t.get("free", []):
 		if w.props.types.has(str(r.type)):
 			w.props.place_free(f.corner(Vector2(lo) + Vector2(float(r.x), float(r.y))), str(r.type), float(r.get("scale", 1.0)), int(r.get("turn", 0)))
