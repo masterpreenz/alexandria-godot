@@ -114,6 +114,13 @@ func toggle_talents() -> void:
 	talents.hide_tip()
 
 
+# Q and E step between Character & Bag and Talents.
+func _input(event: InputEvent) -> void:
+	if (window.visible or talents.visible) and HudStyle.tab_step(event, get_viewport()) != 0:
+		_to_tab(0 if talents.visible else 1, 1 if talents.visible else 0)
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return

@@ -298,7 +298,7 @@ func _process_timed(delta: float) -> void:
 		return
 	# The view: WASD (or the arrows) move it while building.
 	var cam := get_viewport().get_camera_2d()
-	if cam != null and not (get_viewport().gui_get_focus_owner() is LineEdit):
+	if cam != null and not HudStyle.typing(get_viewport()):
 		var dir := Vector2.ZERO
 		if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): dir.x -= 1
 		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): dir.x += 1

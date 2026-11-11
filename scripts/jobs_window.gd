@@ -60,6 +60,14 @@ func setup(w: World, people: Villagers, farms: Farming) -> void:
 	visible = false
 
 
+# Q and E step through the tabs (taken before anything in the world hears the E).
+func _input(event: InputEvent) -> void:
+	var step := HudStyle.tab_step(event, get_viewport()) if visible else 0
+	if step != 0:
+		show_tab(TABS[posmod(TABS.find(tab) + step, TABS.size())])
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_J:
@@ -136,7 +144,7 @@ func _build() -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	head.add_child(HudStyle.label("J or Esc to close  ·  Tab switches", 11, "body", HudStyle.color("muted")))
+	head.add_child(HudStyle.label("J or Esc to close  ·  Q / E switch tabs", 11, "body", HudStyle.color("muted")))
 	root.add_child(head)
 	# As big as the screen allows: every villager a row, every job a column.
 	var view := get_viewport_rect().size / HudStyle.SCALE

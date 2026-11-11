@@ -2416,6 +2416,36 @@ func _ready() -> void:
 							await get_tree().process_frame
 						sizes.append(jw.size)
 					print("Job table: the window on Storage Rules, Jobs: ", sizes)
+					var went := [jw.tab]
+					for code in [KEY_E, KEY_E, KEY_E, KEY_Q]:
+						var key := InputEventKey.new()
+						key.keycode = code
+						key.pressed = true
+						Input.parse_input_event(key)
+						await get_tree().process_frame
+						await get_tree().process_frame
+						went.append(jw.tab)
+					# Typing in the search box: she doesn't walk, the tabs don't switch.
+					jw.show_tab("Storage Rules")
+					await get_tree().process_frame
+					var search: LineEdit = jw.find_children("*", "LineEdit", true, false)[0]
+					search.grab_focus()
+					miko.locked = false
+					var stood := miko.position
+					Input.action_press("ui_right")
+					var d_key := InputEventKey.new()
+					d_key.keycode = KEY_E
+					d_key.pressed = true
+					Input.parse_input_event(d_key)
+					for i in 30:
+						await get_tree().physics_frame
+					print("Job table: typing in the search box, right held 30 frames and E pressed: she moved ", snappedf(miko.position.distance_to(stood), 0.1), " px, tab still ", jw.tab)
+					search.release_focus()
+					for i in 30:
+						await get_tree().physics_frame
+					Input.action_release("ui_right")
+					print("Job table: the box left, right held 30 more: she moved ", snappedf(miko.position.distance_to(stood), 0.1), " px")
+					print("Job table: E, E, E, Q: ", went, "; talk prompt up ", $Hud/Talk.visible)
 				"veins":
 					# The corruption in the ground: open misted ground, then a crystal set by it (its edge burning back).
 					clock.forced = GameClock.Weather.CLEAR

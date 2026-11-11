@@ -118,14 +118,15 @@ func _physics_process(delta: float) -> void:
 
 func _physics_process_timed(delta: float) -> void:
 	var input := Vector2.ZERO
-	if not locked:
+	var typing := HudStyle.typing(get_viewport())   # (in a search box: the keys are the text's, she stays put)
+	if not locked and not typing:
 		input = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		if Input.is_key_pressed(KEY_A): input.x -= 1
 		if Input.is_key_pressed(KEY_D): input.x += 1
 		if Input.is_key_pressed(KEY_W): input.y -= 1
 		if Input.is_key_pressed(KEY_S): input.y += 1
 		input = input.limit_length(1.0)
-	running = not locked and can_run and Input.is_key_pressed(KEY_SHIFT)
+	running = not locked and not typing and can_run and Input.is_key_pressed(KEY_SHIFT)
 	var now_moving := input.length_squared() > 0.01
 	if now_moving != moving:
 		clock = 0.0

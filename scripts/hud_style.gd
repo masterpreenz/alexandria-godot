@@ -23,6 +23,25 @@ static func style() -> Dictionary:
 
 
 ## A colour of the HUD's (text, muted, faint, accent, accentLight, coral, green, hp, mana, rest, ink).
+## Whether something's being typed (a search box, the rumor notes): the keys are the text's, not the game's.
+static func typing(viewport: Viewport) -> bool:
+	var focus := viewport.gui_get_focus_owner()
+	return focus is LineEdit or focus is TextEdit
+
+
+## Which way a key press steps through a window's tabs: -1 for Q (the one before), 1 for E (the next), 0 for anything
+## else, or while something's being typed. The same in every window with tabs.
+static func tab_step(event: InputEvent, viewport: Viewport) -> int:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return 0
+	var focus := viewport.gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return 0
+	if event.keycode == KEY_Q: return -1
+	if event.keycode == KEY_E: return 1
+	return 0
+
+
 static func color(name: String, fallback := Color.WHITE) -> Color:
 	var c: Variant = style().get(name)
 	return Color(c[0], c[1], c[2], c[3]) if c is Array else fallback

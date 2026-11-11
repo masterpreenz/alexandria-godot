@@ -8,6 +8,8 @@ extends Control
 
 const W := 520.0
 
+const TABS := ["Saves", "Display", "Sound"]
+
 var saving: SaveGame
 var _panel: PanelContainer
 var _list: VBoxContainer
@@ -89,7 +91,7 @@ func _build() -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	for t in ["Saves", "Display", "Sound"]:
+	for t in TABS:
 		var b := _button(t, t == tab)
 		b.pressed.connect(_set_tab.bind(t))
 		head.add_child(b)
@@ -415,6 +417,13 @@ func _apply() -> void:
 ## Hears Esc after everything else (it stands first in the scene): opens or closes the menu.
 class Ear extends Node:
 	var menu: SaveMenu
+
+	# Q and E step through the menu's tabs.
+	func _input(event: InputEvent) -> void:
+		var step := HudStyle.tab_step(event, get_viewport()) if menu.visible else 0
+		if step != 0:
+			menu._set_tab(SaveMenu.TABS[posmod(SaveMenu.TABS.find(menu.tab) + step, SaveMenu.TABS.size())])
+			get_viewport().set_input_as_handled()
 
 	func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
