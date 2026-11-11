@@ -4,6 +4,7 @@
 "width": 49,
 "height": 32,
 "tier": 2,
+"residents": ["elder", "elder_wife"],
 "floors": [
 {"ground":"Dirt","laid":"","roof":"","turned":false,"x":0,"y":0},
 {"ground":"Dirt","laid":"","roof":"","turned":false,"x":0,"y":1},

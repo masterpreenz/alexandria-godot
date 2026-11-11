@@ -1,0 +1,22 @@
+{
+"_about": "Story scenes: a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done.",
+"scenes": [
+{
+ "id": "elders_thanks",
+ "speaker": "elder",
+ "when": {"after": ["miyu_home"], "unless": ["village_given"]},
+ "lines": [
+  ["elder", "Sera. You brought her back. You brought my Miyu back."],
+  ["elder_wife", "She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you."],
+  ["sera", "You don't have to. I'm glad I got there in time. The village she was in... there was nobody else."],
+  ["elder", "Then it's as we feared. Whatever is coming, it isn't stopping at our fence."],
+  ["elder", "I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it."],
+  ["elder", "Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all."],
+  ["sera", "...All right. I'll look after them. All of them."],
+  ["elder_wife", "And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came."],
+  ["elder", "Look after her too."]
+ ],
+ "records": ["village_given", "party_join:miyu"]
+}
+]
+}

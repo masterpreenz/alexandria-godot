@@ -155,7 +155,12 @@ func open(v: Villager) -> void:
 			_closer(Intimacy.DAILY_TALK)
 		if not v._hungry():
 			own = Intimacy.greeting(v.person)
-	_show(own if own != "" else _greeting(v))
+	# (a story scene waiting on this one: it plays instead)
+	var scene := Scenes.for_speaker(v.person)
+	if not scene.is_empty():
+		_play(scene, 0)
+	else:
+		_show(own if own != "" else _greeting(v))
 	visible = true
 	_tail.visible = true
 	move_to_front()
@@ -353,6 +358,25 @@ func _ask_need() -> void:
 		key = "talk.need.scarf"
 	who.show_mood("relaxed" if key == "talk.need.nothing" else "worried", 4.0)
 	_show(Loc.pick(key, {"miko": Miko.NAME}))
+
+
+# ---- Story scenes: a conversation played a line at a time (Continue, or 1) ----
+
+func _play(scene: Dictionary, i: int) -> void:
+	var lines: Array = scene.lines
+	if i >= lines.size():
+		Scenes.done(scene)
+		_name.text = str(who.person.name) if who != null else ""
+		_show(Loc.pick("talk.hello", {"miko": Miko.NAME, "name": who.person.name}) if who != null else "")
+		return
+	var line: Array = lines[i]
+	var speaker := str(line[0])
+	_name.text = Miko.NAME if speaker == "sera" else str(Uniques.all().get(speaker, {}).get("name", speaker))
+	_line.text = str(line[1]).format({"miko": Miko.NAME})
+	for c in _choices.get_children():
+		c.queue_free()
+	_acts.clear()
+	_add("Continue" if i < lines.size() - 1 else "...", _play.bind(scene, i + 1))
 
 
 func _say_bye() -> void:

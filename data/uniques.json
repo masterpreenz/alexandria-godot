@@ -196,6 +196,30 @@
      "says": "Miyu has something she wants to ask you."
     }
    ]
+  },
+  {
+   "id": "elder",
+   "name": "Genzo",
+   "look": 3,
+   "story": true,
+   "about": "The village's elder, Miyu's grandfather. Gives the rumor to find her, and later the village into Sera's keeping.",
+   "traits": [
+    "set_in_ways",
+    "small_appetite"
+   ],
+   "level": 3
+  },
+  {
+   "id": "elder_wife",
+   "name": "Haruko",
+   "look": 4,
+   "story": true,
+   "about": "The elder's wife, Miyu's grandmother.",
+   "traits": [
+    "early_riser",
+    "frail"
+   ],
+   "level": 2
   }
  ]
 }

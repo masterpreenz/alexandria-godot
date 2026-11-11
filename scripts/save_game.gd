@@ -253,6 +253,8 @@ func capture() -> Dictionary:
 		s["world.chronicle"] = Chronicle.active.to_json()
 	if Rumors.active != null:
 		s["world.rumors"] = Rumors.active.to_json()
+	if Rescue.active != null:
+		s["world.rescue"] = Rescue.active.to_json()
 	put.call("world.forest", at.call("Corruption"), func(n): return n.to_json())
 	s["player.bag"] = miko.bag.to_json()
 	s["player.skills"] = LifeSkills.to_json()

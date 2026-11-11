@@ -258,6 +258,8 @@ static func _hour(w: World) -> float:
 
 # Time to get up: morning (6 to 18) unless worn right out; gone to bed early (tired, from 18), not till well rested.
 func _wake_time() -> bool:
+	if world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0)):
+		return false   # (sleeping it off: Miyu, brought home)
 	var h := _hour(world)
 	var energy := float(person.get("energy", 100.0))
 	if h < 6.0 or h >= 21.0 or energy < 20.0:
@@ -270,6 +272,8 @@ func _night() -> bool:
 	# (a raid on: nobody who can fight goes to bed, or stays there)
 	if Raids.on() and not (s.stabDown as Array).is_empty() and not _low():
 		return false
+	if world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0)):
+		return true
 	var h := _hour(world)
 	var tired := float(person.get("energy", 100.0))
 	return h >= 21.0 or h < 6.0 or (tired < 25.0 and h >= 18.0) or tired < 5.0

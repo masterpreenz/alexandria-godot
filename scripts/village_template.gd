@@ -42,7 +42,7 @@ static func save(t: Dictionary) -> bool:
 		return false
 	# (one entry to a line: readable, and git shows what changed)
 	var lines := []
-	for k in ["name", "at", "width", "height", "tier", "addToSaves"]:
+	for k in ["name", "at", "width", "height", "tier", "residents", "addToSaves"]:
 		if t.has(k):
 			lines.append('"%s": %s' % [k, JSON.stringify(t[k])])
 	for k in ["floors", "walls", "props", "free"]:

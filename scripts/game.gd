@@ -390,6 +390,18 @@ func _ready() -> void:
 	rumors.setup(world, miko)
 	if sv.get("sections", {}).has("world.rumors"):
 		rumors.from_json(sv.sections["world.rumors"])
+	# Miyu's rescue (as her rumor plays out).
+	var rescue := Rescue.new()
+	rescue.name = "Rescue"
+	add_child(rescue)
+	rescue.setup(world, miko, get_node("Villagers") as Villagers, monsters_data, $Hud)
+	if sv.get("sections", {}).has("world.rescue"):
+		rescue.from_json(sv.sections["world.rescue"])
+	# A new game: the village's own people from the start (the elders, as the template has it).
+	if not sv.get("sections", {}).has("world.props") and has_node("Villagers"):
+		for t_name in world.stamped_villages:
+			for who in VillageTemplate.load_named(str(t_name)).get("residents", []):
+				Uniques.arrive(get_node("Villagers") as Villagers, str(who))
 	var journal := RumorsWindow.new()
 	journal.name = "RumorsWindow"
 	$Hud.add_child(journal)

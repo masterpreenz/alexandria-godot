@@ -4,81 +4,270 @@
 {
  "id": "miyu_book",
  "title": "A book for Miyu",
- "teller": {"name": "Miyu"},
- "appears": {"after": [{"event": "intimacy:miyu:100", "days": 0}], "unless": ["lost:miyu"]},
+ "teller": {
+  "name": "Miyu"
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "intimacy:miyu:100",
+    "days": 0
+   }
+  ],
+  "unless": [
+   "lost:miyu"
+  ]
+ },
  "told": "{miko}, can I ask you something, and you won't laugh? I want to learn magic. Properly. I know it isn't born in me the way it is in you, but you said most of it is learned. If you ever find a book of it, any book, would you bring it to me? I'd only need the one. I'd never put it down.",
  "steps": [
-  {"id": "book", "note": "Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.",
-   "place": {"kind": "village", "vague": 3},
-   "done": {"kind": "event", "event": "book_given:miyu"}}
+  {
+   "id": "book",
+   "note": "Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.",
+   "place": {
+    "kind": "village",
+    "vague": 3
+   },
+   "done": {
+    "kind": "event",
+    "event": "book_given:miyu"
+   }
+  }
  ],
- "reward": {"effects": [], "gifts": [], "log": "Miyu has her book. She hasn't looked up from it since."},
+ "reward": {
+  "effects": [],
+  "gifts": [],
+  "log": "Miyu has her book. She hasn't looked up from it since."
+ },
  "leads": {}
 },
 {
  "id": "find_miyu",
  "title": "The elder's granddaughter",
- "teller": {"any": true},
- "appears": {"afterDay": 1, "after": [], "unless": ["unique:miyu", "lost:miyu"]},
- "told": "The elder's granddaughter, Miyu, was away in the next village when the mist came down: far to the {dir}, on the other side of the river. The mist is creeping out from the north, slowly, but it reached them first. They say that village is already under siege. The elder won't say it, but he's sick with worry. If anyone could reach her, {miko}, it's you. Don't leave it long.",
- "expires": {"days": 6},
+ "teller": {
+  "name": "Genzo"
+ },
+ "appears": {
+  "afterDay": 1,
+  "after": [],
+  "unless": [
+   "unique:miyu",
+   "lost:miyu"
+  ]
+ },
+ "told": "Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.",
+ "expires": {
+  "days": 1
+ },
  "steps": [
-  {"id": "reach", "note": "{teller} says Miyu, the elder's granddaughter, is in the next village: far to the {dir}, across the river, and under siege. Get there before it's too late.",
-   "place": {"kind": "section", "section": "X8", "vague": 10},
-   "done": {"kind": "reach", "within": 6}}
+  {
+   "id": "reach",
+   "note": "The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today.",
+   "place": {
+    "kind": "cell",
+    "x": -250,
+    "y": 110,
+    "vague": 10
+   },
+   "done": {
+    "kind": "reach",
+    "within": 8
+   }
+  },
+  {
+   "id": "carry",
+   "safe": true,
+   "note": "The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.",
+   "place": {
+    "kind": "village",
+    "vague": 4
+   },
+   "done": {
+    "kind": "event",
+    "event": "miyu_home"
+   }
+  }
  ],
- "reward": {"effects": ["unique_arrives:miyu"], "gifts": [], "log": "You found Miyu on the road out of the besieged village, frightened but unhurt. She's on her way to ours."},
- "failed": {"effects": ["unique_lost:miyu"], "log": "Word has come from the {dir}: nobody was left alive in the next village. Miyu is gone."},
- "leads": {"done": [], "ignored": []}
+ "reward": {
+  "effects": [],
+  "gifts": [],
+  "log": "Miyu is home, asleep. The elders want to speak with you."
+ },
+ "failed": {
+  "effects": [
+   "unique_lost:miyu"
+  ],
+  "log": "Word has come from the next village: nobody was left alive there. Miyu is gone."
+ },
+ "leads": {
+  "done": [],
+  "ignored": []
+ }
 },
 {
  "id": "forest_clearing",
  "title": "The woods could still be saved",
- "teller": {"any": true},
- "appears": {"afterDay": 1, "after": [], "unless": []},
+ "teller": {
+  "any": true
+ },
+ "appears": {
+  "afterDay": 1,
+  "after": [],
+  "unless": []
+ },
  "told": "You know the great woods to the {dir}? We gathered there every week, right up until the mist came down. It hasn't had them long. If someone drove it off before the rot sets in, the plants would hold, and the animals would come back. It'd be a fine thing for the village.",
- "expires": {"days": 12},
+ "expires": {
+  "days": 12
+ },
  "steps": [
-  {"id": "find", "note": "{teller} spoke of the great misted woods to the {dir} of the village. Find the way into them.",
-   "place": {"kind": "forest", "section": "F6", "corner": "upper-left", "misted": true, "vague": 6},
-   "done": {"kind": "reach", "within": 4}},
-  {"id": "clear", "note": "The mist lies thick among these trees. Something that drives the mist off, set here, might clear it.",
-   "place": {"kind": "same", "vague": 3},
-   "done": {"kind": "cleared", "radius": 4, "share": 0.6}},
-  {"id": "wait", "note": "The air is clean under the trees now. Give it a few days.",
-   "place": {"kind": "same", "vague": 2},
-   "done": {"kind": "days", "days": 2}}
+  {
+   "id": "find",
+   "note": "{teller} spoke of the great misted woods to the {dir} of the village. Find the way into them.",
+   "place": {
+    "kind": "forest",
+    "section": "F6",
+    "corner": "upper-left",
+    "misted": true,
+    "vague": 6
+   },
+   "done": {
+    "kind": "reach",
+    "within": 4
+   }
+  },
+  {
+   "id": "clear",
+   "note": "The mist lies thick among these trees. Something that drives the mist off, set here, might clear it.",
+   "place": {
+    "kind": "same",
+    "vague": 3
+   },
+   "done": {
+    "kind": "cleared",
+    "radius": 4,
+    "share": 0.6
+   }
+  },
+  {
+   "id": "wait",
+   "note": "The air is clean under the trees now. Give it a few days.",
+   "place": {
+    "kind": "same",
+    "vague": 2
+   },
+   "done": {
+    "kind": "days",
+    "days": 2
+   }
+  }
  ],
- "reward": {"effects": ["rabbit_hole"], "gifts": [["WheatSeed", 3], ["Fiber", 4]],
-  "log": "The woods to the {dir} are safe from the mist: the rabbits are back among the trees."},
- "leads": {"done": ["forest_bounty"], "ignored": ["forest_stirs"]}
+ "reward": {
+  "effects": [
+   "rabbit_hole"
+  ],
+  "gifts": [
+   [
+    "WheatSeed",
+    3
+   ],
+   [
+    "Fiber",
+    4
+   ]
+  ],
+  "log": "The woods to the {dir} are safe from the mist: the rabbits are back among the trees."
+ },
+ "leads": {
+  "done": [
+   "forest_bounty"
+  ],
+  "ignored": [
+   "forest_stirs"
+  ]
+ }
 },
 {
  "id": "forest_bounty",
  "title": "Rabbits in the cleared woods",
- "teller": {"any": true},
- "appears": {"after": [{"event": "done:forest_clearing", "days": 2}], "unless": []},
+ "teller": {
+  "any": true
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "done:forest_clearing",
+    "days": 2
+   }
+  ],
+  "unless": []
+ },
  "told": "Have you been back to those woods you cleared? There's rabbits all through them now, I've seen them myself. Worth a look, I'd say.",
  "steps": [
-  {"id": "visit", "note": "{teller} has seen rabbits in the woods you cleared. Go and look.",
-   "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 2},
-   "done": {"kind": "reach", "within": 3}}
+  {
+   "id": "visit",
+   "note": "{teller} has seen rabbits in the woods you cleared. Go and look.",
+   "place": {
+    "kind": "of",
+    "rumor": "forest_clearing",
+    "step": "find",
+    "vague": 2
+   },
+   "done": {
+    "kind": "reach",
+    "within": 3
+   }
+  }
  ],
- "reward": {"effects": [], "gifts": [["Food", 3]], "log": "The cleared woods are full of rabbits now: a few for the pot."},
+ "reward": {
+  "effects": [],
+  "gifts": [
+   [
+    "Food",
+    3
+   ]
+  ],
+  "log": "The cleared woods are full of rabbits now: a few for the pot."
+ },
  "leads": {}
 },
 {
  "id": "forest_stirs",
  "title": "Something in the misted woods",
- "teller": {"any": true},
- "appears": {"after": [{"event": "ignored:forest_clearing", "days": 0}], "unless": ["done:forest_clearing"]},
+ "teller": {
+  "any": true
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "ignored:forest_clearing",
+    "days": 0
+   }
+  ],
+  "unless": [
+   "done:forest_clearing"
+  ]
+ },
  "told": "Those woods to the {dir}, the ones we talked about? The mist's had them a good while now, and it's thicker than when it first came. Folk hear things moving in it at night. I wouldn't leave it much longer.",
  "steps": [
-  {"id": "look", "note": "{teller} says the mist has thickened in the woods to the {dir}, and something moves in it. See for yourself.",
-   "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 5},
-   "done": {"kind": "reach", "within": 4}}
+  {
+   "id": "look",
+   "note": "{teller} says the mist has thickened in the woods to the {dir}, and something moves in it. See for yourself.",
+   "place": {
+    "kind": "of",
+    "rumor": "forest_clearing",
+    "step": "find",
+    "vague": 5
+   },
+   "done": {
+    "kind": "reach",
+    "within": 4
+   }
+  }
  ],
- "reward": {"effects": [], "gifts": [], "log": "Tracks in the mud under the trees, bigger than a boar's. Whatever made them isn't here now."},
+ "reward": {
+  "effects": [],
+  "gifts": [],
+  "log": "Tracks in the mud under the trees, bigger than a boar's. Whatever made them isn't here now."
+ },
  "leads": {}
 }
 ]

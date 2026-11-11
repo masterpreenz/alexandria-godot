@@ -12,7 +12,7 @@ const GIFT := {"loved": 8.0, "liked": 4.0, "plain": 1.0, "disliked": -3.0}
 
 
 static func has(p: Dictionary) -> bool:
-	return p.has("unique")
+	return p.has("unique") and Traits.has(p, "unique")   # (the story's people, the elders, aren't companions)
 
 
 static func of(p: Dictionary) -> float:

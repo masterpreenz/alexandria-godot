@@ -13,7 +13,7 @@ extends Node
 ##   appears   when it can be told: {"afterDay": n, "after": [{"event": "done:other", "days": n}], "unless": ["heard:x"]}
 ##   told      what the teller says ({dir}: which way its first place lies, {teller}, {miko})
 ##   expires   {"days": n}: left that long unfinished, it's over ("ignored:id" is recorded)
-##   steps     [{id, note (the journal's line), place, done}]
+##   steps     [{id, note (the journal's line), place, done, safe (once here, it can't run out)}]
 ##     place   {"kind": "forest" (the nearest wood; "misted": in the mist; or the wood in map "section": "F6", at its
 ##              "corner": "upper-left" | "upper-right" | "lower-left" | "lower-right" as seen, its edge on that side) | "same" (the step before's) |
 ##              "of" ("rumor", "step": another rumor's) | "village" | "section" ("section": "A8", its middle) | "cell" ("x", "y"), "vague": the ring's radius, units}
@@ -82,7 +82,9 @@ func _process(delta: float) -> void:
 			continue
 		var def: Dictionary = by_id[id]
 		var days := float(def.get("expires", {}).get("days", 0))
-		if days > 0.0 and Chronicle.active.now() - float(st.heard) >= days * 24.0:
+		# (a step that's "safe": what was at stake is in hand, and the time no longer runs)
+		var safe := bool(step_of(def, st).get("safe", false))
+		if days > 0.0 and not safe and Chronicle.active.now() - float(st.heard) >= days * 24.0:
 			_end(def, st, "ignored")
 		elif _step_done(def, st):
 			_advance(def, st)
