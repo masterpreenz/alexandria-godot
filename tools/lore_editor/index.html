@@ -1286,7 +1286,12 @@ async function saveAll() {
    A.files[n] = fresh; done.push(n + '.json');
   }
   say((done.length ? (A.dir ? 'Saved ' : 'Downloaded ') + done.join(', ') + '.' + (A.dir ? '' : ' Put the downloaded files in the data folder.') : skipped.length ? '' : 'Nothing to save.') + (skipped.length ? ' Not saved: ' + skipped.join(', ') + '.' : ''), skipped.length ? 'err' : 'ok');
- } catch (e) { say('Saving failed: ' + e.message + (done.length ? ' (saved before that: ' + done.join(', ') + ')' : ''), 'err'); }
+ } catch (e) {
+  // (the launcher gone: the browser can only say "Failed to fetch")
+  const gone = A.dir === serverDir && e instanceof TypeError;
+  say((gone ? 'Not saved: the launcher isn’t running (its window was closed?). Start lore_editor.bat again, then press Save here again: your changes are still in this page.'
+   : 'Saving failed: ' + e.message) + (done.length ? ' (saved before that: ' + done.join(', ') + ')' : ''), 'err');
+ }
  chrome();
 }
 const main = $('#main');
@@ -1328,6 +1333,9 @@ async function autoLoad() {
   return;
  }
  try {
+  // (only the launcher answers this: anything else serving the page can't save)
+  const me = await fetch('/lore-editor', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!me || !me.launcher) { say('This page isn’t being served by the editor’s launcher, so it can’t save. Close it and start tools/lore_editor/lore_editor.bat.', 'err'); return; }
   const res = await fetch('/data/rumors.json', {cache: 'no-store'});
   if (!res.ok) {
    const where = await fetch('/where').then(r => r.json()).catch(() => ({}));

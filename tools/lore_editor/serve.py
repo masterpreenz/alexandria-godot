@@ -13,7 +13,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 DATA = HERE.parent.parent / "data"
 READ = {"rumors.json", "uniques.json", "lore.json", "traits.json"}
 WRITE = {"rumors.json", "uniques.json", "lore.json"}
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+PORT = next((int(a) for a in sys.argv[1:] if a.isdigit()), 8765)   # (a port may be given; else 8765)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -34,6 +34,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return name if name in READ else None
 
     def do_GET(self):
+        if self.path == "/lore-editor":   # (how the page knows it's this launcher, and can save)
+            return self._send(200, json.dumps({"launcher": 1, "data": str(DATA)}))
         if self.path in ("/", "/index.html"):
             return self._send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
         if self.path == "/where":
@@ -65,8 +67,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
 def main():
     if not (DATA / "rumors.json").exists():
         sys.exit(f"Can't find the game's data: {DATA / 'rumors.json'} doesn't exist.")
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    url = f"http://127.0.0.1:{PORT}/"
+    # (the port taken by something else: the next free one, so the browser never lands on someone else's server)
+    server = None
+    for port in range(PORT, PORT + 20):
+        try:
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            break
+        except OSError:
+            continue
+    if server is None:
+        sys.exit(f"No free port from {PORT} to {PORT + 19}.")
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
     print(f"Lore editor: {url}  (data: {DATA})  Ctrl+C to stop.")
     if "--no-browser" not in sys.argv:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()
