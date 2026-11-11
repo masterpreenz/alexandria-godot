@@ -17,6 +17,10 @@ const FLOOR := "PathCobble"
 const WALL := "FieldstoneWall"
 const FRONT_ALPHA := 0.3          ## how solid the two near walls are drawn (seen through, as a house's)
 
+const STAYS_OPEN := 8.0           ## seconds the doors stay open after someone's used them
+const OPEN_SOUND := "res://assets/Sounds/cellar_door_open.mp3"
+const CLOSE_SOUND := "res://assets/Sounds/cellar_door_close.mp3"
+
 static var active: Cellars
 
 var world: World
@@ -26,6 +30,8 @@ var _fade: ColorRect
 var _busy := false
 var _pressed := false
 var _came_from := Vector2.INF     ## the trapdoor she went down (px)
+var _art := {}                    ## the doors' sprites by name
+var _open_until := {}             ## cellar doors standing open (where, px) -> when they close (seconds)
 
 
 func setup(w: World, who: Miko, hud: Node) -> void:
@@ -131,6 +137,43 @@ func stand_spot() -> Vector2:
 	return world.floors.cell_centre(AT + Vector2i(randi_range(1, SIDE - 2), randi_range(2, SIDE - 1))) + Vector2(randf_range(-0.2, 0.2), randf_range(-0.1, 0.1)) * world.px
 
 
+## Someone going down or coming up by the cellar nearest [param near] (px): its doors open (heard, if they were shut)
+## and stay open a while, so comings and goings one after another don't bang them open and shut. They don't open by
+## themselves; left alone, they close.
+func use_doors(near: Vector2) -> void:
+	var at: Variant = null
+	var best := 4.0 * world.px
+	for c in all():
+		if c.distance_to(near) < best:
+			best = c.distance_to(near)
+			at = c
+	if at == null:
+		return
+	if not _open_until.has(at):
+		Sfx.play(world, Sfx.stream(OPEN_SOUND), at, 0.7, 0.05)
+		_show_doors(at, true)
+	_open_until[at] = Time.get_ticks_msec() / 1000.0 + STAYS_OPEN
+
+
+# The doors at [param at] (px) drawn open or shut (their art for the way they face).
+func _show_doors(at: Vector2, open: bool) -> void:
+	for e in world.props.entries_named("Cellar"):
+		if e.pos.distance_to(at) > 0.3 * world.px:
+			continue
+		var cell := world.floors.cell_at(e.pos)
+		var node := world.props.node_at(cell, int(world.props.types["Cellar"].slot))
+		if node == null or not is_instance_valid(node) or node.get_child_count() == 0:
+			return
+		var which := ("CellarOpen" if open else "Cellar") + ("SE" if int(e.e.turn) % 2 == 1 else "SW")
+		if _art.is_empty():
+			for i in world.sprites.size():
+				if str(world.sprites[i].name).begins_with("Cellar"):
+					_art[str(world.sprites[i].name)] = i
+		if _art.has(which):
+			world.show_frame(node.get_child(0) as Sprite2D, int(_art[which]), Vector2.ONE * PropMap._scale(float(e.e.scale)))
+		return
+
+
 ## In front of the cellar doors at [param at] (px): just off the middle of their low edge, the way they open (down-left,
 ## or turned, down-right), where whoever uses them stands and comes back up.
 func front_of(at: Vector2) -> Vector2:
@@ -161,6 +204,14 @@ func _process(_delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	prompt.visible = false
+	# Doors nobody's used for a while swing shut.
+	if not _open_until.is_empty():
+		var now := Time.get_ticks_msec() / 1000.0
+		for at in _open_until.keys():
+			if now >= float(_open_until[at]):
+				_open_until.erase(at)
+				Sfx.play(world, Sfx.stream(CLOSE_SOUND), at, 0.7, 0.05)
+				_show_doors(at, false)
 	if _busy or miko == null or miko.locked or BuildMode.is_open():
 		return
 	if inside(miko.position):
@@ -187,6 +238,8 @@ func _process(_delta: float) -> void:
 # Fade to black, move, fade back in.
 func _go(down: bool) -> void:
 	_busy = true
+	if _came_from != Vector2.INF:
+		use_doors(_came_from)
 	var was_locked := miko.locked
 	miko.locked = true
 	_fade.visible = true

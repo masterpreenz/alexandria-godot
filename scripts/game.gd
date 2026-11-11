@@ -1989,6 +1989,31 @@ func _ready() -> void:
 							last = cl.cold
 							print("Move food ", floori((Time.get_ticks_msec() - t0) / 1000.0), " s: cold ", cl.cold, " of ", cl.holds(), ", movers ", Cellars.movers.keys().map(func(q): return q.person.name + " " + q.activity()))
 					print("Move food end: cold ", cl.cold, ", food still ", cl.food_stored(), ", cold share ", snappedf(cl.cold_share(), 0.01), ", saved ", cl.to_json())
+				"cellardoor":
+					# The doors used three times in quick succession, then left: opened once, shut once.
+					var cl: Cellars = $Cellars
+					var door_at := world.floors.cell_centre(world.floors.cell_at(world.village.centre()) + Vector2i(4, -5))
+					world.props.place(world.floors.cell_at(door_at), "Cellar", 1.0, 0)
+					for i in 5:
+						await get_tree().process_frame
+					print("Cellar door: sounds ", snappedf(Sfx.stream(Cellars.OPEN_SOUND).get_length(), 0.1), " s open, ", snappedf(Sfx.stream(Cellars.CLOSE_SOUND).get_length(), 0.1), " s close")
+					world.props.place(world.floors.cell_at(door_at) + Vector2i(4, 0), "Cellar", 1.0, 1)
+					miko.place(door_at + Vector2(2.0, 2.5) * world.px)
+					for i in 5:
+						await get_tree().process_frame
+					cl.use_doors(world.floors.cell_centre(world.floors.cell_at(door_at) + Vector2i(4, 0)))
+					var states := []
+					for n in 3:
+						cl.use_doors(door_at + Vector2(20, 30))
+						if n == 1:
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_open.png")
+						states.append(cl._open_until.size())
+						for i in 60:
+							await get_tree().process_frame
+					var t0 := Time.get_ticks_msec()
+					while not cl._open_until.is_empty() and Time.get_ticks_msec() - t0 < 15000:
+						await get_tree().process_frame
+					print("Cellar door: open after each use ", states, "; shut by itself after ", snappedf((Time.get_ticks_msec() - t0) / 1000.0, 0.1), " s more")
 				"cellarsnow":
 					# Deep winter: a chest down in the cellar, no snow on it.
 					clock.forced = -1

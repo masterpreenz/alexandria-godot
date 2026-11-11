@@ -960,6 +960,7 @@ func _go_down(t: float, what: String) -> void:
 	_via_cellar = false
 	_cellar_from = position
 	_cellar_for = what
+	Cellars.active.use_doors(position)
 	state = State.CELLAR
 	clock = 0.0
 	velocity = Vector2.ZERO
@@ -978,6 +979,7 @@ func _in_cellar(t: float) -> void:
 	position = _cellar_from
 	reset_physics_interpolation()
 	facing_up = false
+	Cellars.active.use_doors(position)
 	if _cellar_for == "store":
 		# What they carried down is in the cold now.
 		if Spoilage.PER_DAY.has(carry_kind):
