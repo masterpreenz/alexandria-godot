@@ -119,38 +119,54 @@ func _animate(now: float) -> void:
 				miko.pose = -1
 		return
 	var t := now - _cast_at
-	var i := int(t * CAST_FPS)
-	if i >= CAST_FRAMES:
-		i = CAST_FRAMES + int((t - CAST_FRAMES / CAST_FPS) * WAIT_FPS) % (frames.size() - CAST_FRAMES)
+	var i := cast_frame(t, frames.size())
 	miko.pose = int(frames[i])
 	miko.pose_mirror = miko.facing_right
-	# The line: out from the frame the rod comes forward.
 	if _line == null:
-		_line = FishingLine.new()
-		_line.z_as_relative = false
-		_line.z_index = 3990
-		world.add_child(_line)
-	var out_at := LINE_FROM / CAST_FPS
-	_line.visible = t >= out_at
-	if not _line.visible:
-		return
+		_line = new_line(world)
 	var tip: Array = _anim.get("tipsUp" if miko.facing_up else "tipsDown", [])[i]
 	var k: float = world.px / float(_anim.get("ppu", 153)) * miko.art_scale.x
-	_line.tip = miko.position + Vector2(-float(tip[0]) if miko.facing_right else float(tip[0]), float(tip[1])) * k
+	draw_line_from(world, _line, miko.position + Vector2(-float(tip[0]) if miko.facing_right else float(tip[0]), float(tip[1])) * k, _float_at, t, _cast_until - now, now)
+
+
+## The frame of a fishing sheet [param t] seconds into a cast: the cast's frames once, then the waiting ones, looped.
+static func cast_frame(t: float, frames: int) -> int:
+	var i := int(t * CAST_FPS)
+	if i >= CAST_FRAMES:
+		i = CAST_FRAMES + int((t - CAST_FRAMES / CAST_FPS) * WAIT_FPS) % maxi(1, frames - CAST_FRAMES)
+	return clampi(i, 0, frames - 1)
+
+
+static func new_line(w: World) -> FishingLine:
+	var l := FishingLine.new()
+	l.z_as_relative = false
+	l.z_index = 3990
+	w.add_child(l)
+	return l
+
+
+## Puts a line and its float where they are [param t] seconds into a cast with [param left] to go: out from the
+## frame the rod comes forward, from the rod's [param tip] (px); the float through the air in an arc to
+## [param target], a splash, then sitting in the water, bobbing; tugged under as the cast comes to its end.
+static func draw_line_from(w: World, line: FishingLine, tip: Vector2, target: Vector2, t: float, left: float, now: float) -> void:
+	var out_at := LINE_FROM / CAST_FPS
+	line.visible = t >= out_at
+	if not line.visible:
+		line.landed = false
+		return
+	line.tip = tip
 	var fly := clampf((t - out_at) / FLIES, 0.0, 1.0)
-	if fly >= 1.0 and not _line.landed:
-		Sfx.play(world, Sfx.stream(Farming.WATER_SOUND), _float_at, 0.35, 0.1)
-	_line.landed = fly >= 1.0
-	# (through the air in an arc; then sitting in the water, bobbing; a tug or two as the cast comes to its end)
-	var at := _line.tip.lerp(_float_at, fly) + Vector2(0, -sin(fly * PI) * 0.9 * world.px)
-	var left := _cast_until - now
-	_line.bite = left < BITES
+	if fly >= 1.0 and not line.landed:
+		Sfx.play(w, Sfx.stream(Farming.WATER_SOUND), target, 0.35, 0.1)
+	line.landed = fly >= 1.0
+	var at := tip.lerp(target, fly) + Vector2(0, -sin(fly * PI) * 0.9 * w.px)
+	line.bite = left < BITES
 	if fly >= 1.0:
-		at.y += sin(now * 2.6) * 0.02 * world.px + (absf(sin(now * 14.0)) * 0.07 * world.px if _line.bite else 0.0)
-	_line.float_at = at
-	_line.water_at = _float_at
-	_line.unit = world.px
-	_line.queue_redraw()
+		at.y += sin(now * 2.6) * 0.02 * w.px + (absf(sin(now * 14.0)) * 0.07 * w.px if line.bite else 0.0)
+	line.float_at = at
+	line.water_at = target
+	line.unit = w.px
+	line.queue_redraw()
 
 
 ## Whether there's water within [param reach] units of [param at] (px): where a dock may be built.

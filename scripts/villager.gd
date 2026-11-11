@@ -920,6 +920,9 @@ const FISH_HAUL := 6             ## fish they bring back at most
 
 var fish_dock := Vector2.INF     ## the dock they're fishing (px), or INF
 var _caught_until := 0.0         ## the caught-one emote shows till then
+var _fish_from := 0.0            ## when this cast began
+var _fish_water := Vector2.ZERO  ## where their float sits (px)
+var _fish_line: FishingLine
 
 func _go_fish() -> bool:
 	var choice := _job()
@@ -940,7 +943,8 @@ func _go_fish() -> bool:
 			best = at
 	if best == Vector2.INF:
 		return false
-	var goal := _beside(best, 0.9)
+	# (out on its planks: the dock's walked onto, not stood beside)
+	var goal := best + Vector2(-0.22, 0.09) * world.px   # (a touch nearer than its middle: drawn over its planks)
 	if not _safe_way_to(goal) or VillagerRoute.find(world, position, goal) == null:
 		return false
 	fish_dock = best
@@ -959,9 +963,11 @@ func _start_fishing(t: float) -> void:
 	state = State.FISH
 	clock = 0.0
 	carry_kind = "Fish"
-	var to: Vector2 = fish_dock - position
+	_fish_water = Fishing.water_spot(world, fish_dock, position)
+	var to: Vector2 = _fish_water - position
 	facing_up = to.y < -0.02 * world.px
 	facing_right = to.x > 0.0
+	_fish_from = t
 	state_until = t + _cast_time()
 
 
@@ -973,7 +979,7 @@ func _cast_time() -> float:
 # Waiting on the line; then a bait gone and, most times, a fish; again till there's a haul or no bait.
 func _fishing(t: float) -> void:
 	velocity = Vector2.ZERO
-	_show_idle()
+	_show_fishing(t)
 	if _night() or not _work_hours() or fish_dock == Vector2.INF:
 		_done_fishing(t)
 		return
@@ -991,7 +997,26 @@ func _fishing(t: float) -> void:
 	if carrying >= mini(FISH_HAUL, _carry_most()) or world.village.stored("Bait") <= 0:
 		_done_fishing(t)
 		return
+	_fish_from = t
 	state_until = t + _cast_time()
+
+
+# Fishing as their look has it drawn (the cast, then waiting on it), the line and float out from the rod's tip; with
+# no such art, standing there.
+func _show_fishing(t: float) -> void:
+	var frames: Array = s.get("fishUp" if facing_up else "fishDown", [])
+	if frames.is_empty():
+		_show_idle()
+		return
+	var since := t - _fish_from
+	var i := Fishing.cast_frame(since, frames.size())
+	_show(int(frames[i]))
+	if _fish_line == null:
+		_fish_line = Fishing.new_line(world)
+		_fish_line.keep = func(): return is_instance_valid(self) and state == State.FISH
+	var tip: Array = s.get("fishTipsUp" if facing_up else "fishTipsDown", [])[i]
+	var k: float = world.px / float(world.sprites[int(frames[i])].ppu) * _scale()
+	Fishing.draw_line_from(world, _fish_line, position + Vector2(-float(tip[0]) if facing_right else float(tip[0]), float(tip[1])) * k, _fish_water, since, state_until - t, t)
 
 
 # Home with what they caught (to the cellar, where there is one).

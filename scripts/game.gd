@@ -2258,6 +2258,11 @@ func _ready() -> void:
 					v.put_in_stash("Bait", 12)
 					v.stash["Fish"] = 0
 					var vl: Villager = Villager.all[0]
+					for other in Villager.all:   # (the one with fishing drawn, if she's here)
+						if not (other.s.get("fishDown", []) as Array).is_empty() and (Shots.arg("look") == "" or int(other.person.get("look", -1)) == int(Shots.arg("look"))):
+							vl = other
+					for other in Villager.all:   # (the dock's hers: one villager to a dock)
+						other.person.job = Villager.Job.REST
 					vl.person.job = Villager.Job.FISHING
 					vl.person.hunger = 100.0
 					vl._stand(Villager.now(), 0.0)
@@ -2273,9 +2278,10 @@ func _ready() -> void:
 							break
 						if what == "FISH" and vl.carrying > 0 and not seen.has("shot"):
 							seen.append("shot")
-							miko.place(vl.position + Vector2(1.5, 0.5) * world.px)
-							await get_tree().process_frame
-							await get_tree().process_frame
+							miko.place(vl.position + Vector2(2.2, 0.3) * world.px)
+							for i in 150:
+								await get_tree().process_frame
+							print("Fishing: ", vl.person.name, " (look ", vl.person.get("look", "?"), "): line out ", vl._fish_line != null and vl._fish_line.visible, ", float in the water ", vl._fish_line != null and vl._fish_line.landed)
 							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_villager.png")
 					print("Fishing: the villager went ", seen, "; fish in storage ", v.stored("Fish"), ", bait left ", v.stored("Bait"))
 				"cellarsnow":

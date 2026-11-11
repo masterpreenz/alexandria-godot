@@ -10,11 +10,17 @@ var water_at := Vector2.ZERO     ## where it sits in the water (the rings' middl
 var unit := 128.0                ## px to a tile
 var landed := false
 var bite := false
+var keep := Callable()           ## asked each frame: false, and it's put away (whoever's line it is has stopped)
 
 const LINE := Color(0.93, 0.93, 0.88, 0.85)
 const RED := Color(0.86, 0.2, 0.2)
 const WHITE := Color(0.97, 0.97, 0.95)
 const DARK := Color(0.2, 0.12, 0.1)
+
+
+func _process(_delta: float) -> void:
+	if visible and keep.is_valid() and not keep.call():
+		visible = false
 
 
 func _draw() -> void:
