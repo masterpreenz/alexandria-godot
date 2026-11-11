@@ -996,6 +996,7 @@ func _wake_up(t: float) -> void:
 # the fish. One villager to a dock. ----
 
 const READ_ONE_WAY := ["quest", "excl", "note", "mood.info", "mood.idea", "mood.alarm"]   ## emotes never mirrored (a "?" backwards is wrong)
+const VILLAGER_WAIT := 3.0       ## how many times longer than Miko's a villager's cast takes (about 18 seconds a cast)
 const FISH_HAUL := 10            ## fish they bring back at most (as many as they can carry, if that's fewer)
 
 var fish_dock := Vector2.INF     ## the dock they're fishing (px), or INF
@@ -1052,7 +1053,7 @@ func _start_fishing(t: float) -> void:
 
 # How long one of their casts takes: slower than Miko's, quicker with skill.
 func _cast_time() -> float:
-	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING)) * 1.6 / _tool_pace()
+	return Fishing.active.cast_time(Villagers.skill(person, LifeSkills.Skill.FISHING)) * VILLAGER_WAIT / _tool_pace()
 
 
 # Waiting on the line; then, most times, a fish; again till there's a haul.

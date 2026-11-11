@@ -2426,11 +2426,18 @@ func _ready() -> void:
 						await get_tree().process_frame
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_mist.png")
 					world.props.place(c0 + Vector2i(6, 2), "CleansingCrystal")
-					for i in 25:
+					var t0 := Time.get_ticks_msec()
+					var cleared_at := -1.0
+					var shot := false
+					while Time.get_ticks_msec() - t0 < 14000:
 						await get_tree().process_frame
-					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_clearing.png")
-					for i in 300:
-						await get_tree().process_frame
+						var since := (Time.get_ticks_msec() - t0) / 1000.0
+						if not shot and since >= 2.5:
+							shot = true
+							get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_clearing.png")
+						if cleared_at < 0.0 and world.mist._moving.is_empty() and since > 1.0:
+							cleared_at = since
+					print("Veins: a crystal set: the clearing all shown after ", snappedf(cleared_at, 0.1), " s (the mist itself is cleared at once: ", world.mist.tier_at(miko.position) == Mist.Tier.CLEAR, ")")
 				"woods":
 					# The woods by map section: how many trees, how many rotten, and the mist there.
 					for col in MapMarks.SECTIONS:

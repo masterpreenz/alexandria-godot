@@ -26,6 +26,10 @@ var target := PackedByteArray()     # what it should be now (Tier)
 var _shown := PackedFloat32Array()  # what's drawn, easing towards target (0..2)
 var _near := PackedByteArray()      # how near a tree or rock each cell is (0..255)
 var _moving := PackedInt32Array()   # cells still easing
+var _from := {}                      # cell -> when it begins to clear (seconds): the clearing spreads out from its crystal
+const SPREADS := 0.55                ## seconds a clearing takes to reach a unit further from its crystal
+const CLEARS := 0.3                  ## how fast a cell then clears (a second: about 3 to go)
+const CLOSES := 0.8                  ## ...and how fast the mist closes back in
 var _fixed := PackedByteArray()     # the mist as the village and crystals leave it (what the world goes by)
 var _fast := PackedInt32Array()     # cells easing quickly (the clearing round Miko's crystal necklace)
 var _personal := Vector2.INF        # where that clearing is (snapped to a cell), and how wide (px; 0: none)
@@ -185,10 +189,25 @@ func refresh(force := false) -> void:
 		_clear_circle(p, data.wardRadius, Tier.NORMAL)
 	_fixed = target.duplicate()
 	_apply_personal({})
-	# Ease only what changed.
+	# Ease only what changed. What's newly cleared waits its turn: the clearing spreads out from the nearest crystal
+	# (or, the village's own ground, from its middle), so it's seen to be the crystal's doing.
+	var sources: Array = world.props_named("TeleportCrystal") + world.props_named("CleansingCrystal")
+	if village.founded():
+		sources.append(village.centre())
+	var now := Time.get_ticks_msec() / 1000.0
 	for i in target.size():
 		if before.size() == target.size() and before[i] != target[i]:
 			_moving.append(i)
+			if target[i] < before[i] and not sources.is_empty():
+				@warning_ignore("integer_division")
+				var at := _centre(i % width, i / width)
+				var nearest := INF
+				for p in sources:
+					var d: Vector2 = (at - p) / world.px
+					nearest = minf(nearest, Vector2(d.x, d.y * 2.0).length())
+				_from[i] = now + minf(nearest, 12.0) * SPREADS
+			else:
+				_from.erase(i)
 
 
 # Clears mist up to [param up_to] within a circle across the ground (the screen's y counts double).
@@ -224,7 +243,8 @@ func _note_obstacles(list: Array) -> void:
 
 # ---- Showing it ----
 
-# Eases what's drawn towards what the mist now is (about a second and a bit to clear).
+# Eases what's drawn towards what the mist now is: a clearing spreads out from its crystal over a few seconds, each
+# part of it thinning slowly; mist coming back closes in at once.
 func _settle(delta: float) -> void:
 	if not _fast.is_empty():
 		# Miko's clearing parts and closes quickly (a third of a second), keeping up as she walks.
@@ -239,13 +259,19 @@ func _settle(delta: float) -> void:
 			texture.update(_image)
 	if _moving.is_empty():
 		return
-	var step := delta * 0.8
+	var now := Time.get_ticks_msec() / 1000.0
 	var still := PackedInt32Array()
 	for i in _moving:
-		_shown[i] = move_toward(_shown[i], target[i], step)
+		# (clearing: each cell in its turn, slowly; closing back in: at once, quicker)
+		if _from.has(i) and now < float(_from[i]):
+			still.append(i)
+			continue
+		_shown[i] = move_toward(_shown[i], target[i], delta * (CLEARS if target[i] < _shown[i] else CLOSES))
 		_put(i)
 		if not is_equal_approx(_shown[i], target[i]):
 			still.append(i)
+		else:
+			_from.erase(i)
 	_moving = still
 	texture.update(_image)
 

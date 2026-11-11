@@ -7,10 +7,10 @@ extends Node
 ## fire it keeps and fills. It takes a rod and nothing else (there was bait once: it only got in the way).
 
 const RANGE := 1.6               ## units from a dock to fish at it
-const CAST := 3.5                ## seconds a cast takes
+const CAST := 6.0                ## seconds a cast takes (the wait for a bite)
 const WINTER_SLOW := 1.7         ## times longer in winter
-const CATCH := 0.85              ## the chance a cast lands something
-const TWO := 0.2                 ## ...and that it's two
+const CATCH := 0.75              ## the chance a cast lands something
+const TWO := 0.1                 ## ...and that it's two
 const CAST_FPS := 10.0           ## the cast's frames a second
 const CAST_FRAMES := 12          ## how many of the sheet's frames are the cast (the rest: waiting, looped)
 const WAIT_FPS := 3.0
