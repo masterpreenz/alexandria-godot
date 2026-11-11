@@ -189,9 +189,9 @@ func _show(line: String) -> void:
 	var food := _food_to_give()
 	if food != "":
 		_add(Loc.t("talk.choice.food", {"food": UiKit.resource_name(food).to_lower()}), _give_food.bind(food))
-	# (with a rumor to tell, the way to ask stands out: a gold border)
-	if Rumors.active != null:
-		_add(Loc.t("talk.choice.rumor"), _ask_rumor, Rumors.active.has_offer(who))
+	# (only with a rumor to tell; the way to ask stands out: a gold border)
+	if Rumors.active != null and Rumors.active.has_offer(who):
+		_add(Loc.t("talk.choice.rumor"), _ask_rumor, true)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
