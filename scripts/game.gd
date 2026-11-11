@@ -207,6 +207,11 @@ func _ready() -> void:
 	outskirts.name = "Outskirts"
 	add_child(outskirts)
 	outskirts.setup(world)
+	# Cellars: cold storage, and the way down into one.
+	var cellars := Cellars.new()
+	cellars.name = "Cellars"
+	add_child(cellars)
+	cellars.setup(world, miko, $Hud)
 	# Whether the village uses more than it brings in.
 	var ledger := Ledger.new()
 	ledger.name = "Ledger"
@@ -1955,6 +1960,43 @@ func _ready() -> void:
 					print("Ledger: a day's change food ", roundi(lg.a_day("Food")), ", wood ", roundi(lg.a_day("Wood")), ", stone ", roundi(lg.a_day("Stone")))
 					for k in ["Food", "Wood", "Stone"]:
 						print("  ", k, ": ", VillageLog._entries.get("running-down:" + k, {}).get("text", "(nothing)"))
+				"cellar":
+					# A cellar put in a house: what it keeps cold, what spoils with and without it; down and back up.
+					var cl: Cellars = $Cellars
+					var v := world.village
+					for r in Spoilage.PER_DAY:
+						v.stash[r] = 0
+					v.stash["Food"] = 80
+					v.stash["Potato"] = 120
+					print("Cellar: none yet, cold share ", cl.cold_share())
+					var room: Dictionary = world.roofs.roofs[0].cells
+					var spot := Vector2i.ZERO
+					for c in room:
+						if world.props.peek_where(c, func(_n): return true) == "" and not BuildMode.active._use_cells().has(c):
+							spot = c
+					world.props.place(spot, "Cellar")
+					for i in 5:
+						await get_tree().process_frame
+					print("Cellar: one built, holds ", cl.holds(), " of 200 food: cold share ", cl.cold_share(), " (storage's food spoils at ", snappedf(1.0 - cl.cold_share() * (1.0 - Cellars.COLD_RATE), 0.01), " of the usual)")
+					miko.place(world.floors.cell_centre(spot) + Vector2(0.3, 0.3) * world.px)
+					for i in 30:
+						await get_tree().process_frame
+					print("Cellar: prompt '", cl.prompt.text, "' showing ", cl.prompt.visible)
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_door.png")
+					cl._came_from = world.floors.cell_centre(spot)
+					cl._go(true)
+					for i in 90:
+						await get_tree().process_frame
+					print("Cellar: down there ", Cellars.inside(miko.position), ", mist ", world.mist.tier_at(miko.position))
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_down.png")
+					miko.place(cl._steps())
+					for i in 10:
+						await get_tree().process_frame
+					print("Cellar: at the steps, prompt '", cl.prompt.text, "'")
+					cl._go(false)
+					for i in 90:
+						await get_tree().process_frame
+					print("Cellar: back up, in the house ", world.roofs.covers(miko.position), ", ", snappedf(miko.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the trapdoor")
 				"wintersnow":
 					# The weather through the last day of autumn and the first two of winter, for a few weather seeds.
 					var first_winter := float(clock.days_per_season * ((GameClock.Season.WINTER - clock.start_season + 4) % 4)) * 24.0

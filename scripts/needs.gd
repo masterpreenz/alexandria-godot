@@ -272,7 +272,7 @@ func _bubble(t: float, st: String) -> void:
 func cold() -> int:
 	if world.clock == null or world.clock.season() != GameClock.Season.WINTER:
 		return 0
-	if world.roofs != null and world.roofs.covers(miko.position):
+	if (world.roofs != null and world.roofs.covers(miko.position)) or Cellars.inside(miko.position) or Mountains.in_cave(miko.position):
 		return 0
 	var fires: Fires = miko.get_node_or_null("Fires")
 	if fires != null and fires.warm(miko.position, WARMTH * world.px):

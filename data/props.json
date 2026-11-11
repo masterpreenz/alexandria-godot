@@ -26,6 +26,7 @@
 {"name":"Bedroll","display":"Bedroll","category":"Outdoor","slot":0,"sprite":3129,"icon":-1,"turnSprites":[3129,3130,3131,3132],"turns":4,"solid":false,"footprint":80.404,"randomFlip":false,"attach":"BedrollBed","material":""},
 {"name":"LeafBed","display":"Leaf bed","category":"Outdoor","slot":0,"sprite":3133,"icon":-1,"turnSprites":[3133,3134,3135,3136],"turns":4,"solid":false,"footprint":77.632,"randomFlip":false,"attach":"LeafBed","material":""},
 {"name":"WoodenBed","display":"Bed","category":"Furniture","slot":0,"sprite":3137,"icon":3138,"turnSprites":[3137,3139],"turns":2,"solid":true,"footprint":53.76,"randomFlip":false,"attach":"WoodenBed","material":""},
+{"name":"Cellar","display":"Cellar","category":"Furniture","slot":0,"sprite":4488,"icon":4489,"turnSprites":[],"turns":1,"solid":false,"footprint":0,"randomFlip":false,"attach":"","material":""},
 {"name":"Chest","display":"Chest","category":"Outdoor","slot":0,"sprite":3140,"icon":-1,"turnSprites":[],"turns":2,"solid":true,"footprint":38.4,"randomFlip":false,"attach":"Chest","material":""},
 {"name":"TownBanner","display":"Town Banner","category":"Outdoor","slot":1,"sprite":3141,"icon":-1,"turnSprites":[],"turns":1,"solid":true,"footprint":20.48,"randomFlip":true,"attach":"TownBannerFlag","material":""},
 {"name":"TeleportCrystal","display":"Teleport Crystal","category":"Outdoor","slot":1,"sprite":3142,"icon":-1,"turnSprites":[],"turns":1,"solid":true,"footprint":30.72,"randomFlip":true,"attach":"TeleportCrystal","material":""},

@@ -83,7 +83,7 @@ func _centre(x: int, y: int) -> Vector2:
 ## How thick the mist is at [param p]: as the village and the crystals leave it. (The little clearing round Miko's
 ## necklace is only how it looks: the villagers, the spawning and the monsters go by the mist itself.)
 func tier_at(p: Vector2) -> int:
-	if Mountains.in_cave(p):
+	if Mountains.in_cave(p) or Cellars.inside(p):
 		return Tier.CLEAR   # underground, out of the mist
 	var x := floori((p.x - rect.position.x) / cell)
 	var y := floori((p.y - rect.position.y) / cell)

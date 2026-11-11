@@ -58,11 +58,14 @@ func _process_timed(_delta: float) -> void:
 	var v := world.village
 	# Cool Cellar, Green Thumb: that much less of it goes off.
 	var keeps := clampf(1.0 - (miko.stats.stat("foodKeeps") if miko.stats != null else 0.0) / 100.0, 0.2, 1.0)
+	# What the cellars keep cold spoils a quarter as fast: so much less of storage's food goes off.
+	var cold := Cellars.active.cold_share() if Cellars.active != null else 0.0
+	var stored_keeps := 1.0 - cold * (1.0 - Cellars.COLD_RATE)
 	for r in PER_DAY:
 		# The share of a stack gone in dh hours, at its daily rate.
 		var share := (1.0 - pow(1.0 - float(PER_DAY[r]), dh / 24.0)) * keeps
 		if v.founded():
-			_stash_carry[r] = float(_stash_carry.get(r, 0.0)) + v.stored(r) * share
+			_stash_carry[r] = float(_stash_carry.get(r, 0.0)) + v.stored(r) * share * stored_keeps
 			var gone := mini(floori(_stash_carry[r]), v.stored(r))
 			if gone > 0 and v.take_from_stash(r, gone):
 				_stash_carry[r] -= gone
