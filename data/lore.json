@@ -3,7 +3,7 @@
 "places": [
  {"id": "home_village", "name": "The village", "section": "D3", "about": "Where Sera arrives. Human villagers; Sera is not human (her ears show it)."},
  {"id": "mist_origin", "name": "Where the mist began", "section": "H5", "about": "The mist came from here, from the north. Why is not known yet (a branch to write)."},
- {"id": "west_village", "name": "The next village", "section": "A8", "about": "Several blocks west of C8, on the far side of the river: beyond the map as it is now. Miyu was here when the mist came. Already under siege. (In the game its place is a stand-in at the map's western edge, A8.)"},
+ {"id": "west_village", "name": "The next village", "section": "X8", "about": "Several sections west of C8, on the far side of the river, in the western wilds: the road from the bridge runs west and then north to it. Miyu was here when the mist came. Already under siege."},
  {"id": "great_woods", "name": "The great woods", "section": "F6", "about": "Where the village gathered every week until the mist."},
  {"id": "city", "name": "The city", "section": "", "about": "Not in the game yet. Reached by a road that has to be cleared; the merchants come from it."}
 ],

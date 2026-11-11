@@ -259,11 +259,12 @@ func _draw() -> void:
 		var lo := MapMarks.MIN_CELL
 		var hi := MapMarks.MAX_CELL + 1
 		var f := world.floors
-		for c in MapMarks.section_lines():
+		for c in MapMarks.section_lines(true):
 			_line(f.corner(Vector2(c, lo)), f.corner(Vector2(c, hi)), line, 1.0)
-			_line(f.corner(Vector2(lo, c)), f.corner(Vector2(hi, c)), line, 1.0)
+		for c in MapMarks.section_lines():
+			_line(f.corner(Vector2(MapMarks.MIN_X, c)), f.corner(Vector2(hi, c)), line, 1.0)
 		var px := clampf(9.0 * sqrt(maxf(1.0, zoom)), 9.0, 16.0)
-		for col in MapMarks.SECTIONS:
+		for col in MapMarks.columns():
 			for row in MapMarks.SECTIONS:
 				var b := MapMarks.section_bounds(col, row)
 				var mid := _to_screen(f.corner(Vector2(b.position) + Vector2(b.size) / 2.0))

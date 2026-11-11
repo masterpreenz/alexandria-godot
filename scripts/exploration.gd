@@ -22,23 +22,26 @@ static var active: Exploration
 func setup(w: World) -> void:
 	world = w
 	active = self
-	# The ground's cell box, half a cell beyond (in Unity's units, y up, as the save keeps it).
-	var b := world.floors.bounds
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for c in [b.position, Vector2i(b.end.x - 1, b.position.y), Vector2i(b.position.x, b.end.y - 1), b.end - Vector2i.ONE]:
-		var p := world.floors.cell_centre(c) / world.px
-		p.y = -p.y
-		lo = Vector2(minf(lo.x, p.x - 0.5), minf(lo.y, p.y - 0.25))
-		hi = Vector2(maxf(hi.x, p.x + 0.5), maxf(hi.y, p.y + 0.25))
-	rect = Rect2(lo, hi - lo)
+	rect = rect_for(world, world.floors.bounds)
 	width = maxi(8, ceili(rect.size.x / CELL))
 	height = maxi(8, ceili(rect.size.y / CELL))
 	seen.resize(width * height)
 	seen.fill(0)
 
 
-## The saved fog (Unity's world.explored: {width, height, seen (base64)}).
+## The fog's box for a ground of cells [param b]: half a cell beyond (in Unity's units, y up, as the save keeps it).
+static func rect_for(w: World, b: Rect2i) -> Rect2:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for c in [b.position, Vector2i(b.end.x - 1, b.position.y), Vector2i(b.position.x, b.end.y - 1), b.end - Vector2i.ONE]:
+		var p := w.floors.cell_centre(c) / w.px
+		p.y = -p.y
+		lo = Vector2(minf(lo.x, p.x - 0.5), minf(lo.y, p.y - 0.25))
+		hi = Vector2(maxf(hi.x, p.x + 0.5), maxf(hi.y, p.y + 0.25))
+	return Rect2(lo, hi - lo)
+
+
+## The saved fog (Unity's world.explored: {width, height, x, y (where it began), seen (base64)}).
 func from_json(json: String) -> void:
 	_fog_dirty = true
 	var d: Variant = JSON.parse_string(json)
@@ -52,11 +55,11 @@ func from_json(json: String) -> void:
 	if w == width and h == height:
 		seen = bytes
 		return
-	# The map grew (or shrank) round the same middle: what was seen goes over the middle of the new one.
-	@warning_ignore("integer_division")
-	var ox := (width - w) / 2
-	@warning_ignore("integer_division")
-	var oy := (height - h) / 2
+	# The map grew (or shrank): what was seen goes where it was (by the rect it was saved with; a save from before
+	# that, the old map's own).
+	var was := Vector2(float(d.x), float(d.y)) if d.has("x") else rect_for(world, Rect2i(-142, -142, 284, 284)).position
+	var ox := roundi((was.x - rect.position.x) / CELL)
+	var oy := roundi((was.y - rect.position.y) / CELL)
 	for y in h:
 		for x in w:
 			var tx := x + ox
@@ -66,7 +69,7 @@ func from_json(json: String) -> void:
 
 
 func to_json() -> String:
-	return JSON.stringify({"width": width, "height": height, "seen": Marshalls.raw_to_base64(seen)})
+	return JSON.stringify({"width": width, "height": height, "x": rect.position.x, "y": rect.position.y, "seen": Marshalls.raw_to_base64(seen)})
 
 
 ## Clears the fog round [param at] (px) out to [param radius] units, softly at the edge.

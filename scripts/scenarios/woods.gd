@@ -4,7 +4,7 @@ extends Scenario
 
 
 func run() -> void:
-	for col in MapMarks.SECTIONS:
+	for col in MapMarks.columns():
 		for row in MapMarks.SECTIONS:
 			var b := MapMarks.section_bounds(col, row)
 			var trees := 0

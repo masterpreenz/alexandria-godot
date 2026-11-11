@@ -216,10 +216,9 @@ func _wood_in(pl: Dictionary) -> Vector2:
 	var wanted := str(pl.get("section", "")).to_upper()
 	var misted := bool(pl.get("misted", false))
 	var cells := Rect2i()
-	for col in MapMarks.SECTIONS:
-		for row in MapMarks.SECTIONS:
-			if MapMarks.section_name(col, row) == wanted:
-				cells = MapMarks.section_bounds(col, row)
+	var cr := MapMarks.section_of(wanted)
+	if not cr.is_empty():
+		cells = MapMarks.section_bounds(int(cr[0]), int(cr[1]))
 	var way: Vector2 = {"upper-left": Vector2(-1, -1), "upper-right": Vector2(1, -1), "lower-left": Vector2(-1, 1), "lower-right": Vector2(1, 1)}.get(str(pl.get("corner", "")), Vector2.ZERO)
 	var c := world.village.centre()
 	var best := Vector2.INF
@@ -245,10 +244,10 @@ func _wood_in(pl: Dictionary) -> Vector2:
 
 # The middle of a map section (as "A8"), or the nearest dry ground to it.
 func _section_middle(wanted: String) -> Vector2:
-	for col in MapMarks.SECTIONS:
-		for row in MapMarks.SECTIONS:
-			if MapMarks.section_name(col, row) == wanted.to_upper():
-				var b := MapMarks.section_bounds(col, row)
+	var cr := MapMarks.section_of(wanted)
+	if not cr.is_empty():
+		if true:
+				var b := MapMarks.section_bounds(int(cr[0]), int(cr[1]))
 				var mid := b.position + Vector2i(b.size.x >> 1, b.size.y >> 1)
 				for r in 12:
 					for dx in range(-r, r + 1):

@@ -24,7 +24,7 @@
  "expires": {"days": 6},
  "steps": [
   {"id": "reach", "note": "{teller} says Miyu, the elder's granddaughter, is in the next village: far to the {dir}, across the river, and under siege. Get there before it's too late.",
-   "place": {"kind": "section", "section": "A8", "vague": 10},
+   "place": {"kind": "section", "section": "X8", "vague": 10},
    "done": {"kind": "reach", "within": 6}}
  ],
  "reward": {"effects": ["unique_arrives:miyu"], "gifts": [], "log": "You found Miyu on the road out of the besieged village, frightened but unhurt. She's on her way to ours."},

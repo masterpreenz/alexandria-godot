@@ -65,7 +65,15 @@ func setup(w: World, d: Dictionary) -> void:
 		var row := f0 + fy * y
 		var i0 := y * width
 		for x in width:
-			_base[i0 + x] = Tier.STRONG if (row + fx * x).length_squared() > strong2 else Tier.NORMAL
+			var c: Vector2 = row + fx * x
+			var strong := c.length_squared() > strong2
+			# (the western wilds: strong only by their far edges; the road west through the old edge's strong mist
+			# can be cleared)
+			if c.x < float(Wildlands.FROM_X) + 1.0:
+				strong = c.x < float(Wildlands.TO_X) + 30.0 or absf(c.y) > 130.0
+			elif c.x < -40.0 and absf(c.y) <= 8.0:
+				strong = false
+			_base[i0 + x] = Tier.STRONG if strong else Tier.NORMAL
 	_note_obstacles(d.obstacles)
 	_image = Image.create(width, height, false, Image.FORMAT_RGBA8)
 	refresh(true)

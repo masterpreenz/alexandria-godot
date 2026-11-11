@@ -94,6 +94,8 @@ func _ready() -> void:
 			things.add_child(g)
 			g.setup(self, d, int(gd.miner.treeWood))
 			gatherables.append(g)
+		# The wilds west of the river: grown, the same every time.
+		Wildlands.grow(self, gd)
 	walls = WallMap.new()
 	walls.name = "Walls"
 	add_child(walls)

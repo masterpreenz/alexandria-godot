@@ -13,9 +13,16 @@ const CRYSTAL := Color(0.45, 0.88, 1.0)
 const BANNER := Color(0.86, 0.22, 0.24)
 const BAG := Color(1, 0.85, 0.45)
 const SECTION_SIZE := 36
-const SECTIONS := 8
-const MIN_CELL := -142
+const SECTIONS := 8                  ## rows (1..8), and the columns A..H
+const WEST := 8                      ## more columns west of A (Z, Y, X ... S): the wilds
+const MIN_CELL := -142               ## the old edges (y both ways; x on the east)
 const MAX_CELL := 141
+const MIN_X := -430                  ## the west edge now
+
+
+## The columns, west to east: -8 (S) ... -1 (Z), 0 (A) ... 7 (H).
+static func columns() -> Array:
+	return range(-WEST, SECTIONS)
 
 static var _next_hide := 0.0
 
@@ -93,24 +100,34 @@ static func _hostile(c: Node) -> bool:
 	return c is Boar and st is int and st in [Boar.State.WIND_UP, Boar.State.CHARGE, Boar.State.RECOVER]
 
 
-## Where the section grid's lines fall (tile corners), edge to edge.
-static func section_lines() -> Array:
-	var out := [MIN_CELL]
-	for i in range(1, SECTIONS):
+## Where the section grid's lines fall (tile corners), edge to edge: across x ([param along_x]) or y.
+static func section_lines(along_x := false) -> Array:
+	var out := [MIN_X if along_x else MIN_CELL]
+	for i in range(-WEST + 1 if along_x else 1, SECTIONS):
 		@warning_ignore("integer_division")
 		out.append((i - SECTIONS / 2) * SECTION_SIZE)
 	out.append(MAX_CELL + 1)
 	return out
 
 
+## A section's name: its column's letter (A..H; west of A, Z, Y, X ... S), its row's number.
 static func section_name(column: int, row: int) -> String:
-	return String.chr(65 + column) + str(row + 1)
+	return String.chr((65 if column >= 0 else 91) + column) + str(row + 1)
+
+
+## The column and row of a section named [param nm] (as "X8"), or [] if there's none.
+static func section_of(nm: String) -> Array:
+	for col in columns():
+		for row in SECTIONS:
+			if section_name(col, row) == nm.to_upper():
+				return [col, row]
+	return []
 
 
 ## The tiles of section [param column], [param row] (from 0).
 static func section_bounds(column: int, row: int) -> Rect2i:
 	@warning_ignore("integer_division")
-	var x0 := MIN_CELL if column == 0 else (column - SECTIONS / 2) * SECTION_SIZE
+	var x0 := MIN_X if column == -WEST else (column - SECTIONS / 2) * SECTION_SIZE
 	@warning_ignore("integer_division")
 	var x1 := MAX_CELL + 1 if column == SECTIONS - 1 else (column + 1 - SECTIONS / 2) * SECTION_SIZE
 	@warning_ignore("integer_division")
