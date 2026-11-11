@@ -91,6 +91,11 @@ func _arrive() -> Vector2:
 	return world.floors.cell_centre(_door_cell() + Vector2i(0, 1))
 
 
+## Somewhere in the cellar's room for a villager come down: by the back walls, clear of the way out.
+func stand_spot() -> Vector2:
+	return world.floors.cell_centre(AT + Vector2i(randi_range(1, SIDE - 2), randi_range(2, SIDE - 1))) + Vector2(randf_range(-0.2, 0.2), randf_range(-0.1, 0.1)) * world.px
+
+
 ## Where a villager stands to put food in the cellar nearest [param from] (px): beside its trapdoor; null with none.
 func deposit_spot(from: Vector2) -> Variant:
 	var best: Variant = null

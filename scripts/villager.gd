@@ -24,7 +24,7 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR }
 
 enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING }
 
@@ -408,6 +408,8 @@ func _physics_process_timed(delta: float) -> void:
 			_fighting(t, delta)
 		State.FLEE:
 			_fleeing(t, delta)
+		State.CELLAR:
+			_in_cellar(t)
 		State.EATING:
 			_eating(t)
 		State.TO_CHAT:
@@ -628,12 +630,16 @@ func _walk(t: float, delta: float) -> void:
 func _arrive(t: float) -> void:
 	velocity = Vector2.ZERO
 	match state:
-		State.TO_EAT: _eat(t)
+		State.TO_EAT:
+			if _via_cellar: _go_down(t, "eat")
+			else: _eat(t)
 		State.TO_MEAL: _start_eating(t)
 		State.TO_DOOR: _see_to_door(t)
 		State.TO_CHAT: _start_chat(t)
 		State.TO_WORK: _start_work(t)
-		State.TO_STORE: _unload(t)
+		State.TO_STORE:
+			if _via_cellar: _go_down(t, "store")
+			else: _unload(t)
 		State.TO_PICKUP: _pick_up(t)
 		State.TO_FARM: _start_farming(t)
 		State.TO_COOK: _start_cooking(t)
@@ -893,6 +899,41 @@ func _wake_up(t: float) -> void:
 	_stand(t, randf_range(0.1, 0.5))   # (up and off: not standing by the bed)
 
 
+# ---- Down the cellar: at its doors they go down (they're in its room a moment, among its shelves), then come back
+# up where they went in, and what they came for is done: the food they carried put away, or a meal fetched. ----
+
+var _via_cellar := false         ## on their way to the cellar's doors (not a chest)
+var _cellar_from := Vector2.ZERO
+var _cellar_for := ""
+
+func _go_down(t: float, what: String) -> void:
+	_via_cellar = false
+	_cellar_from = position
+	_cellar_for = what
+	state = State.CELLAR
+	clock = 0.0
+	velocity = Vector2.ZERO
+	state_until = t + randf_range(2.0, 3.0)
+	position = Cellars.active.stand_spot()
+	reset_physics_interpolation()
+	facing_up = true
+	_show_idle()
+
+
+func _in_cellar(t: float) -> void:
+	velocity = Vector2.ZERO
+	_show_idle()
+	if t < state_until:
+		return
+	position = _cellar_from
+	reset_physics_interpolation()
+	facing_up = false
+	if _cellar_for == "store":
+		_unload(t)
+	else:
+		_eat(t)
+
+
 # ---- Needs ----
 
 var _next_chilly := 0.0
@@ -1010,6 +1051,13 @@ func _go_eat() -> bool:
 		VillageLog.problem("no-food", "No food in storage: the villagers are hungry")
 		return false
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
+	# The food's down the cellar, where there is one.
+	_via_cellar = false
+	if Cellars.active != null:
+		var cellar: Variant = Cellars.active.deposit_spot(position)
+		if cellar != null and VillagerRoute.find(world, position, cellar) != null:
+			spot = cellar
+			_via_cellar = true
 	if spot == null:
 		return false
 	state = State.TO_EAT
@@ -1979,10 +2027,12 @@ func _done_pick_up(t: float) -> void:
 func _go_store() -> bool:
 	var spot: Variant = UseSpots.nearest_chest_spot(world, position)
 	# Food goes down the cellar, where there is one.
+	_via_cellar = false
 	if Cellars.active != null and Spoilage.PER_DAY.has(carry_kind):
 		var cellar: Variant = Cellars.active.deposit_spot(position)
 		if cellar != null and VillagerRoute.find(world, position, cellar) != null:
 			spot = cellar
+			_via_cellar = true
 	if spot == null:
 		VillageLog.problem("no-storage", "No storage: build a chest in the village for the villagers' haul")
 		return false
@@ -2908,6 +2958,7 @@ func activity() -> String:
 		State.TO_PICKUP: return "Clearing up"
 		State.FIGHT: return "Fighting a slime"
 		State.FLEE: return "Running for their life"
+		State.CELLAR: return "Down in the cellar"
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"
 	if _hungry() and _food_in_storage() == 0: return "Hungry: no food in storage"

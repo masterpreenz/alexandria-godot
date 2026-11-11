@@ -1994,6 +1994,24 @@ func _ready() -> void:
 					for i in 120:
 						await get_tree().process_frame
 					var vl: Villager = Villager.all[0]
+					# A villager with potatoes: to the doors, down, and up again with them put away.
+					clock.hours = float(clock.day() - 1) * 24.0 + 10.0
+					vl.position = world.floors.cell_centre(spot) + Vector2(0.5, 2.5) * world.px
+					vl.carrying = 3
+					vl.carry_kind = "Potato"
+					var had := v.stored("Potato")
+					vl._go_store()
+					var went_down := false
+					for i in 900:
+						await get_tree().process_frame
+						if vl.state == Villager.State.CELLAR and not went_down:
+							went_down = true
+							print("Cellar: villager down there, in the room ", Cellars.room_has(world.floors.cell_at(vl.position)), ", '", vl.activity(), "'")
+						if went_down and vl.state != Villager.State.CELLAR:
+							break
+					print("Cellar: villager went down ", went_down, ", back up ", snappedf(vl.position.distance_to(world.floors.cell_centre(spot)) / world.px, 0.1), " units from the doors, potatoes ", had, " -> ", v.stored("Potato"))
+					vl.person.hunger = 5.0
+					print("Cellar: hungry, heads for the cellar ", vl._go_eat() and vl._via_cellar)
 					vl.carrying = 3
 					vl.carry_kind = "Potato"
 					vl._go_store()
