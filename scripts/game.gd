@@ -2039,6 +2039,15 @@ func _ready() -> void:
 						await get_tree().process_frame
 					var hovered := get_viewport().gui_get_hovered_control()
 					print("Cellar: under the mouse in the room: ", str(hovered.name) if hovered != null else "nothing", ", taken as interface ", bm._over_ui())
+					# R, then placed: turned?
+					var key := InputEventKey.new()
+					key.keycode = KEY_R
+					key.pressed = true
+					var turn0 := bm.prop_turn
+					bm._unhandled_input(key)
+					bm._place_prop(in_room + Vector2i(2, 0), 1.0)
+					var placed_e: Dictionary = world.props.cells.get(Vector3i(in_room.x + 2, in_room.y, 0), {})
+					print("Cellar: R pressed, turn ", turn0, " -> ", bm.prop_turn, "; a chest placed then has turn ", placed_e.get("turn", "?"), ", shown mirrored ", not placed_e.is_empty() and world.props.shown_flipped(placed_e))
 					bm._place_prop(in_room, 1.0)
 					print("Cellar: through build mode, chest status ", bm.status_of(bm.item_for("Prop", "Chest")), ", placed ", world.props.get_prop(in_room, 0), "; a bed there says '", bm.why_not(bm.item_for("Prop", "WoodenBed"), world.floors.cell_centre(in_room + Vector2i(1, 0))), "'")
 					bm.set_open(false)

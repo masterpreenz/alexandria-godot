@@ -576,8 +576,11 @@ func _place_or_clear(point: Vector2, cell: Vector2i, over_ui: bool) -> void:
 		if placing_prop:
 			var at := point if placing_free else f.cell_centre(cell)
 			var turns := int(world.props._turns(world.props.types[selected.name])) if world.props.types.has(selected.name) else 1
-			_prop_ghost = {"sprite": world.props.sprite_for(selected.name, _turn_on(selected.name, cell) if turns > 1 else 0), "at": at, "scale": prop_scale,
-				"colour": _ghost_tint}
+			var ghost_turn := _turn_on(selected.name, cell) if turns > 1 else 0
+			# (a thing with one picture is mirrored on its odd turns, as it will be when placed)
+			var mirrored: bool = turns > 1 and (world.props.types[selected.name].turnSprites as Array).is_empty() and ghost_turn % 2 == 1
+			_prop_ghost = {"sprite": world.props.sprite_for(selected.name, ghost_turn), "at": at, "scale": prop_scale,
+				"colour": _ghost_tint, "flip": mirrored}
 			if float(selected.get("ring", 0.0)) > 0.0:
 				_ring = float(selected.ring)
 				_ring_at = at
@@ -905,7 +908,13 @@ func _draw() -> void:
 		var k := float(_prop_ghost.scale) * world.px / float(info.ppu)
 		var region := Rect2(info.rect[0], info.rect[1], info.rect[2], info.rect[3])
 		var at: Vector2 = _prop_ghost.at - Vector2(float(info.pivot[0]), float(info.pivot[1])) * k
-		draw_texture_rect_region(tex, Rect2(at, region.size * k), region, _prop_ghost.colour)
+		if bool(_prop_ghost.get("flip", false)):
+			# Mirrored about its pivot.
+			draw_set_transform(Vector2(_prop_ghost.at.x * 2.0, 0.0), 0.0, Vector2(-1, 1))
+			draw_texture_rect_region(tex, Rect2(at, region.size * k), region, _prop_ghost.colour)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			draw_texture_rect_region(tex, Rect2(at, region.size * k), region, _prop_ghost.colour)
 	if _ring > 0.0:
 		var c := Color(HudStyle.color("green"), 0.8) if _ring_ok else BLOCKED
 		draw_set_transform(_ring_at, 0.0, Vector2(1, 0.5))
