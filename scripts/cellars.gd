@@ -15,7 +15,6 @@ const AT := Vector2i(300, -300)
 const SIDE := 5
 const FLOOR := "PathCobble"
 const WALL := "FieldstoneWall"
-const DOORWAY := "WallDoorway"
 const FRONT_ALPHA := 0.3          ## how solid the two near walls are drawn (seen through, as a house's)
 
 static var active: Cellars
@@ -176,16 +175,19 @@ func _room() -> void:
 				# (packed earth: the same stones, dark and brown, darker further out)
 				var far := maxi(maxi(-x, x - SIDE + 1), maxi(-y, y - SIDE + 1))
 				sp.modulate = Color(0.42, 0.3, 0.22).darkened(0.18 * far)
+				# (out through the gap: black)
+				if x == _door_cell().x - AT.x and y < 0:
+					sp.modulate = Color(0.03, 0.03, 0.03)
 			ground.add_child(sp)
 	# The walls: the back two solid, the front two seen through; the doorway in the front one along x.
 	var wt: Dictionary = world.walls.types[WALL]
-	var dt: Dictionary = world.walls.types[DOORWAY]
 	for i in SIDE:
 		_wall(Vector2(AT.x + i + 0.5, AT.y + SIDE), int(wt.left), 1.0)
 		_wall(Vector2(AT.x + SIDE, AT.y + i + 0.5), int(wt.leftY), 1.0)
 		_wall(Vector2(AT.x, AT.y + i + 0.5), int(wt.leftY), FRONT_ALPHA)
-		var door := AT.x + i == _door_cell().x
-		_wall(Vector2(AT.x + i + 0.5, AT.y), int(dt.left if door else wt.left), FRONT_ALPHA)
+		# (the way out: a gap in the front wall, dark beyond it)
+		if AT.x + i != _door_cell().x:
+			_wall(Vector2(AT.x + i + 0.5, AT.y), int(wt.left), FRONT_ALPHA)
 	# A lamp's light, so it isn't dark down there at night.
 	var lamp := PointLight2D.new()
 	lamp.texture = Fires._glow()
