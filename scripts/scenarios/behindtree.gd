@@ -24,5 +24,5 @@ func run() -> void:
 	for i in 40:
 		await get_tree().process_frame
 	var mo: OccludedOutline = miko.get_node_or_null("OccludedOutline")
-	print("Sera behind it: hidden ", mo.covered if mo != null else "?", ", the tree faded to ", snappedf(tree.art.modulate.a, 0.01))
+	print("Sera behind it: hidden ", str(mo.covered) if mo != null else "?", ", the tree faded to ", snappedf(tree.art.modulate.a, 0.01))
 	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_sera.png")

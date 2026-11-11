@@ -33,7 +33,7 @@ func run() -> void:
 	await wait(30)
 	var nd: Needs = miko.get_node("Needs")
 	print("Intro: beat ", beat_id(), " '", st._title.text, "'; Sera at ", world.floors.cell_at(miko.position), ", ", snappedf(clock.hour(), 0.1), "h, clock speed ", clock.speed,
-		"; necklace ", miko.stats.worn_in("Necklace"), ", in her hands ", miko.stats.worn_in("LeftHand"), "; trees and rocks within 20 ", world.gatherables.filter(func(g): return g.position.distance_to(miko.position) < 20.0 * world.px).size(), "; mist where she is ", world.mist.tier_at(miko.position), ", at the village ", world.mist.tier_at(world.village.centre()), ", far off ", world.mist.tier_at(Vector2(-300, 100) * world.px), "; people ", people.people.map(func(p): return "%s(%s)" % [p.name, p.get("storyRole", p.get("unique", ""))]))
+		"; necklace ", miko.stats.worn_in("Necklace"), ", in her hands ", miko.stats.worn_in("LeftHand"), "; trees and rocks within 20 ", world.gatherables.filter(func(gt): return gt.position.distance_to(miko.position) < 20.0 * world.px).size(), "; mist where she is ", world.mist.tier_at(miko.position), ", at the village ", world.mist.tier_at(world.village.centre()), ", far off ", world.mist.tier_at(Vector2(-300, 100) * world.px), "; people ", people.people.map(func(p): return "%s(%s)" % [p.name, p.get("storyRole", p.get("unique", ""))]))
 	shot("start")
 	# Walk.
 	for i in 14:
