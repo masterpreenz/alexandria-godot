@@ -260,6 +260,10 @@ func _upload_all() -> void:
 	for i in _shown.size():
 		_put(i)
 	texture = ImageTexture.create_from_image(_image)
+	# (the ground's own shader stains the grass where the mist lies: it reads this picture)
+	world.set_snow_param("mist_map", texture)
+	world.set_snow_param("mist_rect", Vector4(rect.position.x, rect.position.y, width * cell, height * cell))
+	world.set_snow_param("stain_on", 1.0)
 
 
 # One of the two layers: a rectangle over the whole world, drawn by the mist shader.

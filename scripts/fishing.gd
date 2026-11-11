@@ -52,6 +52,91 @@ func setup(w: World, who: Miko, hud: Node) -> void:
 	WorldPrompts.register(prompt)
 
 
+# ---- The dock's deck: a strip of open planks along one edge to walk and fish from; the rest (barrels, crate, rack)
+# solid. Which edge, by the way the dock's turned. ----
+
+const OPEN := 0.32               ## the share of the deck, from its open edge, that's planks to walk on
+const DECK := [Vector2(-1, 0), Vector2(0, -0.5), Vector2(1, 0), Vector2(0, 0.5)]   ## its corners, units: left, top, right, bottom
+
+var _solid_for := -1             ## the props' version the docks' colliders were made for
+var _shapes: Array = []
+var _raised := {}                ## those standing on a deck, drawn over it (CanvasItem -> true)
+
+
+## The part of a deck that's solid, for a dock turned [param turn] (units from its middle).
+static func deck_solid(turn: int) -> PackedVector2Array:
+	var l: Vector2 = DECK[0]
+	var t: Vector2 = DECK[1]
+	var r: Vector2 = DECK[2]
+	var b: Vector2 = DECK[3]
+	if turn % 2 == 0:   # (open along its upper-left edge)
+		return PackedVector2Array([l.lerp(b, OPEN), t.lerp(r, OPEN), r, b])
+	return PackedVector2Array([l.lerp(t, OPEN), t, r, b.lerp(r, OPEN)])   # (open along its lower-left edge)
+
+
+## Where to stand on a deck to fish: the middle of its open planks (units from the dock's middle).
+static func deck_stand(turn: int) -> Vector2:
+	var l: Vector2 = DECK[0]
+	if turn % 2 == 0:
+		return (l + DECK[1]) / 2.0 + (DECK[3] - l) * OPEN * 0.5
+	return (l + DECK[3]) / 2.0 + (DECK[1] - l) * OPEN * 0.5
+
+
+func _turn_of(at: Vector2) -> int:
+	for e in world.props.entries_named("FishingDock"):
+		if (e.pos as Vector2).distance_to(at) < 4.0:
+			return int(e.e.get("turn", 0))
+	return 0
+
+
+## Where a villager stands to fish at the dock at [param at] (px).
+func stand_at(at: Vector2) -> Vector2:
+	return at + deck_stand(_turn_of(at)) * world.px
+
+
+## Whether [param p] (px) is on a dock's open planks.
+func on_planks(p: Vector2) -> bool:
+	for e in world.props.entries_named("FishingDock"):
+		var d: Vector2 = (p - (e.pos as Vector2)) / world.px
+		if absf(d.x) + absf(d.y) * 2.0 <= 1.0 and not Geometry2D.is_point_in_polygon(d, deck_solid(int(e.e.get("turn", 0)))):
+			return true
+	return false
+
+
+# The docks' colliders, made again when the props change; and whoever's on a deck drawn over it (the dock's one
+# picture, sorted by its middle: someone on its far planks would be drawn behind it).
+func _decks() -> void:
+	if world.props.version != _solid_for:
+		_solid_for = world.props.version
+		for s in _shapes:
+			if is_instance_valid(s):
+				s.queue_free()
+		_shapes = []
+		for e in world.props.entries_named("FishingDock"):
+			var poly := ConvexPolygonShape2D.new()
+			var pts := PackedVector2Array()
+			for q in deck_solid(int(e.e.get("turn", 0))):
+				pts.append(q * world.px)
+			poly.points = pts
+			var shape := CollisionShape2D.new()
+			shape.shape = poly
+			shape.position = e.pos
+			world.solids.add_child(shape)
+			_shapes.append(shape)
+	var on := {}
+	var folk: Array = [miko]
+	folk.append_array(Villager.all)
+	for who in folk:
+		if is_instance_valid(who) and on_planks(who.position):
+			on[who] = true
+			if not _raised.has(who):
+				who.z_index += 1
+	for who in _raised:
+		if is_instance_valid(who) and not on.has(who):
+			who.z_index -= 1
+	_raised = on
+
+
 ## The docks standing: where each is (px).
 func docks() -> Array:
 	return world.props_named("FishingDock")
@@ -194,6 +279,7 @@ func _process(_delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	_show_emote("fishing" if casting else ("fishing_caught" if now < _caught_until else ""), now)
 	_animate(now)
+	_decks()
 	if casting:
 		prompt.visible = true
 		prompt.text = "Fishing…"

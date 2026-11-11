@@ -23,6 +23,13 @@ uniform float clear_on = 0.0;
 uniform vec2 clear_origin = vec2(0.0);   // the map's first cell
 uniform float clear_size = 128.0;        // cells a side
 uniform vec2 floor_origin = vec2(0.0);   // the floor grid's corner (0, 0), in units (y up)
+// The corruption in the grass (mode 3): where the mist lies, the ground's tiles are the stained kind: the same grass
+// with dark stains in it.
+uniform sampler2D mist_map : filter_linear, repeat_disable;   // Mist's own picture (r: normal mist, g: strong)
+uniform vec4 mist_rect = vec4(0.0, 0.0, 1.0, 1.0);             // the world it covers, px: x, y, w, h
+uniform float stain_on = 0.0;
+uniform float stain_pix = 40.0;         // texels to a world unit: the grid the stains are drawn on
+uniform float stain_level = 0.6;        // how high the noise must be for a stain (lower: more of the grass stained)
 uniform vec4 underground = vec4(0.0);    // cells where no snow ever lies (the cellar's room and round it): x, y, w, h
 
 varying vec2 world;
@@ -91,6 +98,32 @@ void fragment() {
 		vec3 tint = mix(lush, dry, smoothstep(0.25, 0.75, broad));
 		tint *= 0.94 + 0.12 * fine;
 		c.rgb = mix(c.rgb, c.rgb * tint, grass_variety);
+	}
+	if (mode == 3 && stain_on > 0.0) {
+		// The stained grass: this tile's own grass (its blades and shading kept), gone dark and violet in blotches
+		// with a darker heart, a few loose specks round them. Worked out on a grid of texels pinned to the world, so
+		// the stains run on from tile to tile and sit still. More of them in the strong mist. Where the mist is
+		// being driven off (its thinning edge, round a crystal) they shrink and pale, and the clean grass is back.
+		vec2 here = vec2(world.x, -world.y);   // (the screen's way up, units)
+		vec4 mt = texture(mist_map, (here * unit - mist_rect.xy) / mist_rect.zw);
+		float mist_here = clamp(mt.r + mt.g, 0.0, 1.0);
+		if (mist_here > 0.02) {
+			vec2 texel_at = floor(here * stain_pix);
+			vec2 wp = (texel_at + 0.5) / stain_pix;
+			vec2 g = vec2(wp.x, wp.y * 2.0);
+			float n = textureLod(variety, g / 5.5 + vec2(0.4, 0.13), 0.0).r * 0.62 + textureLod(variety, g.yx / 17.0 + vec2(0.21, 0.7), 0.0).r * 0.38;
+			float grain = fract(sin(dot(texel_at, vec2(12.9898, 78.233))) * 43758.5453);
+			float level = mix(1.2, stain_level, smoothstep(0.08, 0.7, mist_here)) - mt.g * 0.05;
+			float blot = step(level, n + (grain - 0.5) * 0.03);
+			float heart = step(level + 0.06, n);
+			float speck = step(0.95, grain) * step(level - 0.05, n);
+			float edge = smoothstep(0.02, 0.3, mist_here) * (1.0 - smoothstep(0.3, 0.75, mist_here));
+			vec3 stained = c.rgb * vec3(0.5, 0.36, 0.58) + vec3(0.03, 0.0, 0.05);
+			vec3 deep = c.rgb * vec3(0.27, 0.19, 0.34) + vec3(0.02, 0.0, 0.04);
+			vec3 pale = c.rgb * vec3(0.85, 0.82, 0.95) + vec3(0.08);
+			vec3 rgb = mix(c.rgb, mix(stained, pale, edge * 0.7), max(blot, speck));
+			c.rgb = mix(rgb, mix(deep, pale, edge * 0.7), heart);
+		}
 	}
 	if (snow_cover > 0.001 && c.a > 0.01) {
 		vec3 rgb = c.rgb;

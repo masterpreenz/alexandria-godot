@@ -1023,7 +1023,7 @@ func _go_fish(urgent := false) -> bool:
 	if best == Vector2.INF:
 		return false
 	# (out on its planks: the dock's walked onto, not stood beside)
-	var goal := best + Vector2(-0.22, 0.09) * world.px   # (a touch nearer than its middle: drawn over its planks)
+	var goal := f.stand_at(best)
 	if not _safe_way_to(goal) or VillagerRoute.find(world, position, goal) == null:
 		return false
 	fish_dock = best
