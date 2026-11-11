@@ -11,6 +11,8 @@ const COL_X := 74.0
 const CHIP := 32.0
 const TAG_H := 20.0
 
+var bottom := 0.0                ## how far down the card and what's under it reach (px): the party's cards go below
+
 var world: World
 var miko: Miko
 var stats: CharacterStats
@@ -129,6 +131,7 @@ func _draw() -> void:
 		if not needs.effects().is_empty():
 			y += (TAG_H + 6.0) * k
 	_rack(y)
+	bottom = y + (CHIP + 8.0) * k   # (what's under it starts below the rack's room)
 	if not tip.is_empty() and tip.what != "":
 		_tip(tip, y)
 

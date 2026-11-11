@@ -128,27 +128,114 @@ func _process(_delta: float) -> void:
 	_hud()
 
 
-# Their faces and health, under Sera's card.
+# Their cards, under Sera's.
 func _hud() -> void:
 	if hud == null:
 		return
-	var want := members.size()
-	while hud.get_child_count() > want:
-		var c := hud.get_child(hud.get_child_count() - 1)
-		hud.remove_child(c)
-		c.queue_free()
-	for i in want:
-		var p := Uniques.person(people, str(members[i]))
-		if p.is_empty():
-			continue
-		var row: Label
-		if i < hud.get_child_count():
-			row = hud.get_child(i)
-		else:
-			row = HudStyle.label("", 11, "bold", HudStyle.color("text"))
-			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			hud.add_child(row)
-		var hp := float(p.get("hp", 0.0))
-		var most := maxf(1.0, float(p.get("maxHp", 1.0)))
-		var bar := "■".repeat(roundi(8.0 * clampf(hp / most, 0.0, 1.0)))
-		row.text = "%s  %s%s" % [p.name, bar, "  (waiting)" if waiting.has(str(members[i])) else ""]
+	if _cards == null:
+		_cards = PartyCards.new()
+		_cards.party = self
+		hud.get_parent().add_child(_cards)
+	_cards.queue_redraw()
+
+
+var _cards: PartyCards
+
+
+## The party's cards under Sera's: each a small version of hers: their face (level on its corner), name, HP, and
+## what they're at (with her, waiting, fighting, chopping...).
+class PartyCards extends Control:
+	const CARD := Vector2(210, 50)
+	const FACE := 36.0
+	var party: Party
+	var _faces := {}
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var _player_card: Node = null
+
+	func _process(_delta: float) -> void:
+		if _player_card == null:
+			var found := get_parent().find_children("*", "PlayerCard", true, false)
+			if not found.is_empty():
+				_player_card = found[0]
+		var card := _player_card
+		var k := HudStyle.SCALE
+		position = Vector2(16 * k, (card.position.y + float(card.get("bottom")) if card != null else 120.0 * k) + 2 * k)
+		size = Vector2(CARD.x, (CARD.y + 6) * maxi(1, party.members.size())) * k
+		queue_redraw()
+
+	func _face(p: Dictionary) -> Texture2D:
+		var look := int(p.get("look", 0))
+		if _faces.has(look):
+			return _faces[look]
+		var w := party.world
+		var info: Dictionary = w.sprites[int(party.people.d.looks[look].settings.idleDown)]
+		var at := AtlasTexture.new()
+		at.atlas = w._texture(info.tex)
+		var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
+		var used := frame
+		var img := at.atlas.get_image() if at.atlas != null else null
+		if img != null:
+			var r := img.get_region(frame).get_used_rect()
+			if r.size.x > 0:
+				used = Rect2i(frame.position + r.position, r.size)
+		var side := mini(used.size.x, int(used.size.y * 0.5))
+		at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
+		_faces[look] = at
+		return at
+
+	func _text(s: String, at: Vector2, sz: float, kind: String, c: Color, width := -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
+		var f := HudStyle.font(kind)
+		if f == null:
+			f = get_theme_default_font()
+		var px := roundi(sz * HudStyle.SCALE)
+		draw_string_outline(f, at, s, align, width, px, 3, Color(0, 0, 0, 0.5))
+		draw_string(f, at, s, align, width, px, c)
+
+	func _draw() -> void:
+		var k := HudStyle.SCALE
+		var y := 0.0
+		for id in party.members:
+			var p := Uniques.person(party.people, str(id))
+			if p.is_empty():
+				continue
+			var body: Villager = null
+			for v in Villager.all:
+				if is_instance_valid(v) and v.person == p:
+					body = v
+			var card := Rect2(Vector2(0, y), CARD * k)
+			draw_style_box(HudStyle.piece("panel"), card)
+			var fr := Rect2(card.position + Vector2(7, 7) * k, Vector2(FACE, FACE) * k)
+			draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
+			var face := _face(p)
+			if face != null:
+				draw_texture_rect(face, fr, false)
+			draw_style_box(HudStyle.piece("portraitFrame"), fr)
+			var lv := str(int(p.get("level", 1)))
+			var badge := Rect2(fr.end - Vector2(12, 12) * k, Vector2(16, 16) * k)
+			var b_tex := HudStyle.icon("badge")
+			if b_tex != null:
+				draw_texture_rect(b_tex, badge, false)
+			_text(lv, badge.position + Vector2(0, badge.size.y * 0.75), 10, "pixel", HudStyle.color("ink"), badge.size.x, HORIZONTAL_ALIGNMENT_CENTER)
+			var col := (7 + FACE + 9) * k
+			var col_w := CARD.x * k - col - 8 * k
+			_text(str(p.name), card.position + Vector2(col, 17 * k), 12, "bold", HudStyle.color("text"))
+			# HP.
+			var hp := body.hit.hp if body != null and body.hit != null else float(p.get("hp", 0.0))
+			var most := body.hit.max_hp if body != null and body.hit != null else maxf(1.0, float(p.get("maxHp", 1.0)))
+			var heart := HudStyle.icon("heart")
+			if heart != null:
+				draw_texture_rect(heart, Rect2(card.position + Vector2(col, 22 * k), Vector2(10, 10) * k), false, HudStyle.color("hp"))
+			var back := Rect2(card.position + Vector2(col + 14 * k, 24 * k), Vector2(col_w - 14 * k - 30 * k, 6 * k))
+			draw_style_box(HudStyle.piece("barBack"), back)
+			var frac := clampf(hp / maxf(1.0, most), 0.0, 1.0)
+			if frac > 0.02:
+				draw_style_box(HudStyle.piece("barFill", HudStyle.color("hp")), Rect2(back.position, Vector2(back.size.x * frac, back.size.y)))
+			_text(str(ceili(hp)), card.position + Vector2(col + col_w - 30 * k, 31 * k), 11, "pixel", HudStyle.color("text"), 30 * k, HORIZONTAL_ALIGNMENT_RIGHT)
+			# What they're at.
+			var doing := "Away" if body == null else body.activity()
+			var low := frac < 0.3
+			_text(doing, card.position + Vector2(col, 44 * k), 10, "body", HudStyle.color("coral") if low else HudStyle.color("muted"), col_w, HORIZONTAL_ALIGNMENT_LEFT)
+			y += (CARD.y + 6) * k
