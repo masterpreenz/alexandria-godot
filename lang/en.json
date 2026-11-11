@@ -43,6 +43,8 @@
 	"talk.choice.how": "How are things?",
 	"talk.choice.food": "Here, have some {food}",
 	"talk.choice.need": "What do you need?",
+	"talk.choice.rumor": "Heard anything?",
+	"talk.reply.norumor": ["Nothing new, {miko}.", "It's been quiet. Nothing worth telling.", "Not a thing. I'll tell you if I do."],
 	"talk.choice.bye": "Bye",
 	"talk.reply.how": ["I'm {doing}. Can't complain!", "Oh, I'm {doing}.", "Right now? {doing_cap}."],
 	"talk.reply.food": ["Thank you! {food}, my favourite!", "Oh, you're too kind!", "Mm! That hits the spot."],

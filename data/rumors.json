@@ -1,0 +1,55 @@
+{
+"_about": "Rumors: what the villagers tell Miko, in place of quests. Everything about them is here (nothing in the scripts), so this file can be edited by hand or by a tool. See scripts/rumors.gd for what each field means.",
+"rumors": [
+{
+ "id": "forest_clearing",
+ "title": "The woods could live again",
+ "teller": {"any": true},
+ "appears": {"afterDay": 1, "after": [], "unless": []},
+ "told": "They say the woods to the {dir} were full of life once, before the mist came down on them. If someone drove it off, the plants would come back, and the animals after them. It'd be a fine thing for the village.",
+ "expires": {"days": 12},
+ "steps": [
+  {"id": "find", "note": "{teller} spoke of misted woods to the {dir} of the village. Find them.",
+   "place": {"kind": "forest", "misted": true, "vague": 6},
+   "done": {"kind": "reach", "within": 4}},
+  {"id": "clear", "note": "The mist lies thick among these trees. Something that drives the mist off, set here, might clear it.",
+   "place": {"kind": "same", "vague": 3},
+   "done": {"kind": "cleared", "radius": 4, "share": 0.6}},
+  {"id": "wait", "note": "The air is clean under the trees now. Give it a few days.",
+   "place": {"kind": "same", "vague": 2},
+   "done": {"kind": "days", "days": 2}}
+ ],
+ "reward": {"effects": ["rabbit_hole"], "gifts": [["WheatSeed", 3], ["Fiber", 4]],
+  "log": "The woods to the {dir} are alive again: there are rabbits among the trees."},
+ "leads": {"done": ["forest_bounty"], "ignored": ["forest_stirs"]}
+},
+{
+ "id": "forest_bounty",
+ "title": "Rabbits in the cleared woods",
+ "teller": {"any": true},
+ "appears": {"after": [{"event": "done:forest_clearing", "days": 2}], "unless": []},
+ "told": "Have you been back to those woods you cleared? There's rabbits all through them now, I've seen them myself. Worth a look, I'd say.",
+ "steps": [
+  {"id": "visit", "note": "{teller} has seen rabbits in the woods you cleared. Go and look.",
+   "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 2},
+   "done": {"kind": "reach", "within": 3}}
+ ],
+ "reward": {"effects": [], "gifts": [["Bait", 5]], "log": "Worms under every log in the cleared woods: good bait."},
+ "leads": {}
+},
+{
+ "id": "forest_stirs",
+ "title": "Something in the misted woods",
+ "teller": {"any": true},
+ "appears": {"after": [{"event": "ignored:forest_clearing", "days": 0}], "unless": ["done:forest_clearing"]},
+ "told": "Those woods to the {dir}, the ones nobody did anything about? The mist's thicker there than ever. Folk hear things moving in it at night. I wouldn't leave it much longer.",
+ "steps": [
+  {"id": "look", "note": "{teller} says the mist has thickened in the woods to the {dir}, and something moves in it. See for yourself.",
+   "place": {"kind": "of", "rumor": "forest_clearing", "step": "find", "vague": 5},
+   "done": {"kind": "reach", "within": 4}}
+ ],
+ "reward": {"effects": [], "gifts": [], "log": "Tracks in the mud under the trees, bigger than a boar's. Whatever made them isn't here now."},
+ "leads": {}
+}
+]
+}

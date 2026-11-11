@@ -156,6 +156,13 @@ func _draw() -> void:
 	if Fainting.LostBag.active != null and is_instance_valid(Fainting.LostBag.active):
 		var at: Array = _to_map(Fainting.LostBag.active.position)
 		_square(at[0], 11 * k, MapMarks.BAG)
+	# Rumors being tracked: the ring each is somewhere in (off the map's edge: a mark at the edge, the way it lies).
+	if Rumors.active != null:
+		Rumors.active.draw_marks(self, func(p): return _to_map(p)[0] if _to_map(p)[1] else Vector2.INF, r.size.x / 2.0 / (float(ZOOM_STEPS[step]) * world.px), r, false)
+		for m in Rumors.active.marks():
+			var rumor_at: Array = _to_map(m.at)
+			if not rumor_at[1]:
+				_diamond(rumor_at[0], 6 * k, Color(1.0, 0.82, 0.3))
 	_square(r.get_center(), 10 * k, HudStyle.color("accentLight"))
 
 

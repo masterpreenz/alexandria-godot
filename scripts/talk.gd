@@ -76,7 +76,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_E:
 			_say_bye()
 			get_viewport().set_input_as_handled()
-		elif event.keycode >= KEY_1 and event.keycode <= KEY_4:
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			var i: int = event.keycode - KEY_1
 			if i < _acts.size():
 				(_acts[i] as Callable).call()
@@ -187,6 +187,8 @@ func _show(line: String) -> void:
 	var food := _food_to_give()
 	if food != "":
 		_add(Loc.t("talk.choice.food", {"food": UiKit.resource_name(food).to_lower()}), _give_food.bind(food))
+	if Rumors.active != null:
+		_add(Loc.t("talk.choice.rumor"), _ask_rumor)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
@@ -198,6 +200,17 @@ func _add(text: String, act: Callable) -> void:
 	b.pressed.connect(act)
 	_choices.add_child(b)
 	_acts.append(act)
+
+
+# What they've heard: a rumor, if they have one to tell (it goes in the journal); else nothing new.
+func _ask_rumor() -> void:
+	var rumor: Dictionary = Rumors.active.offer_from(who)
+	if rumor.is_empty():
+		_show(Loc.pick("talk.reply.norumor", {"miko": "Miko"}))
+		return
+	who.show_mood("idea", 3.0)
+	_show(Rumors.active.hear(str(rumor.id), who))
+	FloatingText.spawn(world, "New rumor (K)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
 
 
 func _ask_how() -> void:

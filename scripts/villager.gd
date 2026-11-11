@@ -750,6 +750,13 @@ func _scale() -> float:
 	return World.BODY_SCALE   # one scale for every person (villagers.json's look scale no longer counts)
 
 
+# Something to tell Miko (a rumor): shown over their head while they're up and about with nothing else showing.
+func _rumor_emote() -> String:
+	if Rumors.active == null or state == State.ASLEEP or state == State.HOME or state == State.CELLAR:
+		return ""
+	return "quest" if Rumors.active.has_offer(self) else ""
+
+
 func _show_idle() -> void:
 	_show(int(s.idleUp if facing_up else s.idleDown))
 
@@ -1470,6 +1477,8 @@ func _status() -> void:
 		_:
 			if state != State.ASLEEP and hit.hp < hit.max_hp * 0.35:
 				e = "sick"
+	if e == "":
+		e = _rumor_emote()
 	_emote(e)
 
 

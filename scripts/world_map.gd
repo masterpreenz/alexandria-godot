@@ -291,6 +291,9 @@ func _draw() -> void:
 			_diamond(p, 7 * k, MapMarks.CRYSTAL)
 			_text(p + Vector2(-100 * k, -12 * k), _crystals.name_of(c.pos), 11, HudStyle.color("text"), "bold", HORIZONTAL_ALIGNMENT_CENTER, 200 * k)
 			_crystal_spots.append([p, c])
+	# Rumors being tracked: the ring each is somewhere in, and its name.
+	if Rumors.active != null:
+		Rumors.active.draw_marks(self, _to_screen, _frame.size.x / _view().size.x, _frame, true)
 	# Miko on top.
 	_square(_to_screen(miko.position), 11 * k, HudStyle.color("accentLight"))
 
