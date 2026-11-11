@@ -6,6 +6,8 @@ extends Node
 ## villagers; with nobody about they roam it. The village log warns of it. At dawn what's left of them falls back
 ## into the mist (they become ordinary monsters again). It's random: most nights nothing comes.
 
+static var active: Raids
+
 var world: World
 var d: Dictionary                ## monsters.json
 var raiders: Array = []          ## the horde about now
@@ -16,6 +18,17 @@ var _last_night := -1            ## the night (its day) the last raid came: one 
 func setup(w: World, data: Dictionary) -> void:
 	world = w
 	d = data
+	active = self
+
+
+## Whether a raid's on: the horde's about. Then every villager who can fight does.
+static func on() -> bool:
+	return active != null and not active.raiders.is_empty()
+
+
+## Whether [param body] is one of the raid's.
+static func raider(body: Node) -> bool:
+	return active != null and active.raiders.has(body)
 
 
 func _settings() -> Dictionary:

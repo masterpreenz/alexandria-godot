@@ -465,7 +465,7 @@ func _cook(pressed: bool, delta: float) -> void:
 		return
 	# Done: the first thing there is to cook, cooked.
 	for r in RECIPES:
-		if world.village.take(miko.bag, miko, r[0], 1):
+		if world.village.take_spare(miko.bag, miko, r[0], 1):   # (not the seed kept for planting)
 			# Good Cook: now and then it stretches to two.
 			var dishes := 2 if miko.stats != null and randf() < miko.stats.stat("cookBonus") / 100.0 else 1
 			world.village.give(miko.bag, miko, r[1], dishes, miko.position)

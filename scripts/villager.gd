@@ -199,6 +199,11 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 			person.hp = 0.0
 			VillageLog.event("died:" + name, "%s has died" % name, VillageLog.Kind.DANGER)
 		move_out())
+	# Their HP beside them in a fight (no mana: they've none).
+	var bars := HeadBars.new()
+	bars.name = "HeadBars"
+	bars.setup(world, self)
+	add_child(bars)
 	var wade := Wading.new()
 	wade.name = "Wading"
 	add_child(wade)
@@ -262,6 +267,9 @@ func _wake_time() -> bool:
 
 # Bedtime: 21 to 6, or from 18 when worn out (and any time when exhausted).
 func _night() -> bool:
+	# (a raid on: nobody who can fight goes to bed, or stays there)
+	if Raids.on() and not (s.stabDown as Array).is_empty() and not _low():
+		return false
 	var h := _hour(world)
 	var tired := float(person.get("energy", 100.0))
 	return h >= 21.0 or h < 6.0 or (tired < 25.0 and h >= 18.0) or tired < 5.0
@@ -425,6 +433,10 @@ func _physics_process_timed(delta: float) -> void:
 		return
 	# A slime about: go for it (unless asleep, or already at one).
 	# Badly hurt (under a fifth of their health) with a monster near: they run instead.
+	# A raid: everyone's up and out of whatever they were at (the sleeping too), to fight.
+	if Raids.on() and (state == State.ASLEEP or state == State.CELLAR) and not (s.stabDown as Array).is_empty() and not _low():
+		if state == State.ASLEEP: _wake_up(t)
+		_stand(t, 0.0)
 	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
 		next_look = t + 0.5
 		var danger := _danger() if _low() else null
@@ -1021,7 +1033,11 @@ func _go_fish(urgent := false) -> bool:
 	for at in f.village_docks():
 		var by: Variant = Fishing.taken.get(at)
 		if by != null and is_instance_valid(by) and by != self and (by.state == State.TO_FISH or by.state == State.FISH):
-			continue
+			# (put on fishing on the job board, they have the dock over someone who only happened to take it: that
+			# one goes home with what they've caught)
+			if int(person.get("first", -1)) != Job.FISHING or int(by.person.get("first", -1)) == Job.FISHING:
+				continue
+			by._done_fishing(now())
 		var dd: float = at.distance_to(position)
 		if dd < best_d:
 			best_d = dd
@@ -1819,13 +1835,20 @@ func _threat() -> Damageable:
 	if (s.stabDown as Array).is_empty():
 		return null
 	var best: Damageable = null
-	var best_d := float(s.guardRange) * world.px
+	var raid := Raids.on()
+	# (a raid: the nearest of the horde, wherever it is; else a monster in the village and near them or their home)
+	var best_d := INF if raid else float(s.guardRange) * world.px
 	for d in Damageable.all:
-		if not d.alive() or not d.get_parent() is Slime:
+		if not d.alive():
+			continue
+		var of_raid := raid and Raids.raider(d.get_parent())
+		if not of_raid and not d.get_parent() is Slime:
 			continue
 		var at := d.global_position
-		if not world.village.contains(at):
+		if not of_raid and not world.village.contains(at):
 			continue
+		if of_raid and not world.village.contains(at, 10.0):
+			continue   # (not chased off into the mist: met as they come in)
 		var near := minf(at.distance_to(position), at.distance_to(_home_at()))
 		if near < best_d:
 			best_d = near
@@ -1854,8 +1877,10 @@ func _fighting(t: float, delta: float) -> void:
 			_flee(danger)
 			return
 	# Gone, or out of the village (they don't follow it out): back to it.
-	if foe == null or not is_instance_valid(foe) or not foe.alive() or not world.village.contains(foe.global_position, 0.5) \
-			or foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px:
+	# (a raid: met wherever they come into the village, not only near home)
+	var raid := foe != null and is_instance_valid(foe) and Raids.on() and Raids.raider(foe.get_parent())
+	if foe == null or not is_instance_valid(foe) or not foe.alive() or not world.village.contains(foe.global_position, 10.0 if raid else 0.5) \
+			or (not raid and foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px):
 		foe = null
 		_stand(t, randf_range(1.0, 2.0))
 		return
@@ -2598,7 +2623,12 @@ func _crops_need_care() -> bool:
 	if farm == null or carrying > 0 or not _does(Job.FARMING):
 		return false
 	for p in farm.plots:
-		if not tending.has(p.key) and (farm.pests(p) or farm.dry(p)) and world.village.contains(p.pos, 3.0):
+		if tending.has(p.key) or not world.village.contains(p.pos, 3.0):
+			continue
+		if farm.pests(p) or farm.dry(p):
+			return true
+		# (a bare plot with seed for it in storage: planting isn't left to chance, it comes before the cooking)
+		if farm.stage(p) == 0 and bool(farm._field_crop(p, func(seed_name: String) -> bool: return world.village.stored(seed_name) > 0)[0]):
 			return true
 	return false
 

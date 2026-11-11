@@ -16,7 +16,7 @@ extends Node
 ##   steps     [{id, note (the journal's line), place, done}]
 ##     place   {"kind": "forest" (the nearest wood; "misted": in the mist; or the wood in map "section": "F6", at its
 ##              "corner": "upper-left" | "upper-right" | "lower-left" | "lower-right" as seen, its edge on that side) | "same" (the step before's) |
-##              "of" ("rumor", "step": another rumor's) | "village" | "cell" ("x", "y"), "vague": the ring's radius, units}
+##              "of" ("rumor", "step": another rumor's) | "village" | "section" ("section": "A8", its middle) | "cell" ("x", "y"), "vague": the ring's radius, units}
 ##     done    {"kind": "reach" ("within" units) | "cleared" ("radius" units round it, "share" of it out of the mist) |
 ##              "days" ("days" since the step began) | "event" ("event": in the chronicle)}
 ##   reward    never shown: {"gifts": [[resource, n]], "effects": [...], "log": the village log's line}
@@ -202,6 +202,7 @@ func _find_place(def: Dictionary, st: Dictionary, i: int) -> void:
 			var p: Variant = other.get("places", {}).get(str(pl.get("step", "")))
 			if p is Array:
 				at = Vector2(float(p[0]), float(p[1]))
+		"section": at = _section_middle(str(pl.get("section", "")))
 		"village": at = world.village.centre()
 		"cell": at = world.floors.cell_centre(Vector2i(int(pl.get("x", 0)), int(pl.get("y", 0))))
 	if at != Vector2.INF:
@@ -240,6 +241,23 @@ func _wood_in(pl: Dictionary) -> Vector2:
 	# (just outside the trees, on that side: where she'd walk in)
 	var out := best + (way.normalized() if way != Vector2.ZERO else (c - best).normalized()) * Vector2(1.6, 0.8) * world.px
 	return out if Wilds.open(world, out, 0.5, 0.3) else best
+
+
+# The middle of a map section (as "A8"), or the nearest dry ground to it.
+func _section_middle(wanted: String) -> Vector2:
+	for col in MapMarks.SECTIONS:
+		for row in MapMarks.SECTIONS:
+			if MapMarks.section_name(col, row) == wanted.to_upper():
+				var b := MapMarks.section_bounds(col, row)
+				var mid := b.position + Vector2i(b.size.x >> 1, b.size.y >> 1)
+				for r in 12:
+					for dx in range(-r, r + 1):
+						for dy in range(-r, r + 1):
+							var at := world.floors.cell_centre(mid + Vector2i(dx, dy))
+							if maxi(absi(dx), absi(dy)) == r and world.water_depth(at) <= 0.0:
+								return at
+				return world.floors.cell_centre(mid)
+	return Vector2.INF
 
 
 # A wood near the village: the nearest in the mist that can be cleared (not the strong mist), if that's asked for

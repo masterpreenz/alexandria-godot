@@ -135,6 +135,14 @@ func take(bag: Bag, who: Node2D, r: String, amount: int) -> bool:
 	return true
 
 
+## As [method take], for eating and cooking: from storage only what can be spared (what's kept for planting stays).
+func take_spare(bag: Bag, who: Node2D, r: String, amount: int) -> bool:
+	var in_bag := bag.count(r) if bag != null else 0
+	if in_bag + (spare(r) if in_reach(who) else 0) < amount:
+		return false
+	return take(bag, who, r, amount)
+
+
 func take_from_stash(r: String, amount: int) -> bool:
 	if amount <= 0:
 		return true

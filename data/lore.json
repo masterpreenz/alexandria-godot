@@ -1,0 +1,24 @@
+{
+"_about": "The world's story, for whoever writes the rumors: what happened and happens when, where, and why, in order. Not read by the game (rumors.json and uniques.json are); kept beside them so the timeline editor shows the events the rumors hang on. day: the game's day it happens (0 or less: before the game begins; null: not fixed yet).",
+"places": [
+ {"id": "home_village", "name": "The village", "section": "D3", "about": "Where Miko arrives. Human villagers; Miko is not human (her ears show it)."},
+ {"id": "mist_origin", "name": "Where the mist began", "section": "H5", "about": "The mist came from here, from the north. Why is not known yet (a branch to write)."},
+ {"id": "west_village", "name": "The next village", "section": "A8", "about": "Several blocks west of C8, on the far side of the river: beyond the map as it is now. Miyu was here when the mist came. Already under siege. (In the game its place is a stand-in at the map's western edge, A8.)"},
+ {"id": "great_woods", "name": "The great woods", "section": "F6", "about": "Where the village gathered every week until the mist."},
+ {"id": "city", "name": "The city", "section": "", "about": "Not in the game yet. Reached by a road that has to be cleared; the merchants come from it."}
+],
+"events": [
+ {"id": "mist_begins", "day": 0, "title": "The mist rises in the north", "place": "mist_origin", "about": "The mist starts at H5 and spreads slowly outwards. Monsters come out of it."},
+ {"id": "village_attacked", "day": 1, "title": "Monsters attack the village; Miko arrives", "place": "home_village", "about": "Miko reaches the village as it is attacked from the mist, and saves it. The elder is here; his granddaughter Miyu is not."},
+ {"id": "west_village_siege", "day": 1, "title": "The next village is under siege", "place": "west_village", "about": "Across the river the mist has already closed round the next village. Miyu is trapped there.", "rumors": ["find_miyu"]},
+ {"id": "west_village_falls", "day": 7, "title": "The next village falls", "place": "west_village", "about": "If nobody reaches it within six days of hearing, nobody there is left alive: Miyu is lost.", "rumors": ["find_miyu"]},
+ {"id": "woods_rot", "day": 13, "title": "The great woods begin to rot", "place": "great_woods", "about": "Left to the mist, something starts moving in the woods.", "rumors": ["forest_clearing", "forest_stirs"]},
+ {"id": "merchants", "day": null, "title": "Merchants reach the village", "place": "home_village", "about": "Once a way to the city is cleared, a merchant and his daughter Katrin visit now and then with an escort. Later the escort abandons them and they ask Miko to see them home; if she does not, the same escort kills them on the road (they side with those who distrust Miko). Lost: the trade route, and Katrin, an alchemist who becomes a mage."}
+],
+"characters": [
+ {"id": "miko", "name": "Miko", "about": "The player. A demi shrine maiden, not human. Came from the south-east."},
+ {"id": "elder", "name": "The elder", "about": "The village's chief. Not in the game yet. Miyu's grandfather; gives the rumor to find her."},
+ {"id": "miyu", "name": "Miyu", "unique": "miyu", "about": "The elder's granddaughter. Unique: at full intimacy she asks for a book to learn magic (one book, for good)."},
+ {"id": "katrin", "name": "Katrin", "about": "A wandering merchant's daughter. Not in the game yet. Unique: an alchemist, later a mage."}
+]
+}

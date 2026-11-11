@@ -619,7 +619,10 @@ func _refresh_board() -> void:
 							if st == 2: ripe += 1
 							elif st == 0: bare += 1
 							else: growing += 1
-				text = "%d plots ripe to harvest  ·  %d bare to plant  ·  %d growing" % [ripe, bare, growing]
+				var kept := 0
+				for k in v.reserve:
+					kept += mini(int(v.reserve[k]), v.stored(k))
+				text = "%d plots ripe to harvest  ·  %d bare to plant  ·  %d growing  ·  %d seed kept for planting (not eaten, cooked or spoiled)" % [ripe, bare, growing, kept]
 			Villager.Job.FISHING:
 				var docks := Fishing.active.village_docks().size() if Fishing.active != null else 0
 				text = "No dock the villagers can reach (build one by the water, on cleared ground)" if docks == 0 else ("Enough fish in storage: no fishing" if Kitchen.stocked(v, "Fish") else "%d docks to fish  ·  fish %d of %d" % [docks, v.stored("Fish"), Kitchen.target("Fish")])
@@ -637,7 +640,12 @@ func _refresh_board() -> void:
 				text = "%d food to carry down to the cellar  ·  whatever's lying about brought in" % move
 		(r.pending as Label).text = text
 		var names: Array = at.get(int(r.job), [])
-		(r.doing as Label).text = ("At it now: " + ", ".join(names)) if not names.is_empty() else "Nobody at it now"
+		# (and those put on it who aren't at it: what they're doing in its place)
+		var elsewhere := []
+		for x in Villager.all:
+			if is_instance_valid(x) and int(x.person.get("first", -1)) == int(r.job) and not names.has(str(x.person.name)):
+				elsewhere.append("%s (%s)" % [x.person.name, x.activity().to_lower()])
+		(r.doing as Label).text = (("At it now: " + ", ".join(names)) if not names.is_empty() else "Nobody at it now") + (("   ·   Put on it, not at it yet: " + ", ".join(elsewhere)) if not elsewhere.is_empty() else "")
 	for c in _board_cards:
 		var p: Dictionary = c.who
 		var body: Villager = null
@@ -752,7 +760,7 @@ func _refresh() -> void:
 		for v in Villager.all:
 			if v.person == p:
 				body = v
-		r.name.text = "%s%s   Lv %d" % ["★ " if p.has("unique") else "", p.name, int(p.get("level", 1))]
+		r.name.text = "%s%s   Lv %d%s" % ["★ " if p.has("unique") else "", p.name, int(p.get("level", 1)), ("   " + Intimacy.hearts(p)) if p.has("unique") else ""]
 		var traits := Traits.shown(p)
 		(r.traits as Label).text = "  ·  ".join(traits.map(func(x): return str(x[0])))
 		(r.traits as Label).tooltip_text = "\n".join(traits.map(func(x): return "%s: %s" % [x[0], x[2]]))

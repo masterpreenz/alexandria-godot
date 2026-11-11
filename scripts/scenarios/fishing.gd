@@ -89,7 +89,7 @@ func run() -> void:
 		if seen.is_empty() or seen[-1] != what:
 			seen.append(what)
 			print("  ", what, " at ", snappedf((Time.get_ticks_msec() - t0) / 1000.0, 0.1), " s, ", snappedf(vl.position.distance_to(dock_at) / world.px, 0.1), " from the dock, carrying ", vl.carrying)
-		if v.stored("Fish") > 0:
+		if v.stored("Fish") > 0 or vl.carrying >= 2:   # (a couple caught: enough to see it works)
 			break
 		if what == "FISH" and vl.carrying > 0 and not seen.has("shot"):
 			seen.append("shot")
@@ -98,4 +98,13 @@ func run() -> void:
 				await get_tree().process_frame
 			print("Fishing: ", vl.person.name, " (look ", vl.person.get("look", "?"), "): line out ", vl._fish_line != null and vl._fish_line.visible, ", float in the water ", vl._fish_line != null and vl._fish_line.landed)
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_villager.png")
+	# Another put on fishing on the job board: the dock's theirs.
+	var other: Villager = Villager.all.filter(func(x): return x != vl)[0]
+	Villager.only(vl.person, [Villager.Job.FISHING])
+	vl._stand(Villager.now(), 0.0)
+	vl._go_fish()
+	other.person["first"] = Villager.Job.FISHING
+	var got := other._go_fish(true)
+	print("Fishing: ", vl.person.name, " heading to the dock, then ", other.person.name, " put on fishing: takes it ", got, "; ", vl.person.name, " now ", Villager.State.keys()[vl.state], ", the dock's ", (Fishing.taken.get(other.fish_dock) as Villager).person.name if got else "?")
+	other.person.erase("first")
 	print("Fishing: the villager went ", seen, "; fish in storage ", v.stored("Fish"), ", bait left ", v.stored("Bait"))

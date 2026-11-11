@@ -73,6 +73,9 @@ func _fix(p: Dictionary) -> void:
 				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
+	for k in ["talkedDay", "giftDay"]:
+		if p.has(k):
+			p[k] = int(p[k])
 	if p.has("first"):
 		p["first"] = int(p.first)
 	# (a save's numbers come back as fractions: the jobs ticked are whole)

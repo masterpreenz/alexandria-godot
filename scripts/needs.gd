@@ -357,7 +357,7 @@ func eat(food := "") -> bool:
 		var kind: String = pair[0]
 		if food != "" and food != kind:
 			continue
-		if world.village.take(miko.bag, miko, kind, 1):
+		if world.village.take_spare(miko.bag, miko, kind, 1):   # (not the seed kept for planting)
 			var fills: float = float(s[pair[1]]) if pair[1] is String else float(pair[1])
 			hunger = minf(MAX, hunger + fills)
 			_say("+%d hunger" % roundi(fills), Color(0.96, 0.68, 0.32))

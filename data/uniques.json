@@ -1,13 +1,201 @@
 {
-"_about": "Unique characters: named people who exist once. Never rolled as an ordinary newcomer. A rumor's effects bring one to the village (unique_arrives:<id>) or lose them for good (unique_lost:<id>). See scripts/uniques.gd.",
-"uniques": [
-{
- "id": "miyu",
- "name": "Miyu",
- "look": 2,
- "about": "The village elder's granddaughter. She was away in the next village when the mist came down.",
- "traits": ["unique", "quick_learner", "thin_blooded"],
- "level": 1
-}
-]
+ "_about": "Unique characters: named people who exist once. Never rolled as an ordinary newcomer. A rumor's effects bring one to the village (unique_arrives:<id>) or lose them for good (unique_lost:<id>). See scripts/uniques.gd.",
+ "uniques": [
+  {
+   "id": "miyu",
+   "name": "Miyu",
+   "look": 2,
+   "about": "The village elder's granddaughter. She was away in the next village when the mist came down.",
+   "traits": [
+    "unique",
+    "quick_learner",
+    "thin_blooded"
+   ],
+   "level": 1,
+   "gifts": {
+    "loved": [
+     "Candy",
+     "FishStew",
+     "Bread"
+    ],
+    "liked": [
+     "GrilledFish",
+     "BakedPotato",
+     "CarrotStew",
+     "CabbageSoup",
+     "Fiber",
+     "Cotton"
+    ],
+    "disliked": [
+     "Food",
+     "Fish",
+     "Jelly",
+     "Stone"
+    ]
+   },
+   "giftSays": {
+    "loved": [
+     "Oh! For me? I love these. Thank you, {miko}!",
+     "You remembered! I'll make it last. ...No I won't."
+    ],
+    "liked": [
+     "That's kind of you. Thank you.",
+     "Oh, this'll be useful. Thanks, {miko}."
+    ],
+    "plain": [
+     "Um. Thank you? I'll find a use for it."
+    ],
+    "disliked": [
+     "Oh. ...Thank you. I'll, um, put it somewhere.",
+     "Is this a joke? ...Sorry. Thank you."
+    ],
+    "already": [
+     "You've already given me something today. Keep it for yourself!"
+    ]
+   },
+   "greetings": [
+    {
+     "min": 0,
+     "says": [
+      "Oh, hello, {miko}.",
+      "Did you need something?"
+     ]
+    },
+    {
+     "min": 30,
+     "says": [
+      "{miko}! I was hoping you'd come by.",
+      "There you are. How's your day been?"
+     ]
+    },
+    {
+     "min": 70,
+     "says": [
+      "{miko}! Come and sit a moment.",
+      "I saved you a spot. Tell me everything."
+     ]
+    }
+   ],
+   "topics": [
+    {
+     "id": "grandfather",
+     "min": 0,
+     "ask": "How are you settling in?",
+     "says": "Grandfather fusses, but he hasn't let me out of his sight since I got back. I keep thinking about the others in that village. I should have been able to do something.",
+     "replies": [
+      {
+       "text": "You stayed alive. That was the something.",
+       "gain": 6,
+       "answer": "...I hadn't thought of it like that. Thank you, {miko}."
+      },
+      {
+       "text": "There was nothing you could have done.",
+       "gain": 3,
+       "answer": "I suppose not. It doesn't feel that way, though."
+      },
+      {
+       "text": "Best not to dwell on it.",
+       "gain": -2,
+       "answer": "Easy for you to say."
+      }
+     ]
+    },
+    {
+     "id": "ears",
+     "min": 10,
+     "ask": "You keep looking at my ears.",
+     "says": "I'm sorry! It's rude, I know. It's only that I've never met anyone like you. Some of the others whisper about it. Does it bother you?",
+     "replies": [
+      {
+       "text": "A little. But not from you.",
+       "gain": 7,
+       "answer": "Then I'll look as much as I like. ...That came out wrong."
+      },
+      {
+       "text": "Let them whisper.",
+       "gain": 4,
+       "answer": "You're braver than I am."
+      },
+      {
+       "text": "Yes. Stop it.",
+       "gain": -4,
+       "answer": "Sorry. I'm sorry."
+      }
+     ]
+    },
+    {
+     "id": "mist",
+     "min": 25,
+     "ask": "What did you see, in the mist?",
+     "says": "It came from the north, slowly, like weather. Then it wasn't slow at all. The things in it don't just wander, {miko}. Something sends them. I'm sure of it.",
+     "replies": [
+      {
+       "text": "Then we'll find what sends them.",
+       "gain": 6,
+       "answer": "We? ...I'd like that. I don't want to only hide."
+      },
+      {
+       "text": "You're safe here now.",
+       "gain": 3,
+       "answer": "For now. Thank you for saying it."
+      }
+     ]
+    },
+    {
+     "id": "magic",
+     "min": 50,
+     "ask": "You watch when I cast.",
+     "says": "Every time! The way the charm lights before the fire comes. I've tried to copy the gestures when nobody's looking. Nothing happens, of course. Is it something you're born with?",
+     "replies": [
+      {
+       "text": "Some of it. Most of it is learned.",
+       "gain": 7,
+       "answer": "Learned. So someone could teach it. Or a book could. ...I'm only thinking out loud."
+      },
+      {
+       "text": "It isn't for villagers.",
+       "gain": -5,
+       "answer": "Oh. No. Of course not."
+      }
+     ]
+    },
+    {
+     "id": "stay",
+     "min": 75,
+     "ask": "Will you stay in the village?",
+     "says": "I used to think I'd leave as soon as I was grown. Now I can't think where I'd rather be. That's your fault, you know.",
+     "replies": [
+      {
+       "text": "I'll take the blame gladly.",
+       "gain": 8,
+       "answer": "Good. Then it's settled."
+      },
+      {
+       "text": "The village needs you.",
+       "gain": 4,
+       "answer": "The village. Yes. That's what I meant, too."
+      }
+     ]
+    }
+   ],
+   "milestones": [
+    {
+     "at": 25,
+     "says": "Miyu has started saving you a seat by the fire."
+    },
+    {
+     "at": 50,
+     "says": "Miyu trusts you: she'll talk about the mist now."
+    },
+    {
+     "at": 75,
+     "says": "Miyu looks for you first when she comes in from work."
+    },
+    {
+     "at": 100,
+     "says": "Miyu has something she wants to ask you."
+    }
+   ]
+  }
+ ]
 }

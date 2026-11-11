@@ -65,8 +65,9 @@ func _process_timed(_delta: float) -> void:
 		# The share of a stack gone in dh hours, at its daily rate.
 		var share := (1.0 - pow(1.0 - float(PER_DAY[r]), dh / 24.0)) * keeps
 		if v.founded():
-			_stash_carry[r] = float(_stash_carry.get(r, 0.0)) + v.stored(r) * share * stored_keeps
-			var gone := mini(floori(_stash_carry[r]), v.stored(r))
+			# (what's kept for planting is kept dry and sound: it doesn't spoil)
+			_stash_carry[r] = float(_stash_carry.get(r, 0.0)) + v.spare(r) * share * stored_keeps
+			var gone := mini(floori(_stash_carry[r]), v.spare(r))
 			if gone > 0 and v.take_from_stash(r, gone):
 				_stash_carry[r] -= gone
 				_stash_lost[r] = int(_stash_lost.get(r, 0)) + gone

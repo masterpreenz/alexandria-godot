@@ -78,7 +78,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_E:
 			_say_bye()
 			get_viewport().set_input_as_handled()
-		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_7:
 			var i: int = event.keycode - KEY_1
 			if i < _acts.size():
 				(_acts[i] as Callable).call()
@@ -148,7 +148,14 @@ func open(v: Villager) -> void:
 	_face.texture = at
 	_name.text = str(v.person.name)
 	_work.text = JobsWindow.jobs_text(v.person) + "".join(Traits.shown(v.person).map(func(x): return "  ·  " + str(x[0])))
-	_show(_greeting(v))
+	# (someone unique: the day's first talk brings them a little closer, and they greet her their own way)
+	var own := ""
+	if Intimacy.has(v.person):
+		if Intimacy.talked(v.person, world.clock.day() if world.clock != null else 0):
+			_closer(Intimacy.DAILY_TALK)
+		if not v._hungry():
+			own = Intimacy.greeting(v.person)
+	_show(own if own != "" else _greeting(v))
 	visible = true
 	_tail.visible = true
 	move_to_front()
@@ -192,6 +199,13 @@ func _show(line: String) -> void:
 	# (only with a rumor to tell; the way to ask stands out: a gold border)
 	if Rumors.active != null and Rumors.active.has_offer(who):
 		_add(Loc.t("talk.choice.rumor"), _ask_rumor, true)
+	# (someone unique: something of their own to talk about, and a gift)
+	if Intimacy.has(who.person):
+		_hearts()
+		var topic := Intimacy.topic(who.person)
+		if not topic.is_empty():
+			_add(str(topic.ask), _ask_topic.bind(topic))
+		_add(Loc.t("talk.choice.gift"), _pick_gift)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
@@ -228,6 +242,71 @@ func _ask_rumor() -> void:
 	who.show_mood("idea", 3.0)
 	_show(Rumors.active.hear(str(rumor.id), who))
 	FloatingText.spawn(world, "New rumor (K)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
+
+
+# ---- Someone unique: their hearts, their own topics, gifts ----
+
+func _hearts() -> void:
+	_work.text = "%s   %s" % [Intimacy.hearts(who.person), JobsWindow.jobs_text(who.person)]
+
+
+# A line of theirs with replies to pick from, in place of the usual choices.
+func _show_replies(line: String, replies: Array) -> void:
+	_line.text = line
+	for c in _choices.get_children():
+		c.queue_free()
+	_acts.clear()
+	for r in replies:
+		_add(str(r[0]), r[1])
+
+
+func _ask_topic(topic: Dictionary) -> void:
+	who.show_mood("ellipsis", 3.0)
+	var replies := []
+	for r in topic.get("replies", []):
+		replies.append([str(r.text), _answer_topic.bind(topic, r)])
+	_show_replies(str(topic.says).format({"miko": "Miko"}), replies)
+
+
+func _answer_topic(topic: Dictionary, reply: Dictionary) -> void:
+	var gain := float(reply.get("gain", 0))
+	var said := Intimacy.answer(who.person, topic, reply)
+	_closer(gain)
+	_show(said)
+
+
+# What's in her bag to give, the ones they'd like best first (up to five), and never mind.
+func _pick_gift() -> void:
+	var day := world.clock.day() if world.clock != null else 0
+	if Intimacy.gifted_today(who.person, day):
+		_show(Intimacy.line(who.person, "giftSays", "already"))
+		return
+	var order := {"loved": 0, "liked": 1, "plain": 2, "disliked": 3}
+	var have := Bag.RESOURCES.filter(func(r): return miko.bag.count(r) > 0)
+	have.sort_custom(func(a, b): return int(order[Intimacy.taste(who.person, a)]) < int(order[Intimacy.taste(who.person, b)]))
+	var replies := []
+	for r in have.slice(0, 5):
+		replies.append([UiKit.resource_name(r), _give_gift.bind(r)])
+	replies.append([Loc.t("talk.choice.nevermind"), func(): _show(Loc.t("talk.reply.nevermind"))])
+	_show_replies(Loc.t("talk.reply.gift.pick") if have.size() > 0 else Loc.t("talk.reply.gift.none"), replies)
+
+
+func _give_gift(item: String) -> void:
+	if not miko.bag.spend(item, 1):
+		return
+	var day := world.clock.day() if world.clock != null else 0
+	var took := Intimacy.give(who.person, item, day)
+	FloatingText.spawn(world, "-1 " + UiKit.resource_name(item), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
+	who.show_mood({"loved": "affection", "liked": "cheerful", "plain": "relaxed", "disliked": "frustration"}[took[0]], 4.0)
+	_closer(float(Intimacy.GIFT[took[0]]))
+	_show(str(took[1]))
+
+
+# Closer, or less so: said over them.
+func _closer(by: float) -> void:
+	if by == 0.0:
+		return
+	FloatingText.spawn(world, ("♥ +%d" if by > 0.0 else "♥ %d") % roundi(by), who.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.55, 0.7) if by > 0.0 else Color(0.7, 0.7, 0.8), 20, 1.6)
 
 
 func _ask_how() -> void:
