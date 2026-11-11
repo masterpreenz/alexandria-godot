@@ -1987,6 +1987,8 @@ func _ready() -> void:
 						await get_tree().process_frame
 						if cl.cold != last:
 							last = cl.cold
+							var dn := world.props.node_at(world.floors.cell_at(v.centre()) + Vector2i(4, -5), 1)
+							print("  doors open ", cl._open_until.size(), ", art ", world.sprites[int((dn.get_child(0) as Sprite2D).get_meta("sprite", 0))].name if dn != null else "no node")
 							print("Move food ", floori((Time.get_ticks_msec() - t0) / 1000.0), " s: cold ", cl.cold, " of ", cl.holds(), ", movers ", Cellars.movers.keys().map(func(q): return q.person.name + " " + q.activity()))
 					print("Move food end: cold ", cl.cold, ", food still ", cl.food_stored(), ", cold share ", snappedf(cl.cold_share(), 0.01), ", saved ", cl.to_json())
 				"cellardoor":

@@ -17,7 +17,7 @@ const FLOOR := "PathCobble"
 const WALL := "FieldstoneWall"
 const FRONT_ALPHA := 0.3          ## how solid the two near walls are drawn (seen through, as a house's)
 
-const STAYS_OPEN := 8.0           ## seconds the doors stay open after someone's used them
+const STAYS_OPEN := 6.0           ## seconds the doors stay open after someone's used them
 const OPEN_SOUND := "res://assets/Sounds/cellar_door_open.mp3"
 const CLOSE_SOUND := "res://assets/Sounds/cellar_door_close.mp3"
 
@@ -204,6 +204,19 @@ func _process(_delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	prompt.visible = false
+	# A villager nearly at the doors on their way down: the doors open for them before they get there (not as they
+	# vanish), and are kept open while anyone's down below.
+	var cellars := all()
+	if not cellars.is_empty():
+		for v in Villager.all:
+			if not is_instance_valid(v):
+				continue
+			if v.state == Villager.State.CELLAR:
+				use_doors(v._cellar_from)
+			elif v._via_cellar and (v.state == Villager.State.TO_STORE or v.state == Villager.State.TO_EAT):
+				for c in cellars:
+					if c.distance_to(v.position) < 2.2 * world.px:
+						use_doors(c)
 	# Doors nobody's used for a while swing shut.
 	if not _open_until.is_empty():
 		var now := Time.get_ticks_msec() / 1000.0
