@@ -37,6 +37,13 @@ func setup(world: World) -> void:
 	var inner := world.floors.bounds
 	var outer := inner.grow(MARGIN)
 	var snow := world.snow_material(0)
+	# (nothing on a road carried on past the edge, nor close by it: further on the side below it on screen, where a
+	# tree's crown would stand up over it)
+	var by_road := {}
+	for c: Vector2i in world.floors.beyond:
+		for dx in range(-8, 4):
+			for dy in range(-8, 4):
+				by_road[c + Vector2i(dx, dy)] = true
 	for x in range(outer.position.x, outer.end.x):
 		for y in range(outer.position.y, outer.end.y):
 			if inner.has_point(Vector2i(x, y)) or (x >= RIVER[0] and x <= RIVER[1]):
@@ -54,7 +61,7 @@ func setup(world: World) -> void:
 			elif roll < (TREE_CHANCE if wooded else SPARSE_TREE) + GROWTH_CHANCE and not growth.is_empty():
 				id = growth[rng.randi() % growth.size()]
 				size = rng.randf_range(0.8, 1.15)
-			if id < 0:
+			if id < 0 or by_road.has(Vector2i(x, y)):
 				continue
 			var sp := Sprite2D.new()
 			world.show_frame(sp, id, Vector2(-size if rng.randf() < 0.5 else size, size))

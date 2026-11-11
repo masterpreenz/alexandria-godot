@@ -46,6 +46,7 @@ var cells := {}            # Vector2i -> floor name (ground floors other than th
 var laid := {}             # Vector2i -> floor name (whole floors on top)
 var turned := {}           # Vector2i -> true
 var original := {}
+var beyond := {}           ## Vector2i -> floor name: roads carried on past the map's edges, for looks (not saved)
 var original_laid := {}
 var original_turned := {}
 var _layers := {}          # floor name -> FloorLayer
@@ -73,6 +74,7 @@ func setup(w: World, data: Dictionary) -> void:
 		else:
 			cells[at] = p.floor
 	original = cells.duplicate()
+	_carry_roads_on()
 	original_laid = laid.duplicate()
 	original_turned = turned.duplicate()
 	# The ground (one layer), then each other floor's layer above it, by its layer number.
@@ -80,6 +82,20 @@ func setup(w: World, data: Dictionary) -> void:
 	for n in types:
 		if n != base_floor:
 			_layers[n] = FloorLayer.new(self, "Floor_" + n)
+
+
+# A road that reaches the map's edge runs on past it (as far as the outskirts are drawn), so it leads somewhere.
+func _carry_roads_on() -> void:
+	beyond.clear()
+	for c: Vector2i in original:
+		var out := []
+		if c.y == bounds.position.y: out.append(Vector2i(0, -1))
+		if c.y == bounds.end.y - 1: out.append(Vector2i(0, 1))
+		if c.x == bounds.position.x: out.append(Vector2i(-1, 0))
+		if c.x == bounds.end.x - 1: out.append(Vector2i(1, 0))
+		for step: Vector2i in out:
+			for i in range(1, Outskirts.MARGIN + 1):
+				beyond[c + step * i] = original[c]
 
 
 ## The layers to draw, each with its Unity sorting order (the world interleaves them with the water by order).
@@ -312,7 +328,7 @@ func redraw() -> void:
 	for n in _layers:
 		_layers[n].clear()
 	var around := {}
-	for c in cells:
+	for c in cells.keys() + beyond.keys():
 		for dx in [-1, 0]:
 			for dy in [-1, 0]:
 				around[c + Vector2i(dx, dy)] = true
@@ -342,7 +358,7 @@ static func _sprite_for(tile: Variant, at: Vector2i) -> int:
 
 
 func _covers(n: String, x: int, y: int) -> bool:
-	var there: String = cells.get(Vector2i(x, y), "")
+	var there: String = cells.get(Vector2i(x, y), beyond.get(Vector2i(x, y), ""))
 	return there != "" and int(types[there].layer) >= int(types[n].layer)
 
 

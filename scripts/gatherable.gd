@@ -78,6 +78,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 	if axe:
 		art.set_meta("sway", true)
 	add_child(art)
+	world.add_occluder(art)   # (whoever's behind it gets their outline; Sera's fades it)
 	if d.has("collider"):
 		body = StaticBody2D.new()
 		body.position = -position
