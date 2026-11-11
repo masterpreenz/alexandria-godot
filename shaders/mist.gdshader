@@ -22,6 +22,10 @@ uniform vec2 drift_b = vec2(-0.2, 0.14);
 uniform float swirl = 1.6;              // how far it curls round trees and rocks
 uniform int part = 1;
 uniform float unit = 128.0;             // px a world unit
+uniform float veins = 1.0;              // how much the corruption shows in the ground (0: none)
+uniform vec3 vein_dark : source_color = vec3(0.09, 0.02, 0.14);
+uniform vec3 vein_glow : source_color = vec3(0.78, 0.3, 0.95);
+uniform vec3 cleanse : source_color = vec3(0.9, 0.95, 1.0);
 
 varying vec2 world;
 
@@ -39,8 +43,32 @@ void fragment() {
 	vec3 tint = mix(color, deep, clamp(mt.g, 0.0, 1.0));
 	float g_amount = ground_amount * (0.7 + 0.3 * clamp(mt.g + mt.r, 0.0, 1.0));
 	if (part == 1) {
-		// The darkened, violet ground alone (drawn under everything standing on it).
-		COLOR = vec4(ground, g_amount * amount);
+		// The darkened, violet ground alone (drawn under everything standing on it); and the corruption in it: thin
+		// veins creeping over the tiles in patches (where two still fields of the wisp picture cross), dark with a
+		// faint glow down their middles. They lie still (it's the ground), thicker in the strong mist. Where the
+		// mist is being driven off (its thinning edge, round a crystal) they're burnt back: paler, thinner, a bright
+		// rim running along them, then gone with the mist.
+		vec2 g = vec2(world.x, -world.y * 2.0);
+		float n1 = texture(wisps, g / 3.3).a;
+		float n2 = texture(wisps, vec2(g.x * 0.8 - g.y * 0.6, g.x * 0.6 + g.y * 0.8) / 5.1 + 0.21).a;
+		float n3 = texture(wisps, vec2(g.x * 0.5 + g.y * 0.86, -g.x * 0.86 + g.y * 0.5) / 11.0 + 0.63).a;
+		float cross = abs(n1 - n2);
+		float patch = smoothstep(0.2, 0.5, n3 + mt.g * 0.25);
+		float line = (1.0 - smoothstep(0.02, 0.075, cross)) * patch;
+		float core = (1.0 - smoothstep(0.0, 0.022, cross)) * patch;
+		// (the edge of the mist: 1 where it's thinning out, 0 deep in it and where it's gone)
+		float mist_here = clamp(mt.r + mt.g, 0.0, 1.0);
+		float edge = smoothstep(0.02, 0.3, mist_here) * (1.0 - smoothstep(0.3, 0.75, mist_here));
+		float held = smoothstep(0.15, 0.6, mist_here);
+		line *= held * veins;
+		core *= held * veins;
+		vec3 col = mix(ground, vein_dark, line * 0.9);
+		col = mix(col, vein_glow, core * 0.75);
+		// (burning back: the veins at the edge go pale, and a bright line runs where they're going)
+		float burn = edge * (1.0 - smoothstep(0.02, 0.09, cross)) * patch * veins;
+		col = mix(col, cleanse, burn * 0.8);
+		float a = max(g_amount * amount, max(line * 0.92 * held, burn * 0.8));
+		COLOR = vec4(col, a);
 	} else {
 		// Ground-plane coordinates in Unity's units (y up), the screen's y counting double, so the wisps lie flat.
 		vec2 g = vec2(world.x, -world.y * 2.0);

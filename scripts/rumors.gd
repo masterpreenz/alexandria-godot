@@ -14,7 +14,8 @@ extends Node
 ##   told      what the teller says ({dir}: which way its first place lies, {teller}, {miko})
 ##   expires   {"days": n}: left that long unfinished, it's over ("ignored:id" is recorded)
 ##   steps     [{id, note (the journal's line), place, done}]
-##     place   {"kind": "forest" (the nearest wood; "misted": in the mist) | "same" (the step before's) |
+##     place   {"kind": "forest" (the nearest wood; "misted": in the mist; or the wood in map "section": "F6", at its
+##              "corner": "upper-left" | "upper-right" | "lower-left" | "lower-right" as seen, its edge on that side) | "same" (the step before's) |
 ##              "of" ("rumor", "step": another rumor's) | "village" | "cell" ("x", "y"), "vague": the ring's radius, units}
 ##     done    {"kind": "reach" ("within" units) | "cleared" ("radius" units round it, "share" of it out of the mist) |
 ##              "days" ("days" since the step began) | "event" ("event": in the chronicle)}
@@ -185,7 +186,7 @@ func _find_place(def: Dictionary, st: Dictionary, i: int) -> void:
 	var pl: Dictionary = steps[i].get("place", {})
 	var at := Vector2.INF
 	match str(pl.get("kind", "")):
-		"forest": at = _a_wood(bool(pl.get("misted", false)))
+		"forest": at = _wood_in(pl) if pl.has("section") else _a_wood(bool(pl.get("misted", false)))
 		"same": at = place_of(st, def, i - 1)
 		"of":
 			var other: Dictionary = heard.get(str(pl.get("rumor", "")), {})
@@ -196,6 +197,40 @@ func _find_place(def: Dictionary, st: Dictionary, i: int) -> void:
 		"cell": at = world.floors.cell_centre(Vector2i(int(pl.get("x", 0)), int(pl.get("y", 0))))
 	if at != Vector2.INF:
 		st.places[str(steps[i].id)] = [at.x, at.y]
+
+
+# The wood in a map section (as "F6"), at the corner of it asked for (as seen on screen): the edge of the trees on
+# that side, a way in. In the mist that can be cleared, if that's asked for. With no trees there, a wood near the
+# village.
+func _wood_in(pl: Dictionary) -> Vector2:
+	var wanted := str(pl.get("section", "")).to_upper()
+	var misted := bool(pl.get("misted", false))
+	var cells := Rect2i()
+	for col in MapMarks.SECTIONS:
+		for row in MapMarks.SECTIONS:
+			if MapMarks.section_name(col, row) == wanted:
+				cells = MapMarks.section_bounds(col, row)
+	var way: Vector2 = {"upper-left": Vector2(-1, -1), "upper-right": Vector2(1, -1), "lower-left": Vector2(-1, 1), "lower-right": Vector2(1, 1)}.get(str(pl.get("corner", "")), Vector2.ZERO)
+	var c := world.village.centre()
+	var best := Vector2.INF
+	var best_score := -INF
+	for g in Gatherable.all:
+		if not g.axe or g.depleted() or not cells.has_point(world.floors.cell_at(g.foot)):
+			continue
+		if misted and world.mist != null and world.mist.tier_at(g.foot) != Mist.Tier.NORMAL:
+			continue
+		if Wilds.trees_near(g.foot, 3.2 * world.px).size() < 3:
+			continue   # (a tree on its own isn't the wood)
+		# (the furthest that way; with no corner asked for, the nearest the village)
+		var score: float = g.foot.dot(way) if way != Vector2.ZERO else -g.foot.distance_to(c)
+		if score > best_score:
+			best_score = score
+			best = g.foot
+	if best == Vector2.INF:
+		return _a_wood(misted)
+	# (just outside the trees, on that side: where she'd walk in)
+	var out := best + (way.normalized() if way != Vector2.ZERO else (c - best).normalized()) * Vector2(1.6, 0.8) * world.px
+	return out if Wilds.open(world, out, 0.5, 0.3) else best
 
 
 # A wood near the village: the nearest in the mist that can be cleared (not the strong mist), if that's asked for

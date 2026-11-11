@@ -393,6 +393,12 @@ func _ready() -> void:
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
 	world_map.setup(world, miko)
+	# The tracked rumor, on screen: a card under the minimap and an arrow by Miko.
+	var tracker := RumorTracker.new()
+	tracker.name = "RumorTracker"
+	$Hud.add_child(tracker)
+	$Hud.move_child(tracker, 0)   # (under the windows)
+	tracker.setup(rumors, world, miko, minimap)
 	# Planting trees (T), and the trees planted before.
 	# Her staff smack (left click).
 	var melee := Melee.new()
@@ -2204,6 +2210,37 @@ func _ready() -> void:
 					miko.place(world.floors.cell_centre(spot + Vector2i(3, -1)))
 					for i in 240:
 						await get_tree().process_frame
+				"veins":
+					# The corruption in the ground: open misted ground, then a crystal set by it (its edge burning back).
+					clock.forced = GameClock.Weather.CLEAR
+					clock.hours = float(clock.day() - 1) * 24.0 + 11.0
+					var c0 := world.floors.cell_at(world.village.centre()) + Vector2i(-20, -14)
+					miko.place(world.floors.cell_centre(c0))
+					for i in 60:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_mist.png")
+					world.props.place(c0 + Vector2i(6, 2), "CleansingCrystal")
+					for i in 25:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_clearing.png")
+					for i in 300:
+						await get_tree().process_frame
+				"woods":
+					# The woods by map section: how many trees, how many rotten, and the mist there.
+					for col in MapMarks.SECTIONS:
+						for row in MapMarks.SECTIONS:
+							var b := MapMarks.section_bounds(col, row)
+							var trees := 0
+							var rot := 0
+							var tiers := [0, 0, 0]
+							for g in Gatherable.all:
+								if g.axe and not g.depleted() and b.has_point(world.floors.cell_at(g.foot)):
+									trees += 1
+									rot += 1 if g.corrupted else 0
+									tiers[world.mist.tier_at(g.foot)] += 1
+							if trees >= 6:
+								print("Woods: ", MapMarks.section_name(col, row), " cells ", b, ": trees ", trees, ", rotten ", rot, ", clear/normal/strong ", tiers)
+					print("Woods: village centre cell ", world.floors.cell_at(world.village.centre()))
 				"rumors":
 					# The first rumor, start to finish: someone has it to tell; heard; found; cleared; waited out; what
 					# comes of it; then the one it leads to. And the other way: left too long.
@@ -2231,6 +2268,11 @@ func _ready() -> void:
 					print("Rumors: told '", chat._line.text, "'")
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_told.png")
 					chat.close()
+					for i in 20:
+						await get_tree().process_frame
+					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_tracker.png")
+					var trk: RumorTracker = $Hud/RumorTracker
+					print("Rumors: the tracker '", trk._title.text, "' / '", trk._note.text, "' / '", trk._way.text, "'")
 					var st: Dictionary = rm.heard["forest_clearing"]
 					var wood := rm.place_of(st, rm.by_id["forest_clearing"], 0)
 					print("Rumors: heard ", rm.heard.keys(), "; the wood ", snappedf(wood.distance_to(world.village.centre()) / world.px, 0.1), " units ", rm.direction(wood), ", mist there ", world.mist.tier_at(wood), "; mark ", rm.marks().map(func(m): return [m.title, snappedf((m.at as Vector2).distance_to(wood) / world.px, 0.1), m.radius / world.px]))
@@ -2251,6 +2293,9 @@ func _ready() -> void:
 					rm._clock = 9.0
 					for i in 5:
 						await get_tree().process_frame
+					for i in 40:
+						await get_tree().process_frame
+					print("Rumors: the tracker there '", trk._way.text, "'")
 					print("Rumors: at the wood: step ", st.step, " '", rm.lines("forest_clearing")[-1][0], "', cleared ", snappedf(rm.cleared_share(wood, 4.0), 0.01))
 					get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_wood.png")
 					world.props.place(world.floors.cell_at(wood) + Vector2i(1, 1), "CleansingCrystal")
