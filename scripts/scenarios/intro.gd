@@ -44,17 +44,11 @@ func run() -> void:
 	for i in 3:
 		kill_near("Slime")
 		await wait(10)
-	# Bag, talents.
-	var cp: CharacterPanel = CharacterPanel._active
-	cp.toggle()
-	await wait()
-	cp.toggle()
-	cp.toggle_talents()
-	await wait()
-	cp.toggle_talents()
-	await wait()
 	# Gather.
-	miko.bag.add("Wood", 10)
+	miko.bag.add("Wood", 3)
+	await wait(5)
+	shot("gather")
+	miko.bag.add("Wood", 7)
 	miko.bag.add("Stone", 5)
 	await wait()
 	var kinds := {}

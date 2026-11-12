@@ -209,7 +209,7 @@ func _place_card() -> void:
 
 
 # The hint as shown: its parts (intro.json's "parts": [text, what does it]) joined by dots, those done in green with a
-# tick; or just its text.
+# tick; things to bring (counted: "3/10 wood"), one to a line under it. Or just its text.
 func _show_hint() -> void:
 	if beat < 0 or beat >= _beats().size():
 		return
@@ -219,15 +219,22 @@ func _show_hint() -> void:
 		_hint.text = str(b.get("hint", ""))
 		return
 	var bits := []
+	var counted := false
 	for p in parts:
 		var key := str(p[1]) if p.size() > 1 else ""
 		var text := str(p[0]).replace("{progress}", _progress(key))
+		if _progress(key) != "":
+			counted = true
 		if key != "" and _did.has(key):
 			bits.append("[color=#%s]✓ %s[/color]" % [HudStyle.color("green").to_html(false), text])
 		else:
 			bits.append(text)
 	var lead := str(b.get("hint", ""))
 	var t := (lead + "  " if lead != "" else "") + "  ·  ".join(bits)
+	if counted:
+		t = (lead + "
+" if lead != "" else "") + "
+".join(bits.map(func(x): return "•  " + x))
 	if t != _hint.text:
 		_hint.text = t
 
