@@ -212,6 +212,14 @@ func _show_hint() -> void:
 		_hint.text = t
 
 
+# How much of [param r] has come into storage since the beat began: what she's put in herself (though the villagers
+# may already have built with it), or what's more there now, whichever's the more.
+func _stored_since(r: String) -> int:
+	var hers := int(world.village.brought.get(r, 0)) - int(_from.get("brought", {}).get(r, 0))
+	var more := world.village.stored(r) - int(_from.stash.get(r, 0))
+	return maxi(maxi(hers, more), 0)
+
+
 # How far along a counted part is ("3/10"): what's in her bag (have:Thing:n), or put in storage since the beat began
 # (stored:Thing:n); "" for the rest.
 func _progress(key: String) -> String:
@@ -222,7 +230,7 @@ func _progress(key: String) -> String:
 	var got := 0
 	match bits[0]:
 		"have": got = world.village.have(miko.bag, miko, bits[1])
-		"stored": got = maxi(world.village.stored(bits[1]) - int(_from.stash.get(bits[1], 0)), 0)
+		"stored": got = _stored_since(bits[1])
 	if _did.has(key):
 		got = want
 	return "%d/%d" % [mini(got, want), want]
@@ -252,7 +260,7 @@ func _tick_parts() -> void:
 			"sleep": done = nd != null and nd.sleeping()
 			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
 			"built": done = world.props_named(bits[1]).size() > int(_from.props.get(bits[1], 0))
-			"stored": done = world.village.stored(bits[1]) - int(_from.stash.get(bits[1], 0)) >= int(bits[2]) or world.village.stored(bits[1]) >= int(bits[2])
+			"stored": done = _stored_since(bits[1]) >= int(bits[2]) or world.village.stored(bits[1]) >= int(bits[2])
 		if done:
 			_did[key] = true
 			changed = true
@@ -277,7 +285,7 @@ func _begin(i: int, loading: bool) -> void:
 	var props := {}
 	for nm in ["Bonfire", "LeafBed", "CleansingCrystal"]:
 		props[nm] = world.props_named(nm).size()
-	_from = {"kills": kills.duplicate(), "bag": miko.bag.counts.duplicate(), "stash": world.village.stash.duplicate(), "cooked": _dishes_in_bag(), "dishes": _dishes_stored(),
+	_from = {"kills": kills.duplicate(), "bag": miko.bag.counts.duplicate(), "stash": world.village.stash.duplicate(), "cooked": _dishes_in_bag(), "dishes": _dishes_stored(), "brought": world.village.brought.duplicate(),
 		"props": props, "hours": world.clock.hours}
 	_walked = 0.0
 	_last_at = miko.position
@@ -290,7 +298,7 @@ func _begin(i: int, loading: bool) -> void:
 		# (a game loaded part way through a beat: the monsters it sent aren't kept in the save, so they come again, the
 		# kills it wants counted afresh)
 		for a in b.get("start", []):
-			if str(a.get("do", "")) in ["spawn", "mark"]:
+			if str(a.get("do", "")) in ["spawn", "mark", "messenger", "open"]:
 				_act(a)
 	_title.text = str(b.objective)
 	_did = {}
@@ -313,7 +321,7 @@ func _process(delta: float) -> void:
 		return
 	# (out of the way while a window's open over her: her bag and character, a conversation)
 	var talk: Control = game.get_node_or_null("Hud/Talk")
-	_card.visible = not CharacterPanel.up() and not (talk != null and talk.visible)
+	_card.visible = not bool(_beats()[beat].get("hidden", false)) and not CharacterPanel.up() and not (talk != null and talk.visible)
 	_card.reset_size()
 	_place_card()
 	_tick_parts()
@@ -372,7 +380,7 @@ func _done(dn: Dictionary) -> bool:
 			return not Raids.on() and _doomed_left.is_empty()
 		"stored":
 			for r in dn.what:
-				if world.village.stored(str(r)) - int(_from.stash.get(r, 0)) < int(dn.what[r]) and world.village.stored(str(r)) < int(dn.what[r]):
+				if _stored_since(str(r)) < int(dn.what[r]) and world.village.stored(str(r)) < int(dn.what[r]):
 					return false
 			return true
 		"houses":
@@ -384,6 +392,8 @@ func _done(dn: Dictionary) -> bool:
 			return up.houses().all(func(h): return float(h.condition) >= float(dn.min))
 		"stored_dishes":
 			return _dishes_stored() - int(_from.dishes) >= int(dn.count)
+		"event":
+			return Chronicle.active.happened(str(dn.event))
 		"morning":
 			var h := world.clock.hour()
 			return h >= 6.0 and h < 10.0 and world.clock.hours - float(_from.get("hours", world.clock.hours)) >= 6.0
@@ -447,6 +457,10 @@ func _act(a: Dictionary) -> void:
 				world.mist.refresh(true)
 		"record":
 			Chronicle.active.record(str(a.event))
+		"open":
+			# (the opening's over: newcomers may come, the clock runs; the story waits on, unseen, for what's next)
+			Villagers.closed = false
+			world.clock.speed = 1.0
 		"mark":
 			# Someone to go to (a unique: "elder"...): a ring round them and an arrow, till the beat's over.
 			if _marks != null:
@@ -485,7 +499,11 @@ func _villager(role: String) -> Villager:
 func _messenger() -> void:
 	var v := _villager("messenger")
 	if v == null:
-		Chronicle.active.record("scene:messenger")
+		# (no messenger at all: his news is skipped; one between bodies, being given his bed, is waited for)
+		if people.people.filter(func(p): return str(p.get("storyRole", "")) == "messenger" and float(p.hp) > 0.0).is_empty():
+			Chronicle.active.record("scene:messenger")
+		else:
+			_messenger_sent = true
 		return
 	# (out of his bed if he was in it, and up the road a way; then running down to her)
 	if v.in_bed:
@@ -503,11 +521,14 @@ func _messenger() -> void:
 	v.show_mood("alarm", 6.0)
 	var tw := create_tween()
 	tw.tween_property(v, "position", to, 3.0)
-	tw.tween_callback(func(): v._held_moving = false)
+	tw.tween_callback(func(): if is_instance_valid(v): v._held_moving = false)
 	_messenger_v = v
+	_messenger_sent = true
 
 
 var _messenger_v: Villager
+var _messenger_sent := false        ## he's been sent and hasn't reached her yet
+var _messenger_retry := 0.0
 
 
 # The attack: the mist rolls in, a horde from it at the village, houses burning, and those who won't make it falling
@@ -573,6 +594,11 @@ func _attack(count: int) -> void:
 
 func _attack_goes_on(_delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
+	# The messenger, on his way: if he's been remade on the way (given his bed: a new node for him), sent again.
+	if _messenger_sent and not Chronicle.active.happened("scene:messenger") and (_messenger_v == null or not is_instance_valid(_messenger_v)) \
+			and now >= _messenger_retry:
+		_messenger_retry = now + 1.0
+		_messenger()
 	# The messenger, reaching her: his news (the talk window, his words).
 	if _messenger_v != null and is_instance_valid(_messenger_v) and not _messenger_v._held_moving:
 		var talk: Talk = game.get_node_or_null("Hud/Talk")
@@ -582,6 +608,7 @@ func _attack_goes_on(_delta: float) -> void:
 			talk._play(scene[0], 0)
 		_messenger_v.held = false
 		_messenger_v = null
+		_messenger_sent = false
 	# The fires: smoke going up while it lasts.
 	if not _fires.is_empty():
 		if randf() < 0.08:

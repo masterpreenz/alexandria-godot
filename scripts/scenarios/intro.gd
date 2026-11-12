@@ -133,8 +133,11 @@ func run() -> void:
 	talk.close()
 	await wait()
 	print("Intro: aftermath scene, speakers ", said, "; beat ", beat_id())
-	world.village.stash["Wood"] = int(world.village.stash.get("Wood", 0)) + 45
-	world.village.stash["Stone"] = int(world.village.stash.get("Stone", 0)) + 15
+	# (put in from her bag, as she would: the villagers may build with it straight away)
+	miko.bag.add("Wood", 45)
+	miko.bag.add("Stone", 15)
+	world.village.store(miko.bag, "Wood", 45)
+	world.village.store(miko.bag, "Stone", 15)
 	await wait()
 	for p in Construction.active.pieces.duplicate():
 		if bool(p.get("wall", false)):

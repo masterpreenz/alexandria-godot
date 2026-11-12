@@ -198,12 +198,18 @@ func deposit(r: String, amount: int, at: Vector2) -> int:
 
 
 ## Moves up to [param amount] of [param r] from her bag into storage; how many went.
+## What Sera has put into storage from her bag, all told (not kept in the save): how much she's brought, whatever's
+## been taken out since (the story's "put 45 wood in a chest" counts it, the villagers building with it as it comes).
+var brought := {}
+
+
 func store(bag: Bag, r: String, amount: int) -> int:
 	var n := mini(amount, mini(bag.count(r), maxi(0, stash_cap(r) - stored(r))))
 	if n <= 0:
 		return 0
 	bag.spend(r, n)
 	stash[r] = stored(r) + n
+	brought[r] = int(brought.get(r, 0)) + n
 	changed.emit()
 	return n
 
