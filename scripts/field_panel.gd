@@ -28,7 +28,7 @@ func setup(f: Farming) -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	head.add_child(HudStyle.label("R or Esc to close", 11, "body", HudStyle.color("muted")))
+	head.add_child(HudStyle.label("T or Esc to close", 11, "body", HudStyle.color("muted")))
 	box.add_child(head)
 	var well := PanelContainer.new()
 	well.add_theme_stylebox_override("panel", HudStyle.piece("well"))

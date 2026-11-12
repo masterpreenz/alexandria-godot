@@ -66,6 +66,23 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 		_side.add_child(btn)
 	side_panel.add_child(_side)
 	row.add_child(side_panel)
+	# The potions: a slot each, on their own keys (Q, R), how many are left in the corner.
+	var pots := PanelContainer.new()
+	pots.add_theme_stylebox_override("panel", HudStyle.piece("panel"))
+	pots.size_flags_vertical = Control.SIZE_SHRINK_END
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", int(_k(GAP)))
+	for pq in POTION_KEYS:
+		var pb := PotionButton.new()
+		pb.bar = self
+		pb.potion = pq[0]
+		pb.key = pq[1]
+		pb.tooltip_text = "%s  (%s)" % [UiKit.resource_name(pq[0]), pq[1]]
+		pb.custom_minimum_size = Vector2(_k(CELL), _k(CELL))
+		pb.pressed.connect(drink.bind(pq[0]))
+		prow.add_child(pb)
+	pots.add_child(prow)
+	row.add_child(pots)
 	_bar = PanelContainer.new()
 	_bar.add_theme_stylebox_override("panel", HudStyle.piece("panel"))
 	_bar.size_flags_vertical = Control.SIZE_SHRINK_END
@@ -203,6 +220,13 @@ func put(i: int, what: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_Q or event.keycode == KEY_R):
+		# (not while building, where they turn and page, or with a window open over her)
+		if BuildMode.is_open() or CharacterPanel.up() or get_viewport().gui_get_focus_owner() is LineEdit:
+			return
+		drink(POTION_KEYS[0][0] if event.keycode == KEY_Q else POTION_KEYS[1][0])
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = event.keycode - KEY_1
 		if k < 0 or k >= COLUMNS:
@@ -215,6 +239,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and _picker.visible:
 		# A click anywhere else closes the picker.
 		_close_picker()
+
+
+## The potions' own slots and keys: [potion, key].
+const POTION_KEYS := [["HpPotion", "Q"], ["ManaPotion", "R"]]
+
+
+## Drinks one [param potion] (its slot pressed, or its key).
+func drink(potion: String) -> void:
+	var needs: Needs = world.player.get_node_or_null("Needs")
+	if needs != null:
+		needs.eat(potion)
 
 
 ## Pressing slot [param i]: aims (or casts) its skill, or eats one of its food.
@@ -477,6 +512,38 @@ class StepButton extends Button:
 		draw_line(c - Vector2(arm, 0), c + Vector2(arm, 0), col, w)
 		if plus:
 			draw_line(c - Vector2(0, arm), c + Vector2(0, arm), col, w)
+
+
+## A potion's slot: its icon (dim when there's none left), its key top left, how many she has bottom right.
+class PotionButton extends Button:
+	var bar: Hotbar
+	var potion := ""
+	var key := ""
+
+	func _init() -> void:
+		focus_mode = Control.FOCUS_NONE
+		flat = true
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var k := HudStyle.SCALE
+		var r := Rect2(Vector2.ZERO, size)
+		draw_style_box(HudStyle.piece("slotOn" if is_hovered() else "slot"), r)
+		var n := bar.bag.count(potion) if bar != null and bar.bag != null else 0
+		var tex := UiKit.resource_icon(potion)
+		if tex != null:
+			draw_texture_rect(tex, r.grow(-8 * k), false, Color.WHITE if n > 0 else Color(1, 1, 1, 0.3))
+		var f := HudStyle.font("pixel")
+		var px := roundi(10 * k)
+		draw_string_outline(f, Vector2(4, 13 * k), key, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 4, Color(0, 0, 0, 0.8))
+		draw_string(f, Vector2(4, 13 * k), key, HORIZONTAL_ALIGNMENT_LEFT, -1, px, HudStyle.color("muted"))
+		var count := str(n)
+		var w := f.get_string_size(count, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+		var at := Vector2(size.x - w - 5 * k, size.y - 5 * k)
+		draw_string_outline(f, at, count, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 4, Color(0, 0, 0, 0.85))
+		draw_string(f, at, count, HORIZONTAL_ALIGNMENT_LEFT, -1, px, HudStyle.color("text") if n > 0 else HudStyle.color("coral"))
 
 
 ## One of the Build, Bag and Character buttons: a slot with its icon, and its key top left (as the hotbar's slots).

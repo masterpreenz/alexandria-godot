@@ -18,7 +18,7 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 
 *`slimes`, starter guide: its card over Sera*
 
-**3** More slimes along the road. Your skills are on the bar below: Left click to strike · 1 to aim Fireball, click where it lands
+**3** More slimes along the road. Try your skill from the bar below: 1 to aim Fireball, click where it lands
 
 ## 4. Check your bag
 

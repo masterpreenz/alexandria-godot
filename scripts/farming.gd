@@ -380,7 +380,7 @@ func claims(at: Vector2) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_E: _keys["e"] = true
-		elif event.keycode == KEY_R: _keys["r"] = true
+		elif event.keycode == KEY_T: _keys["r"] = true   # (the field's panel: T; R's the mana potion)
 
 
 func _process(delta: float) -> void:
@@ -425,21 +425,21 @@ func _process_timed(_delta: float) -> void:
 	if panel.visible:
 		_say("")   # the panel says it all
 		return
-	var set_to := "field"   # (R opens the field's panel)
+	var set_to := "field"   # (T opens the field's panel)
 	match stage(p):
 		0:
 			if winter():
-				_say("Winter  ·  nothing can be planted until spring  ·  R field")
+				_say("Winter  ·  nothing can be planted until spring  ·  T field")
 				return
 			if not plantable(p):
-				_say("Harvested  ·  waiting for the rest of the field (%d still growing)  ·  R %s" % [still_growing(p), set_to])
+				_say("Harvested  ·  waiting for the rest of the field (%d still growing)  ·  T %s" % [still_growing(p), set_to])
 				return
 			var pick := _pick(p)
 			var c: String = pick[1]
 			var got_seed: String = CROPS[c].seed
 			var have := world.village.have(miko.bag, miko, got_seed)
-			_say("E plant %s  ·  %d %s  ·  R %s" % [CROPS[c].plural, have, UiKit.resource_name(got_seed).to_lower(), set_to] if pick[0]
-				else "Bare plot  ·  needs %s to plant  ·  R %s" % [UiKit.resource_name(got_seed).to_lower(), set_to])
+			_say("E plant %s  ·  %d %s  ·  T %s" % [CROPS[c].plural, have, UiKit.resource_name(got_seed).to_lower(), set_to] if pick[0]
+				else "Bare plot  ·  needs %s to plant  ·  T %s" % [UiKit.resource_name(got_seed).to_lower(), set_to])
 			if keys.has("e") and pick[0] and world.village.take(miko.bag, miko, got_seed, 1):
 				sow(p, c)
 				_till(p)
@@ -465,7 +465,7 @@ func _process_timed(_delta: float) -> void:
 					FloatingText.spawn(world, "Watered", p.pos + Vector2(0, -0.6 * world.px), Color(0.55, 0.78, 1.0))
 					LifeSkills.practise(LifeSkills.Skill.FARMING, miko)
 			else:
-				_say(("%s growing  ·  %d h to go" % [nm, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % nm) + "  ·  R " + set_to)
+				_say(("%s growing  ·  %d h to go" % [nm, ceili(h)] if h >= 1.0 else "%s growing  ·  nearly ready" % nm) + "  ·  T " + set_to)
 		_:
 			_say("Press E to harvest the " + CROPS[crop(p)].plural)
 			if keys.has("e"):
