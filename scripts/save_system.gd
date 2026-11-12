@@ -1,8 +1,8 @@
 class_name SaveSystem
-## Save games (from Unity's SaveSystem), in the same files Unity writes, so a save made by either opens in the other: a
-## save is JSON ({version, game, summary, sections: [{key, json}]}, each section one part of the game), gzipped, then
-## encrypted with AES-256 (CBC, a fresh random IV each save) and signed with HMAC-SHA256 so any change to the file is
-## caught on loading. Each file's two keys come from a master key (PBKDF2 of the game's secret, worked out once) and a
+## Save games (from Unity's SaveSystem): a save is JSON ({version, game, summary, sections: [{key, json}]}, each section
+## one part of the game), written as it is, readable (for now: no sealing while the game's being made). A save sealed the
+## old way (gzipped, encrypted with AES-256 CBC, a fresh random IV each save, signed with HMAC-SHA256, as Unity's) still
+## opens, and is written plain the next time it's saved. Each file's two keys come from a master key (PBKDF2 of the game's secret, worked out once) and a
 ## random salt kept in the file:  "MIKOSAVE" | format (int) | salt (16) | IV (16) | ciphertext | HMAC (32).
 ## Each save goes to a temporary file first and then replaces the old one, which is kept as a .bak; a save that won't
 ## open falls back to its .bak.
@@ -128,7 +128,9 @@ static func read(slot: String) -> Dictionary:
 		if not FileAccess.file_exists(candidate):
 			continue
 		var bytes := FileAccess.get_file_as_bytes(candidate)
-		var plain := open(bytes)
+		# (sealed the old way, or plain JSON)
+		var sealed := bytes.size() >= MAGIC.length() and bytes.slice(0, MAGIC.length()).get_string_from_ascii() == MAGIC
+		var plain := open(bytes) if sealed else bytes
 		if plain.is_empty():
 			push_warning("Couldn't open " + candidate)
 			continue
@@ -201,7 +203,7 @@ static func write(slot: String, summary: Dictionary, sections: Dictionary) -> St
 		if sections[k] != null:
 			entries.append({"key": k, "json": sections[k]})
 	var file := {"version": DATA_VERSION, "game": "Alexandria", "summary": summary, "sections": entries}
-	var bytes := seal(JSON.stringify(file).to_utf8_buffer())
+	var bytes := JSON.stringify(file, "	").to_utf8_buffer()   # (plain and readable: no sealing for now)
 	return _write_safely(path_of(slot), bytes)
 
 
@@ -211,7 +213,7 @@ static func rename(slot: String, name: String) -> String:
 	if file.is_empty():
 		return "No save there"
 	file.summary.name = name.strip_edges().left(32) if name.strip_edges() != "" else default_name(slot, file.summary)
-	return _write_safely(path_of(slot), seal(JSON.stringify(file).to_utf8_buffer()))
+	return _write_safely(path_of(slot), JSON.stringify(file, "	").to_utf8_buffer())
 
 
 static func default_name(slot: String, s: Dictionary) -> String:
