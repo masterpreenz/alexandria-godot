@@ -82,6 +82,9 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 		col.add_child(l)
 	_card.visible = false
 	hud.add_child(_card)
+	var caster := world.get_node_or_null("Caster") as SpellCaster
+	if caster != null:
+		caster.cast_done.connect(func(_spell: String) -> void: _casts += 1)
 	_marks = StoryMarks.new()
 	_marks.name = "StoryMarks"
 	_marks.setup(world)
@@ -143,6 +146,8 @@ func begin_new_game() -> void:
 
 var _did := {}                  ## the hint's parts done this beat: key -> true
 var _swings_from := 0
+var _casts := 0                 ## skills she's cast (the caster's cast_done), and how many as the beat began
+var _casts_from := 0
 var _hunger_was := 0.0
 
 
@@ -172,14 +177,32 @@ func _show_hint() -> void:
 		return
 	var bits := []
 	for p in parts:
-		var text := str(p[0])
 		var key := str(p[1]) if p.size() > 1 else ""
+		var text := str(p[0]).replace("{progress}", _progress(key))
 		if key != "" and _did.has(key):
 			bits.append("[color=#%s]✓ %s[/color]" % [HudStyle.color("green").to_html(false), text])
 		else:
 			bits.append(text)
 	var lead := str(b.get("hint", ""))
-	_hint.text = (lead + "  " if lead != "" else "") + "  ·  ".join(bits)
+	var t := (lead + "  " if lead != "" else "") + "  ·  ".join(bits)
+	if t != _hint.text:
+		_hint.text = t
+
+
+# How far along a counted part is ("3/10"): what's in her bag (have:Thing:n), or put in storage since the beat began
+# (stored:Thing:n); "" for the rest.
+func _progress(key: String) -> String:
+	var bits := key.split(":")
+	if bits.size() < 3:
+		return ""
+	var want := int(bits[2])
+	var got := 0
+	match bits[0]:
+		"have": got = world.village.have(miko.bag, miko, bits[1])
+		"stored": got = maxi(world.village.stored(bits[1]) - int(_from.stash.get(bits[1], 0)), 0)
+	if _did.has(key):
+		got = want
+	return "%d/%d" % [mini(got, want), want]
 
 
 # Ticks off what she's done of the hint's parts (walk, run, jump, strike, eat, sleep; have:Thing:n in her bag,
@@ -201,6 +224,7 @@ func _tick_parts() -> void:
 			"run": done = miko.running and miko.velocity.length() > 1.0
 			"jump": done = miko.airborne()
 			"strike": done = Melee.swings > _swings_from
+			"cast": done = _casts > _casts_from
 			"eat": done = nd != null and nd.hunger > _hunger_was + 1.0
 			"sleep": done = nd != null and nd.sleeping()
 			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
@@ -211,8 +235,9 @@ func _tick_parts() -> void:
 			changed = true
 	if nd != null:
 		_hunger_was = minf(_hunger_was, nd.hunger)
+	# (the counts kept up to date as she gathers)
+	_show_hint()
 	if changed:
-		_show_hint()
 		_card.reset_size()
 
 
@@ -239,6 +264,7 @@ func _begin(i: int, loading: bool) -> void:
 	_title.text = str(b.objective)
 	_did = {}
 	_swings_from = Melee.swings
+	_casts_from = _casts
 	_hunger_was = _needs().hunger if _needs() != null else 0.0
 	_show_hint()
 	_card.visible = true
