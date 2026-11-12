@@ -10,6 +10,9 @@ func run() -> void:
 	while str(st._beats()[st.beat].id) != "messenger":
 		st._begin(st.beat + 1, false)
 		await get_tree().process_frame
+	var tw := Time.get_ticks_msec()
+	while st._messenger_v == null and Time.get_ticks_msec() - tw < 5000:   # (the shout first, then he's sent)
+		await get_tree().process_frame
 	for i in 20:
 		await get_tree().process_frame
 	# His node gone from under the story, as when he's given his bed.

@@ -31,6 +31,9 @@ var _tex: Texture2D
 var _k := 1.0                    ## how much the art is scaled
 var _w := 0.0                    ## the width it's drawn
 var _born := 0.0
+var _lines: Array = []           ## the words broken into lines that fit
+const WRAP := 150.0              ## widest a line goes (px, at its size) before the words go on to the next
+const LINE := 1.15               ## a line's height (times the words' size)
 
 
 func _init() -> void:
@@ -61,7 +64,13 @@ func say(words: String, how: int) -> void:
 	var art := _tex.get_size()
 	_k = font_size * float(_look.tall) / art.y
 	var f := HudStyle.font("bold")
-	var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x if f else 80.0
+	_lines = _wrap(f, text)
+	var tw := 0.0
+	for ln in _lines:
+		tw = maxf(tw, f.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x if f else 80.0)
+	# (more than a line: the bubble that much taller to hold them)
+	var extra := (_lines.size() - 1) * font_size * LINE
+	_k = maxf(_k, (font_size * float(_look.tall) + extra * 1.6) / art.y)
 	if _stretches():
 		_w = maxf(art.x * _k, tw + float(_look.pad) * 2.0)
 	else:
@@ -71,6 +80,24 @@ func say(words: String, how: int) -> void:
 	size = Vector2(_w, art.y * _k)
 	_born = Time.get_ticks_msec() / 1000.0
 	queue_redraw()
+
+
+# [param words] broken into lines no wider than [constant WRAP] (a word too long on its own has a line to itself).
+func _wrap(f: Font, words: String) -> Array:
+	if f == null:
+		return [words]
+	var out := []
+	var cur := ""
+	for w in words.split(" ", false):
+		var tried := w if cur == "" else cur + " " + w
+		if cur != "" and f.get_string_size(tried, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > WRAP:
+			out.append(cur)
+			cur = w
+		else:
+			cur = tried
+	if cur != "":
+		out.append(cur)
+	return out if not out.is_empty() else [words]
 
 
 ## Where the tail's tip goes (over the head), in its parent's space.
@@ -118,8 +145,11 @@ func _draw() -> void:
 	if f != null:
 		var ink: Array = _look.ink
 		var cx := _w / 2.0 - (_w * 0.06 if kind == Kind.THINK else 0.0)   # (the cloud's body, not its puffs)
-		var at := shake + Vector2(cx - _w / 2.0, h * float(_look.y) + font_size * 0.36)
-		draw_string(f, at, text, HORIZONTAL_ALIGNMENT_CENTER, _w, font_size, Color(ink[0], ink[1], ink[2]))
+		var step := font_size * LINE
+		var top := h * float(_look.y) + font_size * 0.36 - (_lines.size() - 1) * step / 2.0
+		for i in _lines.size():
+			var at := shake + Vector2(cx - _w / 2.0, top + i * step)
+			draw_string(f, at, _lines[i], HORIZONTAL_ALIGNMENT_CENTER, _w, font_size, Color(ink[0], ink[1], ink[2]))
 
 
 # Left part and right part as drawn; the middle stretched between them.

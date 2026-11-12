@@ -478,7 +478,9 @@ func _act(a: Dictionary) -> void:
 				if nd.sleep == Needs.Sleep.ASLEEP:
 					nd.sleep = Needs.Sleep.AWAKE
 		"messenger":
-			_messenger()
+			# A shout out of the dark wakes her; a moment after, he comes running into sight.
+			_shout()
+			get_tree().create_timer(1.8).timeout.connect(_messenger)
 		"mist_in":
 			_warded = false
 			_no_mist = false
@@ -579,7 +581,7 @@ func _messenger() -> void:
 	v.visible = true
 	v.held = true
 	v._held_moving = true
-	var from := miko.position + Vector2(-5.0, 7.0) * world.px
+	var from := miko.position + MESSENGER_FROM.normalized() * 10.0 * world.px
 	var to := miko.position + Vector2(-0.9, 0.5) * world.px
 	v.position = from
 	v.reset_physics_interpolation()
@@ -588,13 +590,23 @@ func _messenger() -> void:
 	v.facing_up = dir.y < 0.0
 	v.show_mood("alarm", 6.0)
 	var tw := create_tween()
-	tw.tween_property(v, "position", to, 1.6)   # (running flat out)
+	tw.tween_property(v, "position", to, 2.6)   # (running flat out, from out of the dark)
 	tw.tween_callback(func(): if is_instance_valid(v): v._held_moving = false)
 	_messenger_v = v
 	_messenger_sent = true
 
 
 var _messenger_v: Villager
+const MESSENGER_FROM := Vector2(-5.0, 7.0)   ## the way the messenger comes from (down the road from the village)
+
+
+# His shout, out of the dark the way he's coming (it's what wakes her), and her start at it.
+func _shout() -> void:
+	var dir := MESSENGER_FROM.normalized()
+	FloatingText.spawn(world, "Help! Is anyone out there?!", miko.position + dir * 3.5 * world.px + Vector2(0, -1.5 * world.px), Color(1.0, 0.85, 0.6), 18, 2.5)
+	FloatingText.spawn(world, "!", miko.position + Vector2(0, -2.4 * world.px), Color(1.0, 0.9, 0.5), 26, 1.5)
+	miko.facing_right = dir.x > 0.0
+	miko.facing_up = dir.y < 0.0
 var _gathered: Array = []           ## unique ids of those the story's holding by the banner
 var _gather_spots := {}             ## unique id -> where they stand
 
