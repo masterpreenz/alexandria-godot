@@ -116,7 +116,7 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 
 *`materials`, story: its card at the right*
 
-**16** Walls are down all over. Put in a chest, for the villagers to rebuild with: {progress} wood · {progress} stone
+**16** Walls are down all over. The village has wood and stone put by, but not quite enough: bring the rest to a chest. {progress} wood · {progress} stone
 
 ## 17. See the houses mended
 

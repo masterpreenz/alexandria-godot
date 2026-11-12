@@ -90,6 +90,7 @@
 },
 {
  "id": "aftermath",
+ "closes": true,
  "speaker": "elder",
  "when": {
   "after": [

@@ -483,7 +483,14 @@ func _play_blip() -> void:
 
 ## Their portrait (head and shoulders: the top of what's drawn in their standing frame, square).
 func _face_of(v: Villager) -> Texture2D:
-	var info: Dictionary = world.sprites[int(v.s.idleDown)]
+	return _face_from(int(v.s.idleDown))
+
+
+## A portrait from one frame (sprite [param id]: a standing frame), head and shoulders, square.
+func _face_from(id: int) -> Texture2D:
+	if id < 0:
+		return null
+	var info: Dictionary = world.sprites[id]
 	var at := AtlasTexture.new()
 	at.atlas = world._texture(info.tex)
 	var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
@@ -516,7 +523,9 @@ func _show_speaker(speaker: String) -> void:
 	if speaker == "sera":
 		_speaking = miko
 		_voice = SERA_PITCH
-		_face.texture = HudStyle.icon("portrait")
+		# (her standing frame, as anyone's: the same look as theirs)
+		var idle: Array = miko.data.frames.get("idleDownLeft", [])
+		_face.texture = _face_from(int(idle[0])) if not idle.is_empty() else HudStyle.icon("portrait")
 		_name.text = Miko.NAME
 		_work.text = "Shrine maiden"
 		return

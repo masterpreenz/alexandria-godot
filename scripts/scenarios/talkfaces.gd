@@ -15,9 +15,8 @@ func run() -> void:
 	while Time.get_ticks_msec() - t0 < 15000 and not talk.visible:
 		await get_tree().process_frame
 	var seen := []
-	var sera_face := HudStyle.icon("portrait")
 	while talk.visible and not talk._acts.is_empty() and seen.size() < 6:
-		seen.append("%s(%s)" % [talk._name.text, "her portrait" if talk._face.texture == sera_face else ("a face" if talk._face.texture != null else "none")])
+		seen.append("%s(%s)" % [talk._name.text, "a face" if talk._face.texture != null else "none"])
 		if talk._name.text == Miko.NAME and not FileAccess.file_exists(Shots.arg("shot").get_basename() + "_sera.png"):
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_sera.png")
 		(talk._acts[0] as Callable).call()

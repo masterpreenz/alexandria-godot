@@ -273,7 +273,7 @@ func _tick_parts() -> void:
 			"sleep": done = nd != null and nd.sleeping()
 			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
 			"built": done = world.props_named(bits[1]).size() > int(_from.props.get(bits[1], 0))
-			"stored": done = _stored_since(bits[1]) >= int(bits[2]) or world.village.stored(bits[1]) >= int(bits[2])
+			"stored": done = _stored_since(bits[1]) >= int(bits[2])
 		if done:
 			_did[key] = true
 			changed = true
@@ -307,6 +307,7 @@ func _begin(i: int, loading: bool) -> void:
 	if not loading:
 		for a in b.get("start", []):
 			_act(a)
+		_from.stash = world.village.stash.duplicate()   # (what the beat itself put by doesn't count as brought)
 	else:
 		# (a game loaded part way through a beat: the monsters it sent aren't kept in the save, so they come again, the
 		# kills it wants counted afresh)
@@ -426,7 +427,7 @@ func _done(dn: Dictionary) -> bool:
 			return not Raids.on() and _doomed_left.is_empty()
 		"stored":
 			for r in dn.what:
-				if _stored_since(str(r)) < int(dn.what[r]) and world.village.stored(str(r)) < int(dn.what[r]):
+				if _stored_since(str(r)) < int(dn.what[r]):
 					return false
 			return true
 		"houses":
@@ -507,6 +508,10 @@ func _act(a: Dictionary) -> void:
 				world.mist.refresh(true)
 		"record":
 			Chronicle.active.record(str(a.event))
+		"stock":
+			# Something put by in the village's storage: {what: {resource: n}} (the villagers' own, to build with).
+			for r in a.what:
+				world.village.put_in_stash(str(r), int(a.what[r]))
 		"cast":
 			# Sera casts [spell] herself (the story showing her a new skill), at her side.
 			var spell := str(a.spell)

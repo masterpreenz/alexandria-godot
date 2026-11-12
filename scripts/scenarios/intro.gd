@@ -165,10 +165,13 @@ func run() -> void:
 	while beat_id() != "materials" and Time.get_ticks_msec() - tw < 5000:
 		await get_tree().process_frame
 	# (put in from her bag, as she would, once she's been asked: the villagers may build with it straight away)
-	miko.bag.add("Wood", 45)
-	miko.bag.add("Stone", 15)
-	world.village.store(miko.bag, "Wood", 45)
-	world.village.store(miko.bag, "Stone", 15)
+	var stock_w := world.village.stored("Wood")
+	var stock_s := world.village.stored("Stone")
+	miko.bag.add("Wood", 10)
+	miko.bag.add("Stone", 5)
+	world.village.store(miko.bag, "Wood", 10)
+	world.village.store(miko.bag, "Stone", 5)
+	print("Intro: put by in storage at the start of it: wood ", stock_w, ", stone ", stock_s)
 	print("Intro: stored for the rebuild: wood ", world.village.stored("Wood"), "/", world.village.stash_cap("Wood"), " stone ", world.village.stored("Stone"), "/", world.village.stash_cap("Stone"), "; brought ", world.village.brought, "; she still has wood ", miko.bag.count("Wood"), " stone ", miko.bag.count("Stone"))
 	await wait()
 	for p in Construction.active.pieces.duplicate():
