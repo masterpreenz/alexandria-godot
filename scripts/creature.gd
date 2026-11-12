@@ -238,7 +238,8 @@ func barricade_ahead(goal: Vector2) -> Array:
 			return _bar_seen
 	_bar_at = t + 0.25 + randf() * 0.05
 	_bar_goal = goal
-	_bar_seen = world.walls.barricade_in_way(position, goal, 0.0)   # (across the way only: a gap broken in, it goes through)
+	# (across the way only: a gap broken in, it goes through; only what's near, 8 units on: further, as it comes)
+	_bar_seen = world.walls.barricade_in_way(position, goal, 0.0, 8.0 * world.px)
 	return _bar_seen
 
 

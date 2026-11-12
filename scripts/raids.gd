@@ -18,6 +18,7 @@ const MOST_BROKEN := 4           ## walls broken in any one house in a raid, at 
 var wear := {}                   ## house walls being hit: wall key -> damage taken
 var broken := {}                 ## house key -> walls broken in it this raid
 var _walls := []                 ## the house walls that can be broken: [{e: [x, y, alongY, type], mid, house}]
+var _walls_by_square := {}       ## the same, filed by where they stand (8-unit squares)
 var _walls_at := -10.0
 
 
@@ -167,6 +168,11 @@ func house_walls() -> Array:
 					continue
 				seen[e.key()] = true
 				_walls.append({"e": [e.vertex.x, e.vertex.y, e.along_y, ty], "mid": world.walls.edge_middle(e), "house": h.key})
+	_walls_by_square.clear()
+	var cell := 8.0 * world.px
+	for w in _walls:
+		var k := Vector2i(floori(w.mid.x / cell), floori(w.mid.y / cell))
+		(_walls_by_square.get_or_add(k, []) as Array).append(w)
 	return _walls
 
 
@@ -174,11 +180,18 @@ func house_walls() -> Array:
 func house_wall_near(p: Vector2, within: float) -> Dictionary:
 	var best := {}
 	var best_d := within
-	for w in house_walls():
-		var dd := p.distance_to(w.mid)
-		if dd < best_d:
-			best_d = dd
-			best = w
+	# (only the walls filed in the squares near it: not every house in the village)
+	house_walls()
+	var cell := 8.0 * world.px
+	var lo := Vector2i(floori((p.x - within) / cell), floori((p.y - within) / cell))
+	var hi := Vector2i(floori((p.x + within) / cell), floori((p.y + within) / cell))
+	for x in range(lo.x, hi.x + 1):
+		for y in range(lo.y, hi.y + 1):
+			for w in _walls_by_square.get(Vector2i(x, y), []):
+				var dd := p.distance_to(w.mid)
+				if dd < best_d:
+					best_d = dd
+					best = w
 	return best
 
 

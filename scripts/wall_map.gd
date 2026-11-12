@@ -227,13 +227,21 @@ func wall_middle(k: Vector3i) -> Vector2:
 
 ## The barricade (a wall with health) in the way from [param from] to [param to], or within [param near] px of
 ## [param from] facing that way: [key, the nearest point on it], or [].
-func barricade_in_way(from: Vector2, to: Vector2, near: float) -> Array:
+func barricade_in_way(from: Vector2, to: Vector2, near: float, reach := INF) -> Array:
 	var best := []
 	var best_d := INF
+	# (only so far along the way, when [param reach] is given: what's beyond is looked at as it's come nearer)
+	if reach < INF and from.distance_to(to) > reach:
+		to = from + (to - from).normalized() * reach
+	var span := from.distance_to(to) + near + 3.0 * world.px   # (a barricade's start further than this can't be in the way)
 	for k in hp:
-		if not walls.has(k) or is_open(Edge.of(k)):   # (an open gate: through it)
+		if not walls.has(k):
 			continue
 		var e := Edge.of(k)
+		if vertex_position(e.vertex).distance_squared_to(from) > span * span:
+			continue
+		if is_open(e):   # (an open gate: through it)
+			continue
 		var a := vertex_position(e.vertex)
 		var b := vertex_position(span_end(e, walls[k]))
 		var hit: Variant = Geometry2D.segment_intersects_segment(from, to, a, b)
