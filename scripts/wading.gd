@@ -48,6 +48,9 @@ func _process_timed(delta: float) -> void:
 	if walker == null:
 		return
 	var feet: Vector2 = walker.global_position
+	# (off screen: left as it is, unseen; looked at again once it's near enough to be)
+	if not world.on_screen(feet):
+		return
 	var target := clampf(world.water_depth(feet) / FULL_DEPTH, 0.0, 1.0)
 	depth = move_toward(depth, target, delta * 3.0)
 	_wake.strength = depth if body.visible else 0.0
@@ -127,6 +130,8 @@ class Ripples extends Node2D:
 
 
 	func _process_timed(delta: float) -> void:
+		if rings.is_empty():
+			return   # (nothing spreading: nothing to draw again)
 		for ring in rings:
 			ring[3] += delta
 		rings = rings.filter(func(ring): return ring[3] < 1.1)

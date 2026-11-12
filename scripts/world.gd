@@ -455,6 +455,22 @@ func occluders_near(rect: Rect2) -> Array:
 	return found.keys()
 
 
+static var _view := Rect2()
+static var _view_frame := -1
+
+
+## What's on screen now (in the world, px), with [param margin] units round it: worked out once a frame. Things off it
+## needn't be kept up (a wake, someone wading): the map grows as it's played, nothing's unloaded, so this keeps
+## the far side of it from costing.
+func on_screen(p: Vector2, margin := 4.0) -> bool:
+	var f := Engine.get_process_frames()
+	if f != _view_frame:
+		_view_frame = f
+		var vp := get_viewport()
+		_view = vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
+	return _view.grow(margin * px).has_point(p)
+
+
 ## A sprite's box in the world.
 static func sprite_rect(sprite: Sprite2D) -> Rect2:
 	var t := sprite.get_global_transform()

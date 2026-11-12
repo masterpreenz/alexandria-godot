@@ -12,6 +12,15 @@ class_name VillagerRoute
 
 const MARGIN := 10
 const MOST_SQUARES := 4000
+static var _most := MOST_SQUARES        ## the squares a search looks at, at most (less for a monster's)
+
+
+## [method find], but looking at no more than [param most] squares (a monster's quick look round a house).
+static func find_near(w: World, from: Vector2, to: Vector2, most: int) -> Variant:
+	_most = most
+	var r: Variant = find(w, from, to)
+	_most = MOST_SQUARES
+	return r
 const STEPS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 
@@ -109,12 +118,57 @@ static func _cover(f: FloorMap, at: Vector2, radius: float) -> void:
 static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 	if w.walls == null:
 		return null
+	# A way found once is kept and used again (the same squares, start to end) while nothing on the map has changed:
+	# the village's ways are fixed, as its roads are, worked out again only when something's built, taken down or felled.
+	var a := square_at(w.walls, from)
+	var b := square_at(w.walls, to)
+	var key := Vector4i(a.x, a.y, b.x, b.y)
+	var ver := _map_version(w)
+	var kept: Variant = _routes.get(key)
+	if kept != null and kept[0] == ver:
+		Perf.add(&"AI: routes kept", Time.get_ticks_usec())
+		if kept[1] == null:
+			return null
+		return _points(w.walls, kept[1], to)
 	# Clear of everything solid if there's such a way; else squeezing past the big things (a bed, a fireplace) in a
 	# small room, round only the squares they stand on; else through the walls alone.
-	var way: Variant = _search(w, from, to, solid_squares(w), true)
-	if way == null:
-		way = _search(w, from, to, _core, true)
-	return way if way != null else _search(w, from, to, {})
+	var squares: Variant = _search(w, a, b, solid_squares(w), true)
+	if squares == null:
+		squares = _search(w, a, b, _core, true)
+	if squares == null:
+		squares = _search(w, a, b, {})
+	if _routes.size() > MOST_KEPT:
+		_routes.clear()
+	_routes[key] = [ver, squares]
+	if squares == null:
+		return null
+	return _points(w.walls, squares, to)
+
+
+const MOST_KEPT := 3000                 ## routes kept at most (all forgotten past it, to start again)
+static var _routes := {}                ## Vector4i (from square, to square) -> [map version, squares or null]
+
+
+# Everything a way depends on, as one value: the walls, what's placed, the trees and rocks, the ground (its roads).
+static func _map_version(w: World) -> int:
+	return hash([w.walls.version, w.props.version, Gatherable.version, w.floors.version])
+
+
+static var _roads := {}                 ## square -> whether it's road (cheaper to walk), for the ground as it is
+static var _roads_at := -1
+
+
+# Whether the square [param sq] is on a road or path (any laid ground but grass): a step there costs less.
+static func _road(w: World, sq: Vector2i) -> bool:
+	if w.floors.version != _roads_at:
+		_roads_at = w.floors.version
+		_roads.clear()
+	var r: Variant = _roads.get(sq)
+	if r == null:
+		var c := w.floors.cell_at(square_centre(w.walls, sq))
+		r = w.floors.get_floor(c) != w.floors.base_floor
+		_roads[sq] = r
+	return r
 
 
 # Squares still to go from [param s] to [param b], at the least.
@@ -122,31 +176,42 @@ static func _left(s: Vector2i, b: Vector2i) -> int:
 	return absi(s.x - b.x) + absi(s.y - b.y)
 
 
-static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry := false) -> Variant:
+const ROAD_STEP := 2                    ## what a step costs on a road (and indoors)...
+const STEP := 3                         ## ...and anywhere else: so a way along the roads is taken where there's one
+
+
+# The squares from [param a] to [param b] (both ends in), or null: the cheapest way (roads cost less), round walls
+# (doors open), what's solid and (when [param dry]) water. A*, the costs in buckets.
+static func _search(w: World, a: Vector2i, b: Vector2i, solid: Dictionary, dry := false) -> Variant:
 	var walls := w.walls
-	var a := square_at(walls, from)
-	var b := square_at(walls, to)
 	var lo := Vector2i(mini(a.x, b.x), mini(a.y, b.y)) - Vector2i.ONE * MARGIN
 	var hi := Vector2i(maxi(a.x, b.x), maxi(a.y, b.y)) + Vector2i.ONE * MARGIN
-	# Towards where they're going first (A*: by squares come plus squares still to go, in buckets by that sum, the
-	# latest found first among equals), so a long way across the village looks at few squares beside it.
 	var came := {a: a}
 	var gone := {a: 0}
+	var done := {}
 	var buckets := {}
-	var f_lo := _left(a, b)
+	var f_lo := _left(a, b) * STEP
 	var f_hi := f_lo
 	buckets[f_lo] = [a]
 	var found := a == b
-	while not found and came.size() < MOST_SQUARES:
+	while not found and done.size() < _most:
 		while f_lo <= f_hi and (buckets.get(f_lo, []) as Array).is_empty():
 			f_lo += 1
 		if f_lo > f_hi:
 			break
 		var at: Vector2i = (buckets[f_lo] as Array).pop_back()
-		var g_next: int = int(gone[at]) + 1
+		if done.has(at):
+			continue
+		done[at] = true
+		if at == b:
+			found = true
+			break
 		for step in STEPS:
 			var nxt: Vector2i = at + step
-			if nxt.x < lo.x or nxt.y < lo.y or nxt.x > hi.x or nxt.y > hi.y or came.has(nxt):
+			if nxt.x < lo.x or nxt.y < lo.y or nxt.x > hi.x or nxt.y > hi.y or done.has(nxt):
+				continue
+			var g_next: int = int(gone[at]) + (ROAD_STEP if _road(w, nxt) else STEP)
+			if gone.has(nxt) and int(gone[nxt]) <= g_next:
 				continue
 			if not passable(walls, crossing(at, step)):
 				continue
@@ -154,13 +219,11 @@ static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry
 			if nxt != b and (solid.has(nxt) or (dry and _wet(w, nxt))):
 				continue
 			came[nxt] = at
-			if nxt == b:
-				found = true
-				break
 			gone[nxt] = g_next
-			var f := g_next + _left(nxt, b)
+			var f := g_next + _left(nxt, b) * STEP   # (aimed at it as off-road steps would cost: quick, roads still taken)
 			(buckets.get_or_add(f, []) as Array).append(nxt)
 			f_hi = maxi(f_hi, f)
+			f_lo = mini(f_lo, f)   # (a step along a road can bring it below where the search had got to)
 	if not found:
 		return null
 	var squares := []
@@ -171,6 +234,11 @@ static func _search(w: World, from: Vector2, to: Vector2, solid: Dictionary, dry
 			break
 		s = came[s]
 	squares.reverse()
+	return squares
+
+
+# A way's squares as points to walk to (doorways: before, through, past), ending at [param to] itself.
+static func _points(walls: WallMap, squares: Array, to: Vector2) -> Array:
 	var points := []
 	for i in range(1, squares.size()):
 		var step: Vector2i = squares[i] - squares[i - 1]

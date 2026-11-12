@@ -17,7 +17,7 @@ func run() -> void:
 		var ok := false
 		for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 			var from: Vector2 = at + d * world.px
-			if not solid.has(world.floors.cell_at(from)) and VillagerRoute._search(world, from, to, solid, true) != null:
+			if not solid.has(world.floors.cell_at(from)) and VillagerRoute._search(world, VillagerRoute.square_at(world.walls, from), VillagerRoute.square_at(world.walls, to), solid, true) != null:
 				ok = true
 				break
 		if not ok:

@@ -169,6 +169,7 @@ var _way_at := -10.0
 var _way_point := Vector2.INF
 var _way_goal := Vector2.INF
 var _way_straight := true
+static var _searched_on := -1             ## the physics frame a monster last searched for a way round (one a frame)
 
 
 # (looked at again four times a second, not every frame: its clearance casts were most of a crowded fight's time)
@@ -186,10 +187,13 @@ func _way_to(goal: Vector2) -> Vector2:
 		_route = null
 		return goal
 	# (worked out again every two seconds, or when what it's after has moved off a good way)
-	if _route == null or t - _route_at > 2.0 or _route_goal.distance_to(goal) > 3.0 * world.px:
+	# (one monster's search a frame, at most, and only a short way round: the rest keep their way till their turn)
+	var frame := Engine.get_physics_frames()
+	if (_route == null or t - _route_at > 2.0 or _route_goal.distance_to(goal) > 3.0 * world.px) and frame != _searched_on:
+		_searched_on = frame
 		_route_at = t
 		_route_goal = goal
-		_route = VillagerRoute.find(world, position, goal)
+		_route = VillagerRoute.find_near(world, position, goal, 500)
 		_route_leg = 0
 	if _route == null:
 		_way_straight = true

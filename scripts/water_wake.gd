@@ -39,6 +39,10 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(delta: float) -> void:
+	# (off screen with nothing left to fade: nothing to keep up)
+	var here: Vector2 = target.global_position if target != null and is_instance_valid(target) else at
+	if _flecks.is_empty() and not world.on_screen(here):
+		return
 	for f in _flecks:
 		f[2] += delta
 		f[0] += f[1] * delta
