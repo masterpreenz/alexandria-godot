@@ -91,7 +91,9 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 	hud.add_child(_card)
 	var caster := world.get_node_or_null("Caster") as SpellCaster
 	if caster != null:
-		caster.cast_done.connect(func(_spell: String) -> void: _casts += 1)
+		caster.cast_done.connect(func(spell: String) -> void:
+			_casts += 1
+			_cast_by[spell] = int(_cast_by.get(spell, 0)) + 1)
 	_marks = StoryMarks.new()
 	_marks.name = "StoryMarks"
 	_marks.setup(world)
@@ -157,6 +159,8 @@ var _card_at := Vector2.INF     ## where the card over her head is easing to (sc
 var _swings_from := 0
 var _casts := 0                 ## skills she's cast (the caster's cast_done), and how many as the beat began
 var _casts_from := 0
+var _cast_by := {}              ## spell -> how many times she's cast it
+var _cast_by_from := {}
 var _hunger_was := 0.0
 
 
@@ -262,7 +266,7 @@ func _tick_parts() -> void:
 			"run": done = miko.running and miko.velocity.length() > 1.0
 			"jump": done = miko.airborne()
 			"strike": done = Melee.swings > _swings_from
-			"cast": done = _casts > _casts_from
+			"cast": done = (_casts > _casts_from) if bits.size() < 2 else int(_cast_by.get(bits[1], 0)) > int(_cast_by_from.get(bits[1], 0))
 			"eat": done = nd != null and nd.hunger > _hunger_was + 1.0
 			"sleep": done = nd != null and nd.sleeping()
 			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
@@ -311,6 +315,7 @@ func _begin(i: int, loading: bool) -> void:
 	_did = {}
 	_swings_from = Melee.swings
 	_casts_from = _casts
+	_cast_by_from = _cast_by.duplicate()
 	_hunger_was = _needs().hunger if _needs() != null else 0.0
 	_show_hint()
 	_card.visible = true
@@ -487,6 +492,26 @@ func _act(a: Dictionary) -> void:
 			# (the opening's over: newcomers may come, the clock runs; the story waits on, unseen, for what's next)
 			Villagers.closed = false
 			world.clock.speed = 1.0
+		"level":
+			# Sera up to level [to] (the talent points with it).
+			var cs: CharacterStats = miko.stats
+			while cs.level < int(a.get("to", 1)):
+				cs.gain_xp(cs.xp_to_next() - cs.xp)
+		"learn":
+			# A talent learned (and the way out to it on the tree), for nothing: the story teaches it her.
+			var cs: CharacterStats = miko.stats
+			var path: Variant = cs.path_to(str(a.talent))
+			if path != null and not (path as Array).is_empty():
+				cs.talent_points += (path as Array).size()
+				cs.learn_path(str(a.talent))
+				var t: Dictionary = cs.talent(str(a.talent))
+				FloatingText.spawn(world, "Learned: " + str(t.get("name", a.talent)), miko.position + Vector2(0, -2.6 * world.px), Color(0.75, 0.9, 1.0), 18, 3.0)
+		"wave":
+			# Another wave of the horde, from every side (not a new attack: nobody new is doomed, nothing new burns).
+			_wave(int(a.get("count", 10)))
+		"regroup":
+			# The village's people (not the elders) back to the middle, round the banner, to hold it together.
+			_regroup()
 		"gather":
 			# Some of the village's people (uniques' ids: the elders) up and out, standing by the town banner for her
 			# to talk to (out of bed if it's night), till a "release".
@@ -632,6 +657,33 @@ func _open_spots_near(at: Vector2, count: int) -> Array:
 	return out
 
 
+# A wave of [param count] from every side: a few bands, each its own way in.
+func _wave(count: int) -> void:
+	var raids: Raids = Raids.active
+	if raids == null:
+		return
+	var bands := 4
+	var turn := randf() * TAU
+	for i in bands:
+		raids.start(maxi(2, int(count / float(bands))), turn + i * TAU / bands + randf_range(-0.3, 0.3), i > 0)
+
+
+func _regroup() -> void:
+	var banners: Array = world.props_named("TownBanner")
+	var at: Vector2 = banners[0] if not banners.is_empty() else world.village.centre()
+	var who := Villager.all.filter(func(v): return is_instance_valid(v) and v.hit.alive() and not v.held \
+			and not (v.person.has("unique") and not Traits.has(v.person, "unique")))
+	var spots := _open_spots_near(at, who.size())
+	for i in who.size():
+		var v: Villager = who[i]
+		if v.in_bed or v.state == Villager.State.ASLEEP:
+			v._wake_up(Villager.now())
+		v._stand(Villager.now(), 0.0)
+		v._set_goal(spots[i])
+		v.state = Villager.State.WALK
+		v.bark("bark.raid", {"side": "every side"}, true)
+
+
 func _release() -> void:
 	for v in Villager.all:
 		if is_instance_valid(v) and _gathered.has(str(v.person.get("unique", ""))):
@@ -659,13 +711,8 @@ func _attack(count: int) -> void:
 			"doomed": _doomed_left.append(str(v.person.name))
 		if v.person.has("unique") and not Traits.has(v.person, "unique"):
 			v.person["restUntil"] = world.clock.hours + 6.0   # (the elders, hiding in their house till it's over)
-	# (from every side: a few bands, each its own way in)
-	var raids: Raids = Raids.active
-	if raids != null:
-		var bands := 4
-		var turn := randf() * TAU
-		for i in bands:
-			raids.start(maxi(2, int(count / float(bands))), turn + i * TAU / bands + randf_range(-0.3, 0.3), i > 0)
+	# (from every side)
+	_wave(count)
 	# Those who'll come through it hold on (hurt, but alive); the elders hide in their house.
 	for v in Villager.all:
 		if is_instance_valid(v) and v.hit != null and (str(v.person.get("storyRole", "")) in ["fighter", "survivor", "messenger"] or v.person.has("unique")):

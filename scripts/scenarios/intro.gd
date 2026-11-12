@@ -106,6 +106,21 @@ func run() -> void:
 		if is_instance_valid(r) and r.hit != null:
 			r.hit.hurt(9999.0, true)
 	await wait(30)
+	# The first wave gone: she's level 3 with the Attack Shikigami; the second comes, the village's people to the middle.
+	var raiders_now := Raids.active.raiders.filter(func(r): return is_instance_valid(r)).size()
+	var banner: Vector2 = world.props_named("TownBanner")[0]
+	var regrouping := Villager.all.filter(func(v): return is_instance_valid(v) and v.hit.alive() and v.target.distance_to(banner) < 5.0 * world.px).map(func(v): return v.person.name)
+	print("Intro: the second wave: beat ", beat_id(), "; Sera level ", miko.stats.level, ", knows ", miko.stats.known_spells(), "; raiders ", raiders_now, "; making for the middle ", regrouping)
+	var caster: SpellCaster = world.get_node("Caster")
+	caster.cast_at("ShikigamiAttacker", miko.position + Vector2(1, 0) * world.px)
+	var tc := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - tc < 4000 and not st._did.has("cast:ShikigamiAttacker"):
+		await get_tree().process_frame
+	print("Intro: Attack Shikigami summoned, ticked off ", st._did.has("cast:ShikigamiAttacker"))
+	for r in Raids.active.raiders.duplicate():
+		if is_instance_valid(r) and r.hit != null:
+			r.hit.hurt(9999.0, true)
+	await wait(30)
 	var planned := Construction.active.pieces.filter(func(p): return bool(p.get("wall", false))).size()
 	print("Intro: walls smashed and planned again ", planned, "; houses' condition ", Upkeep.active.houses().map(func(h): return roundi(h.condition)))
 	shot("smashed")
