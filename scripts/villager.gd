@@ -47,7 +47,7 @@ static var mending := {}          ## barricade (wall key) -> true: someone's on 
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 ## What they eat, and how much each fills. Raw meat, raw fish and slime jelly aren't food till they're cooked.
-const FOODS := [["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
+const FOODS := [["HeartyStew", 70.0], ["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
 	["GrilledFish", 50.0], ["Candy", 35.0], ["SmokedFish", 40.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
 const EMOTE_FPS := 5.0
 const BOB_HEIGHT := 0.045
@@ -127,6 +127,8 @@ var stove: Dictionary = {}        ## the fire they cook at
 var dish := ""
 var dishes := 0
 var fire: Dictionary = {}         ## the fire or torch they're off to light
+var _fight_after: Damageable = null   ## lighting a torch as a fight starts: what they'll fight once it's lit
+const TORCH_FIRST := 4.0          ## units: an unlit torch this near, after dark, is lit before a fight
 var _next_till := 0.0
 var _sizzle: AudioStreamPlayer2D
 var piece: Dictionary = {}        ## the blueprint piece they're building
@@ -601,7 +603,7 @@ func _physics_process_timed(delta: float) -> void:
 	if Raids.on() and (state == State.ASLEEP or state == State.CELLAR) and not (s.stabDown as Array).is_empty() and not _low():
 		if state == State.ASLEEP: _wake_up(t)
 		_stand(t, 0.0)
-	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and t >= next_look:
+	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and not (state == State.TO_LIGHT and _fight_after != null) and t >= next_look:
 		next_look = t + 0.5
 		var __tl := Time.get_ticks_usec()
 		var danger := _danger() if _low() else null
@@ -2048,6 +2050,10 @@ func _threat() -> Damageable:
 func _fight(threat: Damageable) -> void:
 	if partner != null:
 		_end_chat(now())
+	# After dark, an unlit torch close by: lit first, so there's light to fight by (unless it's on them already).
+	if _fight_after == null and _torch_first(threat):
+		return
+	_fight_after = null
 	if job != null:
 		claimed.erase(job)
 		job = null
@@ -2056,6 +2062,37 @@ func _fight(threat: Damageable) -> void:
 	clock = 0.0
 	last_frame = -1
 	next_chase = 0.0
+
+
+# The nearest unlit torch within [constant TORCH_FIRST] units, after dark, while [param threat] isn't right on them:
+# off to light it, the fight after. Whether they went.
+func _torch_first(threat: Damageable) -> bool:
+	if not (_night() or _hour(world) >= 17.5) or (threat != null and threat.global_position.distance_to(position) < 1.5 * world.px):
+		return false
+	var fires := _fires()
+	if fires == null:
+		return false
+	var best := {}
+	var best_d := TORCH_FIRST * world.px
+	for f in fires.fires:
+		if not bool(f.s.get("torch", false)) or fires.lit(f) or lighting.has(f.key) or not fires.tended(f):
+			continue
+		var dd: float = f.pos.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = f
+	if best.is_empty() or not _can_pay(best):
+		return false
+	if job != null:
+		claimed.erase(job)
+		job = null
+	fire = best
+	lighting[fire.key] = true
+	_fight_after = threat
+	state = State.TO_LIGHT
+	clock = 0.0
+	_set_goal(_beside(fire.pos, 0.5))
+	return true
 
 
 func _fighting(t: float, delta: float) -> void:
@@ -3132,6 +3169,12 @@ func _done_lighting(t: float) -> void:
 	if not fire.is_empty():
 		lighting.erase(fire.key)
 	fire = {}
+	# (lit as a fight began: into it now, if it's still on)
+	var after := _fight_after
+	if after != null and is_instance_valid(after) and after.alive():
+		_fight(after)
+		return
+	_fight_after = null
 	_stand(t, randf_range(1.0, 2.0))
 
 

@@ -32,7 +32,7 @@ static func _default(key: String) -> int:
 		"Fish": return 12
 		"item:Tools": return 3
 		"item:Sachet": return 2
-		"Bread", "SmokedFish", "FishSoup", "FishStew": return 10
+		"Bread", "SmokedFish", "FishSoup", "FishStew", "HeartyStew": return 10
 	for r in RECIPES:
 		if key == r[1]:
 			return 20

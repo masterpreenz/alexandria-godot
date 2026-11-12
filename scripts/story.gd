@@ -155,8 +155,21 @@ func _needs() -> Needs:
 	return miko.get_node_or_null("Needs") as Needs
 
 
-# Just over her head (a few px clear of it), kept on the screen.
+# The starter guide's card: just over her head (a few px clear of it), kept on the screen. The story's own: at the
+# screen's right under the map, as a rumor's (under the rumor's card, when one's shown).
 func _place_card() -> void:
+	var view_r := get_viewport().get_visible_rect()
+	if beat >= 0 and beat < _beats().size() and not bool(_beats()[beat].get("guide", false)):
+		var top := 8.0 * HudStyle.SCALE
+		if Minimap.active != null:
+			top += Minimap.active.get_global_rect().end.y
+		var tracker := game.get_node_or_null("Hud/RumorTracker") as Control
+		if tracker != null and tracker.visible:
+			for c in tracker.get_children():
+				if c is Control and (c as Control).visible:
+					top = maxf(top, (c as Control).get_global_rect().end.y + 8.0 * HudStyle.SCALE)
+		_card.position = Vector2(view_r.size.x - _card.size.x - 12.0 * HudStyle.SCALE, top).round()
+		return
 	var xf := get_viewport().get_canvas_transform()
 	var box := World.sprite_rect(miko.art) if miko.art != null else Rect2(miko.position - Vector2(30, 120), Vector2(60, 120))
 	var head: Vector2 = xf * Vector2(miko.drawn_position().x, box.position.y)

@@ -6,7 +6,7 @@ extends PanelContainer
 ## villagers go straight into the village's storage; everything else into her bag, or storage when the bag is full.
 ## Some of the cooking bench's dishes need a skilled cook.
 
-const FINE_DISHES := ["FishSoup", "FishStew"]   ## these take cooking 3
+const FINE_DISHES := ["FishSoup", "FishStew", "HeartyStew"]   ## these take cooking 3
 const COLUMNS := 4
 const CELL := 64.0
 

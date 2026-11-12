@@ -14,7 +14,8 @@ const BASE_SLOTS := 8
 ## The resources, in Unity's order (the save's stack slots are by this order).
 const RESOURCES := ["Gold", "Wood", "Stone", "Seed", "Food", "Tea", "Meal", "Hide", "Crystal", "Jelly", "Candy", "Potato",
 	"BakedPotato", "Rabbit", "Bottle", "HpPotion", "ManaPotion", "Carrot", "Cabbage", "Wheat", "Cotton", "CabbageSeed",
-	"WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber", "Fish", "GrilledFish", "Bait", "Water", "SmokedFish", "FishSoup", "FishStew"]
+	"WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber", "Fish", "GrilledFish", "Bait", "Water", "SmokedFish", "FishSoup", "FishStew",
+	"HeartyStew"]
 
 ## Taken out of the game: still in [constant RESOURCES] (old saves' stack slots go by its order), dropped when a save
 ## that has some is loaded.

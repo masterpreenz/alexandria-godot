@@ -13,13 +13,15 @@ extends Node
 ## - Some dishes give a buff for five minutes (FoodBuffs).
 
 const MAX := 100.0
-const EAT_ORDER := [["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", "mealFills"], ["BakedPotato", "bakedPotatoFills"],
+const EAT_ORDER := [["HeartyStew", 70.0], ["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", "mealFills"], ["BakedPotato", "bakedPotatoFills"],
 	["GrilledFish", 50.0], ["Bread", 40.0], ["SmokedFish", 40.0], ["Candy", "candyFills"], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", "potatoFills"]]
 const FOOD_BUFFS := {
 	"FishSoup": {"manaRegen": 1.5, "hpRegen": 1.0},
 	"FishStew": {"attack": 3.0, "defense": 2.0},
+	"HeartyStew": {"hpRegen": 2.0, "manaRegen": 2.0},
 }
 const FOOD_LASTS := 300.0
+const FOOD_LASTS_FOR := {"HeartyStew": 900.0}   ## dishes whose good lasts longer than [constant FOOD_LASTS] (seconds)
 
 enum Sleep { AWAKE, LYING_DOWN, ASLEEP, GETTING_UP }
 
@@ -386,7 +388,7 @@ func eat(food := "") -> bool:
 			hunger = minf(MAX, hunger + fills)
 			_say("+%d hunger" % roundi(fills), Color(0.96, 0.68, 0.32))
 			if FOOD_BUFFS.has(kind):
-				_food_until[kind] = _now() + FOOD_LASTS
+				_food_until[kind] = _now() + float(FOOD_LASTS_FOR.get(kind, FOOD_LASTS))
 				stats.set_buff("food:" + kind, FOOD_BUFFS[kind])
 			_sound("eatSound")
 			return true
