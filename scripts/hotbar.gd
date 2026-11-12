@@ -1,7 +1,7 @@
 class_name Hotbar
 extends Control
 ## The hotbar at the bottom of the screen (from Unity's Hotbar), in the dark-ink HUD: rows of eight slots (one to three,
-## set with the + and − on its left) and beside it the Bag (I) and Character (C) buttons. Row one is on keys 1-8, row
+## set with the + and − on its left) and beside it the Build (B) and Bag (I: her bag and character) buttons. Row one is on keys 1-8, row
 ## two Shift+1-8, row three Ctrl+1-8. A slot holds a skill (it aims, or casts on oneself) or something to eat or drink
 ## (pressing it eats one; the slot shows how many are carried). Clicking a slot opens a picker of every known skill and
 ## every food and drink to choose what goes there, or to empty it. Skill slots show their mana cost, darken with a
@@ -89,7 +89,7 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 	quick.size_flags_vertical = Control.SIZE_SHRINK_END
 	var qrow := HBoxContainer.new()
 	qrow.add_theme_constant_override("separation", int(_k(GAP)))
-	for q in [["build", "B", "Build"], ["bagButton", "I", "Bag"], ["characterButton", "C", "Character"]]:
+	for q in [["build", "B", "Build"], ["bagButton", "I", "Bag & character"]]:
 		var qb := QuickButton.new()
 		qb.icon_name = q[0]
 		qb.key = q[1]
@@ -481,8 +481,10 @@ class StepButton extends Button:
 
 ## One of the Build, Bag and Character buttons: a slot with its icon, and its key top left (as the hotbar's slots).
 class QuickButton extends Button:
+	const PICTURES := {"build": "res://assets/Icons/UI/build.png", "bagButton": "res://assets/Icons/UI/bag.png"}
 	var icon_name := ""
 	var key := ""
+	var _tex: Texture2D
 
 	func _init() -> void:
 		focus_mode = Control.FOCUS_NONE
@@ -501,7 +503,11 @@ class QuickButton extends Button:
 		var k := HudStyle.SCALE
 		var r := Rect2(Vector2.ZERO, size)
 		draw_style_box(HudStyle.piece("slotOn" if is_hovered() else "slot"), r)
-		var tex := HudStyle.icon(icon_name)
+		# (its own picture in assets/Icons/UI when there is one, else the HUD sheet's; loaded the once)
+		if _tex == null:
+			var file: String = PICTURES.get(icon_name, "")
+			_tex = load(file) as Texture2D if file != "" and ResourceLoader.exists(file) else HudStyle.icon(icon_name)
+		var tex := _tex
 		if tex != null:
 			# The same inset as the hotbar's icons.
 			draw_texture_rect(tex, r.grow(-8 * k), false, Color(1, 1, 1, 0.85) if button_pressed else Color.WHITE)

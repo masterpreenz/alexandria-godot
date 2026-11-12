@@ -127,7 +127,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if get_viewport().gui_get_focus_owner() is LineEdit:
 		return
 	match event.keycode:
-		KEY_C, KEY_I:
+		KEY_I:
 			toggle()
 		KEY_P:
 			toggle_talents()
@@ -230,7 +230,7 @@ func _build() -> void:
 	var foot := HBoxContainer.new()
 	foot.add_child(HudStyle.label("Click  pick    Double-click  use / wear    Drag  move    Click a worn slot  pick it", 11, "bold", HudStyle.color("faint")))
 	foot.add_child(_gap())
-	foot.add_child(HudStyle.label("C / I  toggle  ·  Esc  close", 11, "bold", HudStyle.color("faint")))
+	foot.add_child(HudStyle.label("I  toggle  ·  Esc  close", 11, "bold", HudStyle.color("faint")))
 	root.add_child(foot)
 
 
