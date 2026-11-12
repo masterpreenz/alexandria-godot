@@ -292,13 +292,19 @@ func _in_cellar() -> bool:
 	return build.miko != null and Cellars.inside(build.miko.position)
 
 
+# Whether [param it] is offered now: everything, or only what the story's asking for (making camp: a bonfire, a bed).
+func _offered(it: Dictionary) -> bool:
+	var only := Story.build_only()
+	return only.is_empty() or only.has(str(it.name))
+
+
 func _categories() -> Array:
 	var out := []
 	if _in_cellar():
 		return ["Storage"]
 	for c in BuildMode.CATEGORIES:
 		for it in build.items:
-			if it.category == c:
+			if it.category == c and _offered(it):
 				out.append(c)
 				break
 	return out
@@ -313,6 +319,20 @@ func _process(delta: float) -> void:
 func _process_timed(_delta: float) -> void:
 	if _in_cellar() != _was_in_cellar:
 		_was_in_cellar = not _was_in_cellar
+		_dirty = true
+	# (the story's narrowed what's offered, or let it all back: the tabs and tiles again, on an offered tab)
+	var only := str(Story.build_only())
+	if only != _only_was:
+		_only_was = only
+		var cats := _categories()
+		if not cats.is_empty() and not cats.has(category):
+			category = cats[0]
+		# (what's picked to place: one of those offered)
+		if not build.selected.is_empty() and not _offered(build.selected):
+			for it in build.items:
+				if _offered(it):
+					build.select(it)
+					break
 		_dirty = true
 	visible = build.open
 	if not visible:
@@ -336,12 +356,15 @@ func _process_timed(_delta: float) -> void:
 	_tooltip()
 
 
+var _only_was := "[]"
+
+
 func _refresh() -> void:
 	# Tabs: the open one named.
 	for ch in _tabs.get_children():
 		_tabs.remove_child(ch)
 		ch.queue_free()
-	for c in _categories():
+	for c in (_categories() if Story.build_only().is_empty() else []):
 		var b := HudStyle.button(c, 11, "pill", HudStyle.color("text") if c == category else HudStyle.color("muted"))
 		if c == category and query == "":
 			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.7)))
@@ -357,10 +380,12 @@ func _refresh() -> void:
 	for it in build.items:
 		if cellar and (it.category != "Storage" or bool(it.get("outdoorsOnly", false))):
 			continue
+		if not _offered(it):
+			continue
 		if query != "":
 			if not (str(it.display).to_lower().contains(query) or str(it.category).to_lower().contains(query)):
 				continue
-		elif it.category != category:
+		elif it.category != category and Story.build_only().is_empty():   # (narrowed by the story: all of it together)
 			continue
 		var t := ItemTile.new()
 		t.bar = self

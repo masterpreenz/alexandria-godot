@@ -43,6 +43,13 @@ static func count_kill(c: Node) -> void:
 
 
 ## Whether the village keeps the mist off now (the story takes it away between the attack and the crystal).
+## What the build menu offers while the story's on (a beat's "build": the things it asks for), or [] for all.
+static func build_only() -> Array:
+	if active == null or active.beat < 0 or active.beat >= active._beats().size():
+		return []
+	return active._beats()[active.beat].get("build", [])
+
+
 ## Whether the story keeps the village up (the night of the attack, till its aftermath's done): nobody goes to bed.
 static func keeps_up() -> bool:
 	if active == null or active.beat < 0 or active.beat >= active._beats().size():
