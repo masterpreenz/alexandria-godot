@@ -262,6 +262,8 @@ static func _hour(w: World) -> float:
 func _wake_time() -> bool:
 	if world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0)):
 		return false   # (sleeping it off: Miyu, brought home)
+	if Story.keeps_up():
+		return true
 	var h := _hour(world)
 	var energy := float(person.get("energy", 100.0))
 	if h < 6.0 or h >= 21.0 or energy < 20.0:
@@ -278,6 +280,8 @@ func _night() -> bool:
 		return false
 	if world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0)):
 		return true
+	if Story.keeps_up():
+		return false   # (the night of the attack: nobody sleeps till it's seen to)
 	var h := _hour(world)
 	var tired := float(person.get("energy", 100.0))
 	return h >= 21.0 or h < 6.0 or (tired < 25.0 and h >= 18.0) or tired < 5.0

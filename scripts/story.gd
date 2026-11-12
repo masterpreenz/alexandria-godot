@@ -43,6 +43,13 @@ static func count_kill(c: Node) -> void:
 
 
 ## Whether the village keeps the mist off now (the story takes it away between the attack and the crystal).
+## Whether the story keeps the village up (the night of the attack, till its aftermath's done): nobody goes to bed.
+static func keeps_up() -> bool:
+	if active == null or active.beat < 0 or active.beat >= active._beats().size():
+		return false
+	return bool(active._beats()[active.beat].get("awake", false))
+
+
 static func village_warded() -> bool:
 	return active == null or active._warded
 
@@ -92,7 +99,7 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, g: Node2D, hud: N
 
 
 func to_json() -> String:
-	return JSON.stringify({"beat": beat, "warded": _warded, "doomed": _doomed_left, "breaks": _breaks, "noMist": _no_mist})
+	return JSON.stringify({"gathered": _gathered, "beat": beat, "warded": _warded, "doomed": _doomed_left, "breaks": _breaks, "noMist": _no_mist})
 
 
 func from_json(json: String) -> void:
@@ -298,7 +305,7 @@ func _begin(i: int, loading: bool) -> void:
 		# (a game loaded part way through a beat: the monsters it sent aren't kept in the save, so they come again, the
 		# kills it wants counted afresh)
 		for a in b.get("start", []):
-			if str(a.get("do", "")) in ["spawn", "mark", "messenger", "open"]:
+			if str(a.get("do", "")) in ["spawn", "mark", "messenger", "open", "gather"]:
 				_act(a)
 	_title.text = str(b.objective)
 	_did = {}
@@ -329,6 +336,7 @@ func _process(delta: float) -> void:
 		_walked += miko.position.distance_to(_last_at) / world.px
 	_last_at = miko.position
 	_attack_goes_on(delta)
+	_keep_gathered()
 	var b: Dictionary = _beats()[beat]
 	if _done(b.get("done", {})):
 		for a in b.get("after", []):
@@ -461,6 +469,12 @@ func _act(a: Dictionary) -> void:
 			# (the opening's over: newcomers may come, the clock runs; the story waits on, unseen, for what's next)
 			Villagers.closed = false
 			world.clock.speed = 1.0
+		"gather":
+			# Some of the village's people (uniques' ids: the elders) up and out, standing by the town banner for her
+			# to talk to (out of bed if it's night), till a "release".
+			_gather(a.get("who", []))
+		"release":
+			_release()
 		"mark":
 			# Someone to go to (a unique: "elder"...): a ring round them and an arrow, till the beat's over.
 			if _marks != null:
@@ -527,6 +541,83 @@ func _messenger() -> void:
 
 
 var _messenger_v: Villager
+var _gathered: Array = []           ## unique ids of those the story's holding by the banner
+var _gather_spots := {}             ## unique id -> where they stand
+
+
+# Those gathered by the banner kept there: one remade (a new body for them) is held again, where they stood.
+func _keep_gathered() -> void:
+	for id in _gathered:
+		for v in Villager.all:
+			if is_instance_valid(v) and str(v.person.get("unique", "")) == id and not v.held:
+				if v.in_bed:
+					v._wake_up(Villager.now())
+				v.visible = true
+				v.held = true
+				v._held_moving = false
+				v.position = _gather_spots.get(id, v.position)
+				v.reset_physics_interpolation()
+
+
+func _gather(ids: Array) -> void:
+	var banners: Array = world.props_named("TownBanner")
+	var at: Vector2 = banners[0] if not banners.is_empty() else world.village.centre()
+	var spots := _open_spots_near(at, ids.size())
+	var n := 0
+	for id in ids:
+		for v in Villager.all:
+			if not is_instance_valid(v) or str(v.person.get("unique", "")) != str(id):
+				continue
+			if v.in_bed:
+				v._wake_up(Villager.now())
+			v.person.erase("restUntil")
+			v.visible = true
+			v.held = true
+			v._held_moving = false
+			v.position = spots[mini(n, spots.size() - 1)]
+			v.reset_physics_interpolation()
+			_gather_spots[str(id)] = v.position
+			v.facing_up = false
+			n += 1
+			if not _gathered.has(str(id)):
+				_gathered.append(str(id))
+
+
+# [param count] places near [param at] to stand, out in the open: not under a roof (hidden in a house), clear of
+# walls and things (in front of it first, on screen: down the screen, where she'll see them).
+func _open_spots_near(at: Vector2, count: int) -> Array:
+	var out := []
+	var q := PhysicsShapeQueryParameters2D.new()
+	var c := CircleShape2D.new()
+	c.radius = 0.35 * world.px
+	q.shape = c
+	q.collision_mask = 1 | PropMap.FURNITURE_LAYER
+	var space := get_viewport().world_2d.direct_space_state
+	for r in [1.4, 2.0, 2.8, 3.6]:
+		for k in 16:
+			var ang := PI / 2.0 + floorf(k / 2.0) * (TAU / 16.0) * (1 if k % 2 == 0 else -1)   # (down the screen first, then round)
+			var p: Vector2 = at + Vector2(cos(ang), sin(ang) * 0.5) * r * world.px
+			if world.roofs != null and world.roofs.covers(p):
+				continue
+			q.transform = Transform2D(0.0, p)
+			if not space.intersect_shape(q, 1).is_empty():
+				continue
+			if out.any(func(o): return o.distance_to(p) < 1.2 * world.px):
+				continue
+			out.append(p)
+			if out.size() >= count:
+				return out
+	while out.size() < count:
+		out.append(at + Vector2(out.size() * 1.2, 1.5) * world.px)
+	return out
+
+
+func _release() -> void:
+	for v in Villager.all:
+		if is_instance_valid(v) and _gathered.has(str(v.person.get("unique", ""))):
+			v.held = false
+	_gathered.clear()
+	_gather_spots.clear()
 var _messenger_sent := false        ## he's been sent and hasn't reached her yet
 var _messenger_retry := 0.0
 
