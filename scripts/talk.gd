@@ -81,7 +81,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			var i: int = event.keycode - KEY_1
 			if i < _acts.size():
-				(_acts[i] as Callable).call()
+				_act_or_finish(_acts[i])
 			get_viewport().set_input_as_handled()
 
 
@@ -89,6 +89,7 @@ func _process(_delta: float) -> void:
 	var pressed := _pressed
 	_pressed = false
 	if visible:
+		_type_on()
 		prompt.visible = false
 		if who == null or not is_instance_valid(who) or who.in_bed:
 			close()
@@ -179,6 +180,7 @@ func _greeting(v: Villager) -> String:
 # Shows what they say, and Miko's replies under it.
 func _show(line: String) -> void:
 	_line.text = line
+	_start_typing()
 	for c in _choices.get_children():
 		c.queue_free()
 	_acts.clear()
@@ -226,7 +228,7 @@ func _add(text: String, act: Callable, gold := false) -> void:
 		b.add_child(rim)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size.y = 28 * HudStyle.SCALE
-	b.pressed.connect(act)
+	b.pressed.connect(func() -> void: _act_or_finish(act))
 	_choices.add_child(b)
 	_acts.append(act)
 
@@ -251,6 +253,7 @@ func _hearts() -> void:
 # A line of theirs with replies to pick from, in place of the usual choices.
 func _show_replies(line: String, replies: Array) -> void:
 	_line.text = line
+	_start_typing()
 	for c in _choices.get_children():
 		c.queue_free()
 	_acts.clear()
@@ -388,6 +391,81 @@ func _ask_need() -> void:
 
 # ---- Story scenes: a conversation played a line at a time (Continue, or 1) ----
 
+# ---- The line typed out a letter at a time, a blip in the speaker's voice as it goes ----
+
+const TYPE_SPEED := 45.0            ## letters a second (in real time: the world's slowed while she talks)
+const BLIP_EVERY := 2               ## a blip every this many letters (spaces and stops are silent)
+const VOICE_DIR := "res://assets/Sounds/Dialog/"
+## A voice for each look (villagers.json's looks, in order): the man, the woman, Miyu, the old man, the old woman.
+const LOOK_VOICES := ["blip_man.wav", "blip_woman.wav", "blip_miyu.wav", "blip_old_man.wav", "blip_old_woman.wav"]
+
+var _voice: AudioStream
+var _typed := -1.0                  ## letters shown so far (fractional); below 0 when the whole line's shown
+var _typed_at := 0                  ## when the typing last moved on (msec)
+var _blip: AudioStreamPlayer
+
+
+func _voice_of(v: Villager) -> AudioStream:
+	var look := int(v.person.get("look", 0))
+	return Sfx.stream(VOICE_DIR + LOOK_VOICES[clampi(look, 0, LOOK_VOICES.size() - 1)])
+
+
+# A new line: typed out from its first letter.
+func _start_typing() -> void:
+	_typed = 0.0
+	_typed_at = Time.get_ticks_msec()
+	_line.visible_characters = 0
+
+
+# Shows the rest of the line at once.
+func _finish_typing() -> void:
+	_typed = -1.0
+	_line.visible_characters = -1
+
+
+# A choice pressed: while the line's still being typed it shows the rest of it instead.
+func _act_or_finish(act: Callable) -> void:
+	if _typed >= 0.0:
+		_finish_typing()
+		return
+	act.call()
+
+
+# The typing moves on (in real time), a blip for every other letter that comes.
+func _type_on() -> void:
+	if _typed < 0.0:
+		return
+	var now := Time.get_ticks_msec()
+	var was := int(_typed)
+	_typed += (now - _typed_at) / 1000.0 * TYPE_SPEED
+	_typed_at = now
+	var text := _line.text
+	var shown := mini(int(_typed), text.length())
+	for i in range(was, shown):
+		var ch := text.unicode_at(i)
+		var letter := (ch >= 48 and ch <= 57) or (ch >= 65 and ch <= 90) or (ch >= 97 and ch <= 122) or ch > 127
+		if letter and i % BLIP_EVERY == 0:
+			_play_blip()
+			break   # (one a frame at most, however many letters came)
+	if shown >= text.length():
+		_finish_typing()
+	else:
+		_line.visible_characters = shown
+
+
+func _play_blip() -> void:
+	if _voice == null:
+		return
+	if _blip == null:
+		_blip = AudioStreamPlayer.new()
+		_blip.max_polyphony = 3
+		_blip.volume_db = linear_to_db(0.5)
+		add_child(_blip)
+	_blip.stream = _voice
+	_blip.pitch_scale = randf_range(0.96, 1.04)   # (a little different each time, as speech is)
+	_blip.play()
+
+
 ## Their portrait (head and shoulders: the top of what's drawn in their standing frame, square).
 func _face_of(v: Villager) -> Texture2D:
 	var info: Dictionary = world.sprites[int(v.s.idleDown)]
@@ -411,6 +489,7 @@ var _speaking: Node2D        ## who the bubble's tail points at (a scene's speak
 # The window's head as [param v]'s: their face, name, work and ways.
 func _show_who(v: Villager) -> void:
 	_speaking = v
+	_voice = _voice_of(v)
 	_face.texture = _face_of(v)
 	_name.text = str(v.person.name)
 	_work.text = JobsWindow.jobs_text(v.person) + "".join(Traits.shown(v.person).map(func(x): return "  ·  " + str(x[0])))
@@ -421,6 +500,7 @@ func _show_who(v: Villager) -> void:
 func _show_speaker(speaker: String) -> void:
 	if speaker == "sera":
 		_speaking = miko
+		_voice = Sfx.stream(VOICE_DIR + "blip_sera.wav")
 		_face.texture = HudStyle.icon("portrait")
 		_name.text = Miko.NAME
 		_work.text = "Shrine maiden"
@@ -431,6 +511,7 @@ func _show_speaker(speaker: String) -> void:
 			_show_who(v)
 			return
 	_speaking = who
+	_voice = _voice_of(who) if who != null and is_instance_valid(who) else null
 	_face.texture = null
 	_name.text = nm
 	_work.text = ""
@@ -452,6 +533,7 @@ func _play(scene: Dictionary, i: int) -> void:
 	var speaker := str(line[0])
 	_show_speaker(speaker)
 	_line.text = str(line[1]).format({"miko": Miko.NAME})
+	_start_typing()
 	for c in _choices.get_children():
 		c.queue_free()
 	_acts.clear()

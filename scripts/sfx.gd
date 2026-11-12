@@ -16,7 +16,7 @@ static func stream(path: String) -> AudioStream:
 
 ## Loads every sound in the game ahead of time (the loading screen does).
 static func preload_all() -> int:
-	for dir in ["res://assets/Sounds", "res://assets/Sounds/skills", "res://assets/Resources/Sounds"]:
+	for dir in ["res://assets/Sounds", "res://assets/Sounds/skills", "res://assets/Sounds/Dialog", "res://assets/Resources/Sounds"]:
 		for f in DirAccess.get_files_at(dir):
 			var path: String = dir.path_join(f.trim_suffix(".import"))
 			if path.get_extension() in ["mp3", "wav", "ogg"]:
