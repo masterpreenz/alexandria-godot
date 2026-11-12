@@ -1,5 +1,5 @@
 {
-"_about": "Story scenes: a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done.",
+"_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done.",
 "scenes": [
 {
  "id": "elders_thanks",
@@ -58,6 +58,7 @@
 {
  "id": "messenger",
  "speaker": "",
+ "closes": true,
  "when": {},
  "lines": [
   [

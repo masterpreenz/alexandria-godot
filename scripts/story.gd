@@ -281,6 +281,8 @@ func _begin(i: int, loading: bool) -> void:
 		"props": props, "hours": world.clock.hours}
 	_walked = 0.0
 	_last_at = miko.position
+	if _marks != null:
+		_marks.unmark_people()   # (who a beat said to go to: marked for that beat only)
 	if not loading:
 		for a in b.get("start", []):
 			_act(a)
@@ -288,7 +290,7 @@ func _begin(i: int, loading: bool) -> void:
 		# (a game loaded part way through a beat: the monsters it sent aren't kept in the save, so they come again, the
 		# kills it wants counted afresh)
 		for a in b.get("start", []):
-			if str(a.get("do", "")) == "spawn":
+			if str(a.get("do", "")) in ["spawn", "mark"]:
 				_act(a)
 	_title.text = str(b.objective)
 	_did = {}
@@ -430,15 +432,25 @@ func _act(a: Dictionary) -> void:
 			_no_mist = false
 			if world.mist != null:
 				world.mist.refresh(true)
+				# (all of it at once: easing every cell of the map in over a few seconds cost a frame its 40-200 ms)
+				world.mist.snap()
 		"attack":
 			_attack(int(a.get("count", 10)))
 		"ward":
 			_warded = true
 			Chronicle.active.record("village_warded")
+			# (the horde gone: the elders out of hiding, to see who's left)
+			for v in Villager.all:
+				if is_instance_valid(v) and v.person.has("unique") and not Traits.has(v.person, "unique"):
+					v.person.erase("restUntil")
 			if world.mist != null:
 				world.mist.refresh(true)
 		"record":
 			Chronicle.active.record(str(a.event))
+		"mark":
+			# Someone to go to (a unique: "elder"...): a ring round them and an arrow, till the beat's over.
+			if _marks != null:
+				_marks.mark_unique(str(a.who))
 		"say":
 			FloatingText.spawn(world, str(a.text), miko.position + Vector2(0, -2.2 * world.px), Color(1.0, 0.9, 0.7), 18, 3.0)
 
@@ -502,6 +514,12 @@ var _messenger_v: Villager
 # one by one while it goes on; the fighters and the girl hold on; the elders are hidden in their house.
 func _attack(count: int) -> void:
 	_doomed_left = []
+	# The village's torches burning as the horde comes (it's night; there's light to fight by).
+	var fires: Fires = miko.get_node_or_null("Fires")
+	if fires != null:
+		for f in fires.fires:
+			if bool(f.s.get("torch", false)) and world.village.contains(f.pos, 3.0):
+				fires.light(f)
 	for v in Villager.all:
 		if not is_instance_valid(v):
 			continue

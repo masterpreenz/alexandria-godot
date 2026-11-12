@@ -201,13 +201,14 @@ func _meter(delta: float) -> void:
 	_fps.text = "%d FPS" % fps
 	_fps.add_theme_color_override("font_color", HudStyle.color("green") if fps >= 55 else (HudStyle.color("accent") if fps >= 30 else HudStyle.color("coral")))
 	_fps.reset_size()
-	_fps.position = Vector2(size.x - _fps.size.x - 4.0, size.y + 2.0)
+	# (inside the map, its bottom left corner: the zoom buttons have the right)
+	var map := _map_rect()
+	_fps.position = Vector2(map.position.x + 6.0 * HudStyle.SCALE, map.end.y - _fps.size.y - 4.0 * HudStyle.SCALE).round()
 
 
-## Where the debug list (F3) begins: just under the FPS meter, or the map if that's hidden (screen px).
+## Where the debug list (F3) begins: just under the map (the FPS meter's inside it) (screen px).
 func below_meter() -> Vector2:
-	var r := _fps.get_global_rect() if _fps.visible else get_global_rect()
-	return Vector2(get_global_rect().end.x, r.end.y + 6.0)
+	return Vector2(get_global_rect().end.x, get_global_rect().end.y + 6.0)
 
 
 ## A zoom button: a dark key with a bright plus or minus drawn on it (the icons' own art is too dark to read there).

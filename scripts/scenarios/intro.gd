@@ -86,9 +86,10 @@ func run() -> void:
 		said.append(talk._name.text + ": " + talk._line.text.left(30))
 		(talk._acts[0] as Callable).call()
 		await get_tree().process_frame
+	var closed_itself := not talk.visible
 	talk.close()
 	await wait()
-	print("Intro: the messenger: ", said.size(), " lines (", said.slice(0, 2), "); beat ", beat_id(), "; mist at the village ", ["clear", "normal", "strong"][world.mist.tier_at(world.village.centre())], "; raid on ", Raids.on())
+	print("Intro: the messenger: ", said.size(), " lines (", said.slice(0, 2), "); talk closed by itself ", closed_itself, "; beat ", beat_id(), "; mist at the village ", ["clear", "normal", "strong"][world.mist.tier_at(world.village.centre())], "; raid on ", Raids.on())
 	# To the village: the pan, the attack.
 	miko.place(world.village.centre() + Vector2(-14, 4) * world.px)
 	await wait(40)
@@ -110,16 +111,16 @@ func run() -> void:
 	shot("smashed")
 	var alive := people.people.filter(func(p): return float(p.hp) > 0.0)
 	print("Intro: the attack over: villagers about then ", alive0, ", alive now ", alive.map(func(p): return p.name), "; beat ", beat_id())
-	# Ward it.
-	world.props.place(world.floors.cell_at(world.village.centre()) + Vector2i(3, 3), "CleansingCrystal")
+	# Warded by itself once the horde's gone (no crystal to place); the elder marked.
 	await wait(40)
-	print("Intro: crystal set: beat ", beat_id(), "; mist at the village ", ["clear", "normal", "strong"][world.mist.tier_at(world.village.centre())])
+	print("Intro: after the fight: beat ", beat_id(), "; warded ", Story.village_warded(), "; mist at the village ", ["clear", "normal", "strong"][world.mist.tier_at(world.village.centre())],
+		"; marked ", st._marks.marked.map(func(n): return n.person.name if n is Villager else n.name))
 	# The aftermath, at the elder.
 	var elder: Villager = null
 	for v in Villager.all:
 		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
 			elder = v
-	elder.person.erase("restUntil")
+	print("Intro: the elder out of hiding ", not elder.person.has("restUntil"))
 	miko.place(elder.position + Vector2(0.8, 0.3) * world.px)
 	talk.open(elder)
 	await get_tree().process_frame

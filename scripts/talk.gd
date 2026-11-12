@@ -407,6 +407,9 @@ func _play(scene: Dictionary, i: int) -> void:
 	var lines: Array = scene.lines
 	if i >= lines.size():
 		Scenes.done(scene)
+		if bool(scene.get("closes", false)):
+			close()
+			return
 		_name.text = str(who.person.name) if who != null else ""
 		_show(Loc.pick("talk.hello", {"miko": Miko.NAME, "name": who.person.name}) if who != null else "")
 		return
