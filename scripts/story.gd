@@ -486,8 +486,8 @@ func _act(a: Dictionary) -> void:
 			_no_mist = false
 			if world.mist != null:
 				world.mist.refresh(true)
-				# (all of it at once: easing every cell of the map in over a few seconds cost a frame its 40-200 ms)
-				world.mist.snap()
+				# (rolling in on her from all round, over a few seconds; far off, there at once)
+				world.mist.roll_in(miko.position, 7.0, 14.0)
 		"attack":
 			_attack(int(a.get("count", 10)))
 		"ward":

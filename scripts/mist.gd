@@ -92,6 +92,46 @@ func setup(w: World, d: Dictionary) -> void:
 
 
 ## Shows the mist as it now is at once (no easing; a new game, or a game loaded).
+## The mist rolling in on [param toward] (Sera) over [param seconds]: beyond [param reach] units of her it's there at
+## once (out of sight), nearer it comes in from the outside towards her, cell by cell. Only the cells at its edge change
+## in a frame (easing the whole map at once cost a frame 40-200 ms). Call it after the mist's worked out again.
+func roll_in(toward: Vector2, seconds := 8.0, reach := 40.0) -> void:
+	_moving.clear()
+	_from.clear()
+	_rolling.clear()
+	_roll_from = Time.get_ticks_msec() / 1000.0
+	var buckets := ROLL_STEPS
+	var bands := []   # (plain Arrays while they're filled: a PackedInt32Array taken out of a list is a copy)
+	for b in buckets:
+		bands.append([])
+	var r2 := reach * reach
+	for i in target.size():
+		if _shown[i] == target[i]:
+			continue
+		@warning_ignore("integer_division")
+		var d: Vector2 = (_centre(i % width, i / width) - toward) / world.px
+		var dd := d.x * d.x + d.y * d.y * 4.0
+		if dd >= r2:
+			_shown[i] = target[i]   # (far off: there at once)
+			_put(i)
+			continue
+		# (the further out, the sooner)
+		var b := clampi(int((1.0 - sqrt(dd) / reach) * buckets), 0, buckets - 1)
+		(bands[b] as Array).append(i)
+	for b in bands:
+		_rolling.append(PackedInt32Array(b))
+	_roll_seconds = seconds
+	_roll_next = 0
+	texture.update(_image)
+
+
+const ROLL_STEPS := 40
+var _rolling: Array = []          # PackedInt32Arrays: the cells coming in, in turn (outermost first)
+var _roll_from := 0.0
+var _roll_seconds := 8.0
+var _roll_next := 0
+
+
 func snap() -> void:
 	for i in target.size():
 		_shown[i] = target[i]
@@ -281,6 +321,15 @@ func _settle(delta: float) -> void:
 		_fast = quick
 		if _moving.is_empty():
 			texture.update(_image)
+	# Rolling in: the next band of cells starts moving when its turn comes.
+	if _roll_next < _rolling.size():
+		var due := int((Time.get_ticks_msec() / 1000.0 - _roll_from) / _roll_seconds * ROLL_STEPS)
+		while _roll_next < _rolling.size() and _roll_next <= due:
+			_moving.append_array(_rolling[_roll_next])
+			_roll_next += 1
+		if _roll_next >= _rolling.size():
+			_rolling.clear()
+			_roll_next = 0
 	if _moving.is_empty():
 		return
 	var now := Time.get_ticks_msec() / 1000.0
