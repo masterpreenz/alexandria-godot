@@ -279,6 +279,7 @@ func _tick_parts() -> void:
 			"built": done = world.props_named(bits[1]).size() > int(_from.props.get(bits[1], 0))
 			"stored": done = _stored_since(bits[1]) >= int(bits[2])
 			"cooked": done = _dishes_in_bag() - int(_from.cooked) >= int(bits[1])
+			"event": done = Chronicle.active.happened(bits[1])
 			"dishes": done = _dishes_stored() - int(_from.dishes) >= int(bits[1])
 		if done:
 			_did[key] = true
@@ -368,8 +369,10 @@ func _process(delta: float) -> void:
 		_walked += miko.position.distance_to(_last_at) / world.px
 	_last_at = miko.position
 	_attack_goes_on(delta)
-	if not _pending_line.is_empty() and _walked >= float(_pending_line.walk):
-		var nd: Needs = miko.get_node_or_null("Needs")
+	var nd_l: Needs = miko.get_node_or_null("Needs")
+	# (once she's up: not said in her sleep)
+	if not _pending_line.is_empty() and _walked >= float(_pending_line.walk) and (nd_l == null or nd_l.sleep == Needs.Sleep.AWAKE):
+		var nd: Needs = nd_l
 		if nd != null:
 			nd.say(str(_pending_line.text), 3.0)
 		_pending_line = {}
@@ -451,6 +454,30 @@ func _done(dn: Dictionary) -> bool:
 			var h := world.clock.hour()
 			return h >= 6.0 and h < 10.0 and world.clock.hours - float(_from.get("hours", world.clock.hours)) >= 6.0
 	return false
+
+
+## Talking to [param v]: if the story's waiting for her to hand them something (a beat's "give": {to: a unique, dishes:
+## n}) and she has it, it's handed over (the dishes into the village's storage, for its people) and the beat's event
+## written. Whether it was.
+static func hand_over(v: Villager) -> bool:
+	if active == null or active.beat < 0 or active.beat >= active._beats().size() or v == null:
+		return false
+	var give: Dictionary = active._beats()[active.beat].get("give", {})
+	if give.is_empty() or str(v.person.get("unique", "")) != str(give.get("to", "")):
+		return false
+	var want := int(give.get("dishes", 0))
+	if active._dishes_in_bag() < want:
+		FloatingText.spawn(active.world, "Cook %d dishes for them first" % want, active.miko.position + Vector2(0, -2.2 * active.world.px), Color(1.0, 0.85, 0.6))
+		return false
+	var left := want
+	for r in Fires.RECIPES:
+		var nm := str(r[1])
+		var n := mini(left, active.miko.bag.count(nm))
+		if n > 0 and active.miko.bag.spend(nm, n):
+			active.world.village.put_in_stash(nm, n)
+			left -= n
+	Chronicle.active.record(str(give.get("event", "given")))
+	return true
 
 
 func _dishes_in_bag() -> int:

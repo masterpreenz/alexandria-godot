@@ -169,9 +169,20 @@ func run() -> void:
 	miko.bag.add("Meal", 3)
 	await wait(5)
 	var cooked_ticked := st._did.has("cooked:3")
-	world.village.store(miko.bag, "Meal", 3)
+	# Taken to the elder: talking to him hands them over, his thanks, then straight on into his evening talk.
+	for v in Villager.all:
+		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
+			elder = v
+	talk.open(elder)
+	await get_tree().process_frame
+	var heard := []
+	while talk.visible and talk._acts.size() == 1 and heard.size() < 14:
+		heard.append(talk._line.text.left(40))
+		(talk._acts[0] as Callable).call()
+		await get_tree().process_frame
+	talk.close()
 	await wait(10)
-	print("Intro: cooked ticked ", cooked_ticked, "; dishes given, beat now ", beat_id())
+	print("Intro: cooked ticked ", cooked_ticked, "; handed to the elder: dishes left in her bag ", miko.bag.count("Meal"), ", in storage ", world.village.stored("Meal"), "; heard ", heard.size(), " lines: ", heard.slice(0, 3), " ... ", heard.slice(-1), "; beat now ", beat_id())
 	for p in Construction.active.pieces.duplicate():
 		if bool(p.get("wall", false)):
 			Construction.active.build(p)
@@ -197,5 +208,9 @@ func run() -> void:
 	var rm: Rumors = g.get_node("Rumors")
 	rm._clock = 9.0
 	await wait(10)
+	if nd.sleeping():
+		nd.end_sleep_now()
+	await wait(10)
+	print("Intro: her morning line '", nd._bubble_label.text if nd._bubble_label != null else "", "' shown ", nd._bubble_label != null and nd._bubble_label.visible)
 	print("Intro: morning: beat ", beat_id(), "; intro done ", Chronicle.active.happened("intro_done"), "; rumors to tell ", rm.offers, "; newcomers allowed ", not Villagers.closed)
 	print("Intro: beats seen ", log_beats)

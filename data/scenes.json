@@ -136,6 +136,26 @@
  ]
 },
 {
+ "id": "food_given",
+ "speaker": "elder",
+ "when": {
+  "after": [
+   "intro_fed"
+  ]
+ },
+ "lines": [
+  [
+   "elder",
+   "Is that... you cooked for all of us? Thank you, Sera."
+  ],
+  [
+   "elder_wife",
+   "I'll share it out. Everyone needs something warm in them tonight."
+  ]
+ ],
+ "records": []
+},
+{
  "id": "peculiar",
  "speaker": "elder",
  "when": {

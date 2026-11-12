@@ -116,7 +116,7 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 
 *`feed`, story: its card at the right*
 
-**16** They've had nothing since the attack. They bring out the meat they saved: cook it at a fire, then put the dishes in a chest for them. {progress} cooked · {progress} in the chest
+**16** They've had nothing since the attack. They bring out the meat they saved: cook it at a fire, then take the dishes to the elder. {progress} cooked · give them to the elder
 
 ## 17. Talk to the elder
 
@@ -139,8 +139,6 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 *`night`, story: its card at the right*
 
 **18** There's a bed for you in the village tonight. Z to sleep.
-
-- **18.1** (floats up as it ends) Morning. The elder looks like he hasn't slept.
 
 ## 19. (waiting, unseen: the game runs as usual till Miyu is home)
 

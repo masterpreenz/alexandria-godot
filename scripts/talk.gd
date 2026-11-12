@@ -154,6 +154,8 @@ func open(v: Villager) -> void:
 			_closer(Intimacy.DAILY_TALK)
 		if not v._hungry():
 			own = Intimacy.greeting(v.person)
+	# (something the story's waiting for her to hand them: handed over now)
+	Story.hand_over(v)
 	# (a story scene waiting on this one: it plays instead)
 	var scene := Scenes.for_speaker(v.person)
 	if not scene.is_empty():
@@ -545,6 +547,10 @@ func _play(scene: Dictionary, i: int) -> void:
 	var lines: Array = scene.lines
 	if i >= lines.size():
 		Scenes.done(scene)
+		var next := Scenes.for_speaker(who.person) if who != null and is_instance_valid(who) else {}
+		if not next.is_empty():
+			_play(next, 0)   # (another waiting on them: straight on into it)
+			return
 		if bool(scene.get("closes", false)):
 			close()
 			return
