@@ -29,6 +29,10 @@ static func make(w: World, who: Node2D, spot: Vector2, w_px: float) -> WaterWake
 	wake.width = w_px
 	var fx := w.water_fx()
 	fx.add_child(wake)
+	# (not run at all off screen, once its flecks have gone)
+	Culler.watch(wake, func() -> bool:
+		var here: Vector2 = wake.target.global_position if wake.target != null and is_instance_valid(wake.target) else wake.at
+		return not wake._flecks.is_empty() or w.on_screen(here))
 	return wake
 
 

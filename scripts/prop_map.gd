@@ -324,6 +324,7 @@ func _show(where: Vector2, e: Dictionary, bias: float) -> Node2D:
 		body.position = Vector2(0, where.y - sort)
 		holder.add_child(body)
 	world.things.add_child(holder)
+	Culler.still(world, holder, holder.position)
 	if String(world.sprites[id].name).contains("tree") if id >= 0 else false:
 		world.add_occluder(sprite)
 	return holder

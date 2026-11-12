@@ -411,7 +411,8 @@ func _process_timed(_delta: float) -> void:
 	Perf.add(&"farming: growing", __t)
 	__t = Time.get_ticks_usec()
 	for p in plots:
-		_show(p)
+		if world.on_screen(p.pos, 2.0):   # (only those in sight: they're brought up to date as they come into it)
+			_show(p)
 	Perf.add(&"farming: drawing plots", __t)
 	var fires: Fires = miko.get_node_or_null("Fires")
 	var p := {} if miko.locked or (fires != null and fires.cooking) else nearest(miko.position, RANGE * world.px)

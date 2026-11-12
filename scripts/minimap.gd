@@ -206,6 +206,12 @@ func _meter(delta: float) -> void:
 	_fps.position = Vector2(map.position.x + 6.0 * HudStyle.SCALE, map.end.y - _fps.size.y - 4.0 * HudStyle.SCALE).round()
 
 
+## What the minimap's picture takes in (world px): what it draws, so what mustn't be hidden.
+func shown_rect() -> Rect2:
+	var half := float(ZOOM_STEPS[step]) * world.px * PAD
+	return Rect2(_cam.position - Vector2(half, half), Vector2(half, half) * 2.0)
+
+
 ## Where the debug list (F3) begins: just under the map (the FPS meter's inside it) (screen px).
 func below_meter() -> Vector2:
 	return Vector2(get_global_rect().end.x, get_global_rect().end.y + 6.0)

@@ -471,6 +471,12 @@ func on_screen(p: Vector2, margin := 4.0) -> bool:
 	return _view.grow(margin * px).has_point(p)
 
 
+## What's on screen now (world px).
+func view_rect() -> Rect2:
+	var vp := get_viewport()
+	return vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
+
+
 ## A sprite's box in the world.
 static func sprite_rect(sprite: Sprite2D) -> Rect2:
 	var t := sprite.get_global_transform()
@@ -708,6 +714,7 @@ static func keep_lit(n: CanvasItem) -> void:
 
 
 func _process(_delta: float) -> void:
+	Culler.tick()
 	var lit := get_tree().get_nodes_in_group(&"unlit")
 	if lit.is_empty():
 		return

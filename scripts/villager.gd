@@ -627,6 +627,7 @@ func _physics_process_timed(delta: float) -> void:
 				_fight(threat)
 		Perf.add(&"villager: looking for danger", __tl)
 	__t = Time.get_ticks_usec()
+	var __deciding := state == State.STAND   # (standing: choosing what to do next; anything else: going about it)
 	match state:
 		State.STAND:
 			velocity = Vector2.ZERO
@@ -738,7 +739,7 @@ func _physics_process_timed(delta: float) -> void:
 			else: _walk(t, delta)
 		State.FOLLOW:
 			_following(t, delta)
-	Perf.add(&"villager: deciding, walking", __t)
+	Perf.add(&"villager: deciding what to do" if __deciding else &"villager: going about it (walking, working)", __t)
 	# Called off cooking any other way (a slime, bedtime): the pan goes quiet.
 	if state != State.COOK and _sizzle != null and _sizzle.playing and not _sizzle.stream_paused:
 		Sfx.keep_going(_sizzle, false)

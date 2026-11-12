@@ -78,6 +78,12 @@ func build(w: World, d: Dictionary, hp: float, hit_radius: float, hit_height: fl
 	outline.fade_covers = false
 	add_child(outline)
 	outline.setup(world, art, Color(1.0, 0.35, 0.3, 1.0))
+	# (far from Sera and not raiding: not run at all, not even to find out it's resting; near again, it wakes)
+	Culler.watch(self, func() -> bool:
+		if raid_to != Vector2.INF:
+			return true
+		var p := player()
+		return p == null or p.position.distance_to(position) < (AWAKE_WITHIN + AWAKE_MARGIN + 2.0) * world.px)
 
 
 func _enter_tree() -> void:

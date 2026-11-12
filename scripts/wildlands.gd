@@ -80,6 +80,7 @@ static func grow(w: World, gather: Dictionary) -> void:
 					w.show_frame(sp, id, Vector2(size if pick < 0.5 else -size, size))
 					sp.position = at
 					holder.add_child(sp)
+					Culler.still(w, sp, at)
 
 
 ## Woods round the home village (its template's ground, [constant VILLAGE_WOODS_FROM] to [constant VILLAGE_WOODS_TO]

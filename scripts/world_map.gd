@@ -13,6 +13,12 @@ const ZOOM_STEPS := [1.0, 1.5, 2.0, 3.0, 4.0]
 var world: World
 var miko: Miko
 var zoom := 1.0
+static var _open := false
+
+
+## Whether the world map's showing (it draws the whole map: nothing hidden off screen meanwhile).
+static func showing() -> bool:
+	return _open
 var centre := Vector2.ZERO        ## the world point (px) in the middle of the frame
 var show_sections := true
 var _vp: SubViewport
@@ -55,6 +61,8 @@ func setup(w: World, who: Miko) -> void:
 
 
 func open() -> void:
+	_open = true
+	Culler.show_all()   # (before its picture's drawn)
 	visible = true
 	move_to_front()
 	centre = miko.position
@@ -64,6 +72,7 @@ func open() -> void:
 
 
 func close() -> void:
+	_open = false
 	visible = false
 
 

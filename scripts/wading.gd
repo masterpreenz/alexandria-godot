@@ -30,6 +30,8 @@ func setup(w: World, who: Node2D, art: Sprite2D, ground_shadow: Sprite2D) -> voi
 	body = art
 	shadow = ground_shadow
 	_rest = body.position
+	# (not run at all while its walker's off screen)
+	Culler.watch(self, func() -> bool: return is_instance_valid(walker) and world.on_screen(walker.global_position))
 	_mat = ShaderMaterial.new()
 	_mat.shader = preload("res://shaders/wading.gdshader")
 	body.material = _mat

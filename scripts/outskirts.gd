@@ -68,3 +68,4 @@ func setup(world: World) -> void:
 			sp.material = snow
 			sp.position = world.floors.corner(Vector2(x + rng.randf(), y + rng.randf()))
 			holder.add_child(sp)
+			Culler.still(world, sp, sp.position)
