@@ -145,6 +145,8 @@ func begin_new_game() -> void:
 # ---- The card: the beat's objective, and its hint a part at a time, each lit up once she's done it ----
 
 var _did := {}                  ## the hint's parts done this beat: key -> true
+var _head_up := 0.0             ## px from her feet to the top of her head (for the card over it)
+var _card_at := Vector2.INF     ## where the card over her head is easing to (screen px)
 var _swings_from := 0
 var _casts := 0                 ## skills she's cast (the caster's cast_done), and how many as the beat began
 var _casts_from := 0
@@ -171,11 +173,19 @@ func _place_card() -> void:
 		_card.position = Vector2(view_r.size.x - _card.size.x - 12.0 * HudStyle.SCALE, top).round()
 		return
 	var xf := get_viewport().get_canvas_transform()
-	var box := World.sprite_rect(miko.art) if miko.art != null else Rect2(miko.position - Vector2(30, 120), Vector2(60, 120))
-	var head: Vector2 = xf * Vector2(miko.drawn_position().x, box.position.y)
+	# (a fixed height over her feet, measured the once: not her sprite's top, which bobs with every step and swing; and
+	# eased there, so it holds steady as she walks and fights)
+	if _head_up <= 0.0 and miko.art != null:
+		_head_up = miko.position.y - World.sprite_rect(miko.art).position.y
+	var head: Vector2 = xf * (miko.drawn_position() - Vector2(0, maxf(_head_up, 1.8 * world.px)))
 	var view := get_viewport().get_visible_rect()
 	var at := Vector2(head.x - _card.size.x / 2.0, head.y - _card.size.y - 6.0 * HudStyle.SCALE)
-	_card.position = Vector2(clampf(at.x, 8.0, view.size.x - _card.size.x - 8.0), clampf(at.y, 8.0, view.size.y - _card.size.y - 8.0))
+	at = Vector2(clampf(at.x, 8.0, view.size.x - _card.size.x - 8.0), clampf(at.y, 8.0, view.size.y - _card.size.y - 8.0))
+	if _card_at == Vector2.INF or _card_at.distance_to(at) > 120.0:
+		_card_at = at
+	else:
+		_card_at = _card_at.lerp(at, 0.12)
+	_card.position = _card_at.round()
 
 
 # The hint as shown: its parts (intro.json's "parts": [text, what does it]) joined by dots, those done in green with a
