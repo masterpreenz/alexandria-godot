@@ -480,7 +480,7 @@ class Cell extends Control:
 	func show_item(nm: String) -> void:
 		show_nothing()
 		var it := UiKit.item(nm)
-		_icon = UiKit.sprite_texture(int(it.get("icon", -1)))
+		_icon = UiKit.item_icon(nm)
 		if _icon == null:
 			_tile = UiKit.kind_color(it.get("kind", ""))
 			_initials = UiKit.initials(it.get("name", nm))

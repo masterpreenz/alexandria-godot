@@ -126,6 +126,12 @@ func begin_new_game() -> void:
 		if slot >= 0:
 			miko.bag.items[slot] = item
 			miko.stats.equip(miko.bag, slot)
+	# What she's carrying on the road: travel food (it keeps), and her water pouch, full.
+	var pouch := miko.bag.free_slot()
+	if pouch >= 0:
+		miko.bag.items[pouch] = "WaterPouch"
+	for r in st.get("carrying", {}):
+		miko.bag.add(str(r), int(st.carrying[r]))
 	for who in d.get("people", []):
 		var p := people.add_person(str(who.name), int(who.look))
 		p["storyRole"] = str(who.role)
@@ -248,6 +254,9 @@ func _finish() -> void:
 func _process(delta: float) -> void:
 	if beat < 0:
 		return
+	# (out of the way while a window's open over her: her bag and character, a conversation)
+	var talk: Control = game.get_node_or_null("Hud/Talk")
+	_card.visible = not CharacterPanel.up() and not (talk != null and talk.visible)
 	_card.reset_size()
 	_place_card()
 	_tick_parts()

@@ -106,7 +106,7 @@
 "ShrineNecklace":{"stats":{},"grantsSpell":"","light":{"radius":1.9,"energy":0.55,"color":[1.0,0.82,0.86]},"clearRadius":2.6,"mistWard":true},
 "CrystalNecklace":{"stats":{},"grantsSpell":"","durability":900,"light":{"radius":1.7,"energy":0.5,"color":[0.7,0.86,1.0]},"clearRadius":2.4},
 "Scarf":{"stats":{},"grantsSpell":""},
-"Bucket":{"stats":{},"grantsSpell":""},"Mug":{"stats":{},"grantsSpell":""},"FishingRod":{"stats":{},"grantsSpell":""},
+"Bucket":{"stats":{},"grantsSpell":""},"Mug":{"stats":{},"grantsSpell":""},"WaterPouch":{"stats":{},"grantsSpell":""},"FishingRod":{"stats":{},"grantsSpell":""},
 "Tools":{"stats":{},"grantsSpell":""},
 "WoodenShield":{"stats":{"defense":3},"grantsSpell":""}},
 "caster":{"marker":3322,"markerRadius":117.76,"barOffset":[0,-134.4],"bodyCentre":[0,-58.24],"skyOffset":[-320,-1024],"pinnedSpin":90,"circles":[3312,3313,3317,3318,3319,3320,3321],"circleScale":0.7,"circleY":-1.792,"spinSpeed":60}

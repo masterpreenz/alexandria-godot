@@ -6,6 +6,7 @@ extends Node
 
 const RANGE := 1.4                ## units from a well to use it
 const BUCKET_HOLDS := 10
+const POUCH_HOLDS := 5          ## a water pouch's fill (without a bucket)
 
 static var active: Wells
 
@@ -48,8 +49,16 @@ static func has_bucket(bag: Bag) -> bool:
 	return bag.items.has("Bucket")
 
 
+## Something to drink the water she carries from: a mug, or her water pouch.
 static func has_mug(bag: Bag) -> bool:
-	return bag.items.has("Mug")
+	return bag.items.has("Mug") or bag.items.has("WaterPouch")
+
+
+## How much water she can carry: a bucket's worth, a pouch's, or none.
+static func holds(bag: Bag) -> int:
+	if has_bucket(bag):
+		return BUCKET_HOLDS
+	return POUCH_HOLDS if bag.items.has("WaterPouch") else 0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -73,7 +82,9 @@ func _process(_delta: float) -> void:
 	var needs: Needs = miko.get_node_or_null("Needs")
 	var carried := miko.bag.count("Water")
 	prompt.visible = true
-	prompt.text = "E  Drink" + (("  ·  fill the bucket (%d/%d)" % [carried, BUCKET_HOLDS]) if has_bucket(miko.bag) else "  ·  (a bucket carries water)")
+	var most := holds(miko.bag)
+	var what := "bucket" if has_bucket(miko.bag) else "pouch"
+	prompt.text = "E  Drink" + (("  ·  fill the %s (%d/%d)" % [what, carried, most]) if most > 0 else "  ·  (a bucket carries water)")
 	WorldPrompts.at(prompt, near + Vector2(0, -1.6 * world.px))
 	if not pressed:
 		return
@@ -81,9 +92,9 @@ func _process(_delta: float) -> void:
 	if needs != null and needs.thirst < Needs.MAX - 1.0:
 		needs.thirst = Needs.MAX
 		said.append("Thirst quenched")
-	if has_bucket(miko.bag) and carried < BUCKET_HOLDS:
-		miko.bag.add("Water", BUCKET_HOLDS - carried)
-		said.append("Bucket filled")
+	if carried < most:
+		miko.bag.add("Water", most - carried)
+		said.append(what.capitalize() + " filled")
 	FloatingText.spawn(world, ", ".join(said) if not said.is_empty() else "Not thirsty", miko.position + Vector2(0, -1.8 * world.px), Color(0.55, 0.78, 1.0))
 	if not said.is_empty():
 		Sfx.play(world, Sfx.stream(Farming.WATER_SOUND), near, 0.5, 0.1)

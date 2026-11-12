@@ -89,6 +89,21 @@ static func resource_icon(resource: String) -> Texture2D:
 	return _icons[key]
 
 
+## An item's icon: a sprite number, or {"tex": path} / {"s": sprite} as the resources have it; null when it has none.
+static func item_icon(nm: String) -> Texture2D:
+	var icon: Variant = item(nm).get("icon", -1)
+	if icon is Dictionary:
+		if icon.has("s"):
+			return sprite_texture(int(icon.s))
+		var key: String = icon.get("tex", "")
+		if key == "":
+			return null
+		if not _icons.has(key):
+			_icons[key] = load(key)
+		return _icons[key]
+	return sprite_texture(int(icon))
+
+
 static func resource_name(resource: String) -> String:
 	return data.resources.get(resource, {}).get("name", resource)
 

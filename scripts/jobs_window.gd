@@ -711,7 +711,7 @@ func _keep_row(e: Dictionary) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_k(6)))
 	var icon := TextureRect.new()
-	icon.texture = UiKit.sprite_texture(int(UiKit.item(e.item).get("icon", -1))) if e.has("item") else UiKit.resource_icon(e.resource)
+	icon.texture = UiKit.item_icon(e.item) if e.has("item") else UiKit.resource_icon(e.resource)
 	icon.custom_minimum_size = Vector2(_k(22), _k(22))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
