@@ -10,7 +10,7 @@ signal changed
 const COLUMNS := 8
 const ROWS := 8
 const SIZE := COLUMNS * ROWS
-const BASE_SLOTS := 8
+const BASE_SLOTS := 16
 ## The resources, in Unity's order (the save's stack slots are by this order).
 const RESOURCES := ["Gold", "Wood", "Stone", "Seed", "Food", "Tea", "Meal", "Hide", "Crystal", "Jelly", "Candy", "Potato",
 	"BakedPotato", "Rabbit", "Bottle", "HpPotion", "ManaPotion", "Carrot", "Cabbage", "Wheat", "Cotton", "CabbageSeed",
