@@ -108,7 +108,8 @@ func _process_timed(_delta: float) -> void:
 		if esc or pressed or miko.position.distance_to(v.centre()) > BANNER_RANGE * 1.8 * world.px:
 			banner_panel.close()
 		return
-	var busy := miko.locked or CharacterPanel.up()
+	# (someone here with a story scene waiting: E's for talking to them, not the banner or a chest)
+	var busy := miko.locked or CharacterPanel.up() or Talk.scene_in_reach()
 	var needs: Needs = miko.get_node_or_null("Needs")
 	if needs != null and needs.sleeping():
 		busy = true

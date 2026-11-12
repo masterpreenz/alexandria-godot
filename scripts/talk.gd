@@ -25,7 +25,20 @@ var _speed_before := 1.0
 var _tail: Tail                  ## the bubble's tail, down to their head
 
 
+static var active: Talk
+
+
+## Whether someone in reach of her has a story scene waiting (the elder after the fight): their talk comes before the
+## banner or a chest there, so E goes to them.
+static func scene_in_reach() -> bool:
+	if active == null:
+		return false
+	var v := active._nearest()
+	return v != null and not Scenes.for_speaker(v.person).is_empty()
+
+
 func setup(w: World, m: Miko, hud: Node) -> void:
+	active = self
 	world = w
 	miko = m
 	var k := HudStyle.SCALE

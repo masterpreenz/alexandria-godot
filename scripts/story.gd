@@ -550,8 +550,9 @@ func _keep_gathered() -> void:
 	for id in _gathered:
 		for v in Villager.all:
 			if is_instance_valid(v) and str(v.person.get("unique", "")) == id and not v.held:
-				if v.in_bed:
+				if v.in_bed or v.state == Villager.State.ASLEEP:
 					v._wake_up(Villager.now())
+					v._stand(Villager.now(), 1.0)
 				v.visible = true
 				v.held = true
 				v._held_moving = false
@@ -568,8 +569,9 @@ func _gather(ids: Array) -> void:
 		for v in Villager.all:
 			if not is_instance_valid(v) or str(v.person.get("unique", "")) != str(id):
 				continue
-			if v.in_bed:
+			if v.in_bed or v.state == Villager.State.ASLEEP:
 				v._wake_up(Villager.now())
+				v._stand(Villager.now(), 1.0)
 			v.person.erase("restUntil")
 			v.visible = true
 			v.held = true
@@ -694,7 +696,7 @@ func _attack_goes_on(_delta: float) -> void:
 	if _messenger_v != null and is_instance_valid(_messenger_v) and not _messenger_v._held_moving:
 		var talk: Talk = game.get_node_or_null("Hud/Talk")
 		var scene := Scenes.all().filter(func(s): return str(s.id) == "messenger")
-		if talk != null and not scene.is_empty():
+		if talk != null and not scene.is_empty() and not Chronicle.active.happened("scene:messenger"):
 			talk.open(_messenger_v)
 			talk._play(scene[0], 0)
 		_messenger_v.held = false
