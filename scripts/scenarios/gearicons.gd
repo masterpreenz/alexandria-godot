@@ -7,12 +7,13 @@ func run() -> void:
 	for i in 20:
 		await get_tree().process_frame
 	var missing := []
-	for it in ["CrystalNecklace", "ShrineCharm", "OakWand", "WoodenShield", "LinenRobe", "ClothGloves", "ClothPants"]:
+	for it in ["Tools", "Mug", "Bucket", "CrystalNecklace", "ShrineCharm", "OakWand", "WoodenShield", "LinenRobe", "ClothGloves", "ClothPants"]:
 		var slot := miko.bag.free_slot()
 		if slot >= 0:
 			miko.bag.items[slot] = it
 		if UiKit.item_icon(it) == null:
 			missing.append(it)
+	miko.bag.add("Crystal", 3)
 	print("Gear icons: without a picture ", missing)
 	var cp: CharacterPanel = CharacterPanel._active
 	cp.toggle()
