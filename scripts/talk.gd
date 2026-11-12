@@ -132,22 +132,7 @@ func open(v: Villager) -> void:
 	miko.locked = true
 	_speed_before = Engine.time_scale
 	Engine.time_scale = 0.25   # the world goes on, slowly
-	var info: Dictionary = world.sprites[int(v.s.idleDown)]
-	var at := AtlasTexture.new()
-	at.atlas = world._texture(info.tex)
-	# Head and shoulders: the top of what's drawn in the frame, square.
-	var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
-	var used := frame
-	var img := at.atlas.get_image() if at.atlas != null else null
-	if img != null:
-		var r := img.get_region(frame).get_used_rect()
-		if r.size.x > 0:
-			used = Rect2i(frame.position + r.position, r.size)
-	var side := mini(used.size.x, int(used.size.y * 0.5))
-	at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
-	_face.texture = at
-	_name.text = str(v.person.name)
-	_work.text = JobsWindow.jobs_text(v.person) + "".join(Traits.shown(v.person).map(func(x): return "  ·  " + str(x[0])))
+	_show_who(v)
 	# (someone unique: the day's first talk brings them a little closer, and they greet her their own way)
 	var own := ""
 	if Intimacy.has(v.person):
@@ -403,6 +388,54 @@ func _ask_need() -> void:
 
 # ---- Story scenes: a conversation played a line at a time (Continue, or 1) ----
 
+## Their portrait (head and shoulders: the top of what's drawn in their standing frame, square).
+func _face_of(v: Villager) -> Texture2D:
+	var info: Dictionary = world.sprites[int(v.s.idleDown)]
+	var at := AtlasTexture.new()
+	at.atlas = world._texture(info.tex)
+	var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
+	var used := frame
+	var img := at.atlas.get_image() if at.atlas != null else null
+	if img != null:
+		var r := img.get_region(frame).get_used_rect()
+		if r.size.x > 0:
+			used = Rect2i(frame.position + r.position, r.size)
+	var side := mini(used.size.x, int(used.size.y * 0.5))
+	at.region = Rect2(used.position.x + (used.size.x - side) / 2.0, used.position.y, side, side)
+	return at
+
+
+var _speaking: Node2D        ## who the bubble's tail points at (a scene's speaker; else whoever she's talking to)
+
+
+# The window's head as [param v]'s: their face, name, work and ways.
+func _show_who(v: Villager) -> void:
+	_speaking = v
+	_face.texture = _face_of(v)
+	_name.text = str(v.person.name)
+	_work.text = JobsWindow.jobs_text(v.person) + "".join(Traits.shown(v.person).map(func(x): return "  ·  " + str(x[0])))
+
+
+# The window's head as a scene line's speaker: Sera (her own portrait), or whoever it is ("elder", a unique's id, or
+# a name: Taro, Hana...), found among the villagers; just the name if they aren't about.
+func _show_speaker(speaker: String) -> void:
+	if speaker == "sera":
+		_speaking = miko
+		_face.texture = HudStyle.icon("portrait")
+		_name.text = Miko.NAME
+		_work.text = "Shrine maiden"
+		return
+	var nm := str(Uniques.all().get(speaker, {}).get("name", speaker))
+	for v in Villager.all:
+		if is_instance_valid(v) and (str(v.person.get("unique", "")) == speaker or str(v.person.name) == nm):
+			_show_who(v)
+			return
+	_speaking = who
+	_face.texture = null
+	_name.text = nm
+	_work.text = ""
+
+
 func _play(scene: Dictionary, i: int) -> void:
 	var lines: Array = scene.lines
 	if i >= lines.size():
@@ -410,12 +443,14 @@ func _play(scene: Dictionary, i: int) -> void:
 		if bool(scene.get("closes", false)):
 			close()
 			return
+		if who != null and is_instance_valid(who):
+			_show_who(who)
 		_name.text = str(who.person.name) if who != null else ""
 		_show(Loc.pick("talk.hello", {"miko": Miko.NAME, "name": who.person.name}) if who != null else "")
 		return
 	var line: Array = lines[i]
 	var speaker := str(line[0])
-	_name.text = Miko.NAME if speaker == "sera" else str(Uniques.all().get(speaker, {}).get("name", speaker))
+	_show_speaker(speaker)
 	_line.text = str(line[1]).format({"miko": Miko.NAME})
 	for c in _choices.get_children():
 		c.queue_free()
@@ -429,12 +464,21 @@ func _say_bye() -> void:
 	close()
 
 
+# The top of [param n]'s head, a little above (a villager, or Sera).
+func _head_of(n: Node2D) -> Vector2:
+	if n is Villager:
+		return n.position + Vector2(0, -(n as Villager)._top() - 0.15 * world.px)
+	if n == miko and miko.art != null:
+		return Vector2(miko.position.x, World.sprite_rect(miko.art).position.y - 0.15 * world.px)
+	return n.position
+
+
 # Over their head, a little to the side, kept on screen; the tail from its bottom edge down to their head.
 func _place() -> void:
 	reset_size()
 	var k := HudStyle.SCALE
 	var vp := get_viewport_rect().size
-	var head := get_viewport().get_canvas_transform() * (who.position + Vector2(0, -who._top() - 0.15 * world.px))
+	var head := get_viewport().get_canvas_transform() * _head_of(_speaking if _speaking != null and is_instance_valid(_speaking) else who)
 	var at := head + Vector2(-60 * k, -size.y - 34 * k)
 	at.x = clampf(at.x, 8.0, vp.x - size.x - 8.0)
 	at.y = clampf(at.y, 8.0, vp.y - size.y - 8.0)
