@@ -159,30 +159,53 @@ var _route_leg := 0
 ## between), round it by the villagers' ways (the walls and closed doors as they are), worked out again every second or
 ## when the goal's moved on.
 func way_to(goal: Vector2) -> Vector2:
+	var __t := Time.get_ticks_usec()
+	var r := _way_to(goal)
+	Perf.add(&"AI: monsters' way round", __t)
+	return r
+
+
+var _way_at := -10.0
+var _way_point := Vector2.INF
+var _way_goal := Vector2.INF
+var _way_straight := true
+
+
+# (looked at again four times a second, not every frame: its clearance casts were most of a crowded fight's time)
+func _way_to(goal: Vector2) -> Vector2:
 	if world.walls == null:
 		return goal
-	if _clear_to(goal):
+	var t := now()
+	var moved := _way_goal == Vector2.INF or _way_goal.distance_to(goal) > 0.6 * world.px
+	if t - _way_at < 0.25 and not moved:
+		return goal if _way_straight else _way_point
+	_way_at = t + randf() * 0.05   # (spread out, so they don't all look on the same frame)
+	_way_goal = goal
+	_way_straight = _clear_to(goal)
+	if _way_straight:
 		_route = null
 		return goal
-	var t := now()
-	if _route == null or t - _route_at > 1.0 or _route_goal.distance_to(goal) > 1.5 * world.px:
+	# (worked out again every two seconds, or when what it's after has moved off a good way)
+	if _route == null or t - _route_at > 2.0 or _route_goal.distance_to(goal) > 3.0 * world.px:
 		_route_at = t
 		_route_goal = goal
 		_route = VillagerRoute.find(world, position, goal)
 		_route_leg = 0
 	if _route == null:
+		_way_straight = true
 		return goal
 	var pts: Array = _route
 	# (a point's passed once it's within a step: a slime's hop is longer than that, and would keep overshooting it)
 	while _route_leg < pts.size() - 1 and position.distance_to(pts[_route_leg].at) < 0.8 * world.px:
 		_route_leg += 1
-	# (on to the furthest of the next few points it can get to straight, its body's width clear all the way: the
+	# (on to the furthest of the next two points it can get to straight, its body's width clear all the way: the
 	# square middles hugging a wall are too tight for the bigger ones, and it's a smoother way round besides)
-	for ahead in range(mini(pts.size() - 1, _route_leg + 4), _route_leg, -1):
+	for ahead in range(mini(pts.size() - 1, _route_leg + 2), _route_leg, -1):
 		if _clear_to(pts[ahead].at):
 			_route_leg = ahead
 			break
-	return pts[_route_leg].at
+	_way_point = pts[_route_leg].at
+	return _way_point
 
 
 # Whether it could go straight to [param p], its body's width clear of anything fixed all the way.
