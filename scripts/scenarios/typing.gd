@@ -18,11 +18,11 @@ func run() -> void:
 	for i in 12:
 		steps.append(talk._line.visible_characters)
 		await get_tree().process_frame
-	print("Typing: letters shown frame by frame ", steps, " of ", talk._line.text.length(), "; voice ", talk._voice.resource_path.get_file() if talk._voice != null else "none", ", blips playing ", talk._blip != null)
+	print("Typing: letters shown frame by frame ", steps, " of ", talk._line.text.length(), "; voice ", "pitch %.2f" % talk._voice, ", blips playing ", talk._blip != null)
 	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_typing.png")
 	var line0: String = talk._line.text
 	talk._act_or_finish(talk._acts[0])
 	print("Typing: first press shows it all ", talk._line.visible_characters == -1, ", same line ", talk._line.text == line0)
 	talk._act_or_finish(talk._acts[0])
 	await get_tree().process_frame
-	print("Typing: second press goes on: ", talk._name.text, " says '", talk._line.text.left(30), "', voice ", talk._voice.resource_path.get_file() if talk._voice != null else "none")
+	print("Typing: second press goes on: ", talk._name.text, " says '", talk._line.text.left(30), "', voice ", "pitch %.2f" % talk._voice)

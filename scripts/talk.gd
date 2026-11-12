@@ -395,19 +395,21 @@ func _ask_need() -> void:
 
 const TYPE_SPEED := 45.0            ## letters a second (in real time: the world's slowed while she talks)
 const BLIP_EVERY := 2               ## a blip every this many letters (spaces and stops are silent)
-const VOICE_DIR := "res://assets/Sounds/Dialog/"
-## A voice for each look (villagers.json's looks, in order): the man, the woman, Miyu, the old man, the old woman.
-const LOOK_VOICES := ["blip_man.wav", "blip_woman.wav", "blip_miyu.wav", "blip_old_man.wav", "blip_old_woman.wav"]
+const BEEP := "res://assets/Sounds/Dialog/beep.wav"   ## the one beep (the user's), pitched for each voice
+const SERA_PITCH := 1.15
+## A voice (the beep's pitch) for each look (villagers.json's looks, in order): the man, the woman, Miyu, the old man,
+## the old woman.
+const LOOK_PITCH := [0.9, 1.05, 1.25, 0.78, 0.95]
 
-var _voice: AudioStream
+var _voice := 1.0                   ## the speaker's pitch (0: no voice)
 var _typed := -1.0                  ## letters shown so far (fractional); below 0 when the whole line's shown
 var _typed_at := 0                  ## when the typing last moved on (msec)
 var _blip: AudioStreamPlayer
 
 
-func _voice_of(v: Villager) -> AudioStream:
+func _voice_of(v: Villager) -> float:
 	var look := int(v.person.get("look", 0))
-	return Sfx.stream(VOICE_DIR + LOOK_VOICES[clampi(look, 0, LOOK_VOICES.size() - 1)])
+	return float(LOOK_PITCH[clampi(look, 0, LOOK_PITCH.size() - 1)])
 
 
 # A new line: typed out from its first letter.
@@ -454,15 +456,15 @@ func _type_on() -> void:
 
 
 func _play_blip() -> void:
-	if _voice == null:
+	if _voice <= 0.0:
 		return
 	if _blip == null:
 		_blip = AudioStreamPlayer.new()
 		_blip.max_polyphony = 3
 		_blip.volume_db = linear_to_db(0.5)
+		_blip.stream = Sfx.stream(BEEP)
 		add_child(_blip)
-	_blip.stream = _voice
-	_blip.pitch_scale = randf_range(0.96, 1.04)   # (a little different each time, as speech is)
+	_blip.pitch_scale = _voice * randf_range(0.97, 1.03)   # (a little different each time, as speech is)
 	_blip.play()
 
 
@@ -500,7 +502,7 @@ func _show_who(v: Villager) -> void:
 func _show_speaker(speaker: String) -> void:
 	if speaker == "sera":
 		_speaking = miko
-		_voice = Sfx.stream(VOICE_DIR + "blip_sera.wav")
+		_voice = SERA_PITCH
 		_face.texture = HudStyle.icon("portrait")
 		_name.text = Miko.NAME
 		_work.text = "Shrine maiden"
@@ -511,7 +513,7 @@ func _show_speaker(speaker: String) -> void:
 			_show_who(v)
 			return
 	_speaking = who
-	_voice = _voice_of(who) if who != null and is_instance_valid(who) else null
+	_voice = _voice_of(who) if who != null and is_instance_valid(who) else 1.0
 	_face.texture = null
 	_name.text = nm
 	_work.text = ""
