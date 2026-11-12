@@ -17,8 +17,9 @@ A 2D isometric survival and village game. Everything here is GDScript (`scripts/
 
 ## Rules
 
-- 0 warnings: `python tools/check_warnings.py` (writes warnings.txt). Run it once when a whole request is done, not
-  between steps.
+- 0 warnings: `python tools/check_warnings.py` (writes warnings.txt; slow). Once a request's changes are done, the
+  main session starts the warnings-checker agent in the background to run it and fix what it finds, and carries on;
+  its fixes go into that request's commit (or the next, if it's already gone).
 - Versions: `python tools/bump_version.py` for a build that adds something, `python tools/bump_version.py fix` for a
   fix-only build. Never the major number.
 - Commit and push on main after each finished request. Before committing:

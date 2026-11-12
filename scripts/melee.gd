@@ -20,7 +20,6 @@ var _struck := false
 var _slashed := false
 var _was_locked := false
 var _toward := Vector2.RIGHT
-var _hit_sound: AudioStream
 var _next_swing := 0.0
 static var swings := 0        ## every swing she's made (the story's hints tick "strike" off by it)
 var _held := false            ## the button's still down from a swing she started
@@ -30,7 +29,6 @@ var _swing_sound: AudioStream
 func setup(w: World, who: Miko) -> void:
 	world = w
 	miko = who
-	_hit_sound = Sfx.stream("res://assets/Sounds/blunt_staff_hit.mp3")      # when it lands on something
 	_swing_sound = Sfx.stream("res://assets/Sounds/blunt_sonic_sound.mp3")  # every swing, hit or miss
 
 
@@ -107,5 +105,5 @@ func _strike() -> void:
 	var at := miko.position + Vector2(dir.x, dir.y * 0.5) * REACH * world.px
 	var attack := miko.stats.stat("attack") if miko.stats != null else 0.0
 	var n := Damageable.hit_around(at, SWEEP * world.px, BASE_DAMAGE + attack * ATTACK_SHARE, Damageable.Team.ENEMY, true)
-	if n > 0 and _hit_sound != null:
-		Sfx.play(world, _hit_sound, at, 0.55, 0.12)
+	if n > 0:
+		Sfx.play(world, Sfx.one_of("blunt"), at, 0.55, 0.12)   # (one of the staff's takes, at random)

@@ -5,7 +5,8 @@ extends Node
 ## and "Saving…" shows in the corner while it does. Loading a save starts the scene again from it; a new game starts
 ## it from the beginning (the autosave and quick save are cleared; named saves are kept).
 ##
-## A run for a screenshot (--shot) never writes saves, and starts from the bundled save unless --slot names one.
+## A test run (a scenario, --window, or a screenshot, --shot) never writes, renames or deletes saves (unless
+## --allowsave), and starts from the bundled save unless --slot names one.
 
 const AUTOSAVE_MINUTES := 5.0
 
@@ -25,8 +26,9 @@ var _saving_since := -10.0
 var _started := 0.0
 
 
+## Whether this is a test run (a scenario or a screenshot): no saves written.
 static func testing() -> bool:
-	return Shots.arg("shot") != "" and Shots.arg("allowsave") == ""
+	return (Shots.arg("shot") != "" or Shots.arg("window") != "") and Shots.arg("allowsave") == ""
 
 
 func setup(g: Node, w: World, who: Miko, hud: Node) -> void:

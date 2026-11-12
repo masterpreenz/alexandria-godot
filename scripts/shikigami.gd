@@ -484,6 +484,7 @@ func _jab(target: Damageable) -> void:
 	if crit:
 		hit *= (CRIT_DAMAGE + float(owner_stats.stat("summonCritDamage"))) / 100.0
 	target.hurt(hit, false, crit)
+	Sfx.play(world, Sfx.one_of("flesh"), target.global_position, 0.5, 0.08)   # (the spear going in: a take at random)
 
 
 # The shield shikigami's part: the monsters going for anyone near it are drawn onto it instead (again and again while

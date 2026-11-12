@@ -17,7 +17,7 @@ func run() -> void:
 	var hp0: float = st.hp
 	var ward_hp0: float = ward.hp
 	var warded := false
-	var shot := false
+	var pic := false
 	var stood := Vector2.ZERO
 	for i in int(Shots.arg("wardframes", "1100")):
 		await get_tree().process_frame
@@ -29,8 +29,8 @@ func run() -> void:
 			stood = ward.position
 		if i % 180 == 0:
 			print("Ward shiki ", floori(i / 60.0), ": slime on it ", is_instance_valid(sl) and sl.taunted_by == ward, ", mutant on it ", is_instance_valid(mv) and mv.taunted_by == ward, ", ward up ", ward.bubble != null, ", holding ", ward.holding, ", its HP ", roundi(ward.hp), "/", roundi(ward_hp0), ", her HP ", roundi(st.hp), "/", roundi(hp0))
-		if not shot and ward.bubble != null and i > 120:
-			shot = true
+		if not pic and ward.bubble != null and i > 120:
+			pic = true
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_ward.png")
 	if is_instance_valid(ward):
 		print("Ward shiki: warded ", warded, ", moved while holding ", snappedf(ward.position.distance_to(stood) / world.px, 0.1), " units")

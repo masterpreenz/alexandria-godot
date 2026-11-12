@@ -14,12 +14,11 @@ var px := 128.0
 var _since := -1.0
 var thud: World                   ## set (the world) for a hit to be heard too (allies: a monster's blow has no sound of its own)
 
-const THUD := "res://assets/Sounds/blunt_staff_hit.mp3"
 
-
-## The sound of a blow landing at [param at] (on Miko, a villager, a shikigami, a barricade).
-static func sound(w: World, at: Vector2) -> void:
-	var clip := Sfx.stream(THUD)
+## The sound of a blow landing at [param at]: [param kind] one of Sfx.GROUPS ("blunt" on a wall or barricade,
+## "scratch" a monster's claws on Miko, a villager or a shikigami), a take picked at random.
+static func sound(w: World, at: Vector2, kind := "blunt") -> void:
+	var clip := Sfx.one_of(kind)
 	if clip != null and w != null:
 		Sfx.play(w, clip, at, 0.45, 0.14)
 
@@ -37,7 +36,7 @@ static func add_to(owner_node: Node, body: CanvasItem, wade: Wading, world_px: f
 func play() -> void:
 	_since = 0.0
 	if thud != null and is_instance_valid(art):
-		sound(thud, art.global_position)
+		sound(thud, art.global_position, "scratch")
 
 
 ## The jolt now (px, side to side), for a body that places itself (no wading to carry it); 0 when not flinching.

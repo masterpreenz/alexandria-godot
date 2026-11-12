@@ -252,7 +252,7 @@ func _ready() -> void:
 		explored.from_json(sv.sections["world.explored"])
 	# Flinching when hit; fainting at 0 HP.
 	miko.stats.hurt.connect(miko.flinch)
-	miko.stats.hurt.connect(func(_a): HitFx.sound(world, miko.position))   # (heard too)
+	miko.stats.hurt.connect(func(_a): HitFx.sound(world, miko.position, "scratch"))   # (heard too)
 	# Her HP and mana over her head while either is short of full.
 	var head_bars := HeadBars.new()
 	head_bars.name = "HeadBars"

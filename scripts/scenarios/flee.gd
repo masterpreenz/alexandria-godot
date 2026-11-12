@@ -14,17 +14,17 @@ func run() -> void:
 	var mv := MutatedVillager.spawn(world, md.mutatedVillager, v.position + Vector2(2.5, 0.0) * world.px)
 	mv.raid_to = v.position
 	miko.place(v.position + Vector2(-1.0, 2.5) * world.px)
-	var shot := false
+	var pic := false
 	for i in int(Shots.arg("fleeframes", "600")):
 		await get_tree().process_frame
 		if i % 60 == 0:
 			print("Flee ", floori(i / 60.0), " s: ", Villager.State.keys()[v.state], ", ", snappedf(v.position.distance_to(mv.position) / world.px, 0.1), " units from it, HP ", roundi(v.hit.hp), " '", v.activity(), "'")
-		if not shot and v.state == Villager.State.FLEE and i > 20:
-			shot = true
+		if not pic and v.state == Villager.State.FLEE and i > 20:
+			pic = true
 			miko.place(v.position + Vector2(-1.5, 2.0) * world.px)
 			for k in 3:
 				await get_tree().process_frame
-			print("Flee shot: ", v.person.name, " bark showing ", v._bark != null and v._bark.visible)
+			print("Flee pic: ", v.person.name, " bark showing ", v._bark != null and v._bark.visible)
 		if i == 450:
 			miko.place(v.position + Vector2(-1.5, 2.0) * world.px)
 			for k in 3:

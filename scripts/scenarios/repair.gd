@@ -11,7 +11,7 @@ func run() -> void:
 	world.walls.place(ek, "Barricade")
 	world.walls.damage(ek.key(), 110.0)
 	miko.place(world.walls.wall_middle(ek.key()) + Vector2(-2.5, 1.5) * world.px)
-	var shot := false
+	var pic := false
 	var wood0 := world.village.stored("Wood")
 	for i in int(Shots.arg("repairframes", "1800")):
 		await get_tree().process_frame
@@ -20,8 +20,8 @@ func run() -> void:
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_worn.png")
 		if i % 120 == 0:
 			print("Repair ", floori(i / 60.0), " s: HP ", roundi(world.walls.hp.get(ek.key(), -1.0)), ", ", (who[0].person.name + " " + Villager.State.keys()[who[0].state]) if not who.is_empty() else "nobody on it")
-		if not shot and not who.is_empty() and who[0].state == Villager.State.REPAIR:
-			shot = true
+		if not pic and not who.is_empty() and who[0].state == Villager.State.REPAIR:
+			pic = true
 			miko.place(who[0].position + Vector2(-1.5, 1.0) * world.px)
 			for k in 20:
 				await get_tree().process_frame

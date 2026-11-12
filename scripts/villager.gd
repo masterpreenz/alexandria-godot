@@ -2147,8 +2147,8 @@ func _fighting(t: float, delta: float) -> void:
 			if f % frames.size() == int(strike) and foe != null and is_instance_valid(foe) and foe.alive():
 				var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
 				foe.hurt(float(person.get("atk", s.stabDamage)) * strength)
-				# The thrust heard (the spear's stab, as the shikigami's).
-				Sfx.play(world, Sfx.stream("res://assets/Sounds/shiki_spear_stab.mp3"), position, 0.55, 0.1)
+				# The thrust heard going in (one of the blade's takes, at random).
+				Sfx.play(world, Sfx.one_of("flesh"), position, 0.55, 0.1)
 				people.practise(person, LifeSkills.Skill.STRENGTH)
 	last_frame = frame
 

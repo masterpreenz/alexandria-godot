@@ -7,9 +7,6 @@ var st: Story
 var log_beats := []
 
 
-func shot(nm: String) -> void:
-	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_" + nm + ".png")
-
 
 func beat_id() -> String:
 	return str(st._beats()[st.beat].id) if st.beat >= 0 and st.beat < st._beats().size() else "(over)"

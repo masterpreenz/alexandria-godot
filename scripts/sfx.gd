@@ -7,6 +7,26 @@ class_name Sfx
 ## decoding it on the main thread) stalled the frame each time one played.
 static var _streams := {}
 
+## Sounds that come in kinds, a few takes of each (assets/Sounds/Combat): one picked at random each time, never the
+## same take twice running, so a fight doesn't sound like one clip on repeat.
+const GROUPS := {
+	"blunt": "res://assets/Sounds/Combat/atk_blunt_%d.mp3",              # a staff or club landing; a wall struck
+	"scratch": "res://assets/Sounds/Combat/atk_scratch_%d.mp3",          # a monster's claws or bite on someone
+	"flesh": "res://assets/Sounds/Combat/atk_sword_flesh_%d.mp3",        # a blade or spear going in
+}
+const TAKES := 4
+static var _last_take := {}       ## group -> the take played last
+
+
+## One take of the kind [param group] (GROUPS), not the one played last.
+static func one_of(group: String) -> AudioStream:
+	var last := int(_last_take.get(group, -1))
+	var i := randi() % TAKES + 1
+	if i == last:
+		i = i % TAKES + 1
+	_last_take[group] = i
+	return stream(GROUPS[group] % i)
+
 
 static func stream(path: String) -> AudioStream:
 	if not _streams.has(path):
@@ -16,7 +36,7 @@ static func stream(path: String) -> AudioStream:
 
 ## Loads every sound in the game ahead of time (the loading screen does).
 static func preload_all() -> int:
-	for dir in ["res://assets/Sounds", "res://assets/Sounds/skills", "res://assets/Sounds/Dialog", "res://assets/Resources/Sounds"]:
+	for dir in ["res://assets/Sounds", "res://assets/Sounds/Combat", "res://assets/Sounds/skills", "res://assets/Sounds/Dialog", "res://assets/Resources/Sounds"]:
 		for f in DirAccess.get_files_at(dir):
 			var path: String = dir.path_join(f.trim_suffix(".import"))
 			if path.get_extension() in ["mp3", "wav", "ogg"]:

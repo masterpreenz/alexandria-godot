@@ -48,6 +48,11 @@ static func run_named(game: Node2D, called: String) -> void:
 	s.queue_free()
 
 
+## Saves what's on screen now as <the --shot picture's name>_<[param nm]>.png.
+func shot(nm: String) -> void:
+	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_" + nm + ".png")
+
+
 ## What the scenario does (each file's own).
 func run() -> void:
 	pass

@@ -42,7 +42,7 @@ static func unity_folder() -> String:
 
 ## Copies the Unity game's saves over when there are none here yet (they're left where they were).
 static func import_unity() -> int:
-	if _imported:
+	if _imported or SaveGame.testing():
 		return 0
 	_imported = true
 	DirAccess.make_dir_recursive_absolute(FOLDER)
@@ -76,7 +76,7 @@ static func start_sections(w: World) -> Dictionary:
 		return _start
 	var slot := pending
 	pending = ""
-	if Shots.arg("shot") != "" and slot == "":
+	if (Shots.arg("shot") != "" or Shots.arg("window") != "") and slot == "":
 		# A test run: the bundled start, unless it names a slot.
 		slot = Shots.arg("slot")
 	elif slot == "":
@@ -169,6 +169,8 @@ static func list() -> Array:
 
 
 static func delete(slot: String) -> void:
+	if SaveGame.testing():
+		return
 	for p in [path_of(slot), path_of(slot) + ".bak", path_of(slot) + ".tmp"]:
 		if FileAccess.file_exists(p):
 			DirAccess.remove_absolute(p)
@@ -230,6 +232,8 @@ static func new_slot() -> String:
 
 # Writes beside the file, then swaps it in, keeping the old one as .bak: a crash mid-save never loses a save.
 static func _write_safely(path: String, bytes: PackedByteArray) -> String:
+	if SaveGame.testing():
+		return "Not saved: a test run"   # (whatever asked: autosave, quick save, a rename)
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var temp := path + ".tmp"
 	var f := FileAccess.open(temp, FileAccess.WRITE)

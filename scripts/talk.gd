@@ -252,8 +252,21 @@ func _ask_rumor() -> void:
 		_show(Loc.pick("talk.reply.norumor", {"miko": Miko.NAME}))
 		return
 	who.show_mood("idea", 3.0)
-	_show(Rumors.active.hear(str(rumor.id), who))
+	var told := Rumors.active.hear(str(rumor.id), who)
 	FloatingText.spawn(world, "New rumor (K)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
+	# (a plea to answer: Sera's word is the one reply; she says it, and the talk's over)
+	if str(rumor.get("accept", "")) != "":
+		_show_replies(told, [[str(rumor.accept), _accept.bind(str(rumor.accept))]])
+		return
+	_show(told)
+
+
+# Sera gives her word (a rumor's "accept"): said aloud, and the talk closes.
+func _accept(line: String) -> void:
+	close()
+	var nd: Needs = miko.get_node_or_null("Needs")
+	if nd != null:
+		nd.say(line, 3.5)
 
 
 # ---- Someone unique: their hearts, their own topics, gifts ----

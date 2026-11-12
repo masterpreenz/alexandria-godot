@@ -30,6 +30,8 @@ var curing := {}                  ## Gatherable -> how far cured (0 to 1): the r
 var _cure_at := -1.0              ## the clock's hours when the curing was last moved on
 var _next_cure := 0.0
 var _bars: CureBars
+var _hour_left: Array = []        ## the trees still to be seen to this hour (a few hundred a frame, not all at once)
+const HOUR_EACH := 250            ## trees seen to in one frame
 
 
 func setup(w: World, settings: Dictionary) -> void:
@@ -66,9 +68,10 @@ func _trees() -> Array:
 
 ## How many rotten trees stand within [param radius] px of [param at].
 func corrupted_near(at: Vector2, radius: float) -> int:
+	# (only those filed near it: not every rotten tree in the world looked at, for each tree, every hour)
 	var n := 0
-	for t in corrupted:
-		if is_instance_valid(t) and t.foot.distance_squared_to(at) <= radius * radius:
+	for t in Gatherable.near(at, radius):
+		if t.corrupted and t.foot.distance_squared_to(at) <= radius * radius:
 			n += 1
 	return n
 
@@ -102,6 +105,7 @@ func _process_timed(_delta: float) -> void:
 			_tick()
 			i += 1
 		_last_hour = maxf(_last_hour, hour)
+	_tick_some()
 	if _now() >= _next_arm:
 		_next_arm = _now() + 1.0
 		_arm()
@@ -198,23 +202,39 @@ static func _hash(at: Vector2) -> float:
 	return h - floorf(h)
 
 
-# An hour of the forest: rot creeping in the mist, healing where it's cleared or by a spring.
+# An hour of the forest: rot creeping in the mist, healing where it's cleared or by a spring. Every tree's turn comes
+# over the next frames (_tick_some), not all in one.
 func _tick() -> void:
-	for t in _trees():
-		var at: Vector2 = t.foot
-		var tier := world.mist.tier_at(at)
-		var spring := Springs.near(at)
-		if t.corrupted:
-			var heal := float(s.healSpring) if spring else (float(s.healClear) if tier == Mist.Tier.CLEAR else 0.0)
-			if heal > 0.0 and not curing.has(t) and randf() < heal:
-				_turn(t, false, true)
-			continue
-		if tier == Mist.Tier.CLEAR or spring or world.village.contains(at, 2.0):
-			continue
-		var chance := float(s.rotStrong) if tier == Mist.Tier.STRONG else float(s.rotNormal)
-		chance += minf(float(s.spreadMost), corrupted_near(at, float(s.spreadReach) * world.px) * float(s.spreadEach))
-		if randf() < chance:
-			_turn(t, true, true)
+	_hour_left.append_array(_trees())
+
+
+# A few hundred trees' hour, seen to.
+func _tick_some() -> void:
+	var n := mini(HOUR_EACH, _hour_left.size())
+	if n == 0:
+		return
+	var some := _hour_left.slice(_hour_left.size() - n)
+	_hour_left.resize(_hour_left.size() - n)
+	for t in some:
+		if is_instance_valid(t):
+			_tree_hour(t)
+
+
+func _tree_hour(t: Gatherable) -> void:
+	var at: Vector2 = t.foot
+	var tier := world.mist.tier_at(at)
+	var spring := Springs.near(at)
+	if t.corrupted:
+		var heal := float(s.healSpring) if spring else (float(s.healClear) if tier == Mist.Tier.CLEAR else 0.0)
+		if heal > 0.0 and not curing.has(t) and randf() < heal:
+			_turn(t, false, true)
+		return
+	if tier == Mist.Tier.CLEAR or spring or world.village.contains(at, 2.0):
+		return
+	var chance := float(s.rotStrong) if tier == Mist.Tier.STRONG else float(s.rotNormal)
+	chance += minf(float(s.spreadMost), corrupted_near(at, float(s.spreadReach) * world.px) * float(s.spreadEach))
+	if randf() < chance:
+		_turn(t, true, true)
 
 
 # Corrupts or heals a tree; seen happen, with a burst of sparks.

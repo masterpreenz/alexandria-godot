@@ -14,12 +14,12 @@ func run() -> void:
 	world.props.place(c0 + Vector2i(6, 2), "CleansingCrystal")
 	var t0 := Time.get_ticks_msec()
 	var cleared_at := -1.0
-	var shot := false
+	var pic := false
 	while Time.get_ticks_msec() - t0 < 14000:
 		await get_tree().process_frame
 		var since := (Time.get_ticks_msec() - t0) / 1000.0
-		if not shot and since >= 2.5:
-			shot = true
+		if not pic and since >= 2.5:
+			pic = true
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_clearing.png")
 		if cleared_at < 0.0 and world.mist._moving.is_empty() and since > 1.0:
 			cleared_at = since

@@ -21,13 +21,13 @@ func run() -> void:
 	sl.angry_until = Creature.now() + 999.0
 	var hp_of := func() -> Array: return world.walls.hp.keys().filter(func(k): return world.walls.walls.has(k) and world.walls.walls[k] == "Barricade").map(func(k): return roundi(world.walls.hp[k]))
 	var hp0: float = miko.stats.hp
-	var shot := false
+	var pic := false
 	for i in int(Shots.arg("siegeframes", "900")):
 		await get_tree().process_frame
 		if i % 150 == 0:
 			print("Siege ", floori(i / 60.0), " s: barricades ", hp_of.call(), ", villager ", MutatedVillager.State.keys()[mv.state], ", her HP ", roundi(miko.stats.hp))
-		if not shot and mv.state == MutatedVillager.State.ATTACK and mv._bar_key != null:
-			shot = true
+		if not pic and mv.state == MutatedVillager.State.ATTACK and mv._bar_key != null:
+			pic = true
 			for k in 8:
 				await get_tree().process_frame
 			get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_hit.png")
