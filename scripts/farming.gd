@@ -258,8 +258,11 @@ func _look() -> void:
 				best_d = dd
 				best = p
 		if not best.is_empty():
-			states[best.key] = {"sown": bool(sv.sown), "sownAt": float(sv.sownAt), "crop": _crop_name(int(sv.crop)), "setTo": _crop_name(int(sv.setTo)),
-				"last": _crop_name(int(sv.get("last", 0))), "grown": float(sv.get("grown", _hours() - float(sv.sownAt))),
+			# (every field with a fallback: an older save, or one written mid-change, may lack some)
+			var sown_at := float(sv.get("sownAt", _hours()))
+			states[best.key] = {"sown": bool(sv.get("sown", false)), "sownAt": sown_at, "crop": _crop_name(int(sv.get("crop", 0))),
+				"setTo": _crop_name(int(sv.get("setTo", 0))),
+				"last": _crop_name(int(sv.get("last", 0))), "grown": float(sv.get("grown", _hours() - sown_at)),
 				"wateredAt": float(sv.get("wateredAt", _hours())), "pest": bool(sv.get("pest", false)),
 				"waiting": bool(sv.get("waiting", false))}
 			# A crop no longer grown (cabbages, for now): the plot bare again, and any field setting for it the rotation.
