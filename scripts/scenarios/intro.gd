@@ -42,6 +42,13 @@ func run() -> void:
 	await wait()
 	# Slimes.
 	for i in 3:
+		if i == 1:
+			shot("slimes")
+			var far := 0.0
+			for c in Creature.all:
+				if is_instance_valid(c) and c is Slime and c.hit.alive() and c.position.distance_to(miko.position) < 30.0 * world.px:
+					far = maxf(far, c.position.distance_to(miko.position) / world.px)
+			print("Intro: the road's slimes, furthest ", snappedf(far, 0.1), " units off")
 		kill_near("Slime")
 		await wait(10)
 	# Gather.

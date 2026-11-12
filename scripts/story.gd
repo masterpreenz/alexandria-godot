@@ -208,35 +208,41 @@ func _place_card() -> void:
 	_card.position = _card_at.round()
 
 
-# The hint as shown: its parts (intro.json's "parts": [text, what does it]) joined by dots, those done in green with a
-# tick; things to bring (counted: "3/10 wood"), one to a line under it. Or just its text.
+# The hint as shown: its parts (intro.json's "parts": [text, what does it]) one to a line under it, those done in green
+# with a tick; the keys named in it (E, 1, Shift...) in the accent colour. Or just its text.
 func _show_hint() -> void:
 	if beat < 0 or beat >= _beats().size():
 		return
 	var b: Dictionary = _beats()[beat]
 	var parts: Array = b.get("parts", [])
 	if parts.is_empty():
-		_hint.text = str(b.get("hint", ""))
+		_hint.text = _keys_lit(str(b.get("hint", "")))
 		return
 	var bits := []
-	var counted := false
 	for p in parts:
 		var key := str(p[1]) if p.size() > 1 else ""
 		var text := str(p[0]).replace("{progress}", _progress(key))
-		if _progress(key) != "":
-			counted = true
 		if key != "" and _did.has(key):
 			bits.append("[color=#%s]✓ %s[/color]" % [HudStyle.color("green").to_html(false), text])
 		else:
-			bits.append(text)
-	var lead := str(b.get("hint", ""))
-	var t := (lead + "  " if lead != "" else "") + "  ·  ".join(bits)
-	if counted:
-		t = (lead + "
+			bits.append(_keys_lit(text))
+	var lead := _keys_lit(str(b.get("hint", "")))
+	var t := (lead + "
 " if lead != "" else "") + "
 ".join(bits.map(func(x): return "•  " + x))
 	if t != _hint.text:
 		_hint.text = t
+
+
+static var _key_re: RegEx
+
+
+# [param text] with the keys it names (E, 1, Shift, W A S D, Left click...) in the accent colour, as the world's prompts
+# show theirs. (A lone "A" or "I" is a word, not a key.)
+func _keys_lit(text: String) -> String:
+	if _key_re == null:
+		_key_re = RegEx.create_from_string("(?<![A-Za-z0-9_'/])(W A S D|Left click|Right click|Shift|Space|Tab|Esc|Enter|F[0-9]{1,2}|[B-HJ-Z]|[1-9])(?![A-Za-z0-9_'/])")
+	return _key_re.sub(text, "[color=#%s]$1[/color]" % HudStyle.color("accentLight").to_html(false), true)
 
 
 # How much of [param r] has come into storage since the beat began: what she's put in herself (though the villagers
