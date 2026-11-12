@@ -1,5 +1,5 @@
 """Cuts icons out of a placeholder-icon sheet with the user's art in it (ArtSource/placeholder_icons/group_NN.png's
-layout: six boxes, three across, two down, on a dark ground).
+layout, at any size: six cards, three across, two down, each with its icon in a dark square).
 
     python tools/cut_icon_sheet.py <sheet image> <name1> ... <name6>
 
@@ -25,21 +25,60 @@ def near(c):
 
 
 def boxes(im):
-    """The six icon boxes, found where the sheet's lighter box edges are (the layout's measures, scaled)."""
+    """The six icon boxes: in each card (three across, two down, under the title), the dark square that isn't the
+    page round the cards (the biggest dark patch that doesn't reach the card's edge)."""
     w, h = im.size
-    sx, sy = w / 1866.0, h / 843.0
+    top = int(h * 0.08)
     out = []
     for row in range(2):
         for col in range(3):
-            x0 = (48 + col * 614) * sx
-            y0 = (98 + row * 367) * sy
-            out.append(tuple(int(v) for v in (x0 + 4, y0 + 4, x0 + 197 * sx - 4, y0 + 197 * sy - 4)))
+            cx0, cx1 = int(col * w / 3), int((col + 1) * w / 3)
+            cy0, cy1 = top + int(row * (h - top) / 2), top + int((row + 1) * (h - top) / 2)
+            out.append(_dark_square(im, (cx0, cy0, cx1, cy1)))
     return out
 
 
+def _dark_square(im, cell):
+    x0, y0, x1, y1 = cell
+    px = im.load()
+    dark = lambda p: p[0] + p[1] + p[2] < 85
+    seen = set()
+    best = None
+    step = 2   # (every other pixel: quick, and the boxes are big)
+    for sy in range(y0, y1, step):
+        for sx in range(x0, x1, step):
+            if (sx, sy) in seen or not dark(px[sx, sy]):
+                continue
+            q = deque([(sx, sy)])
+            n, bx0, by0, bx1, by1, edge = 0, sx, sy, sx, sy, False
+            while q:
+                x, y = q.popleft()
+                if (x, y) in seen:
+                    continue
+                if not (x0 <= x < x1 and y0 <= y < y1):
+                    edge = True
+                    continue
+                if not dark(px[x, y]):
+                    continue
+                seen.add((x, y))
+                n += 1
+                bx0, by0, bx1, by1 = min(bx0, x), min(by0, y), max(bx1, x), max(by1, y)
+                q.extend([(x + step, y), (x - step, y), (x, y + step), (x, y - step)])
+            if not edge and (best is None or n > best[0]):
+                best = (n, (bx0, by0, bx1, by1))
+    if best is None:
+        raise SystemExit("no icon box found in %s" % (cell,))
+    bx0, by0, bx1, by1 = best[1]
+    return (bx0 + 3, by0 + 3, bx1 - 2, by1 - 2)
+
+
 def clear_ground(c):
+    global GROUND
     w, h = c.size
     px = c.load()
+    edge = [px[x, 0][:3] for x in range(w)] + [px[0, y][:3] for y in range(h)]
+    edge.sort(key=sum)
+    GROUND = edge[len(edge) // 2]
 
     def fade(x, y):
         r, g, b, a = px[x, y]
