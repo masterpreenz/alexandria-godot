@@ -137,6 +137,9 @@ func _process_timed(delta: float) -> void:
 	elif world.player != null and age - landed_at > SETTLE:
 		var to: Vector2 = world.player.position - ground
 		var d := to.length()
+		# (lying still, far from her and off screen: nothing to move or draw again)
+		if d > MAGNET * px * 1.5 and not world.on_screen(ground, 1.0):
+			return
 		if d < REACH * px:
 			var bag: Bag = world.player.get("bag")
 			# Into her bag, and storage past it in the village; what nothing can take stays on the ground.

@@ -5,8 +5,9 @@ extends Node
 ## faint fill show over everything, fading in and out; it stays until less than 80% is hidden. For the player, what's
 ## hiding them also fades to see-through while they're behind it, and back once they're out.
 
-const COLS := 8
-const ROWS := 12
+const COLS := 5
+const ROWS := 8
+const EVERY := 0.2                   ## seconds between looks at whether it's hidden (each at its own moment)
 
 var world: World
 var body: Sprite2D           ## the character's art
@@ -40,6 +41,7 @@ func setup(w: World, art: Sprite2D, color := Color(1, 0.96, 0.88, 1)) -> void:
 	outline.material = mat
 	outline.z_as_relative = false
 	outline.z_index = 4000  # over the world
+	outline.visibility_layer |= LightMap.UNLIT_LAYER   # (shown as drawn, not lit again)
 	outline.visible = false
 	body.get_parent().add_child(outline)
 
@@ -54,8 +56,17 @@ func _process_timed(delta: float) -> void:
 	if body == null:
 		return
 	var now := Time.get_ticks_msec() / 1000.0
+	# (off screen: nothing to show, nothing to look at)
+	if not world.on_screen((body.get_parent() as Node2D).global_position, 2.0):
+		if outline.visible or shown > 0.0:
+			outline.visible = false
+			shown = 0.0
+			covered = false
+		if fade_covers:
+			_fade_covers(delta)
+		return
 	if now >= next_check:
-		next_check = now + 0.1
+		next_check = now + EVERY + randf() * 0.05   # (spread out, so they don't all look on the same frame)
 		covered = hidden_when.call() if hidden_when.is_valid() else _covered()
 	if fade_covers:
 		_fade_covers(delta)

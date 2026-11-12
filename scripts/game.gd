@@ -627,6 +627,10 @@ func _post_processing() -> void:
 	we.name = "PostProcessing"
 	we.environment = env
 	add_child(we)
+	# The lights, in one pass over the screen (before the vignette: it darkens their edges too).
+	var lights := LightMap.new()
+	add_child(lights)
+	lights.setup(world, light)
 	var layer := CanvasLayer.new()
 	layer.name = "Vignette"
 	layer.layer = 0

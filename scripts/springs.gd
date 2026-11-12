@@ -89,7 +89,10 @@ func _process_timed(delta: float) -> void:
 		var want := 0.0 if sp.drying else 1.0
 		if not is_equal_approx(sp.shown, want):
 			sp.shown = move_toward(sp.shown, want, delta / 6.0)
-			_build(sp, maxf(0.2, float(sp.data.radius) * smoothstep(0.15, 1.0, sp.shown)))
+			# (its shape built again a few times a second as it wells up or dries, not every frame)
+			if _now() >= float(sp.get("built_at", 0.0)) or is_equal_approx(sp.shown, want):
+				sp["built_at"] = _now() + 0.25
+				_build(sp, maxf(0.2, float(sp.data.radius) * smoothstep(0.15, 1.0, sp.shown)))
 			sp.light.energy = 0.5 * sp.shown
 			sp.motes.modulate.a = sp.shown
 			sp.motes.emitting = sp.shown > 0.05

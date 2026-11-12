@@ -80,6 +80,7 @@ static func solid_squares(w: World) -> Dictionary:
 	var key := "%d %d" % [w.props.version, Gatherable.version]
 	if key == _solid_key:
 		return _solid
+	var __t := Time.get_ticks_usec()
 	_solid_key = key
 	_solid = {}
 	_core = {}
@@ -96,6 +97,7 @@ static func solid_squares(w: World) -> Dictionary:
 		if is_instance_valid(g) and not g.depleted():
 			_solid[f.cell_at(g.foot)] = true
 			_core[f.cell_at(g.foot)] = true
+	Perf.add(&"AI: route: solid things worked out", __t)
 	return _solid
 
 
@@ -132,7 +134,12 @@ static func _find(w: World, from: Vector2, to: Vector2) -> Variant:
 		return _points(w.walls, kept[1], to)
 	# Clear of everything solid if there's such a way; else squeezing past the big things (a bed, a fireplace) in a
 	# small room, round only the squares they stand on; else through the walls alone.
-	var squares: Variant = _search(w, a, b, solid_squares(w), true)
+	var __s := Time.get_ticks_usec()
+	var solid := solid_squares(w)
+	Perf.add(&"AI: route: solid things", __s)
+	__s = Time.get_ticks_usec()
+	var squares: Variant = _search(w, a, b, solid, true)
+	Perf.add(&"AI: route: search", __s)
 	if squares == null:
 		squares = _search(w, a, b, _core, true)
 	if squares == null:

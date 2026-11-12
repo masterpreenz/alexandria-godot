@@ -704,6 +704,7 @@ static func grass_variety() -> Texture2D:
 ## night's tint undone on it each frame (its self_modulate; its own fading through modulate goes on as it was).
 static func keep_lit(n: CanvasItem) -> void:
 	n.add_to_group(&"unlit")
+	n.visibility_layer |= LightMap.UNLIT_LAYER   # (and left as drawn by the light pass)
 
 
 func _process(_delta: float) -> void:

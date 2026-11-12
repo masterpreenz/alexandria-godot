@@ -17,8 +17,7 @@ func run() -> void:
 		miko.stats.hp = miko.stats.stat("maxHp")
 		await get_tree().process_frame
 	if Shots.arg("nolights") != "":
-		for l in g.find_children("*", "PointLight2D", true, false):
-			(l as PointLight2D).enabled = false
+		g.get_node("LightMap").visible = false
 		print("Fight perf: lights off")
 	if Shots.arg("mixlights") != "":
 		for l in g.find_children("*", "PointLight2D", true, false):
