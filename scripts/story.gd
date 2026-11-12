@@ -284,6 +284,12 @@ func _begin(i: int, loading: bool) -> void:
 	if not loading:
 		for a in b.get("start", []):
 			_act(a)
+	else:
+		# (a game loaded part way through a beat: the monsters it sent aren't kept in the save, so they come again, the
+		# kills it wants counted afresh)
+		for a in b.get("start", []):
+			if str(a.get("do", "")) == "spawn":
+				_act(a)
 	_title.text = str(b.objective)
 	_did = {}
 	_swings_from = Melee.swings
