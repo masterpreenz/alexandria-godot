@@ -154,6 +154,7 @@ func begin_new_game() -> void:
 # ---- The card: the beat's objective, and its hint a part at a time, each lit up once she's done it ----
 
 var _did := {}                  ## the hint's parts done this beat: key -> true
+var _asleep_since := -1.0       ## (the "slept" kind: when she fell asleep, real seconds)
 var _head_up := 0.0             ## px from her feet to the top of her head (for the card over it)
 var _card_at := Vector2.INF     ## where the card over her head is easing to (screen px)
 var _swings_from := 0
@@ -401,8 +402,16 @@ func _done(dn: Dictionary) -> bool:
 		"cooked":
 			return _dishes_in_bag() - int(_from.cooked) >= int(dn.count)
 		"slept":
+			# Asleep a while (she can't get up again herself: the night goes on till what comes next wakes her).
 			var nd: Needs = miko.get_node_or_null("Needs")
-			return nd != null and nd.sleep == Needs.Sleep.ASLEEP
+			if nd == null or nd.sleep != Needs.Sleep.ASLEEP:
+				_asleep_since = -1.0
+				return false
+			nd.held_asleep = true
+			var now := Time.get_ticks_msec() / 1000.0
+			if _asleep_since < 0.0:
+				_asleep_since = now
+			return now - _asleep_since >= float(dn.get("seconds", 5.0))
 		"scene":
 			return Chronicle.active.happened("scene:" + str(dn.id))
 		"reach_village":
@@ -462,6 +471,8 @@ func _act(a: Dictionary) -> void:
 			world.clock.speed = 1.0 if bool(a.run) else 0.0
 		"wake":
 			var nd: Needs = miko.get_node_or_null("Needs")
+			if nd != null:
+				nd.held_asleep = false   # (the story lets her up: something's woken her)
 			if nd != null and nd.sleeping():
 				nd.get_up()
 				if nd.sleep == Needs.Sleep.ASLEEP:

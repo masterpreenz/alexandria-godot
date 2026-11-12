@@ -73,8 +73,16 @@ func run() -> void:
 	await wait()
 	nd.lie_down()
 	nd.sleep = Needs.Sleep.ASLEEP
+	# (asleep a while: Z doesn't get her up; then the messenger's coming wakes her)
+	for i in 120:
+		await get_tree().process_frame
+	nd.get_up()
+	var held := nd.sleeping()
+	var ts := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - ts < 9000 and beat_id() == "rest":
+		await get_tree().process_frame
 	await wait(10)
-	print("Intro: woken at ", snappedf(clock.hour(), 0.1), "h, beat ", beat_id(), "; asleep still ", nd.sleeping())
+	print("Intro: asleep ", snappedf((Time.get_ticks_msec() - ts) / 1000.0 + 2.0, 0.1), "s, Z didn't wake her ", held, "; woken at ", snappedf(clock.hour(), 0.1), "h, beat ", beat_id(), "; asleep still ", nd.sleeping())
 	# The messenger runs to her.
 	var t0 := Time.get_ticks_msec()
 	var talk: Talk = g.get_node("Hud/Talk")

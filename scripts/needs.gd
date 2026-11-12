@@ -577,8 +577,14 @@ static func bed_key(pos: Vector2) -> Vector2i:
 	return Vector2i(roundi(pos.x), roundi(pos.y))
 
 
+## The story keeps her asleep (the night before the messenger comes): Z doesn't wake her; the story does.
+var held_asleep := false
+
+
 func get_up() -> void:
 	if sleep == Sleep.AWAKE or sleep == Sleep.GETTING_UP:
+		return
+	if held_asleep:
 		return
 	var lie := int(s.lieDownFrames)
 	# Up from wherever the lying down got to.
