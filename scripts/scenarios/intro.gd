@@ -148,7 +148,7 @@ func run() -> void:
 		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
 			elder = v
 	var awake := Villager.all.filter(func(v): return is_instance_valid(v) and v.hit.alive() and not v.in_bed).map(func(v): return v.person.name)
-	print("Intro: the elder out of hiding ", not elder.person.has("restUntil"), ", by his bed ", elder.position.distance_to(elder._door()) < 1.0 * world.px, ", held ", elder.held, "; up at ", snappedf(clock.hour(), 0.1), "h: ", awake)
+	print("Intro: the elder out of hiding ", not elder.person.has("restUntil"), ", by the banner ", elder.position.distance_to(world.props_named("TownBanner")[0]) < 4.0 * world.px, ", held ", elder.held, "; up at ", snappedf(clock.hour(), 0.1), "h: ", awake)
 	miko.place(elder.position + Vector2(0.8, 0.3) * world.px)
 	talk.open(elder)
 	await get_tree().process_frame

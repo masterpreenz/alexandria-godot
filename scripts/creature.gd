@@ -231,7 +231,20 @@ func _clear_to(p: Vector2) -> bool:
 func barricade_ahead(goal: Vector2) -> Array:
 	if world.walls == null or world.walls.hp.is_empty():
 		return []
-	return world.walls.barricade_in_way(position, goal, 0.0)   # (across the way only: a gap broken in, it goes through)
+	# (looked for four times a second, or when what it's after has moved off: not every frame, there are many of them)
+	var t := now()
+	if t < _bar_at and goal.distance_to(_bar_goal) < 0.8 * world.px:
+		if _bar_seen.is_empty() or world.walls.walls.has(_bar_seen[0]):
+			return _bar_seen
+	_bar_at = t + 0.25 + randf() * 0.05
+	_bar_goal = goal
+	_bar_seen = world.walls.barricade_in_way(position, goal, 0.0)   # (across the way only: a gap broken in, it goes through)
+	return _bar_seen
+
+
+var _bar_at := -10.0
+var _bar_goal := Vector2.INF
+var _bar_seen: Array = []
 
 
 ## Whether it's going for someone now (a shield shikigami draws off only those).

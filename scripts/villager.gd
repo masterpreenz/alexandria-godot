@@ -1802,7 +1802,10 @@ func _emote(e: String) -> void:
 		emote = Sprite2D.new()
 		emote.z_as_relative = false
 		emote.z_index = 3998
-		emote.add_child(Sprite2D.new())
+		var icon_in := Sprite2D.new()
+		icon_in.visibility_layer |= LightMap.UNLIT_LAYER   # (as drawn: not lit again by the torches)
+		emote.add_child(icon_in)
+		emote.visibility_layer |= LightMap.UNLIT_LAYER
 		add_child(emote)
 	emote.visible = true
 	emote.modulate = world.daylight_undo()   # as drawn, whatever the hour (the evening's tint would grey it)
@@ -1833,7 +1836,10 @@ func _eating_emote() -> void:
 		emote = Sprite2D.new()
 		emote.z_as_relative = false
 		emote.z_index = 3998
-		emote.add_child(Sprite2D.new())
+		var icon_in := Sprite2D.new()
+		icon_in.visibility_layer |= LightMap.UNLIT_LAYER   # (as drawn: not lit again by the torches)
+		emote.add_child(icon_in)
+		emote.visibility_layer |= LightMap.UNLIT_LAYER
 		add_child(emote)
 	emote.visible = true
 	emote.modulate = world.daylight_undo()   # as drawn, whatever the hour (the evening's tint would grey it)

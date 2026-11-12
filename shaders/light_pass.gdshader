@@ -1,6 +1,6 @@
 // The world's lights, in one pass over the screen (LightMap): each pixel takes the brightest light reaching it, not
 // their sum, so torches standing close never light more than one does. The screen comes in already dimmed by the
-// day's tint (Daylight); a light gives back what it would have added: base * (tint + light), as one Light2D would.
+// day's tint (Daylight); a light brightens it as one Light2D did: base * tint * (1 + light).
 shader_type canvas_item;
 
 const int MOST = 48;
@@ -30,7 +30,7 @@ void fragment() {
 		best = max(best, colours[i] * g);
 	}
 	vec4 s = texture(screen_tex, SCREEN_UV);
-	vec3 t = max(tint, vec3(0.02));
 	float keep = texture(unlit_mask, SCREEN_UV).a;
-	COLOR = vec4(s.rgb * mix(1.0 + best / t, vec3(1.0), keep), 1.0);
+	// (as one of Godot's own lights did: the night's tint on what it lit as well, base * tint * (1 + light))
+	COLOR = vec4(s.rgb * mix(1.0 + best, vec3(1.0), keep), 1.0);
 }

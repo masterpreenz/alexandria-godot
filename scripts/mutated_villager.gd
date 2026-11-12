@@ -58,7 +58,9 @@ func _physics_process_timed(delta: float) -> void:
 	# Miko in the mist and in sight: after her. Out of the mist, or got away: back to its wandering. Raiding: after
 	# whoever's nearest, Miko or a villager, mist or not; with nobody about, on into the village.
 	var p := player()
+	var __a := Time.get_ticks_usec()
 	prey = _pick_prey(p)
+	Perf.add(&"mutated: picking who to go for", __a)
 	var hunting := prey != null or raid_to != Vector2.INF
 	if hunting and state != State.CHASE and state != State.ATTACK:
 		state = State.CHASE
@@ -73,12 +75,16 @@ func _physics_process_timed(delta: float) -> void:
 		State.CHASE:
 			var goal: Vector2 = prey.position if prey != null else raid_to
 			# A barricade in the way: that first.
+			var __b := Time.get_ticks_usec()
 			var bar := barricade_ahead(goal)
+			Perf.add(&"mutated: barricade ahead", __b)
 			_bar_key = null if bar.is_empty() else bar[0]
 			# Raiding with nobody about to go for: at the nearest house, smashing its walls in.
 			if prey == null and bar.is_empty() and raid_to != Vector2.INF and Raids.active != null:
 				if not Raids.active.standing(_house_wall):
+					var __h := Time.get_ticks_usec()
 					_house_wall = Raids.active.house_wall_near(position, 9.0 * world.px)
+					Perf.add(&"mutated: house wall near", __h)
 			else:
 				_house_wall = {}
 			var to: Vector2 = (goal if bar.is_empty() else bar[1]) - position
@@ -151,12 +157,18 @@ func _physics_process_timed(delta: float) -> void:
 					_stand(t)
 	_last_pos = position
 	# Never into the water: a step that would end in the river stops at the bank.
+	var __m := Time.get_ticks_usec()
 	if velocity != Vector2.ZERO and world.wet(position + velocity * delta * 4.0):
 		velocity = Vector2.ZERO
 		_stand(t)
+	Perf.add(&"mutated: water ahead", __m)
+	__m = Time.get_ticks_usec()
 	move_and_slide()
+	Perf.add(&"mutated: moving (physics)", __m)
+	__m = Time.get_ticks_usec()
 	_show()
 	paint_flash()
+	Perf.add(&"mutated: drawing", __m)
 
 
 # Whether it's after Miko: she's up, in the mist (not on cleared ground), within its sight (and once after her, not yet
