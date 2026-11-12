@@ -142,6 +142,10 @@ func _ready() -> void:
 	village = Village.new(self)
 	if sections.has("village"):
 		village.from_json(sections["village"])
+	# The woods round the home village (once the save's own ground, walls, props and the water are in, to keep clear of
+	# them; before the cleared ground's taken out of them).
+	if FileAccess.file_exists("res://data/gather.json"):
+		Wildlands.village_woods(self, _load_json("res://data/gather.json"))
 	# Cleared ground stays clear.
 	if sections.has("world.cleared"):
 		var cl: Variant = JSON.parse_string(sections["world.cleared"])

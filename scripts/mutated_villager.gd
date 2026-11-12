@@ -85,15 +85,23 @@ func _physics_process_timed(delta: float) -> void:
 			if not _house_wall.is_empty():
 				to = _house_wall.mid - position
 			var reach := float(s.attackReach) * world.px * (1.0 if bar.is_empty() and _house_wall.is_empty() else 1.3)
-			face(to, 0.1)
+			# (the way there: round a house in between, not stuck at its wall)
+			var step := to
+			if bar.is_empty() and _house_wall.is_empty():
+				step = way_to(goal) - position
+			face(step, 0.1)
 			if prey == null and bar.is_empty() and _house_wall.is_empty():
 				# Marching on the village: round what's in the way; there, on to somewhere else in it.
 				if to.length() < 1.2 * world.px:
 					raid_to = Raids.spot_in_village(world)
-				velocity = steer.around(to.normalized() * float(s.chaseSpeed) * world.px, delta)
+				velocity = _go(step, delta)
 			elif to.length() > reach:
-				velocity = to.normalized() * float(s.chaseSpeed) * world.px
+				velocity = _go(step, delta)
+				# (getting nowhere: shut out from them, they're given up a while: someone else, or a house's walls)
+				if prey != null and bar.is_empty() and stuck_on(prey):
+					prey = null
 			else:
+				stuck_reset()
 				velocity = Vector2.ZERO
 				if t >= _next_attack:
 					_next_attack = t + float(s.attackEvery)
@@ -162,6 +170,13 @@ func _hunting(p: Miko) -> bool:
 	return p.position.distance_to(position) <= far
 
 
+# Moving along [param step]: following a way round walls, straight along it (the steering would turn it off the way,
+# at the corner it's going round); else steered round what's in the way.
+func _go(step: Vector2, delta: float) -> Vector2:
+	var v := step.normalized() * float(s.chaseSpeed) * world.px
+	return v if _route != null else steer.around(v, delta)
+
+
 # Who it's after now, or null: Miko as [method _hunting] says; raiding, the nearest of her and the villagers in sight.
 func _pick_prey(p: Miko) -> Node2D:
 	# Drawn off by a shield shikigami: that instead.
@@ -172,11 +187,11 @@ func _pick_prey(p: Miko) -> Node2D:
 		return p if _hunting(p) else null
 	var best: Node2D = null
 	var best_d := float(s.giveUpAt if state == State.CHASE and prey != null else s.sight) * world.px
-	if p != null and p.stats != null and p.stats.hp > 0.0 and p.position.distance_to(position) < best_d:
+	if p != null and p.stats != null and p.stats.hp > 0.0 and p.position.distance_to(position) < best_d and not ignoring(p):
 		best = p
 		best_d = p.position.distance_to(position)
 	for v in Villager.all:
-		if is_instance_valid(v) and v.visible and v.hit.alive() and v.position.distance_to(position) < best_d:
+		if is_instance_valid(v) and v.visible and v.hit.alive() and v.position.distance_to(position) < best_d and not ignoring(v):
 			best = v
 			best_d = v.position.distance_to(position)
 	return best

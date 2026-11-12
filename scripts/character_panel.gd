@@ -424,6 +424,7 @@ func _build_bag() -> Control:
 	_pick_icon = ChestWindow.Cell.new()
 	_pick_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pick_icon.custom_minimum_size = Vector2(_k(44), _k(44))
+	_pick_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # (square, at the top: not stretched down the row)
 	top.add_child(_pick_icon)
 	var texts := VBoxContainer.new()
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -316,6 +316,23 @@ func _begin(i: int, loading: bool) -> void:
 	_card.visible = true
 
 
+var _weather_held := false
+
+
+# Clear skies while the story's on (no rain over its opening); the seasons have the weather back once it's waiting
+# unseen (or over).
+func _hold_weather() -> void:
+	if world.clock == null:
+		return
+	var on := beat >= 0 and beat < _beats().size() and not bool(_beats()[beat].get("hidden", false))
+	if on and world.clock.weather() != GameClock.Weather.CLEAR:
+		world.clock.set_weather(GameClock.Weather.CLEAR)
+		_weather_held = true
+	elif not on and _weather_held:
+		_weather_held = false
+		world.clock.set_weather(-1)
+
+
 func _finish() -> void:
 	beat = -1
 	_card.visible = false
@@ -324,6 +341,7 @@ func _finish() -> void:
 
 
 func _process(delta: float) -> void:
+	_hold_weather()
 	if beat < 0:
 		return
 	# (out of the way while a window's open over her: her bag and character, a conversation)

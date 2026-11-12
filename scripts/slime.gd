@@ -72,11 +72,11 @@ func _physics_process_timed(delta: float) -> void:
 	var prey_body: Damageable = null
 	if angry:
 		var best := reach
-		if p != null and p.stats.hp > 0.0 and p.position.distance_to(at) < best and p.position.distance_to(home) < leash:
+		if p != null and p.stats.hp > 0.0 and p.position.distance_to(at) < best and p.position.distance_to(home) < leash and not ignoring(p):
 			best = p.position.distance_to(at)
 			prey = p
 		for v in Villager.all:
-			if not v.visible or not v.hit.alive():
+			if not v.visible or not v.hit.alive() or ignoring(v):
 				continue
 			var dd := v.position.distance_to(at)
 			if dd < best and v.position.distance_to(home) < leash:
@@ -96,6 +96,14 @@ func _physics_process_timed(delta: float) -> void:
 		chasing = seen
 		if not seen:
 			_pick_wander()
+	# Getting nowhere (shut out from them): given up a while.
+	if chasing and prey != null and (prey == taunter() or prey.position.distance_to(at) < 1.2 * world.px):
+		stuck_reset()   # (at them, biting: standing still's no sign it's stuck)
+	elif chasing and prey != null and stuck_on(prey):
+		chasing = false
+		_pick_wander()
+	elif not chasing:
+		stuck_reset()
 	# A barricade in the way: that first.
 	var bar := barricade_ahead(prey.position) if chasing else []
 	# Raiding with nobody about to go for: at the nearest house's walls.
@@ -103,7 +111,7 @@ func _physics_process_timed(delta: float) -> void:
 	if not chasing and raid_to != Vector2.INF and Raids.active != null:
 		house = Raids.active.house_wall_near(at, 9.0 * world.px)
 	if chasing:
-		target = prey.position if bar.is_empty() else bar[1]
+		target = way_to(prey.position) if bar.is_empty() else bar[1]   # (round a house in between)
 	elif not house.is_empty():
 		target = house.mid
 	elif at.distance_to(home) > float(s.leash) * world.px:

@@ -17,6 +17,9 @@ func run() -> void:
 	print("Gear icons: without a picture ", missing)
 	var cp: CharacterPanel = CharacterPanel._active
 	cp.toggle()
+	for i in 5:
+		await get_tree().process_frame
+	cp.clicked(4, false)   # (the first bit of gear picked: its picture in the box below)
 	for i in 10:
 		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png(Shots.arg("shot").get_basename() + "_bag.png")

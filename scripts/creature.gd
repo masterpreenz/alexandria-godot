@@ -114,6 +114,91 @@ func face(dir: Vector2, back_above := 0.1) -> void:
 	flip = dir.x > 0.0
 
 
+var _ignoring := {}               # who it's given up on for now (can't get at them): node -> until when
+var _stuck_from := Vector2.INF
+var _stuck_check_at := 0.0
+
+
+## Whether it's given up on [param n] for now (couldn't get at them).
+func ignoring(n: Node) -> bool:
+	return _ignoring.has(n) and now() < float(_ignoring[n])
+
+
+## Called while it's closing on [param target]: true when it's got nowhere for a while (shut out: they're in a house,
+## the door closed), and then it gives them up for a few seconds (it goes for someone else, or at the house's walls).
+func stuck_on(target: Node) -> bool:
+	var t := now()
+	if _stuck_from == Vector2.INF:
+		_stuck_from = position
+		_stuck_check_at = t + 1.5
+		return false
+	if t < _stuck_check_at:
+		return false
+	var stuck := position.distance_to(_stuck_from) < 0.3 * world.px
+	_stuck_from = position
+	_stuck_check_at = t + 1.5
+	if stuck and target != null:
+		_ignoring[target] = t + 8.0
+		_route = null
+		return true
+	return false
+
+
+## Not closing on anyone now (attacking, standing): the headway check starts afresh next time.
+func stuck_reset() -> void:
+	_stuck_from = Vector2.INF
+
+
+var _route: Variant = null        # the way round walls it's following (VillagerRoute points), or null
+var _route_goal := Vector2.INF
+var _route_at := -10.0
+var _route_leg := 0
+
+
+## Where to head for [param goal]: straight there when nothing fixed stands in the way; with a wall across it (a house
+## between), round it by the villagers' ways (the walls and closed doors as they are), worked out again every second or
+## when the goal's moved on.
+func way_to(goal: Vector2) -> Vector2:
+	if world.walls == null:
+		return goal
+	if _clear_to(goal):
+		_route = null
+		return goal
+	var t := now()
+	if _route == null or t - _route_at > 1.0 or _route_goal.distance_to(goal) > 1.5 * world.px:
+		_route_at = t
+		_route_goal = goal
+		_route = VillagerRoute.find(world, position, goal)
+		_route_leg = 0
+	if _route == null:
+		return goal
+	var pts: Array = _route
+	# (a point's passed once it's within a step: a slime's hop is longer than that, and would keep overshooting it)
+	while _route_leg < pts.size() - 1 and position.distance_to(pts[_route_leg].at) < 0.8 * world.px:
+		_route_leg += 1
+	# (on to the furthest of the next few points it can get to straight, its body's width clear all the way: the
+	# square middles hugging a wall are too tight for the bigger ones, and it's a smoother way round besides)
+	for ahead in range(mini(pts.size() - 1, _route_leg + 4), _route_leg, -1):
+		if _clear_to(pts[ahead].at):
+			_route_leg = ahead
+			break
+	return pts[_route_leg].at
+
+
+# Whether it could go straight to [param p], its body's width clear of anything fixed all the way.
+func _clear_to(p: Vector2) -> bool:
+	var body := PhysicsShapeQueryParameters2D.new()
+	var c := CircleShape2D.new()
+	c.radius = shape.radius if shape != null else 0.3 * world.px   # (its own body's width)
+	body.shape = c
+	body.collision_mask = 1
+	body.exclude = [get_rid()]
+	body.transform = Transform2D(0.0, position)
+	body.motion = p - position
+	var free := get_world_2d().direct_space_state.cast_motion(body)
+	return free.size() > 0 and free[0] >= 1.0
+
+
 ## Going for [param goal]: the barricade standing across the straight way there, [wall key, where the way crosses it],
 ## or []. A hunting monster breaks that down first.
 func barricade_ahead(goal: Vector2) -> Array:
