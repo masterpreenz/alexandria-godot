@@ -373,9 +373,15 @@ func _mist(dt: float) -> void:
 
 
 ## Eats one food, the most filling first; false if she's full or there's nothing to eat.
+const POTIONS := {"HpPotion": ["hp", 60.0], "ManaPotion": ["mana", 50.0]}   ## what each potion gives back, and how much
+
+
 func eat(food := "") -> bool:
 	if sleeping():
 		return false
+	# A potion: drunk whether she's hungry or not, for what it gives back.
+	if POTIONS.has(food):
+		return _drink_potion(food)
 	if hunger >= MAX - 1.0:
 		_say("Not hungry", Color(0.85, 0.8, 0.7))
 		return false
@@ -394,6 +400,26 @@ func eat(food := "") -> bool:
 			return true
 	_say("Nothing to eat", Color(1, 0.6, 0.5))
 	return false
+
+
+func _drink_potion(potion: String) -> bool:
+	var what: String = POTIONS[potion][0]
+	var most: float = stats.total().get("maxHp" if what == "hp" else "maxMana", 100.0)
+	var now_v: float = stats.hp if what == "hp" else stats.mana
+	if now_v >= most - 0.5:
+		_say("Already full", Color(0.85, 0.8, 0.7))
+		return false
+	if not miko.bag.spend(potion, 1):
+		return false
+	var got := minf(float(POTIONS[potion][1]), most - now_v)
+	if what == "hp":
+		stats.hp += got
+		_say("+%d HP" % roundi(got), Color(0.95, 0.4, 0.4))
+	else:
+		stats.mana += got
+		_say("+%d mana" % roundi(got), Color(0.45, 0.65, 1.0))
+	stats.changed.emit()
+	return true
 
 
 ## A drink (G): water she carries, with a mug, when she's thirsty; else tea, for energy. False if there's nothing.
