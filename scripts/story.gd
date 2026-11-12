@@ -369,6 +369,13 @@ func _process(delta: float) -> void:
 		_walked += miko.position.distance_to(_last_at) / world.px
 	_last_at = miko.position
 	_attack_goes_on(delta)
+	# A beat's own pace for the clock ("pace": the night of the attack goes slowly), kept to whatever else sets it
+	# (getting up, lying down); not while she sleeps (her sleep speeds it on).
+	var b_now: Dictionary = _beats()[beat] if beat < _beats().size() else {}
+	if b_now.has("pace") and world.clock != null:
+		var nd_p: Needs = miko.get_node_or_null("Needs")
+		if nd_p == null or not nd_p.sleeping():
+			world.clock.speed = float(b_now.pace)
 	var nd_l: Needs = miko.get_node_or_null("Needs")
 	# (once she's up: not said in her sleep)
 	if not _pending_line.is_empty() and _walked >= float(_pending_line.walk) and (nd_l == null or nd_l.sleep == Needs.Sleep.AWAKE):

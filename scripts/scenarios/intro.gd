@@ -201,6 +201,7 @@ func run() -> void:
 		await get_tree().process_frame
 	talk.close()
 	await wait()
+	print("Intro: the hour when she's sent to rest ", snappedf(clock.hour(), 0.1), "h, clock speed ", clock.speed)
 	print("Intro: the elder's question: ", said.size(), " lines; beat ", beat_id(), "; J window locked ", not Chronicle.active.happened("village_given"))
 	clock.hours += 14.0
 	clock.hours = floorf(clock.hours / 24.0) * 24.0 + 7.0 + (24.0 if clock.hour() > 7.0 else 0.0)
