@@ -529,7 +529,7 @@ class ItemTile extends Control:
 		var st := bar.build.status_of(item)
 		var r := Rect2(Vector2.ZERO, size)
 		draw_style_box(HudStyle.piece("tileOn" if picked else "tile"), r)
-		var icon := UiKit.sprite_texture(int(item.get("icon", -1)))
+		var icon := UiKit.icon_of(item.get("icon", -1))
 		var box := Rect2(Vector2(14, 6) * k, Vector2(size.x - 28 * k, 44 * k))
 		if icon != null:
 			var s := icon.get_size()

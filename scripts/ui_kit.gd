@@ -91,7 +91,11 @@ static func resource_icon(resource: String) -> Texture2D:
 
 ## An item's icon: a sprite number, or {"tex": path} / {"s": sprite} as the resources have it; null when it has none.
 static func item_icon(nm: String) -> Texture2D:
-	var icon: Variant = item(nm).get("icon", -1)
+	return icon_of(item(nm).get("icon", -1))
+
+
+## An icon as the data gives it: a sprite number, or {"tex": path} / {"s": sprite}; null for none.
+static func icon_of(icon: Variant) -> Texture2D:
 	if icon is Dictionary:
 		if icon.has("s"):
 			return sprite_texture(int(icon.s))

@@ -1,7 +1,7 @@
 """Cuts icons out of a placeholder-icon sheet with the user's art in it (ArtSource/placeholder_icons/group_NN.png's
 layout, at any size: six cards, three across, two down, each with its icon in a dark square).
 
-    python tools/cut_icon_sheet.py <sheet image> <name1> ... <name6>
+    python tools/cut_icon_sheet.py <sheet image> <name1> ... (up to 6)
 
 Each name is where that box's icon goes, in reading order: "Items/OakWand" -> assets/Icons/Items/OakWand.png
 (64 x 64); "-" skips a box. The dark ground is taken out (round the icon, and any large patch it closes in, the inside
@@ -24,18 +24,16 @@ def near(c):
     return max(abs(c[0] - GROUND[0]), abs(c[1] - GROUND[1]), abs(c[2] - GROUND[2]))
 
 
-def boxes(im):
-    """The six icon boxes: in each card (three across, two down, under the title), the dark square that isn't the
-    page round the cards (the biggest dark patch that doesn't reach the card's edge)."""
+def box_at(im, i):
+    """Icon box [i] (reading order): in its card (three across, two down, under the title), the dark square that isn't
+    the page round the cards (the biggest dark patch that doesn't reach the card's edge). A sheet with fewer than six
+    has only the first ones looked for."""
     w, h = im.size
     top = int(h * 0.08)
-    out = []
-    for row in range(2):
-        for col in range(3):
-            cx0, cx1 = int(col * w / 3), int((col + 1) * w / 3)
-            cy0, cy1 = top + int(row * (h - top) / 2), top + int((row + 1) * (h - top) / 2)
-            out.append(_dark_square(im, (cx0, cy0, cx1, cy1)))
-    return out
+    row, col = divmod(i, 3)
+    cx0, cx1 = int(col * w / 3), int((col + 1) * w / 3)
+    cy0, cy1 = top + int(row * (h - top) / 2), top + int((row + 1) * (h - top) / 2)
+    return _dark_square(im, (cx0, cy0, cx1, cy1))
 
 
 def _dark_square(im, cell):
@@ -122,9 +120,10 @@ def main():
     stem = os.path.splitext(os.path.basename(sheet))[0]
     os.makedirs(ART, exist_ok=True)
     im.save(os.path.join(ART, "art_%s.png" % stem))
-    for box, name in zip(boxes(im), names):
+    for i, name in enumerate(names):
         if name == "-":
             continue
+        box = box_at(im, i)
         c = clear_ground(im.crop(box).convert("RGBA"))
         c = c.crop(c.getbbox())
         s = max(c.size)
