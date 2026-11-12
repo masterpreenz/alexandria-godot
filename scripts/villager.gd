@@ -47,7 +47,7 @@ static var mending := {}          ## barricade (wall key) -> true: someone's on 
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 ## What they eat, and how much each fills. Raw meat, raw fish and slime jelly aren't food till they're cooked.
-const FOODS := [["FishStew", 65.0], ["FishSoup", 60.0], ["CarrotStew", 55.0], ["CabbageSoup", 50.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
+const FOODS := [["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
 	["GrilledFish", 50.0], ["Candy", 35.0], ["SmokedFish", 40.0], ["Cabbage", 15.0], ["Carrot", 12.0], ["Potato", 10.0]]
 const EMOTE_FPS := 5.0
 const BOB_HEIGHT := 0.045

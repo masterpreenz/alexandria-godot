@@ -37,7 +37,7 @@ func from_json(json: String) -> void:
 		blocks.append(Rect2i(int(b.x), int(b.y), int(b.w), int(b.h)))
 	stash.clear()
 	for a in d.get("stash", []):
-		if int(a.amount) > 0:
+		if int(a.amount) > 0 and not Bag.RETIRED.has(a.resource):
 			stash[a.resource] = int(a.amount)
 	items = d.get("items", []).duplicate()
 	crystal_names = d.get("crystalNames", [])

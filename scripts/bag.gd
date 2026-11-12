@@ -16,6 +16,10 @@ const RESOURCES := ["Gold", "Wood", "Stone", "Seed", "Food", "Tea", "Meal", "Hid
 	"BakedPotato", "Rabbit", "Bottle", "HpPotion", "ManaPotion", "Carrot", "Cabbage", "Wheat", "Cotton", "CabbageSeed",
 	"WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber", "Fish", "GrilledFish", "Bait", "Water", "SmokedFish", "FishSoup", "FishStew"]
 
+## Taken out of the game: still in [constant RESOURCES] (old saves' stack slots go by its order), dropped when a save
+## that has some is loaded.
+const RETIRED := ["CarrotStew", "CabbageSoup"]
+
 var counts := {}       ## resource -> how many
 var items: Array = []  ## SIZE slots: an item's name, or "" (gear)
 var stack_slot := {}   ## resource -> the slot its stack shows in
@@ -115,14 +119,15 @@ func from_json(json: String, equipped: Array = []) -> void:
 	var d: Dictionary = JSON.parse_string(json)
 	counts.clear()
 	for r in d.get("resources", []):
-		counts[r.resource] = int(r.amount)
+		if not RETIRED.has(r.resource):
+			counts[r.resource] = int(r.amount)
 	var slots: Array = d.get("slots", [])
 	for i in SIZE:
 		items[i] = slots[i] if i < slots.size() and slots[i] != null else ""
 	stack_slot.clear()
 	var stacks: Array = d.get("stackSlots", [])
 	for i in mini(stacks.size(), RESOURCES.size()):
-		if int(stacks[i]) >= 0:
+		if int(stacks[i]) >= 0 and not RETIRED.has(RESOURCES[i]):
 			stack_slot[RESOURCES[i]] = int(stacks[i])
 	worn = equipped
 	# Any stack without a slot of its own gets the next free one.

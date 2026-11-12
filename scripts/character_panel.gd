@@ -26,8 +26,8 @@ const USES := {
 	"Cabbage": "Fills 15 hunger raw.", "Wheat": "Ground into flour at the alchemy workbench.",
 	"Cotton": "For cloth: the workbench's cloth armour is made from it, or spun into fibre.", "Fiber": "Cotton spun into cord at the tool workbench: strings the crystal necklace.", "CabbageSeed": "Plant in a farm plot to grow cabbages.",
 	"WheatSeed": "Plant in a farm plot to grow wheat.", "CottonSeed": "Plant in a farm plot to grow cotton.",
-	"Flour": "Baked into bread at a bonfire.", "Bread": "Fills 40 hunger, and keeps well.", "CarrotStew": "Fills 55 hunger.",
-	"CabbageSoup": "Fills 50 hunger.", "HpPotion": "Restores HP.", "ManaPotion": "Restores mana.",
+	"Flour": "Baked into bread at a bonfire.", "Bread": "Fills 40 hunger, and keeps well.",
+	"HpPotion": "Restores HP.", "ManaPotion": "Restores mana.",
 	"Rabbit": "Grabbed in the wild. Keep it in a rabbit pen to breed more, or butcher it there for raw meat.",
 	"Wood": "Used for most buildings.", "Stone": "Paths, walls and the bonfire.", "Gold": "Coins.",
 }

@@ -14,7 +14,7 @@ func _save(tex: Texture2D, nm: String) -> void:
 func run() -> void:
 	await get_tree().process_frame
 	for r in ["Crystal", "Candy", "Hide", "Rabbit", "Bottle", "HpPotion", "ManaPotion", "Carrot", "Cabbage", "Wheat", "Cotton",
-			"CabbageSeed", "WheatSeed", "CottonSeed", "Flour", "Bread", "CarrotStew", "CabbageSoup", "Fiber", "Fish", "GrilledFish",
+			"CabbageSeed", "WheatSeed", "CottonSeed", "Flour", "Bread", "Fiber", "Fish", "GrilledFish",
 			"Bait", "SmokedFish", "FishSoup", "FishStew", "Water"]:
 		_save(UiKit.resource_icon(r), r)
 	for it in ["Mug", "Bucket", "WaterPouch"]:
