@@ -175,7 +175,7 @@ func _gap() -> Control:
 func tabs(here: int, points_badge: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_k(10)))
-	var a := HudStyle.button("Character & Bag   C", 14, "pill", HudStyle.color("text") if here == 0 else HudStyle.color("muted"))
+	var a := HudStyle.button("Character & Bag   I", 14, "pill", HudStyle.color("text") if here == 0 else HudStyle.color("muted"))
 	if here == 0:
 		a.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
 	a.pressed.connect(_to_tab.bind(0, here))
