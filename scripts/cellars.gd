@@ -241,7 +241,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	var expanding := _expand
 	_expand = false

@@ -466,7 +466,9 @@ func _done(dn: Dictionary) -> bool:
 			return Chronicle.active.happened(str(dn.event))
 		"morning":
 			var h := world.clock.hour()
-			return h >= 6.0 and h < 10.0 and world.clock.hours - float(_from.get("hours", world.clock.hours)) >= 6.0
+			# (a six o'clock come since the beat began: she's slept the night through, however late she went to bed)
+			var began := float(_from.get("hours", world.clock.hours))
+			return h >= 6.0 and h < 12.0 and floorf((world.clock.hours - 6.0) / 24.0) > floorf((began - 6.0) / 24.0)
 	return false
 
 
@@ -595,6 +597,11 @@ func _act(a: Dictionary) -> void:
 		"wave":
 			# Another wave of the horde, from every side (not a new attack: nobody new is doomed, nothing new burns).
 			_wave(int(a.get("count", 10)))
+		"to_bed":
+			# Everyone in the village home to bed (the night's begun again: she's going to bed too).
+			for v in Villager.all:
+				if is_instance_valid(v) and v.hit.alive() and not v.in_bed and not v.held and v.state != Villager.State.ASLEEP and not v.home.is_empty():
+					v._go_home()
 		"regroup":
 			# The village's people (not the elders) back to the middle, round the banner, to hold it together.
 			_regroup()
@@ -736,11 +743,15 @@ func _open_spots_near(at: Vector2, count: int) -> Array:
 	q.shape = c
 	q.collision_mask = 1 | PropMap.FURNITURE_LAYER
 	var space := get_viewport().world_2d.direct_space_state
-	for r in [1.4, 2.0, 2.8, 3.6]:
+	# (far enough off the banner and the fire by it that E's for them, not for those)
+	var fires_by := world.props_named("Bonfire")
+	for r in [3.0, 3.6, 4.4, 5.2]:
 		for k in 16:
 			var ang := PI / 2.0 + floorf(k / 2.0) * (TAU / 16.0) * (1 if k % 2 == 0 else -1)   # (down the screen first, then round)
-			var p: Vector2 = at + Vector2(cos(ang), sin(ang) * 0.5) * r * world.px
+			var p: Vector2 = at + Vector2(cos(ang), sin(ang)) * r * world.px
 			if world.roofs != null and world.roofs.covers(p):
+				continue
+			if fires_by.any(func(f): return f.distance_to(p) < 2.6 * world.px):
 				continue
 			q.transform = Transform2D(0.0, p)
 			if not space.intersect_shape(q, 1).is_empty():

@@ -99,7 +99,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	if visible:
 		_type_on()
@@ -110,14 +110,11 @@ func _process(_delta: float) -> void:
 		_place()
 		return
 	var v := _nearest()
-	# Only when nothing else here takes E (a chest, a fire, a field...).
-	var other := false
-	for l in WorldPrompts._labels:
-		if l != prompt and is_instance_valid(l) and l.visible and l.text != "":
-			other = true
-	prompt.visible = v != null and not other
+	prompt.visible = v != null
 	if not prompt.visible:
 		return
+	# (someone with a story scene waiting: picked first when it's one of several)
+	prompt.set_meta("first", not Scenes.for_speaker(v.person).is_empty())
 	prompt.text = Loc.t("talk.prompt", {"name": v.person.name})
 	WorldPrompts.at(prompt, v.position + Vector2(0, -v._top() * 0.5))   # (the arrow to their middle)
 	if pressed:

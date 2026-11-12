@@ -368,7 +368,7 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version

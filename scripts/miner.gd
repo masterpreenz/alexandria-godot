@@ -60,7 +60,7 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
-	var pressed := _pressed and Engine.get_process_frames() != _started_frame
+	var pressed := (_pressed and Engine.get_process_frames() != _started_frame) or WorldPrompts.take(prompt)
 	_pressed = false
 	var door_near := world.walls != null and not world.walls.nearest_door(miko.position, 0.6 * world.px).is_empty()
 	if is_mining():
@@ -77,15 +77,8 @@ func _process_timed(_delta: float) -> void:
 		_last_frame = frame
 		_show("%s  ·  %d left   (move or E to stop)" % ["Chopping" if axe else "Mining", target.remaining()])
 		return
-	# A rabbit or a pen in reach takes E (RabbitHands) before a tree or rock does.
-	var hands: RabbitHands = miko.get_node_or_null("RabbitHands")
-	var rabbit_near := hands != null and hands.claims(miko.position)
-	# So does a fire to light or cook at, or a farm plot.
-	for n in ["Fires", "Farming"]:
-		var other: Node = miko.get_node_or_null(n)
-		if other != null and other.claims(miko.position):
-			rabbit_near = true
-	var near: Gatherable = null if door_near or rabbit_near else Gatherable.nearest(miko.position, float(data.range))
+	# (a rabbit, a fire or a field in reach as well: both prompts shown, E for the picked one)
+	var near: Gatherable = null if door_near else Gatherable.nearest(miko.position, float(data.range))
 	if near == null:
 		_show("")
 		return

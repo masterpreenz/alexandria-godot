@@ -48,7 +48,7 @@ func _process(delta: float) -> void:
 
 
 func _process_timed(_delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	if miko.locked:
 		_say("")

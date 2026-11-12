@@ -398,6 +398,8 @@ func _process_timed(_delta: float) -> void:
 	Perf.add(&"farming: seed kept back", __s)
 	var keys := _keys
 	_keys = {}
+	if WorldPrompts.take(prompt):   # (several prompts: E's for the picked one)
+		keys["e"] = true
 	var __t := Time.get_ticks_usec()
 	if world.props.version != _looked_at:
 		_looked_at = world.props.version

@@ -274,7 +274,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	var now := Time.get_ticks_msec() / 1000.0
 	_show_emote("fishing" if casting else ("fishing_caught" if now < _caught_until else ""), now)

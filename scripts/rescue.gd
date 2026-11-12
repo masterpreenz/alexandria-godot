@@ -64,7 +64,7 @@ func _rumor() -> Dictionary:
 
 
 func _process(_delta: float) -> void:
-	var pressed := _pressed
+	var pressed := _pressed or WorldPrompts.take(prompt)
 	_pressed = false
 	prompt.visible = false
 	var st := _rumor()
