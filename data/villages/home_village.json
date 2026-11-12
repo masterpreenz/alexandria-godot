@@ -786,8 +786,6 @@
 {"alongY":false,"type":"PlankWall","x":25,"y":8}
 ],
 "props": [
-{"scale":1.0,"turn":0,"type":"CleansingCrystal","x":1,"y":17},
-{"scale":1.0,"turn":0,"type":"CleansingCrystal","x":11,"y":26},
 {"scale":1.0,"turn":0,"type":"MiningSign","x":16,"y":29},
 {"scale":1.0,"turn":1,"type":"Fireplace","x":45,"y":19},
 {"scale":1.0,"turn":0,"type":"WoodenBed","x":46,"y":18},

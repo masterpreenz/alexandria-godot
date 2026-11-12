@@ -552,7 +552,7 @@ func _messenger() -> void:
 	v.facing_up = dir.y < 0.0
 	v.show_mood("alarm", 6.0)
 	var tw := create_tween()
-	tw.tween_property(v, "position", to, 3.0)
+	tw.tween_property(v, "position", to, 1.6)   # (running flat out)
 	tw.tween_callback(func(): if is_instance_valid(v): v._held_moving = false)
 	_messenger_v = v
 	_messenger_sent = true

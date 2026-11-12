@@ -1,185 +1,183 @@
 # Alexandria: story dialogue
 
-Everything the opening says, in the order it plays: the guide cards (title, then the hint and its ticked parts), the spoken scenes, the rumors' words, and the lines that float up. Edit the words here and send it back; each section names where it lives in the game (`data/intro.json`, `data/scenes.json`, `data/rumors.json`). `{miko}` is Sera's name.
+Everything the opening says, in the order it plays, numbered: a story step is a number, the lines spoken in it are that number and a dot. Say which to keep, which to change (and to what), which to drop. `{miko}` is Sera's name. Made by `tools/export_dialogue.py` from `data/intro.json`, `data/scenes.json` and `data/rumors.json`.
 
-## The opening, step by step
+## 1. Find your feet
 
-### Find your feet  
-*`move` · starter guide (card over Sera)*
+*`move`, starter guide: its card over Sera*
 
-Parts: W A S D to walk · Shift to run · Space to jump
+**1** W A S D to walk · Shift to run · Space to jump
 
-### Defend yourself  
-*`first_slime` · starter guide (card over Sera)*
+## 2. Defend yourself
 
-Something's come out of the mist.  
-Parts: Left click to strike
+*`first_slime`, starter guide: its card over Sera*
 
-### Clear the road  
-*`slimes` · starter guide (card over Sera)*
+**2** Something's come out of the mist. Left click to strike
 
-More slimes along the road. Your skills are on the bar below:  
-Parts: Left click to strike · 1 to aim Fireball, click where it lands
+## 3. Clear the road
 
-### Check your bag  
-*`bag` · starter guide (card over Sera)*
+*`slimes`, starter guide: its card over Sera*
 
-I opens your bag and your character.  
+**3** More slimes along the road. Your skills are on the bar below: Left click to strike · 1 to aim Fireball, click where it lands
 
-### Look over your talents  
-*`talents` · starter guide (card over Sera)*
+## 4. Check your bag
 
-P opens your talents. Spend a point when you have one.  
+*`bag`, starter guide: its card over Sera*
 
-### Gather wood and stone  
-*`gather` · starter guide (card over Sera)*
+**4** I opens your bag and your character.
 
-E by a tree to chop, by a rock to mine.  
-Parts: {progress} wood · {progress} stone
+## 5. Look over your talents
 
-### Hunt  
-*`hunt` · starter guide (card over Sera)*
+*`talents`, starter guide: its card over Sera*
 
-A boar in the trees, and slimes. Boar meat can be cooked.  
+**5** P opens your talents. Spend a point when you have one.
 
-### Make camp before dark  
-*`camp` · starter guide (card over Sera)*
+## 6. Gather wood and stone
 
-Night's coming. B to build:  
-Parts: a Bonfire · a Leaf Bed
+*`gather`, starter guide: its card over Sera*
 
-### Cook something  
-*`cook` · starter guide (card over Sera)*
+**6** E by a tree to chop, by a rock to mine. {progress} wood · {progress} stone
 
-At the lit bonfire, hold E with raw meat in your bag.  
+## 7. Hunt
 
-### Eat, then rest  
-*`rest` · starter guide (card over Sera)*
+*`hunt`, starter guide: its card over Sera*
 
-Parts: F to eat · Z by your bed to sleep
+**7** A boar in the trees, and slimes. Boar meat can be cooked.
 
-### Someone's coming  
-*`messenger` · story (card at the right)*
+## 8. Make camp before dark
 
+*`camp`, starter guide: its card over Sera*
 
-### Scene: `messenger`
+**8** Night's coming. B to build: a Bonfire · a Leaf Bed
 
-*Talk to: (no one: it plays by itself). Plays after: its step begins.*
+## 9. Cook something
 
-**Taro:** Hey! You there! Please... you have to help us!  
-**Sera:** Slow down. What's happened?  
-**Taro:** The village, just up the road. Monsters, out of the mist. Slimes, boars, and... things that used to be people. They came all at once.  
-**Taro:** They never come at us like this. They're not acting right. Please, we can't hold them!  
-**Sera:** Show me the way. Stay behind me.  
+*`cook`, starter guide: its card over Sera*
 
-### Get to the village  
-*`rush` · story (card at the right)*
+**9** At the lit bonfire, hold E with raw meat in your bag.
 
-Up the road north, then east to the houses. Hurry.  
+## 10. Eat, then rest
 
-### Drive the monsters out  
-*`fight` · story (card at the right)*
+*`rest`, starter guide: its card over Sera*
 
-They're everywhere. Protect who you can.  
+**10** F to eat · Z by your bed to sleep
 
-### Talk to the survivors  
-*`aftermath` · story (card at the right)*
+## 11. Someone's coming
 
-The elder is with them. E to talk.  
+*`messenger`, story: its card at the right*
 
-### Scene: `aftermath`
+*Scene `messenger` (plays by itself)*
 
-*Talk to: Genzo. Plays after: village_warded.*
+- **11.1** Taro: Hey! You there! Please... you have to help us!
+- **11.2** Sera: Slow down. What's happened?
+- **11.3** Taro: Our village is being attacked by monsters. Please help! You look like an adventurer.
+- **11.4** Taro: The mist suddenly came, and the beasts started acting strange!
+- **11.5** Taro: They never come at us like this. They're not acting right. Please, we can't hold them!
+- **11.6** Sera: Lead the way. Be careful.
 
-**Genzo:** It's quiet. Is it... is it over?  
-**Hana:** For now. Look at the crystal: the mist's pulling back from it.  
-**Kenji:** What was that? The mist, the monsters, all of it. Where did it come from?  
-**Yui:** And those things that looked like people. They were people, weren't they.  
-**Sera:** I don't know all of it. The mist came down from the north. Whatever's in it changes what it touches, and the monsters follow it.  
-**Sera:** You're safe while the crystal stands. I came to help, and I'll stay to help. First let's see to your homes.  
-**Haruko:** Thank the gods you came when you did.  
-**Genzo:** We've lost good people tonight. But we're still here. Tell us what to do.  
+## 12. Get to the village
 
-### Help them rebuild  
-*`materials` · story (card at the right)*
+*`rush`, story: its card at the right*
 
-Walls are down all over. Put in a chest, for the villagers to rebuild with:  
-Parts: {progress} wood · {progress} stone
+**12** Up the road north, then east to the houses. Hurry.
 
-### See the houses mended  
-*`mend` · story (card at the right)*
+## 13. Drive the monsters out
 
-The villagers are rebuilding the walls and mending the houses. Lend a hand gathering if they run short.  
+*`fight`, story: its card at the right*
 
-### Cook for them  
-*`feed` · story (card at the right)*
+**13** They're everywhere. Protect who you can.
 
-Three cooked dishes into storage.  
+## 14. Talk to the survivors
 
-### Talk to the elder  
-*`question` · story (card at the right)*
+*`aftermath`, story: its card at the right*
 
-He's been watching you.  
+**14** The elder is with them. E to talk.
 
-### Scene: `peculiar`
+*Scene `aftermath` (talk to Genzo)*
 
-*Talk to: Genzo. Plays after: intro_houses_mended, intro_fed.*
+- **14.1** Genzo: It's quiet. Is it... is it over?
+- **14.2** Kenji: What was that? The mist, the monsters, all of it. Where did it come from?
+- **14.3** Yui: And those things that looked like people. They were people, weren't they.
+- **14.4** Sera: I can't believe it's already spread this fast. The mist was already happening everywhere else; I came to help spread the news of how to defend against it.
+- **14.5** Sera: We can make makeshift pillars using these crystals. You're safe from the mist when you're around one.
+- **14.6** Haruko: Thank you for saving us. It's nice that you were just around.
+- **14.7** Sera: I was resting near the river when your friend alerted me.
+- **14.8** Genzo: We've lost good people tonight. But we're still here. For now, help us repair the village.
 
-**Genzo:** You knew just what to do with that crystal. As if you'd done it before.  
-**Sera:** I have. The mist is already in other places, further off. I go where it goes, and help where I can.  
-**Genzo:** A wanderer, then. And a peculiar one, if you'll forgive an old man for saying it.  
-**Genzo:** It's not often we see one of your kind, with ears like those, helping folk like us. Not with how your people are treated.  
-**Sera:** I suppose I'm a little unique that way.  
-**Haruko:** Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself.  
+## 15. Help them rebuild
 
-### Rest for the night  
-*`night` · story (card at the right)*
+*`materials`, story: its card at the right*
 
-There's a bed for you in the village tonight. Z to sleep.  
+**15** Walls are down all over. Put in a chest, for the villagers to rebuild with: {progress} wood · {progress} stone
 
-*Floats up after: "Morning. The elder looks like he hasn't slept."*
+## 16. See the houses mended
 
-### (waiting, unseen: the game runs as usual until Miyu is home)
+*`mend`, story: its card at the right*
 
-### Rumor: The elder's granddaughter (`find_miyu`)
+**16** The villagers are rebuilding the walls and mending the houses. Lend a hand gathering if they run short.
 
-*Told by Genzo:*
+## 17. Cook for them
 
-> Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.
+*`feed`, story: its card at the right*
 
-- **Note (reach):** The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.
-- **Note (carry):** The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.
-- **When it's done:** Miyu is home, asleep. The elders want to speak with you.
-- **If it's missed:** Word has come from the next village: nobody was left alive there. Miyu is gone.
+**17** Three cooked dishes into storage.
 
-### Scene: `elders_thanks`
+## 18. Talk to the elder
 
-*Talk to: Genzo. Plays after: miyu_home.*
+*`question`, story: its card at the right*
 
-**Genzo:** Sera. You brought her back. You brought my Miyu back.  
-**Haruko:** She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you.  
-**Sera:** You don't have to. I'm glad I got there in time. The village she was in... there was nobody else.  
-**Genzo:** Then it's as we feared. Whatever is coming, it isn't stopping at our fence.  
-**Genzo:** I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it.  
-**Genzo:** Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all.  
-**Sera:** ...All right. I'll look after them. All of them.  
-**Haruko:** And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came.  
-**Genzo:** Look after her too.  
+**18** He's been watching you.
 
-### Push back the mist  
-*`crystal` · starter guide (card over Sera)*
+*Scene `peculiar` (talk to Genzo)*
 
-Slimes drop mist crystals; three and some wood make a Cleansing Crystal, which clears the mist round it. B to build:  
-Parts: a Cleansing Crystal
+- **18.1** Genzo: You knew just what to do with that crystal. As if you'd done it before.
+- **18.2** Sera: I have. The mist is already in other places, further off. I go where it goes, and help where I can.
+- **18.3** Genzo: A wanderer, then. And a peculiar one, if you'll forgive an old man for saying it.
+- **18.4** Genzo: It's not often we see one of your kind, with ears like those, helping folk like us. Not with how your people are treated.
+- **18.5** Sera: I suppose I'm a little unique that way.
+- **18.6** Haruko: Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself.
 
-## Later
+## 19. Rest for the night
 
-### Rumor: A book for Miyu (`miyu_book`)
+*`night`, story: its card at the right*
 
-*Told by Miyu:*
+**19** There's a bed for you in the village tonight. Z to sleep.
 
-> {miko}, can I ask you something, and you won't laugh? I want to learn magic. Properly. I know it isn't born in me the way it is in you, but you said most of it is learned. If you ever find a book of it, any book, would you bring it to me? I'd only need the one. I'd never put it down.
+- **19.1** (floats up as it ends) Morning. The elder looks like he hasn't slept.
 
-- **Note (book):** Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.
-- **When it's done:** Miyu has her book. She hasn't looked up from it since.
+## 20. (waiting, unseen: the game runs as usual till Miyu is home)
+
+*Rumor `find_miyu`: The elder's granddaughter (told by Genzo)*
+
+- **20.1** Genzo: Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.
+- **20.2** (note, reach) The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.
+- **20.3** (note, carry) The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.
+- **20.4** (when it's done) Miyu is home, asleep. The elders want to speak with you.
+- **20.5** (if it's missed) Word has come from the next village: nobody was left alive there. Miyu is gone.
+
+*Scene `elders_thanks` (talk to Genzo)*
+
+- **20.6** Genzo: Sera. You brought her back. You brought my Miyu back.
+- **20.7** Haruko: She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you.
+- **20.8** Sera: You don't have to. I'm glad I got there in time. The village she was in... there was nobody else.
+- **20.9** Genzo: Then it's as we feared. Whatever is coming, it isn't stopping at our fence.
+- **20.10** Genzo: I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it.
+- **20.11** Genzo: Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all.
+- **20.12** Sera: ...All right. I'll look after them. All of them.
+- **20.13** Haruko: And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came.
+- **20.14** Genzo: Look after her too.
+
+## 21. Push back the mist
+
+*`crystal`, starter guide: its card over Sera*
+
+**21** Slimes drop mist crystals; three and some wood make a Cleansing Crystal, which clears the mist round it. B to build: a Cleansing Crystal
+
+## 22. Later
+
+*Rumor `miyu_book`: A book for Miyu (told by Miyu)*
+
+- **22.1** Miyu: {miko}, can I ask you something, and you won't laugh? I want to learn magic. Properly. I know it isn't born in me the way it is in you, but you said most of it is learned. If you ever find a book of it, any book, would you bring it to me? I'd only need the one. I'd never put it down.
+- **22.2** (note, book) Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.
+- **22.3** (when it's done) Miyu has her book. She hasn't looked up from it since.
 

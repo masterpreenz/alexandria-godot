@@ -71,7 +71,11 @@
   ],
   [
    "Taro",
-   "The village, just up the road. Monsters, out of the mist. Slimes, boars, and... things that used to be people. They came all at once."
+   "Our village is being attacked by monsters. Please help! You look like an adventurer."
+  ],
+  [
+   "Taro",
+   "The mist suddenly came, and the beasts started acting strange!"
   ],
   [
    "Taro",
@@ -79,7 +83,7 @@
   ],
   [
    "sera",
-   "Show me the way. Stay behind me."
+   "Lead the way. Be careful."
   ]
  ],
  "records": []
@@ -98,10 +102,6 @@
    "It's quiet. Is it... is it over?"
   ],
   [
-   "Hana",
-   "For now. Look at the crystal: the mist's pulling back from it."
-  ],
-  [
    "Kenji",
    "What was that? The mist, the monsters, all of it. Where did it come from?"
   ],
@@ -111,19 +111,23 @@
   ],
   [
    "sera",
-   "I don't know all of it. The mist came down from the north. Whatever's in it changes what it touches, and the monsters follow it."
+   "I can't believe it's already spread this fast. The mist was already happening everywhere else; I came to help spread the news of how to defend against it."
   ],
   [
    "sera",
-   "You're safe while the crystal stands. I came to help, and I'll stay to help. First let's see to your homes."
+   "We can make makeshift pillars using these crystals. You're safe from the mist when you're around one."
   ],
   [
    "elder_wife",
-   "Thank the gods you came when you did."
+   "Thank you for saving us. It's nice that you were just around."
+  ],
+  [
+   "sera",
+   "I was resting near the river when your friend alerted me."
   ],
   [
    "elder",
-   "We've lost good people tonight. But we're still here. Tell us what to do."
+   "We've lost good people tonight. But we're still here. For now, help us repair the village."
   ]
  ],
  "records": [
