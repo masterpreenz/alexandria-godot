@@ -112,80 +112,69 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 - **15.7** Sera: I was resting near the river when your friend alerted me.
 - **15.8** Genzo: We've lost good people tonight. But we're still here. For now, help us repair the village.
 
-## 16. Help them rebuild
-
-*`materials`, story: its card at the right*
-
-**16** Walls are down all over. The village has wood and stone put by, but not quite enough: bring the rest to a chest. {progress} wood · {progress} stone
-
-## 17. See the houses mended
-
-*`mend`, story: its card at the right*
-
-**17** The villagers are rebuilding the walls and mending the houses. Lend a hand gathering if they run short.
-
-## 18. Cook for them
+## 16. Cook for them
 
 *`feed`, story: its card at the right*
 
-**18** Three cooked dishes into storage.
+**16** They've had nothing since the attack. They bring out the meat they saved: cook it at a fire, then put the dishes in a chest for them. {progress} cooked · {progress} in the chest
 
-## 19. Talk to the elder
+## 17. Talk to the elder
 
 *`question`, story: its card at the right*
 
-**19** He's been watching you.
+**17** He's been watching you.
 
 *Scene `peculiar` (talk to Genzo)*
 
-- **19.1** Genzo: You knew just what to do with that crystal. As if you'd done it before.
-- **19.2** Sera: I have. The mist is already in other places, further off. I go where it goes, and help where I can.
-- **19.3** Genzo: A wanderer, then. And a peculiar one, if you'll forgive an old man for saying it.
-- **19.4** Genzo: It's not often we see one of your kind, with ears like those, helping folk like us. Not with how your people are treated.
-- **19.5** Sera: I suppose I'm a little unique that way.
-- **19.6** Haruko: Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself.
+- **17.1** Genzo: You knew just what to do with that crystal. As if you'd done it before.
+- **17.2** Sera: I have. The mist is already in other places, further off. I go where it goes, and help where I can.
+- **17.3** Genzo: A wanderer, then. And a peculiar one, if you'll forgive an old man for saying it.
+- **17.4** Genzo: It's not often we see one of your kind, with ears like those, helping folk like us. Not with how your people are treated.
+- **17.5** Sera: I suppose I'm a little unique that way.
+- **17.6** Haruko: Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself.
+- **17.7** Genzo: Now go and rest, Sera. You've done more than enough for one night.
 
-## 20. Rest for the night
+## 18. Rest for the night
 
 *`night`, story: its card at the right*
 
-**20** There's a bed for you in the village tonight. Z to sleep.
+**18** There's a bed for you in the village tonight. Z to sleep.
 
-- **20.1** (floats up as it ends) Morning. The elder looks like he hasn't slept.
+- **18.1** (floats up as it ends) Morning. The elder looks like he hasn't slept.
 
-## 21. (waiting, unseen: the game runs as usual till Miyu is home)
+## 19. (waiting, unseen: the game runs as usual till Miyu is home)
 
 *Rumor `find_miyu`: The elder's granddaughter (told by Genzo)*
 
-- **21.1** Genzo: Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.
-- **21.2** (note, reach) The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.
-- **21.3** (note, carry) The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.
-- **21.4** (when it's done) Miyu is home, asleep. The elders want to speak with you.
-- **21.5** (if it's missed) Word has come from the next village: nobody was left alive there. Miyu is gone.
+- **19.1** Genzo: Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.
+- **19.2** (note, reach) The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.
+- **19.3** (note, carry) The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.
+- **19.4** (when it's done) Miyu is home, asleep. The elders want to speak with you.
+- **19.5** (if it's missed) Word has come from the next village: nobody was left alive there. Miyu is gone.
 
 *Scene `elders_thanks` (talk to Genzo)*
 
-- **21.6** Genzo: Sera. You brought her back. You brought my Miyu back.
-- **21.7** Haruko: She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you.
-- **21.8** Sera: You don't have to. I'm glad I got there in time. The village she was in... there was nobody else.
-- **21.9** Genzo: Then it's as we feared. Whatever is coming, it isn't stopping at our fence.
-- **21.10** Genzo: I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it.
-- **21.11** Genzo: Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all.
-- **21.12** Sera: ...All right. I'll look after them. All of them.
-- **21.13** Haruko: And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came.
-- **21.14** Genzo: Look after her too.
+- **19.6** Genzo: Sera. You brought her back. You brought my Miyu back.
+- **19.7** Haruko: She's sleeping now. Not a scratch on her that won't heal. I don't know how we'll ever repay you.
+- **19.8** Sera: You don't have to. I'm glad I got there in time. The village she was in... there was nobody else.
+- **19.9** Genzo: Then it's as we feared. Whatever is coming, it isn't stopping at our fence.
+- **19.10** Genzo: I'm an old man, Sera. I can keep the peace at the table, but I can't keep this village alive through what's coming. You can. You've already shown it.
+- **19.11** Genzo: Take the village into your keeping. The people will follow you: I've seen how they look at you, ears and all.
+- **19.12** Sera: ...All right. I'll look after them. All of them.
+- **19.13** Haruko: And Miyu, when she wakes. She'll want to go with you, you know. She's been watching you since the moment you came.
+- **19.14** Genzo: Look after her too.
 
-## 22. Push back the mist
+## 20. Push back the mist
 
 *`crystal`, starter guide: its card over Sera*
 
-**22** Slimes drop mist crystals; three and some wood make a Cleansing Crystal, which clears the mist round it. B to build: a Cleansing Crystal
+**20** Slimes drop mist crystals; three and some wood make a Cleansing Crystal, which clears the mist round it. B to build: a Cleansing Crystal
 
-## 23. Later
+## 21. Later
 
 *Rumor `miyu_book`: A book for Miyu (told by Miyu)*
 
-- **23.1** Miyu: {miko}, can I ask you something, and you won't laugh? I want to learn magic. Properly. I know it isn't born in me the way it is in you, but you said most of it is learned. If you ever find a book of it, any book, would you bring it to me? I'd only need the one. I'd never put it down.
-- **23.2** (note, book) Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.
-- **23.3** (when it's done) Miyu has her book. She hasn't looked up from it since.
+- **21.1** Miyu: {miko}, can I ask you something, and you won't laugh? I want to learn magic. Properly. I know it isn't born in me the way it is in you, but you said most of it is learned. If you ever find a book of it, any book, would you bring it to me? I'd only need the one. I'd never put it down.
+- **21.2** (note, book) Miyu wants to learn magic. She asks for a book of it: any one. She will learn only the one, for good.
+- **21.3** (when it's done) Miyu has her book. She hasn't looked up from it since.
 

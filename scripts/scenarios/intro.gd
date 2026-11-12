@@ -162,25 +162,21 @@ func run() -> void:
 	await wait()
 	print("Intro: aftermath scene, speakers ", said, "; beat ", beat_id())
 	var tw := Time.get_ticks_msec()
-	while beat_id() != "materials" and Time.get_ticks_msec() - tw < 5000:
+	while beat_id() != "feed" and Time.get_ticks_msec() - tw < 5000:
 		await get_tree().process_frame
-	# (put in from her bag, as she would, once she's been asked: the villagers may build with it straight away)
-	var stock_w := world.village.stored("Wood")
-	var stock_s := world.village.stored("Stone")
-	miko.bag.add("Wood", 10)
-	miko.bag.add("Stone", 5)
-	world.village.store(miko.bag, "Wood", 10)
-	world.village.store(miko.bag, "Stone", 5)
-	print("Intro: put by in storage at the start of it: wood ", stock_w, ", stone ", stock_s)
-	print("Intro: stored for the rebuild: wood ", world.village.stored("Wood"), "/", world.village.stash_cap("Wood"), " stone ", world.village.stored("Stone"), "/", world.village.stash_cap("Stone"), "; brought ", world.village.brought, "; she still has wood ", miko.bag.count("Wood"), " stone ", miko.bag.count("Stone"))
-	await wait()
+	print("Intro: for the rebuild, put by: wood ", world.village.stored("Wood"), ", stone ", world.village.stored("Stone"), "; raw meat she's given ", miko.bag.count("Food"))
+	# Cooked (three dishes in her bag), then into the chest for them.
+	miko.bag.add("Meal", 3)
+	await wait(5)
+	var cooked_ticked := st._did.has("cooked:3")
+	world.village.store(miko.bag, "Meal", 3)
+	await wait(10)
+	print("Intro: cooked ticked ", cooked_ticked, "; dishes given, beat now ", beat_id())
 	for p in Construction.active.pieces.duplicate():
 		if bool(p.get("wall", false)):
 			Construction.active.build(p)
 	for h in Upkeep.active.houses():
 		Upkeep.active.condition[h.key] = 100.0
-	await wait()
-	world.village.stash["Meal"] = int(world.village.stash.get("Meal", 0)) + 3
 	await wait()
 	for v in Villager.all:
 		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
@@ -189,7 +185,7 @@ func run() -> void:
 	await get_tree().process_frame
 	said = []
 	while talk.visible and talk._acts.size() == 1 and said.size() < 12:
-		said.append(talk._line.text.left(30))
+		said.append(talk._line.text.left(40))
 		(talk._acts[0] as Callable).call()
 		await get_tree().process_frame
 	talk.close()

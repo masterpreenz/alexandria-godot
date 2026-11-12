@@ -237,6 +237,8 @@ func _stored_since(r: String) -> int:
 # (stored:Thing:n); "" for the rest.
 func _progress(key: String) -> String:
 	var bits := key.split(":")
+	if bits.size() == 2 and bits[0] in ["dishes", "cooked"]:
+		bits = PackedStringArray([bits[0], "", bits[1]])
 	if bits.size() < 3:
 		return ""
 	var want := int(bits[2])
@@ -244,6 +246,8 @@ func _progress(key: String) -> String:
 	match bits[0]:
 		"have": got = world.village.have(miko.bag, miko, bits[1])
 		"stored": got = _stored_since(bits[1])
+		"dishes": got = maxi(_dishes_stored() - int(_from.dishes), 0)
+		"cooked": got = maxi(_dishes_in_bag() - int(_from.cooked), 0)
 	if _did.has(key):
 		got = want
 	return "%d/%d" % [mini(got, want), want]
@@ -274,6 +278,8 @@ func _tick_parts() -> void:
 			"have": done = world.village.have(miko.bag, miko, bits[1]) >= int(bits[2])
 			"built": done = world.props_named(bits[1]).size() > int(_from.props.get(bits[1], 0))
 			"stored": done = _stored_since(bits[1]) >= int(bits[2])
+			"cooked": done = _dishes_in_bag() - int(_from.cooked) >= int(bits[1])
+			"dishes": done = _dishes_stored() - int(_from.dishes) >= int(bits[1])
 		if done:
 			_did[key] = true
 			changed = true

@@ -140,7 +140,6 @@
  "speaker": "elder",
  "when": {
   "after": [
-   "intro_houses_mended",
    "intro_fed"
   ]
  },
@@ -168,11 +167,16 @@
   [
    "elder_wife",
    "Unique or not, you've a bed here tonight. And a meal, though you cooked it yourself."
+  ],
+  [
+   "elder",
+   "Now go and rest, Sera. You've done more than enough for one night."
   ]
  ],
  "records": [
   "peculiar_done"
- ]
+ ],
+ "closes": true
 }
 ]
 }
