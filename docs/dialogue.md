@@ -87,13 +87,13 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 
 **13** They're everywhere. Protect who you can.
 
-- **13.1** (floats up as it ends) Something answers her inside: she can call an Attack Shikigami now.
+- **13.1** (floats up as it ends) Something answers her inside: she can call Shikigami now, to fight and to heal.
 
 ## 14. They're coming again
 
 *`second_wave`, story: its card at the right*
 
-**14** Hold the middle with the others. Your new skill is on the bar: summon an Attack Shikigami
+**14** Hold the middle with the others. Your Shikigami fight and heal beside you; when they fade, call them again from the bar: the Attack Shikigami · the Healing Shikigami
 
 ## 15. Talk to the survivors
 

@@ -119,12 +119,16 @@ func run() -> void:
 	var banner: Vector2 = world.props_named("TownBanner")[0]
 	var regrouping := Villager.all.filter(func(v): return is_instance_valid(v) and v.hit.alive() and v.target.distance_to(banner) < 5.0 * world.px).map(func(v): return v.person.name)
 	print("Intro: the second wave: beat ", beat_id(), "; Sera level ", miko.stats.level, ", knows ", miko.stats.known_spells(), "; raiders ", raiders_now, "; making for the middle ", regrouping)
-	var caster: SpellCaster = world.get_node("Caster")
-	caster.cast_at("ShikigamiAttacker", miko.position + Vector2(1, 0) * world.px)
+	# (she summons both herself: the Attack Shikigami, then the Healing one)
 	var tc := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - tc < 4000 and not st._did.has("cast:ShikigamiAttacker"):
+	while Time.get_ticks_msec() - tc < 6000 and not (st._did.has("cast:ShikigamiAttacker") and st._did.has("cast:ShikigamiHealer")):
 		await get_tree().process_frame
-	print("Intro: Attack Shikigami summoned, ticked off ", st._did.has("cast:ShikigamiAttacker"))
+	var shiki := g.find_children("*", "Shikigami", true, false).map(func(k): return k.kind)
+	var elders_home := Villager.all.filter(func(v): return is_instance_valid(v) and v.person.has("unique") and not Traits.has(v.person, "unique") and (v.in_bed or v.target.distance_to(banner) > 6.0 * world.px)).size()
+	for v in Villager.all:
+		if is_instance_valid(v) and v.person.has("unique") and not Traits.has(v.person, "unique"):
+			print("  elder ", v.person.name, " in bed ", v.in_bed, " state ", Villager.State.keys()[v.state], " in a house ", world.roofs.covers(v.position), " restUntil ", v.person.get("restUntil", -1), " now ", snappedf(clock.hours, 0.1))
+	print("Intro: Shikigami summoned by themselves ", shiki, ", ticked off ", st._did.keys(), "; elders kept at home ", elders_home)
 	for r in Raids.active.raiders.duplicate():
 		if is_instance_valid(r) and r.hit != null:
 			r.hit.hurt(9999.0, true)
@@ -144,7 +148,7 @@ func run() -> void:
 		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
 			elder = v
 	var awake := Villager.all.filter(func(v): return is_instance_valid(v) and v.hit.alive() and not v.in_bed).map(func(v): return v.person.name)
-	print("Intro: the elder out of hiding ", not elder.person.has("restUntil"), ", by the banner ", elder.position.distance_to(world.props_named("TownBanner")[0]) < 3.0 * world.px, ", held ", elder.held, "; up at ", snappedf(clock.hour(), 0.1), "h: ", awake)
+	print("Intro: the elder out of hiding ", not elder.person.has("restUntil"), ", by his bed ", elder.position.distance_to(elder._door()) < 1.0 * world.px, ", held ", elder.held, "; up at ", snappedf(clock.hour(), 0.1), "h: ", awake)
 	miko.place(elder.position + Vector2(0.8, 0.3) * world.px)
 	talk.open(elder)
 	await get_tree().process_frame

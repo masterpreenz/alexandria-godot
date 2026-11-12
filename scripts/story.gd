@@ -507,6 +507,18 @@ func _act(a: Dictionary) -> void:
 				world.mist.refresh(true)
 		"record":
 			Chronicle.active.record(str(a.event))
+		"cast":
+			# Sera casts [spell] herself (the story showing her a new skill), at her side.
+			var spell := str(a.spell)
+			var go := func() -> void:
+				var caster := world.get_node_or_null("Caster") as SpellCaster
+				if caster != null:
+					miko.stats.mana = maxf(miko.stats.mana, float(caster.spells.get(spell, {}).get("manaCost", 0.0)))
+					caster.cast_at(spell, miko.position + Vector2(1.0, 0.3) * world.px)
+			if float(a.get("after", 0.0)) > 0.0:
+				get_tree().create_timer(float(a.after)).timeout.connect(go)   # (once the one before's cast)
+			else:
+				go.call()
 		"sera_says":
 			# Sera says something once she's walked [walk] units in this beat (0: at once).
 			_pending_line = {"text": str(a.text), "walk": float(a.get("walk", 0.0))}
@@ -537,7 +549,7 @@ func _act(a: Dictionary) -> void:
 		"gather":
 			# Some of the village's people (uniques' ids: the elders) up and out, standing by the town banner for her
 			# to talk to (out of bed if it's night), till a "release".
-			_gather(a.get("who", []))
+			_gather(a.get("who", []), str(a.get("at", "home")))
 		"release":
 			_release()
 		"mark":
@@ -635,7 +647,9 @@ func _keep_gathered() -> void:
 				v.reset_physics_interpolation()
 
 
-func _gather(ids: Array) -> void:
+## [param where]: "home", up and standing by their own bed, in their house (the elders, who hid there through the
+## attack); "banner", out by the town banner.
+func _gather(ids: Array, where := "home") -> void:
 	var banners: Array = world.props_named("TownBanner")
 	var at: Vector2 = banners[0] if not banners.is_empty() else world.village.centre()
 	var spots := _open_spots_near(at, ids.size())
@@ -651,7 +665,7 @@ func _gather(ids: Array) -> void:
 			v.visible = true
 			v.held = true
 			v._held_moving = false
-			v.position = spots[mini(n, spots.size() - 1)]
+			v.position = v._door() if where == "home" and not v.home.is_empty() else spots[mini(n, spots.size() - 1)]
 			v.reset_physics_interpolation()
 			_gather_spots[str(id)] = v.position
 			v.facing_up = false
@@ -743,6 +757,9 @@ func _attack(count: int) -> void:
 			"doomed": _doomed_left.append(str(v.person.name))
 		if v.person.has("unique") and not Traits.has(v.person, "unique"):
 			v.person["restUntil"] = world.clock.hours + 6.0   # (the elders, hiding in their house till it's over)
+			if not v.home.is_empty():
+				v.position = v._door()   # (in it: by their bed, out of sight there)
+				v.reset_physics_interpolation()
 	# (from every side)
 	_wave(count)
 	# Those who'll come through it hold on (hurt, but alive); the elders hide in their house.
