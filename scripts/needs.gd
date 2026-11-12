@@ -262,21 +262,34 @@ func _process_timed(dt: float) -> void:
 			stats.set_buff("food:" + dish, null)
 
 
+var _line_until := 0.0
+
+
+## Sera says [param words] out loud, in her bubble over her head, for [param seconds] (the story's lines; hunger waits).
+func say(words: String, seconds := 3.0, how := SpeechBubble.Kind.SAY) -> void:
+	if _bubble_label == null:
+		_bubble_label = SpeechBubble.new()
+		miko.add_child(_bubble_label)
+	_bubble_label.say(words, how)
+	_line_until = _now() + seconds
+
+
 # Her bubble over her head while she's hungry (every 40 s) or starving (every 15 s, in coral), for 3 seconds.
 func _bubble(t: float, st: String) -> void:
 	if _bubble_label == null:
 		_bubble_label = SpeechBubble.new()
 		_bubble_label.visible = false
 		miko.add_child(_bubble_label)
-	if st == "" or sleeping():
+	var saying := t < _line_until
+	if (st == "" and not saying) or sleeping():
 		_bubble_label.visible = false
 		return
-	if t >= _bubble_at:
+	if not saying and t >= _bubble_at:
 		_bubble_at = t + (15.0 if st == "Starving" else 40.0)
 		_bubble_until = t + 3.0
 		var key := "miko.starving" if st == "Starving" else "miko.hungry"
 		_bubble_label.say(Loc.pick(key), Villager.bark_kind(key))
-	_bubble_label.visible = t < _bubble_until
+	_bubble_label.visible = t < _bubble_until or saying
 	if _bubble_label.visible:
 		# Just over the top of her picture (as drawn now, so a jump or a pose carries it).
 		var top := World.sprite_rect(miko.art).position.y - miko.global_position.y

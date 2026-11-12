@@ -154,7 +154,8 @@ func begin_new_game() -> void:
 # ---- The card: the beat's objective, and its hint a part at a time, each lit up once she's done it ----
 
 var _did := {}                  ## the hint's parts done this beat: key -> true
-var _asleep_since := -1.0       ## (the "slept" kind: when she fell asleep, real seconds)
+var _asleep_since := -1.0
+var _pending_line := {}         ## a line Sera's to say once she's walked far enough: {text, walk}       ## (the "slept" kind: when she fell asleep, real seconds)
 var _head_up := 0.0             ## px from her feet to the top of her head (for the card over it)
 var _card_at := Vector2.INF     ## where the card over her head is easing to (screen px)
 var _swings_from := 0
@@ -360,6 +361,11 @@ func _process(delta: float) -> void:
 		_walked += miko.position.distance_to(_last_at) / world.px
 	_last_at = miko.position
 	_attack_goes_on(delta)
+	if not _pending_line.is_empty() and _walked >= float(_pending_line.walk):
+		var nd: Needs = miko.get_node_or_null("Needs")
+		if nd != null:
+			nd.say(str(_pending_line.text), 3.0)
+		_pending_line = {}
 	_keep_gathered()
 	var b: Dictionary = _beats()[beat]
 	if _done(b.get("done", {})):
@@ -501,6 +507,9 @@ func _act(a: Dictionary) -> void:
 				world.mist.refresh(true)
 		"record":
 			Chronicle.active.record(str(a.event))
+		"sera_says":
+			# Sera says something once she's walked [walk] units in this beat (0: at once).
+			_pending_line = {"text": str(a.text), "walk": float(a.get("walk", 0.0))}
 		"open":
 			# (the opening's over: newcomers may come, the clock runs; the story waits on, unseen, for what's next)
 			Villagers.closed = false
