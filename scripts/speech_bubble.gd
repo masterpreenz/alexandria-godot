@@ -22,6 +22,15 @@ const LOOKS := {
 }
 
 static var _arts := {}
+static var _font: Font
+const FONT := "res://assets/Fonts/ComicNeue-Bold.ttf"   ## comic lettering (OFL), in capitals, as manga's
+
+
+## The bubbles' lettering font.
+static func letters() -> Font:
+	if _font == null:
+		_font = load(FONT) if ResourceLoader.exists(FONT) else HudStyle.font("bold")
+	return _font
 
 var kind := Kind.SAY
 var text := ""
@@ -57,13 +66,13 @@ func _stretches() -> bool:
 
 ## Shows [param words] as [param how] (Kind).
 func say(words: String, how: int) -> void:
-	text = words
+	text = words.to_upper()   # (lettered in capitals, as a comic's)
 	kind = how as Kind
 	_look = LOOKS[kind]
 	_tex = _art(_look.art)
 	var art := _tex.get_size()
 	_k = font_size * float(_look.tall) / art.y
-	var f := HudStyle.font("bold")
+	var f := letters()
 	_lines = _wrap(f, text)
 	var tw := 0.0
 	for ln in _lines:
@@ -141,7 +150,7 @@ func _draw() -> void:
 		draw_texture_rect(_tex, Rect2(shake, Vector2(_w, h)), false)
 	else:
 		_draw_stretched(shake, art, l, r, h)
-	var f := HudStyle.font("bold")
+	var f := letters()
 	if f != null:
 		var ink: Array = _look.ink
 		var cx := _w / 2.0 - (_w * 0.06 if kind == Kind.THINK else 0.0)   # (the cloud's body, not its puffs)
