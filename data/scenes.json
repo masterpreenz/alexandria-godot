@@ -89,8 +89,7 @@
   ]
  ],
  "records": [
-  "village_given",
-  "party_join:miyu"
+  "village_given"
  ]
 },
 {
@@ -240,7 +239,6 @@
  "id": "miyu_wakes",
  "speaker": "miyu",
  "closes": true,
- "joins": "miyu",
  "when": {
   "after": [
    "miyu_home"
@@ -272,20 +270,18 @@
   ],
   [
    "miyu",
-   "I've rested enough for a lifetime. Let me come with you. I know these roads, and I can look after myself."
+   "I want to come with you, you know. Out there. But what use would I be? I'd only get in your way."
   ],
   [
    "sera",
-   "...All right. Stay close, and no more errands on your own."
+   "Get your strength back first. We'll talk about it when you're on your feet."
   ],
   [
    "miyu",
-   "Deal!"
+   "...All right. But I'm holding you to that."
   ]
  ],
- "records": [
-  "party_join:miyu"
- ]
+ "records": []
 },
 {
  "id": "miyu_magic",
@@ -366,9 +362,25 @@
   [
    "miyu",
    "Spikes from the ground, a blast of ice, water that mends, a wall of frost to stand behind. I know them all. Next time something comes at us, I'm not just standing behind you. I'll be casting right beside you!"
+  ],
+  [
+   "miyu",
+   "So... about coming with you. I wouldn't get in your way now."
+  ],
+  [
+   "sera",
+   "Get your things. Stay close, and no more errands on your own."
+  ],
+  [
+   "miyu",
+   "Deal!"
   ]
  ],
- "records": []
+ "closes": true,
+ "joins": "miyu",
+ "records": [
+  "party_join:miyu"
+ ]
 }
 ]
 }
