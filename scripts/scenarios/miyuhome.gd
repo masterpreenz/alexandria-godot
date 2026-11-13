@@ -77,5 +77,5 @@ func run() -> void:
 		print("Miyu home: her id ", miyu.get_instance_id(), " state ", Villager.State.keys()[miyu.state], ", visible ", miyu.visible, ", hour ", snappedf(world.clock.hour(), 0.1), ", rest until ", snappedf(float(miyu.person.get("restUntil", -1)) - world.clock.hours, 0.1), " h more")
 		for i in 240:
 			await get_tree().process_frame
-		print("Miyu home: 4 s on, ", Villager.State.keys()[miyu.state], ", in bed ", miyu.in_bed, ", held ", miyu.held, ", process ", miyu.is_physics_processing(), ", state until ", snappedf(miyu.state_until - miyu.now(), 0.1))
+		print("Miyu home: 4 s on, ", Villager.State.keys()[miyu.state], ", in bed ", miyu.in_bed, ", held ", miyu.held, ", process ", miyu.is_physics_processing(), ", state until ", snappedf(miyu.state_until - Villager.now(), 0.1))
 	shot("in_bed")

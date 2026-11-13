@@ -239,7 +239,7 @@ func _home(in_bed: Dictionary) -> void:
 				var miyu := v as Villager
 				miyu.position = in_bed.pos
 				miyu._go_to_sleep()
-				miyu.state_until = miyu.now() + 5.0
+				miyu.state_until = Villager.now() + 5.0
 	Chronicle.active.record("miyu_home")
 	FloatingText.spawn(world, "Miyu's home. She'll sleep the day through.", miko.position + Vector2(0, -2.0 * world.px), Color(0.7, 1.0, 0.7), 18, 2.5)
 	VillageLog.event("miyu_home", "Miyu is home, asleep in the elder's house. The elders want to speak with you.")
