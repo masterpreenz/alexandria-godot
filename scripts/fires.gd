@@ -433,8 +433,8 @@ func _process_timed(delta: float) -> void:
 
 func _frames() -> Array:
 	var c: Dictionary = d.cooking
-	var up: Array = c.cookUp
-	return up if miko.facing_up and up.size() >= 16 else c.cookDown
+	var up: Array = miko.anim("cookUp", c.cookUp)
+	return up if miko.facing_up and up.size() >= 16 else miko.anim("cookDown", c.cookDown)
 
 
 func _begin(fire: Dictionary) -> void:

@@ -517,7 +517,7 @@ func draw_marks(canvas: CanvasItem, to_point: Callable, scale: float, frame: Rec
 # A line with its names filled in: {dir} (which way the rumor's first place lies from the village), {teller}, {miko}.
 func _fill(text: String, def: Dictionary, st: Dictionary) -> String:
 	var at := place_of(st, def, 0)
-	return text.format({"dir": direction(at) if at != Vector2.INF else "north", "teller": str(st.by), "miko": Miko.NAME})
+	return text.format({"dir": direction(at) if at != Vector2.INF else "north", "teller": str(st.by), "miko": Playable.name_now()})
 
 
 ## Which way [param at] lies from the village's middle, as "north-west" (up the screen is north).

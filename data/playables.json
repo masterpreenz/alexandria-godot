@@ -1,0 +1,7 @@
+{
+"_about": "Who can be played (scripts/playable.gd): Sera, and companions one can switch to by talking to them in the village ('Play as ...'). Whoever isn't played walks with the party as a companion. id: who they are (a unique's id from uniques.json, or 'sera'); name and look: as uniques.json has them unless given here (look: the villagers.json look counted for their voice and skills); art: 'player' (player.json's sheets: Sera; drawn as a villager from them when she's a companion) or 'look' (their villagers.json look: walk and idle for moving and standing, the stab for a swing, its strike frame for a cast); stats: 'player' when their stats are built as the player's are (combat.json's character: Sera's; they level by fighting, not by work, and their gear is what sizes the bag), else a companion's (companions.json); pitch: their voice in a talk (else by their look); traits: given them as a companion person (Sera's); default: the one played in a new game (and an old save's).",
+"playables": [
+ {"id": "sera", "name": "Sera", "art": "player", "stats": "player", "look": 1, "pitch": 1.15, "traits": ["unique"], "default": true},
+ {"id": "miyu", "art": "look"}
+]
+}

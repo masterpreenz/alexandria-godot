@@ -200,6 +200,7 @@ func _reset_statics() -> void:
 	Kitchen.targets.clear()
 	Needs.occupants.clear()
 	Exploration.show_all = false
+	Playable.active = null
 
 
 func summarise() -> Dictionary:
@@ -265,7 +266,10 @@ func capture() -> Dictionary:
 	s["player.bag"] = miko.bag.to_json()
 	s["player.skills"] = LifeSkills.to_json()
 	put.call("player.hotbar", at.call("Hud/Hotbar"), func(n): return n.to_json())
-	s["player.stats"] = miko.stats.to_json()
+	# (Sera's own stats, whoever's played; who is, with theirs, apart)
+	s["player.stats"] = Playable.active.lead_stats_json() if Playable.active != null else miko.stats.to_json()
+	if Playable.active != null and (Playable.active.who != Playable.LEAD or not Playable.active.played.is_empty()):
+		s["player.playing"] = Playable.active.to_json()
 	s["world.ground"] = Pickup.to_json(world)
 	var needs: Needs = miko.get_node_or_null("Needs")
 	s["player"] = JSON.stringify({"x": miko.position.x / world.px, "y": -miko.position.y / world.px,

@@ -46,7 +46,8 @@ var pose_mirror := false
 var _knock := Vector2.ZERO
 var _knock_left := 0.0
 var _knock_time := 1.0
-## Her name, as everyone says it (Miko, shrine maiden, is what she is; the code still calls her that).
+## Her name, as everyone says it (Miko, shrine maiden, is what she is; the code still calls her that). Whoever's
+## played now (Sera or one of her companions) is named by [method Playable.name_now].
 const NAME := "Sera"
 
 const JUMP_HEIGHT := 0.7       ## units (Unity's CharacterJump)
@@ -111,6 +112,27 @@ func setup(w: World, d: Dictionary) -> void:
 	dust.target = self
 	dust.unit = world.px
 	world.things.add_child.call_deferred(dust)
+
+
+## Takes on someone else's art (who's played: Playable), [param d] laid out as player.json is: her shadow, her
+## standing, walking and running, her swing and her cast. Whatever she was doing with her hands stops.
+func set_look(d: Dictionary) -> void:
+	data = d
+	end_action()
+	_casting = false
+	pose = -1
+	if shadow != null and d.has("shadow"):
+		world.show_frame(shadow, int(d.shadow.s), Vector2(d.shadow.sx, d.shadow.sy))
+		shadow.position = Vector2(d.shadow.x, d.shadow.y)
+		shadow.modulate.a = d.shadow.a
+	_animate(0.0)
+
+
+## One of her other moves' art (sleeping, mining, cooking, fainting...) as whoever's played has it, or
+## [param fallback] (Sera's, from that move's own data) when they've none of their own.
+func anim(key: String, fallback: Variant) -> Variant:
+	var own: Dictionary = data.get("anims", {})
+	return own[key] if own.has(key) else fallback
 
 
 func _physics_process(delta: float) -> void:

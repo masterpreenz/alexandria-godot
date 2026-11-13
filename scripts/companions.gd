@@ -56,8 +56,8 @@ static func stats_for(p: Dictionary) -> CharacterStats:
 		natural = {"maxHp": float(p.get("maxHp", 40.0)), "atk": float(p.get("atk", 6.0))}
 	var st := CharacterStats.new()
 	st.name = "Companion_" + id
-	st.wears_bag = false
-	st.setup(_character(natural), combat().get("items", {}))
+	st.wears_bag = Playable.wears_bag(p)
+	st.setup(character_of(p, natural), combat().get("items", {}))
 	var json := str(saved.get("stats", ""))
 	if json != "" and JSON.parse_string(json) is Dictionary:
 		st.from_json(json)
@@ -76,7 +76,18 @@ static func stats_for(p: Dictionary) -> CharacterStats:
 	return st
 
 
-# What their stats are built on: the companions' base, with their own HP and attack; the talents are Sera's web.
+## What [param p]'s stats are built on: the companions' base, with their own HP and attack (the talents are Sera's
+## web); or, for Sera herself (a companion while someone else is played), her own as the player has them.
+static func character_of(p: Dictionary, natural: Dictionary) -> Dictionary:
+	if Playable.own_levels(p):
+		var mine: Dictionary = (combat().get("character", {}) as Dictionary).duplicate(true)
+		mine.base["maxHp"] = float(natural.get("maxHp", mine.base.get("maxHp", 100.0)))
+		mine.base["attack"] = float(natural.get("atk", mine.base.get("attack", 6.0)))
+		return mine
+	return _character(natural)
+
+
+# A companion's: the companions' base, with their own HP and attack; the talents are Sera's web.
 static func _character(natural: Dictionary) -> Dictionary:
 	var own: Dictionary = data().get("character", {})
 	var c: Dictionary = combat().get("character", {}).duplicate()
@@ -157,6 +168,18 @@ static func store_all(people: Array) -> void:
 	for p in people:
 		if p is Dictionary and can_have(p):
 			store(p)
+
+
+## [param p] isn't a companion now (they're the one played): their stats, written into their person, let go of.
+static func forget(p: Dictionary) -> void:
+	var id := str(p.get("unique", ""))
+	var e: Dictionary = _by_id.get(id, {})
+	if e.is_empty():
+		return
+	store(p)
+	if is_instance_valid(e.stats):
+		(e.stats as Node).queue_free()
+	_by_id.erase(id)
 
 
 static func store(p: Dictionary) -> void:

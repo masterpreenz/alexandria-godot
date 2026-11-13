@@ -96,14 +96,14 @@ func _process_timed(delta: float) -> void:
 	var stagger := 10.0 / float(s.staggerFps)
 	var down := stagger + 2.0 / float(s.fallFps)
 	if not woke:
-		var sheet: Array = s.faintBack if miko.facing_up else s.faintFront
+		var sheet: Array = miko.anim("faintBack", s.faintBack) if miko.facing_up else miko.anim("faintFront", s.faintFront)
 		if sheet.size() >= 16:
 			var f: int
 			if clock < stagger: f = floori(clock * float(s.staggerFps))
 			elif clock < down: f = 10 + floori((clock - stagger) * float(s.fallFps))
 			else: f = 12 + floori((clock - down) * float(s.lyingFps)) % 4
 			miko.pose = int(sheet[clampi(f, 0, 15)])
-			miko.pose_mirror = miko.facing_right != bool(s.faintFacesRight)
+			miko.pose_mirror = miko.facing_right != bool(miko.anim("faintFacesRight", s.faintFacesRight))
 		else:
 			down = 0.6
 		wake_at = maxf(float(s.darkFor), down + float(s.darkAfterFall))
@@ -128,7 +128,7 @@ func faint() -> void:
 	miko.velocity = Vector2.ZERO
 	LostBag.drop(world, miko.bag, looted, miko.position)
 	looted = {}
-	dark_text.text = "%s fainted…" % Miko.NAME
+	dark_text.text = "%s fainted…" % Playable.name_now()
 
 
 func _wake_up() -> void:

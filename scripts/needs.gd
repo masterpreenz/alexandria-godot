@@ -474,8 +474,13 @@ func _sound(key: String) -> void:
 
 
 func _frames() -> Array:
-	var up: Array = s.sleepUp
-	return up if _facing_up and up.size() >= 16 else s.sleepDown
+	var up: Array = miko.anim("sleepUp", s.sleepUp)
+	return up if _facing_up and up.size() >= 16 else miko.anim("sleepDown", s.sleepDown)
+
+
+# How whoever's played lies down: their own (a companion played), else Sera's (needs.json).
+func _art(key: String) -> Variant:
+	return miko.anim(key, s.get(key))
 
 
 ## The nearest bed within [param range] px: {pos, e (its prop entry), type, settings, points}, or {}.
@@ -522,8 +527,8 @@ func lie_down() -> void:
 
 # Where she goes so her lying pose has its head on the pillow and its middle on the mattress's middle.
 func _sleep_point(bed: Dictionary) -> Vector2:
-	var lying: Variant = data.get("lying", {}).get("sleepUp" if _facing_up else "sleepDown")
-	return fit_on_bed(world, bed, lying, miko.facing_right != bool(s.artFacesRight), absf(miko.art_scale.x))
+	var lying: Variant = miko.anim("lying", data.get("lying", {})).get("sleepUp" if _facing_up else "sleepDown")
+	return fit_on_bed(world, bed, lying, miko.facing_right != bool(_art("artFacesRight")), absf(miko.art_scale.x))
 
 
 ## Where a sleeper goes on [param bed] (nearest_bed's dictionary) so their lying pose [param lying] ({middle, head},
@@ -608,9 +613,9 @@ func get_up() -> void:
 		return
 	if held_asleep:
 		return
-	var lie := int(s.lieDownFrames)
+	var lie := int(_art("lieDownFrames"))
 	# Up from wherever the lying down got to.
-	var shown := mini(lie - 1, int(_sleep_clock * float(s.lieDownFps))) if sleep == Sleep.LYING_DOWN else lie - 1
+	var shown := mini(lie - 1, int(_sleep_clock * float(_art("lieDownFps")))) if sleep == Sleep.LYING_DOWN else lie - 1
 	sleep = Sleep.GETTING_UP
 	_sleep_clock = (lie - 1 - shown) / float(s.getUpFps)
 	if world.clock != null:
@@ -642,19 +647,19 @@ func _off_bed() -> void:
 
 func _hold(id: int) -> void:
 	miko.pose = id
-	miko.pose_mirror = miko.facing_right != bool(s.artFacesRight)
+	miko.pose_mirror = miko.facing_right != bool(_art("artFacesRight"))
 
 
 func _sleep(dt: float) -> void:
 	if sleep == Sleep.AWAKE:
 		return
 	var frames := _frames()
-	var lie := int(s.lieDownFrames)
+	var lie := int(_art("lieDownFrames"))
 	_sleep_clock += dt
 	var t := _now()
 	match sleep:
 		Sleep.LYING_DOWN:
-			var f := int(_sleep_clock * float(s.lieDownFps))
+			var f := int(_sleep_clock * float(_art("lieDownFps")))
 			if f >= lie:
 				sleep = Sleep.ASLEEP
 				_sleep_clock = 0.0
@@ -676,7 +681,7 @@ func _sleep(dt: float) -> void:
 			_hold(int(frames[lie + (_stir_frame if t < _stir_until else 0)]))
 			if t >= _next_z:
 				_next_z = t + 1.8
-				var side := 0.35 if miko.facing_right != bool(s.artFacesRight) else -0.35
+				var side := 0.35 if miko.facing_right != bool(_art("artFacesRight")) else -0.35
 				FloatingText.spawn(world, "z", miko.position + Vector2(side, -0.4) * world.px, Color(0.78, 0.84, 1.0))
 		Sleep.GETTING_UP:
 			var f := lie - 1 - int(_sleep_clock * float(s.getUpFps))

@@ -254,6 +254,9 @@ class PartyCards extends Control:
 			accept_event()
 
 	func face(p: Dictionary) -> Texture2D:
+		# (Sera, a companion while someone else is played: her own portrait)
+		if not Playable.villager_look(p).is_empty():
+			return HudStyle.icon("portrait")
 		var look := int(p.get("look", 0))
 		if _faces.has(look):
 			return _faces[look]

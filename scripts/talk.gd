@@ -177,7 +177,7 @@ func close() -> void:
 
 # What they open with: by how they are (hungry, worn out, no bed), else a plain hello.
 func _greeting(v: Villager) -> String:
-	var vals := {"miko": Miko.NAME, "name": v.person.name}
+	var vals := {"miko": Playable.name_now(), "name": v.person.name}
 	if v._hungry():
 		return Loc.pick("talk.hello.hungry", vals)
 	if v.chill() > 0:
@@ -226,6 +226,9 @@ func _show(line: String) -> void:
 	var book := Companions.book_for(who.person, miko.bag)
 	if not book.is_empty():
 		_add(str(book.offer), _give_book.bind(book), true)
+	# (a companion who can be played, in the village: handing them the controls)
+	if Playable.active != null and Playable.active.why_not(who) == "":
+		_add("Play as %s" % str(who.person.name), _play_as)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
@@ -257,7 +260,7 @@ func _add(text: String, act: Callable, gold := false) -> void:
 func _ask_rumor() -> void:
 	var rumor: Dictionary = Rumors.active.offer_from(who)
 	if rumor.is_empty():
-		_show(Loc.pick("talk.reply.norumor", {"miko": Miko.NAME}))
+		_show(Loc.pick("talk.reply.norumor", {"miko": Playable.name_now()}))
 		return
 	who.show_mood("idea", 3.0)
 	var told := Rumors.active.hear(str(rumor.id), who)
@@ -299,7 +302,7 @@ func _ask_topic(topic: Dictionary) -> void:
 	var replies := []
 	for r in topic.get("replies", []):
 		replies.append([str(r.text), _answer_topic.bind(topic, r)])
-	_show_replies(str(topic.says).format({"miko": Miko.NAME}), replies)
+	_show_replies(str(topic.says).format({"miko": Playable.name_now()}), replies)
 
 
 func _answer_topic(topic: Dictionary, reply: Dictionary) -> void:
@@ -390,7 +393,14 @@ func _give_book(book: Dictionary) -> void:
 	if not scene.is_empty():
 		_play(scene, 0)
 	else:
-		_show(str(book.get("says", "")).format({"miko": Miko.NAME}))
+		_show(str(book.get("says", "")).format({"miko": Playable.name_now()}))
+
+
+# Plays as them from now on (the one played till now is left with the party, where they stand).
+func _play_as() -> void:
+	var v := who
+	close()
+	Playable.active.switch_to(v)
 
 
 func _order_join() -> void:
@@ -402,7 +412,7 @@ func _order_join() -> void:
 func _ask_how() -> void:
 	var doing := who.activity().to_lower()
 	who.show_mood("cheerful", 3.0)
-	_show(Loc.pick("talk.reply.how", {"doing": doing, "doing_cap": who.activity(), "miko": Miko.NAME}))
+	_show(Loc.pick("talk.reply.how", {"doing": doing, "doing_cap": who.activity(), "miko": Playable.name_now()}))
 
 
 # The best food in her bag to hand over (the villagers' own order of liking), or "".
@@ -415,7 +425,7 @@ func _food_to_give() -> String:
 
 func _give_food(food: String) -> void:
 	if float(who.person.get("hunger", 100.0)) >= 95.0:
-		_show(Loc.pick("talk.reply.full", {"miko": Miko.NAME}))
+		_show(Loc.pick("talk.reply.full", {"miko": Playable.name_now()}))
 		return
 	var fills := 20.0
 	for f in Villager.FOODS:
@@ -426,7 +436,7 @@ func _give_food(food: String) -> void:
 	who.person.hunger = minf(100.0, float(who.person.get("hunger", 0.0)) + fills)
 	FloatingText.spawn(world, "-1 " + UiKit.resource_name(food), miko.position + Vector2(0, -1.6 * world.px), Color(0.96, 0.68, 0.32))
 	who.show_mood("affection", 4.0)
-	_show(Loc.pick("talk.reply.food", {"food": UiKit.resource_name(food), "miko": Miko.NAME}))
+	_show(Loc.pick("talk.reply.food", {"food": UiKit.resource_name(food), "miko": Playable.name_now()}))
 
 
 # What they need most: a bed, food in storage, tools for their work; else nothing.
@@ -442,7 +452,7 @@ func _ask_need() -> void:
 	elif world.clock != null and world.clock.season() == GameClock.Season.WINTER and not bool(p.get("scarf", false)):
 		key = "talk.need.scarf"
 	who.show_mood("relaxed" if key == "talk.need.nothing" else "worried", 4.0)
-	_show(Loc.pick(key, {"miko": Miko.NAME}))
+	_show(Loc.pick(key, {"miko": Playable.name_now()}))
 
 
 # ---- Story scenes: a conversation played a line at a time (Continue, or 1) ----
@@ -464,6 +474,8 @@ var _blip: AudioStreamPlayer
 
 
 func _voice_of(v: Villager) -> float:
+	if Playable.pitch_of(v.person) > 0.0:
+		return Playable.pitch_of(v.person)
 	var look := int(v.person.get("look", 0))
 	return float(LOOK_PITCH[clampi(look, 0, LOOK_PITCH.size() - 1)])
 
@@ -563,14 +575,16 @@ func _show_who(v: Villager) -> void:
 # The window's head as a scene line's speaker: Sera (her own portrait), or whoever it is ("elder", a unique's id, or
 # a name: Taro, Hana...), found among the villagers; just the name if they aren't about.
 func _show_speaker(speaker: String) -> void:
-	if speaker == "sera":
+	# (whoever's played: Sera, unless she's handed the controls to someone; she's then found among the villagers)
+	var played_id := Playable.active.who if Playable.active != null else "sera"
+	if speaker == played_id:
 		_speaking = miko
-		_voice = SERA_PITCH
+		_voice = SERA_PITCH if speaker == "sera" else float(LOOK_PITCH[clampi(int(Playable.active.played.get("look", 0)), 0, LOOK_PITCH.size() - 1)])
 		# (her standing frame, as anyone's: the same look as theirs)
 		var idle: Array = miko.data.frames.get("idleDownLeft", [])
 		_face.texture = _face_from(int(idle[0])) if not idle.is_empty() else HudStyle.icon("portrait")
-		_name.text = Miko.NAME
-		_work.text = "Shrine maiden"
+		_name.text = Playable.name_now()
+		_work.text = "Shrine maiden" if speaker == "sera" else ""
 		return
 	var nm := str(Uniques.all().get(speaker, {}).get("name", speaker))
 	for v in Villager.all:
@@ -601,7 +615,7 @@ func _play(scene: Dictionary, i: int) -> void:
 		if who != null and is_instance_valid(who):
 			_show_who(who)
 		_name.text = str(who.person.name) if who != null else ""
-		_show(Loc.pick("talk.hello", {"miko": Miko.NAME, "name": who.person.name}) if who != null else "")
+		_show(Loc.pick("talk.hello", {"miko": Playable.name_now(), "name": who.person.name}) if who != null else "")
 		return
 	var line: Array = lines[i]
 	var speaker := str(line[0])
@@ -616,7 +630,7 @@ func _play(scene: Dictionary, i: int) -> void:
 
 func _say_bye() -> void:
 	if who != null and is_instance_valid(who):
-		who.bark("talk.reply.bye", {"miko": Miko.NAME}, true)
+		who.bark("talk.reply.bye", {"miko": Playable.name_now()}, true)
 	close()
 
 

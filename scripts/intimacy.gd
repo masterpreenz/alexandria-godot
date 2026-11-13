@@ -12,7 +12,8 @@ const GIFT := {"loved": 8.0, "liked": 4.0, "plain": 1.0, "disliked": -3.0}
 
 
 static func has(p: Dictionary) -> bool:
-	return p.has("unique") and Traits.has(p, "unique")   # (the story's people, the elders, aren't companions)
+	# (the story's people, the elders, aren't companions; nor is Sera, one while someone else is played)
+	return p.has("unique") and Traits.has(p, "unique") and Uniques.all().has(str(p.unique))
 
 
 static func of(p: Dictionary) -> float:
@@ -78,7 +79,7 @@ static func give(p: Dictionary, item: String, day: int) -> Array:
 ## One of their lines of a [param kind] ("giftSays": "loved"...), or "".
 static func line(p: Dictionary, group: String, kind: String) -> String:
 	var pool: Array = _def(p).get(group, {}).get(kind, [])
-	return str(pool.pick_random()).format({"miko": Miko.NAME}) if not pool.is_empty() else ""
+	return str(pool.pick_random()).format({"miko": Playable.name_now()}) if not pool.is_empty() else ""
 
 
 ## Their greeting, by how close they are, or "" (the usual one).
@@ -87,7 +88,7 @@ static func greeting(p: Dictionary) -> String:
 	for g in _def(p).get("greetings", []):
 		if of(p) >= float(g.get("min", 0)):
 			best = g.get("says", [])
-	return str(best.pick_random()).format({"miko": Miko.NAME}) if not best.is_empty() else ""
+	return str(best.pick_random()).format({"miko": Playable.name_now()}) if not best.is_empty() else ""
 
 
 ## The next thing there is to talk about: the first of their topics not yet talked through that they're close enough
@@ -106,4 +107,4 @@ static func answer(p: Dictionary, t: Dictionary, reply: Dictionary) -> String:
 	done.append(str(t.id))
 	p["topics"] = done
 	gain(p, float(reply.get("gain", 0)))
-	return str(reply.get("answer", "")).format({"miko": Miko.NAME})
+	return str(reply.get("answer", "")).format({"miko": Playable.name_now()})

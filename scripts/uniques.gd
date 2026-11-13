@@ -25,11 +25,14 @@ static func name_taken(name: String) -> bool:
 	return all().values().any(func(u): return str(u.name) == name)
 
 
-## The unique [param id] among [param people], or {}.
+## The unique [param id] among [param people], or {}. (Someone being played is kept out of the village's people while
+## they are: theirs is the one played.)
 static func person(people: Villagers, id: String) -> Dictionary:
 	for p in people.people:
 		if str(p.get("unique", "")) == id:
 			return p
+	if Playable.active != null and Playable.active.who == id:
+		return Playable.active.played
 	return {}
 
 

@@ -41,18 +41,18 @@ static func kind_for(element: String) -> String:
 
 ## Leaves on [param d] what [param spell] (just hit it for [param amount]) leaves by its element: frostbite for ice, a
 ## burn for fire. Its bite is a share of the hit.
-static func from_spell(d: Damageable, spell: Dictionary, amount: float, by_player := true) -> void:
+static func from_spell(d: Damageable, spell: Dictionary, amount: float, from_sera := true) -> void:
 	var kind := kind_for(str(spell.get("element", "")))
 	if kind == "":
 		return
 	var k: Dictionary = kinds()[kind]
-	apply(d, kind, float(k.seconds), amount * float(k.perSecond), float(k.get("slow", 0.0)), StringName(kind), by_player)
+	apply(d, kind, float(k.seconds), amount * float(k.perSecond), float(k.get("slow", 0.0)), StringName(kind), from_sera)
 
 
 ## Puts [param kind] on [param d] for [param seconds], biting [param dps] a second and slowing it [param slow]% (if it
 ## has the effect under [param key] already, that's topped up instead). Frozen ground uses its own key, so its harder
 ## frostbite comes on top of a spell's.
-static func apply(d: Damageable, kind: String, seconds: float, dps: float, slow: float, key := &"", by_player := true) -> void:
+static func apply(d: Damageable, kind: String, seconds: float, dps: float, slow: float, key := &"", from_sera := true) -> void:
 	if d == null or not is_instance_valid(d) or not d.alive() or d.team != Damageable.Team.ENEMY:
 		return
 	var s := d.get_node_or_null("Status") as StatusEffects
@@ -61,7 +61,7 @@ static func apply(d: Damageable, kind: String, seconds: float, dps: float, slow:
 		s.name = "Status"
 		s.target = d
 		d.add_child(s)
-	s.by_player = s.by_player or by_player
+	s.by_player = s.by_player or from_sera
 	s._put(kind, seconds, dps, slow, key if key != &"" else StringName(kind))
 
 

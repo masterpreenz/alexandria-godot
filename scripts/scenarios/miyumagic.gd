@@ -129,7 +129,10 @@ func run() -> void:
 			await get_tree().physics_frame
 		var hps := []
 		for f in foes:
-			hps.append(snappedf((f as Creature).hit.hp, 0.1) if is_instance_valid(f) and (f as Creature).hit != null and is_instance_valid((f as Creature).hit) else "gone")
+			if is_instance_valid(f) and (f as Creature).hit != null and is_instance_valid((f as Creature).hit):
+				hps.append(snappedf((f as Creature).hit.hp, 0.1))
+			else:
+				hps.append("gone")
 		print("Miyu magic: ", second + 1, "s: monsters HP ", hps, ", Miyu HP ", snappedf(miyu.hit.hp, 0.1), "/", miyu.hit.max_hp, " mana ", snappedf(st.mana, 0.1), ", Sera HP ", snappedf(miko.stats.hp, 0.1), ", casting ", Villager.now() < miyu.cast_until)
 		if second == 1 or second == 5 or second == 9:
 			shot("fight%d" % second)

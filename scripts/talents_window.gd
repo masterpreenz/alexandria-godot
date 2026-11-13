@@ -223,7 +223,7 @@ func show_for(p: Dictionary) -> void:
 
 ## Whose talents these are, as a name.
 func owner_name() -> String:
-	return Miko.NAME if person.is_empty() else str(person.get("name", "?"))
+	return Playable.name_now() if person.is_empty() else str(person.get("name", "?"))
 
 
 # The row of whose talents to show: Sera, then each companion with her.
@@ -243,7 +243,7 @@ func _whose() -> void:
 	_who.visible = true
 	for p in all:
 		var here: bool = (p as Dictionary).is_empty() == person.is_empty() and (p.is_empty() or is_same(p, person))
-		var b := HudStyle.button(Miko.NAME if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
+		var b := HudStyle.button(Playable.name_now() if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
 		if here:
 			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
 		b.custom_minimum_size.y = _k(28)

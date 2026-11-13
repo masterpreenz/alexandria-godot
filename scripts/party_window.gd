@@ -196,11 +196,11 @@ func _sera_row() -> PanelContainer:
 	row.add_theme_constant_override("separation", roundi(_k(10)))
 	pc.add_child(row)
 	var face := Portrait.new()
-	face.tex = HudStyle.icon("portrait")
+	face.tex = Playable.active.portrait() if Playable.active != null else HudStyle.icon("portrait")
 	face.custom_minimum_size = Vector2(_k(48), _k(48))
 	face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(face)
-	var ui := _info(row, Miko.NAME)
+	var ui := _info(row, Playable.name_now())
 	var stats := miko.stats
 	_rows.append(func():
 		var t := stats.total()

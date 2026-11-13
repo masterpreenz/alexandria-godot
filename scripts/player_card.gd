@@ -61,7 +61,7 @@ func _draw() -> void:
 	var card := Rect2(Vector2.ZERO, CARD * k)
 	draw_style_box(HudStyle.piece("panel"), card)
 	# Portrait, its frame, and the level badge on its corner.
-	var portrait := HudStyle.icon("portrait")
+	var portrait := Playable.active.portrait() if Playable.active != null else HudStyle.icon("portrait")
 	var pr := Rect2(Vector2(8, 8) * k, Vector2(56, 56) * k)
 	if portrait != null:
 		draw_texture_rect(portrait, pr, false)
@@ -73,9 +73,9 @@ func _draw() -> void:
 	_text(str(stats.level), badge.position + Vector2(0, badge.size.y * 0.75), 12, "pixel", HudStyle.color("ink"), badge.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 	var col_w := CARD.x - COL_X - 8.0
 	# Name, her level beside it, and coins.
-	_text(Miko.NAME, Vector2(COL_X, 20) * k, 14, "bold", HudStyle.color("text"))
+	_text(Playable.name_now(), Vector2(COL_X, 20) * k, 14, "bold", HudStyle.color("text"))
 	var nf := HudStyle.font("bold")
-	var nw := nf.get_string_size(Miko.NAME, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * k)).x if nf else 36.0 * k
+	var nw := nf.get_string_size(Playable.name_now(), HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * k)).x if nf else 36.0 * k
 	_text("Lv %d" % stats.level, Vector2(COL_X * k + nw + 6 * k, 20 * k), 12, "pixel", HudStyle.color("accentLight"))
 	var coins := miko.bag.count("Gold") + world.village.stored("Gold")
 	var coin_text := str(coins)

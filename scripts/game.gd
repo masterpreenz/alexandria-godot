@@ -260,7 +260,8 @@ func _ready() -> void:
 	head_bars.setup(world, miko)
 	miko.add_child(head_bars)
 	# Her talents' pockets, a blocked hit and Second Wind, shown over her.
-	var pockets := func() -> void: miko.bag.bonus_slots = int(miko.stats.stat("bagSlots"))
+	# (Sera's pockets, whoever's played: the bag is hers)
+	var pockets := func() -> void: miko.bag.bonus_slots = Playable.bag_slots(miko)
 	miko.stats.changed.connect(pockets)
 	pockets.call()
 	miko.stats.blocked.connect(func(): FloatingText.spawn(world, "Blocked", miko.position + Vector2(0, -1.6 * world.px), Color(0.7, 0.85, 1.0)))
@@ -405,6 +406,13 @@ func _ready() -> void:
 	party.setup(world, miko, get_node("Villagers") as Villagers, $Hud)
 	if sv.get("sections", {}).has("world.party"):
 		party.from_json(sv.sections["world.party"])
+	# Who's played: Sera, or a companion she's handed the controls to.
+	var playable := Playable.new()
+	playable.name = "Playable"
+	add_child(playable)
+	playable.setup(world, miko, get_node("Villagers") as Villagers, $Hud/Hotbar as Hotbar)
+	if sv.get("sections", {}).has("player.playing"):
+		playable.from_json(sv.sections["player.playing"])
 	# Miyu's rescue (as her rumor plays out).
 	var rescue := Rescue.new()
 	rescue.name = "Rescue"

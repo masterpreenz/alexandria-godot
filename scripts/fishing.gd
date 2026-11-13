@@ -189,7 +189,9 @@ static func water_spot(w: World, dock: Vector2, from: Vector2) -> Vector2:
 # Miko's fishing, a frame at a time: the cast (the rod back, then out), then waiting on it; the rod up as the line
 # comes in. The line and its float are drawn from the rod's tip once it's out.
 func _animate(now: float) -> void:
-	var frames: Array = _anim.get("up" if miko.facing_up else "down", [])
+	# (whoever's played: their own cast, if they have one)
+	var fish: Dictionary = miko.data.get("fishing", _anim)
+	var frames: Array = fish.get("up" if miko.facing_up else "down", [])
 	if frames.is_empty():
 		return
 	if not casting:
@@ -209,8 +211,8 @@ func _animate(now: float) -> void:
 	miko.pose_mirror = miko.facing_right
 	if _line == null:
 		_line = new_line(world)
-	var tip: Array = _anim.get("tipsUp" if miko.facing_up else "tipsDown", [])[i]
-	var k: float = world.px / float(_anim.get("ppu", 153)) * miko.art_scale.x
+	var tip: Array = fish.get("tipsUp" if miko.facing_up else "tipsDown", [])[i]
+	var k: float = world.px / float(fish.get("ppu", 153)) * miko.art_scale.x
 	draw_line_from(world, _line, miko.position + Vector2(-float(tip[0]) if miko.facing_right else float(tip[0]), float(tip[1])) * k, _float_at, t, _cast_until - now, now)
 
 

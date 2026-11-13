@@ -119,6 +119,11 @@ func practise(p: Dictionary, sk: int) -> void:
 			xp[sk] = 0
 			lv[sk] = int(lv[sk]) + 1
 			news = "%s's %s improved to %d" % [p.name, SKILL_NAMES[sk], lv[sk]]
+	# (Sera, a companion while someone else is played, levels by fighting as she always has, not by work)
+	if Playable.own_levels(p):
+		if news != "":
+			VillageLog.event("news:" + p.name, news)
+		return
 	p.xp = int(p.xp) + 1
 	if int(p.xp) >= 30 * int(p.level):
 		p.xp = 0
@@ -152,6 +157,10 @@ func _bed_at(p: Dictionary) -> Vector2:
 
 
 func _look_for(p: Dictionary) -> Dictionary:
+	# (Sera, a companion while someone else is played: drawn from her own art)
+	var own := Playable.villager_look(p)
+	if not own.is_empty():
+		return own
 	var looks: Array = d.get("looks", [])
 	var i := clampi(int(p.look), 0, looks.size() - 1)
 	return looks[i] if looks[i] != null else looks[0]

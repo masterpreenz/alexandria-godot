@@ -1773,7 +1773,7 @@ func _barks() -> void:
 	# (with Sera: they don't stop to eat or drink on the road, so they ask her)
 	if _in_party() and t >= _next_need_bark:
 		_next_need_bark = t + randf_range(40.0, 60.0)
-		var needs := {"miko": Miko.NAME}
+		var needs := {"miko": Playable.name_now()}
 		if float(person.get("hunger", 100.0)) < Party.NEEDY:
 			bark("party.hungry", needs, true)
 		elif float(person.get("thirst", 100.0)) < Party.NEEDY:
@@ -3799,7 +3799,7 @@ func activity() -> String:
 		State.CELLAR: return "Down in the cellar"
 		State.TO_FISH: return "Off to the dock to fish"
 		State.TO_WELL: return "Going to the well to drink" if _well_for == "drink" else "Fetching water for the crops"
-		State.FOLLOW: return "Waiting where Sera asked" if Party.active != null and Party.active.waiting.has(str(person.get("unique", ""))) else "With Sera"
+		State.FOLLOW: return ("Waiting where %s asked" % Playable.name_now()) if Party.active != null and Party.active.waiting.has(str(person.get("unique", ""))) else "With " + Playable.name_now()
 		State.FISH: return "Fishing (%d caught)" % carrying
 		State.WALK: return "Strolling" if _work_hours() else "Free time: strolling"
 	if _night(): return "Getting ready for bed"

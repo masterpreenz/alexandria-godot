@@ -69,9 +69,9 @@ func _process_timed(_delta: float) -> void:
 			return
 		var frame := miko.action_frame()
 		var axe := target.axe
-		var loop := maxi(1, (data.chopDown if axe else data.mineDown).size())
+		var loop := maxi(1, (miko.anim("chopDown", data.chopDown) if axe else miko.anim("mineDown", data.mineDown)).size())
 		for f in range(_last_frame + 1, frame + 1):
-			for s in (data.chopStrikeFrames if axe else data.strikeFrames):
+			for s in (miko.anim("chopStrikeFrames", data.chopStrikeFrames) if axe else miko.anim("strikeFrames", data.strikeFrames)):
 				if f % loop == int(s):
 					_hit()
 		_last_frame = frame
@@ -95,7 +95,10 @@ func _begin(spot: Gatherable) -> void:
 	var fps: float = float(data.chopFps) * float(data.chopPace) if axe else float(data.fps) * float(data.minePace)
 	if miko.stats != null:
 		fps *= CharacterStats.percent(miko.stats.stat("gatherSpeed"))   # (Hearth's gathering talents, and a stew's)
-	miko.play_action(data.chopDown if axe else data.mineDown, data.chopUp if axe else data.mineUp, fps, spot.foot - miko.position)
+	# (whoever's played: their own mining and chopping, if they have them)
+	var down: Array = miko.anim("chopDown", data.chopDown) if axe else miko.anim("mineDown", data.mineDown)
+	var up: Array = miko.anim("chopUp", data.chopUp) if axe else miko.anim("mineUp", data.mineUp)
+	miko.play_action(down, up, fps, spot.foot - miko.position)
 
 
 func _stop() -> void:

@@ -106,8 +106,11 @@ func show_for(p: Dictionary) -> void:
 		stats = st
 		stats.changed.connect(_mark_dirty)
 	picked_slot = ""
-	_figure.miko = miko if p.is_empty() else Companions.body_of(p)
-	_name_label.text = Miko.NAME if p.is_empty() else str(p.get("name", "?"))
+	if p.is_empty():
+		_figure.miko = miko
+	else:
+		_figure.miko = Companions.body_of(p)
+	_name_label.text = Playable.name_now() if p.is_empty() else str(p.get("name", "?"))
 	talents.show_for(p)
 	_dirty = true
 
@@ -144,7 +147,7 @@ func _whose() -> void:
 		return
 	for p in all:
 		var here: bool = (p as Dictionary).is_empty() == shown.is_empty() and (p.is_empty() or is_same(p, shown))
-		var b := HudStyle.button(Miko.NAME if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
+		var b := HudStyle.button(Playable.name_now() if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
 		if here:
 			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
 		b.custom_minimum_size.y = _k(30)
@@ -341,7 +344,7 @@ func _build_equipment() -> Control:
 	box.add_theme_constant_override("separation", int(_k(6)))
 	well.add_child(box)
 	var head := HBoxContainer.new()
-	_name_label = HudStyle.label(Miko.NAME, 18, "bold")
+	_name_label = HudStyle.label(Playable.name_now(), 18, "bold")
 	head.add_child(_name_label)
 	head.add_child(_gap())
 	head.add_child(_label("level", 14, "pixel", HudStyle.color("accentLight")))
@@ -655,10 +658,10 @@ func _stats_list() -> void:
 	var head := func(t: String) -> String: return "[font_size=%d][color=#%s]%s[/color][/font_size]\n" % [small, faint, t]
 	var text: String = head.call("COMBAT") + line.call("attack") + line.call("defense") + line.call("magic") + line.call("castSpeed") \
 		+ "\n" + head.call("RECOVERY") + line.call("hpRegen") + line.call("manaRegen")
-	var shown := ["maxHp", "maxMana", "attack", "defense", "magic", "castSpeed", "hpRegen", "manaRegen"]
+	var listed := ["maxHp", "maxMana", "attack", "defense", "magic", "castSpeed", "hpRegen", "manaRegen"]
 	var other := ""
 	for s in CharacterStats.STAT_NAMES:
-		if not shown.has(s[0]) and absf(float(total.get(s[0], 0.0))) > 0.001:
+		if not listed.has(s[0]) and absf(float(total.get(s[0], 0.0))) > 0.001:
 			other += line.call(s[0])
 	if other != "":
 		text += "\n" + head.call("OTHER") + other
