@@ -741,7 +741,7 @@ class TalentWeb extends Control:
 				pan = _pan_to
 				_keep_in()
 				_pan_to = null
-		if _pan_to != null or not _matches.is_empty():
+		if _pan_to != null or not _matches.is_empty() or selection != "":   # (the picked one's glow breathes)
 			queue_redraw()
 
 	func _node_at(p: Vector2) -> String:
@@ -909,7 +909,7 @@ class TalentWeb extends Control:
 			else: c = LOCKED.lerp(tint, 0.45 if _open(t.id) else 0.2)
 			if searching and not _matches.has(t.id):
 				c = Color(c.lerp(LOCKED, 0.75), 0.5)
-			var sc := 1.15 if t.id == hovered else (1.2 if t.id == selection else 1.0)
+			var sc := 1.08 if t.id == hovered or t.id == selection else 1.0
 			if searching and _matches.has(t.id) and t.id != hovered:
 				sc = pulse + (0.2 if _matches.find(t.id) == _focused else 0.0)
 			var r := node_size(t.kind) * 0.5 * k * sc
@@ -918,8 +918,20 @@ class TalentWeb extends Control:
 			var rim := Color(c * 0.55, c.a)
 			if stats.unlocked(t.id) and not stats.maxed(t.id):
 				rim = Color(tint * 0.35, c.a)
+			# Picked: a soft glow behind it and a fine outline hugging its own shape, breathing a little.
+			if t.id == selection:
+				var gold := HudStyle.color("accentLight")
+				var breath := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.0)
+				if t.kind == "Big":
+					draw_colored_polygon(_diamond(p, r * 1.2 * (1.38 + 0.05 * breath)), Color(gold, 0.16 + 0.08 * breath))
+					var edge := _diamond(p, r * 1.2 * 1.2)
+					edge.append(edge[0])
+					draw_polyline(edge, gold, 2.0 * k, true)
+				else:
+					draw_circle(p, r * (1.42 + 0.05 * breath), Color(gold, 0.16 + 0.08 * breath))
+					draw_arc(p, r * 1.18, 0, TAU, 48, gold, 2.0 * k, true)
 			if t.kind == "Big":
-				var pts := PackedVector2Array([p + Vector2(0, -r * 1.2), p + Vector2(r * 1.2, 0), p + Vector2(0, r * 1.2), p + Vector2(-r * 1.2, 0)])
+				var pts := _diamond(p, r * 1.2)
 				draw_colored_polygon(pts, rim)
 				var inner := PackedVector2Array()
 				for q in pts:
@@ -940,9 +952,6 @@ class TalentWeb extends Control:
 						draw_texture_rect(icon, Rect2(p + off - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color.WHITE if stats.unlocked(t.id) or on_path.has(t.id) else Color(1, 1, 1, 0.4))
 			if shut and not stats.unlocked(t.id):
 				draw_string(bold, p + Vector2(-r, px * 0.35), "Lv%d" % stats.level_for(t.id), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, roundi(9 * k), Color(1, 1, 1, 0.35))
-			if t.id == selection:
-				var ring := r * (1.3 if t.kind == "Big" else 1.0) + 3
-				draw_arc(p, ring, 0, TAU, 40, HudStyle.color("accentLight"), 2.0, true)
 			# Ranks: how far it's learnt, under it.
 			if stats.max_rank(t.id) > 1:
 				var txt := "%d/%d" % [stats.rank(t.id), stats.max_rank(t.id)]
@@ -968,6 +977,10 @@ class TalentWeb extends Control:
 			_fade(Rect2(size.x - 28.0, 0, 28.0, size.y), false)
 		if pan.x < -2.0:
 			_fade(Rect2(band.size.x, 0, 28.0, size.y), true)
+
+	# A diamond round [param p], [param half] from its middle to each point.
+	func _diamond(p: Vector2, half: float) -> PackedVector2Array:
+		return PackedVector2Array([p + Vector2(0, -half), p + Vector2(half, 0), p + Vector2(0, half), p + Vector2(-half, 0)])
 
 	func _fade(r: Rect2, from_left: bool) -> void:
 		var ink := HudStyle.color("ink")
