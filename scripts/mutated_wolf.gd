@@ -27,6 +27,11 @@ var _leap_to := Vector2.ZERO
 var _hit_done := false
 var warn: Telegraph                ## where it will land, on the ground, while it crouches
 var prey: Node2D = null
+## For its dust (DustTrail): moving, running (after its prey), and in the air (leaping: none kicked up).
+var moving: bool:
+	get: return velocity.length_squared() > 1.0
+var running: bool:
+	get: return state == State.CHASE
 var pack := 0                      ## which pack it came with
 var howler := false                ## the one of its pack that howls (once, as they near her)
 var _howled := false
@@ -50,6 +55,14 @@ static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedWolf:
 	m.state_until = now() + randf_range(0.5, 3.0)
 	m.clock = randf() * 2.0
 	w.things.add_child(m)
+	# Dust at its feet as it goes, more running down its prey; none while it's in the air.
+	var dust := DustTrail.new()
+	dust.name = "Dust"
+	dust.target = m
+	dust.unit = w.px
+	dust.walk_rate = 3.0
+	dust.run_rate = 7.0
+	w.things.add_child.call_deferred(dust)
 	m._run_grass = m._loop("res://assets/Sounds/Wolf/wolf_run_grass.mp3")
 	m._run_solid = m._loop("res://assets/Sounds/Wolf/wolf_run_solid.mp3")
 	m._show()
@@ -363,6 +376,10 @@ func _show() -> void:
 
 func _frame(sheet: Array, i: int) -> void:
 	show_art(int(sheet[clampi(i, 0, sheet.size() - 1)]))
+
+
+func airborne() -> bool:
+	return state == State.LEAP
 
 
 func hostile() -> bool:
