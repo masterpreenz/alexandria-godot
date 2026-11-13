@@ -97,6 +97,7 @@ func setup(w: World, who: Miko, data: Dictionary) -> void:
 		var rb: int = rank.get(b.category, 99)
 		return ra < rb if ra != rb else order[a.name + a.kind] < order[b.name + b.kind])
 	items = list
+	_thumbs()
 	for it in items:
 		if it.kind == "Floor":
 			selected = it
@@ -166,6 +167,23 @@ func set_open(on: bool) -> void:
 
 
 # ---- The catalogue ----
+
+# Each prop's and wall's picture in the catalogue (its tile in the bar, its card) is the art it's built with: the
+# frame it stands in when placed (a prop's first way round), not a separate icon.
+func _thumbs() -> void:
+	for i in items.size():
+		var it: Dictionary = items[i]
+		var id := -1
+		if it.kind == "Prop" and world.props.types.has(it.name):
+			var t: Dictionary = world.props.types[it.name]
+			id = int((t.turnSprites as Array)[0]) if not (t.turnSprites as Array).is_empty() else int(t.sprite)
+		elif it.kind == "Wall" and world.walls.types.has(it.name):
+			id = int(world.walls.types[it.name].get("left", -1))
+		if id >= 0:
+			it = it.duplicate()
+			it["icon"] = id
+			items[i] = it
+
 
 func kind_of(it: Dictionary) -> String:
 	return str(it.get("kind", ""))
