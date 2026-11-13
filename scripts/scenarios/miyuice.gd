@@ -2,9 +2,9 @@ extends Scenario
 ## Miyu's own tree of ice and water: given the Water Spell Book she knows Ice Shard only, her tree open to her points
 ## (pictures of its left and right ends); the Advanced Ice group locked till someone helps her (the lock's words, a
 ## picture), then learnt; every core skill to rank 5 and the rest; then each spell cast by her among monsters, what it
-## did printed (Ice Shard and its twin, Healing Circle mending Sera, Frost Armor on Sera and Miyu bursting, Ice Blast
-## with frozen ground and a Cold Snap freeze, Blizzard's shards landing), and her casting on her own. Last, an old save
-## where the book taught all four spells at once, carried over. Run with --window=miyuice.
+## did printed (Ice Shard and its twin, Healing Blanket mending Sera only, Frost Armor on Sera and Miyu bursting,
+## Ice Blast with frozen ground and a Cold Snap freeze, Blizzard's shards landing), and her casting on her own. Last,
+## an old save where the book taught all four spells at once, carried over. Run with --window=miyuice.
 
 var md: Dictionary
 
@@ -165,7 +165,7 @@ func run() -> void:
 		if i == 12:
 			shot("shard")
 	await _secs(0.5)
-	print("Miyu ice: Ice Shard: shards thrown ", seen.size(), ", at most ", most, " in the air at once; slime HP ", snappedf(hp0, 0.1), " -> ", snappedf(sl.hit.hp, 0.1) if is_instance_valid(sl) and sl.hit != null else "gone", ", frostbitten ", is_instance_valid(sl) and StatusEffects.has_effect(sl.hit, "Frostbite"))
+	print("Miyu ice: Ice Shard: shards thrown ", seen.size(), ", at most ", most, " in the air at once; slime HP ", snappedf(hp0, 0.1), " -> ", str(snappedf(sl.hit.hp, 0.1)) if is_instance_valid(sl) and sl.hit != null else "gone", ", frostbitten ", is_instance_valid(sl) and StatusEffects.has_effect(sl.hit, "Frostbite"))
 	if is_instance_valid(sl):
 		sl.queue_free()
 	# Frost Armor on both (Miyu held still at Sera's side meanwhile), a slime beside each: nothing happens to them while
@@ -197,22 +197,63 @@ func run() -> void:
 	miko.stats.set_hp(miko.stats.stat("maxHp"))   # (whole again: the test's blow was a big one)
 	by_sera.queue_free()
 	by_miyu.queue_free()
-	# Healing Circle on Sera (hurt), with Cold Edge on a wolf in it.
+	# Healing Blanket on Sera (hurt): only she mends; Miyu (hurt too) and a slime beside Sera untouched. (Shared Warmth
+	# held back for this.)
+	miko.place(miko.position + Vector2(-2.7, 1.0) * world.px)   # (out from under the willow, on open grass)
+	miyu.position = miko.position + Vector2(-0.9, -0.3) * world.px
+	miyu.reset_physics_interpolation()
+	await _frames(10)
 	miko.stats.set_hp(miko.stats.stat("maxHp") * 0.4)
 	miyu.hit.hp = miyu.hit.max_hp * 0.5
+	var near := Slime.spawn(world, md.slime, false, miko.position + Vector2(0.9, 0.3) * world.px, 1.0)
+	await _frames(3)
+	_tough(near, 400.0)
+	st.set_buff("test_share", {"blanketShare": -st.stat("blanketShare")})
+	var sera0 := miko.stats.hp
+	var miyu0 := miyu.hit.hp
+	clock.set_hour(12.0)
+	_cast("HealingCircle", miyu, st, miko.position + Vector2(0.3, -0.2) * world.px)
+	await _secs(0.8)
+	var bl := SpellEffects.WaterBlanket.of(miko)
+	print("Miyu ice: Healing Blanket on Sera ", bl != null, ", on Miyu ", SpellEffects.WaterBlanket.on(miyu), ", lasts ", snappedf(bl.time, 0.1) if bl != null else 0.0,
+		"s, per mend (0.5s) ", snappedf(bl.per_tick, 0.01) if bl != null else 0.0, ", Cold Comfort bite ", snappedf(bl.frost, 0.01) if bl != null else 0.0)
+	shot("blanket_sera_day")
+	await _secs(2.6)
+	print("Miyu ice: after 3.4s: Sera HP ", snappedf(sera0, 0.1), " -> ", snappedf(miko.stats.hp, 0.1), ", Miyu HP ", snappedf(miyu0, 0.1), " -> ", snappedf(miyu.hit.hp, 0.1),
+		"; slime beside Sera HP ", near.hit.hp, " frostbitten ", StatusEffects.has_effect(near.hit, "Frostbite"), " speed x", StatusEffects.speed_of(near.hit))
+	clock.set_hour(23.0)
+	await _secs(1.2)
+	shot("blanket_sera_night")
+	# Cold Comfort: Sera, wrapped, strikes the slime.
+	SpellEffects.WaterBlanket.struck(miko, near.hit)
+	await _frames(2)
+	print("Miyu ice: Cold Comfort: Sera strikes the slime: frostbitten ", StatusEffects.has_effect(near.hit, "Frostbite"))
+	near.queue_free()
+	# On Miyu herself (aimed at her), by night then day; and recast on Sera starts hers afresh.
+	var m0 := miyu.hit.hp
+	_cast("HealingCircle", miyu, st, miyu.position)
+	await _secs(1.0)
+	shot("blanket_miyu_night")
+	clock.set_hour(12.0)
+	await _secs(1.0)
+	shot("blanket_miyu_day")
+	print("Miyu ice: Healing Blanket on Miyu ", SpellEffects.WaterBlanket.on(miyu), ", her HP ", snappedf(m0, 0.1), " -> ", snappedf(miyu.hit.hp, 0.1), ", Sera's still on ", SpellEffects.WaterBlanket.on(miko))
+	var age0 := SpellEffects.WaterBlanket.of(miko).age if SpellEffects.WaterBlanket.on(miko) else -1.0
+	_cast("HealingCircle", miyu, st, miko.position)
+	await _frames(2)
+	print("Miyu ice: recast on Sera: her blanket's age ", snappedf(age0, 0.1), " -> ", snappedf(SpellEffects.WaterBlanket.of(miko).age, 0.1) if SpellEffects.WaterBlanket.on(miko) else -1.0)
+	# Shared Warmth: Sera wrapped, the most hurt near her (Miyu) wrapped too, more weakly.
+	st.set_buff("test_share", null)
+	await _secs(15.5)   # (both blankets gone first)
+	miyu.hit.hp = miyu.hit.max_hp * 0.4
+	_cast("HealingCircle", miyu, st, miko.position)
+	await _frames(3)
+	var bs := SpellEffects.WaterBlanket.of(miko)
+	var bm := SpellEffects.WaterBlanket.of(miyu)
+	print("Miyu ice: Shared Warmth (", st.stat("blanketShare"), "%): Sera's per mend ", snappedf(bs.per_tick, 0.01) if bs != null else -1.0, ", Miyu's ", snappedf(bm.per_tick, 0.01) if bm != null else -1.0)
 	var wolf := MutatedWolf.spawn(world, md.mutatedWolf, miyu.position + Vector2(1.5, 0.3) * world.px)
 	await _frames(5)
 	_tough(wolf, 3000.0)
-	var sera0 := miko.stats.hp
-	var miyu0 := miyu.hit.hp
-	_cast("HealingCircle", miyu, st, miyu.position)
-	await _secs(0.8)
-	var circle := SpellEffects.WaterCircle.of(miyu)
-	print("Miyu ice: Healing Circle up ", circle != null, ", radius ", snappedf(circle.radius, 1) if circle != null else 0.0, ", lasts ", snappedf(circle.time, 0.1) if circle != null else 0.0,
-		"s, per mend ", snappedf(circle.per_tick, 0.01) if circle != null else 0.0, ", wolf chilled: speed x", snappedf(StatusEffects.speed_of(wolf.hit), 0.01) if is_instance_valid(wolf) else -1.0)
-	shot("circle")
-	await _secs(2.6)
-	print("Miyu ice: Healing Circle after 3.4s: Sera HP ", snappedf(sera0, 0.1), " -> ", snappedf(miko.stats.hp, 0.1), ", Miyu HP ", snappedf(miyu0, 0.1), " -> ", snappedf(miyu.hit.hp, 0.1), ", mended in all ", snappedf(circle.healed if circle != null and is_instance_valid(circle) else -1.0, 0.1))
 	miko.stats.set_guard("test", 90.0)
 	miyu.set_physics_process(true)
 	# Ice Blast on a pack, frozen ground left, and (Cold Snap made sure of) a freeze.
@@ -243,10 +284,10 @@ func run() -> void:
 	await _secs(0.35)
 	shot("blast_ring")
 	await _secs(0.15)
-	print("Miyu ice: Ice Blast at 0.5s: landed ", SpellEffects.IceBlastArea.blasts - blasts0, ", slimes ", pack.map(func(s): return snappedf(s.hit.hp, 0.1) if is_instance_valid(s) else "gone"))
+	print("Miyu ice: Ice Blast at 0.5s: landed ", SpellEffects.IceBlastArea.blasts - blasts0, ", slimes ", pack.map(func(s): return str(snappedf(s.hit.hp, 0.1)) if is_instance_valid(s) else "gone"))
 	await _secs(0.4)
 	st.set_buff("test", null)
-	print("Miyu ice: Ice Blast at 0.9s: landed ", SpellEffects.IceBlastArea.blasts - blasts0, ", slimes ", hps, " -> ", pack.map(func(s): return snappedf(s.hit.hp, 0.1) if is_instance_valid(s) and s.hit != null else "gone"),
+	print("Miyu ice: Ice Blast at 0.9s: landed ", SpellEffects.IceBlastArea.blasts - blasts0, ", slimes ", hps, " -> ", pack.map(func(s): return str(snappedf(s.hit.hp, 0.1)) if is_instance_valid(s) and s.hit != null else "gone"),
 		", frozen ground ", _count(SpellEffects.FrozenGround), ", frozen solid ", StatusEffects.freezes - freezes0, ", wolf frozen ", is_instance_valid(wolf) and StatusEffects.frozen(wolf.hit))
 	shot("blast")
 	if is_instance_valid(wolf):
@@ -263,7 +304,7 @@ func run() -> void:
 			var t0 := Time.get_ticks_msec() / 1000.0
 			var ok := StatusEffects.freeze(wolf.hit)
 			var s: StatusEffects = wolf.hit.get_node("Status")
-			lasts.append(snappedf(float(s.effects.get(&"Frozen", {}).get("until", t0)) - t0, 0.01) if ok else "shaken off")
+			lasts.append(str(snappedf(float(s.effects.get(&"Frozen", {}).get("until", t0)) - t0, 0.01)) if ok else "shaken off")
 		print("Miyu ice: Cold Snap again and again: ", lasts)
 	# Blizzard over the pack.
 	var more := []
@@ -278,7 +319,7 @@ func run() -> void:
 	await _secs(1.6)
 	shot("blizzard")
 	await _secs(4.0)
-	print("Miyu ice: Blizzard: shards landed ", SpellEffects.Blizzard.landed - landed0, ", monsters hit ", SpellEffects.Blizzard.hits - bhits0, ", slimes now ", (more + pack).map(func(s): return snappedf(s.hit.hp, 0.1) if is_instance_valid(s) and s.hit != null else "gone"))
+	print("Miyu ice: Blizzard: shards landed ", SpellEffects.Blizzard.landed - landed0, ", monsters hit ", SpellEffects.Blizzard.hits - bhits0, ", slimes now ", (more + pack).map(func(s): return str(snappedf(s.hit.hp, 0.1)) if is_instance_valid(s) and s.hit != null else "gone"))
 	for s in more + pack:
 		if is_instance_valid(s):
 			s.queue_free()

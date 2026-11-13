@@ -2207,6 +2207,7 @@ func _fighting(t: float, delta: float) -> void:
 			if f % frames.size() == int(strike) and foe != null and is_instance_valid(foe) and foe.alive():
 				var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
 				foe.hurt(float(person.get("atk", s.stabDamage)) * strength)
+				SpellEffects.WaterBlanket.struck(self, foe)   # (wrapped with Cold Comfort: the cold bites what they hit)
 				# The thrust heard going in: the spear's own stab.
 				Sfx.play(world, Sfx.stream("res://assets/Sounds/shiki_spear_stab.mp3"), position, 0.55, 0.1)   # (their spear: its own stab, not a sword's swing)
 				people.practise(person, LifeSkills.Skill.STRENGTH)

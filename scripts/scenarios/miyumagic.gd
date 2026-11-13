@@ -1,7 +1,7 @@
 extends Scenario
 ## Miyu's water magic: Sera gives her the Water Spell Book in a talk, she learns Ice Shard at once (her ice tree
 ## opened); Sera dresses her from the bag (her own page in the Character & Bag window) and spends her talent points on
-## her own tree (Deep Spring, then on to Healing Circle); then monsters come and she casts on her own beside Sera. Run
+## her own tree (Deep Spring, then on to Healing Blanket); then monsters come and she casts on her own beside Sera. Run
 ## with --window=miyumagic.
 
 
@@ -24,7 +24,7 @@ func run() -> void:
 	ch.events = ch.events.filter(func(e): return not str(e.what) in ["book_given:miyu", "miyu_water", "scene:miyu_water_book"])
 	Party.active.join("miyu")
 	miyu._follow_start(Villager.now())
-	miyu.person["level"] = 6   # (a few levels: talent points to spend, Healing Circle open)
+	miyu.person["level"] = 6   # (a few levels: talent points to spend, Healing Blanket open)
 	if not miko.bag.items.has("WaterTome"):
 		miko.bag.items[miko.bag.free_slot()] = "WaterTome"
 		miko.bag.changed.emit()
@@ -109,7 +109,7 @@ func run() -> void:
 	print("Miyu magic: after learning: points ", st.talent_points, ", ", st.talent(best).get("name", ""), " rank ", st.rank(best), ", talents window shows '", cp.talents.owner_name(), "'")
 	cp.talents.select("ihc")
 	cp.talents._learn_selected()
-	print("Miyu magic: Healing Circle learnt ", st.unlocked("ihc"), " (Twin Shard on the way ", st.unlocked("its"), "), points ", st.talent_points, ", known ", st.known_spells())
+	print("Miyu magic: Healing Blanket learnt ", st.unlocked("ihc"), " (Twin Shard on the way ", st.unlocked("its"), "), points ", st.talent_points, ", known ", st.known_spells())
 	_stats("with a talent", miyu, st)
 	cp.talents.visible = false
 	cp.show_for({})

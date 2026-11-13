@@ -6,8 +6,8 @@ class_name SpellEffects
 ## spell's damage, raised by the caster's magic and spell damage, and leaves what its element leaves on those it hit
 ## (StatusEffects: frostbite from ice, a burn from fire); an ice spell with "frozenGround" leaves the ground frozen
 ## there a few seconds too, and Cold Snap now and then freezes what ice hits solid. Miyu's ice and water: Ice Shard
-## (a fast shard, two with Twin Shard), Healing Circle (water round the caster for some seconds, mending the party
-## standing in it), Frost Armor (a shell of ice on everyone on her side near her, each bursting when it breaks), Ice
+## (a fast shard, two with Twin Shard), Healing Blanket (one ally wrapped in water and frost a few seconds, mended
+## all the while), Frost Armor (a shell of ice on everyone on her side near her, each bursting when it breaks), Ice
 ## Blast (ice bursting up out of the ground where she aims: the user's animation) and Blizzard (shards falling from
 ## the sky over an area a few seconds, each shattering where it lands). Anyone can cast them: Sera, or a companion
 ## with their own stats.
@@ -33,7 +33,8 @@ const TWIN_GAP := 0.12            ## seconds between an Ice Shard and its twin
 ## [param spell] as the caster's talents shape it ([param stats]): a meteor's damage and area (Skyfall's ranks, Wide
 ## Crater), how long and how hard a fire spell's burn goes on (Scorch), how hard ice's frostbite bites and how often it
 ## freezes solid (Frost Bite, Cold Snap); and whatever the spell's "tune" names: the stat that raises its damage,
-## area, time, healing, shield strength, frostbite, shards, extra shots, chill, frozen ground (Miyu's talents).
+## area, time, healing, shield strength, frostbite, shards, extra shots, a blanket shared and its frost, frozen ground
+## (Miyu's talents).
 static func tuned(spell: Dictionary, stats: CharacterStats) -> Dictionary:
 	if stats == null:
 		return spell
@@ -63,7 +64,8 @@ static func tuned(spell: Dictionary, stats: CharacterStats) -> Dictionary:
 	out["statusBite"] = float(out.get("statusBite", 1.0)) * _pct(t, tune, "status")
 	out["shards"] = int(spell.get("shards", 0)) + int(_flat(t, tune, "count") + 0.001)
 	out["extra"] = int(_flat(t, tune, "extra") + 0.001)
-	out["chill"] = _flat(t, tune, "chill")
+	out["share"] = _flat(t, tune, "share")
+	out["frost"] = _flat(t, tune, "frost")
 	out["frozenGround"] = float(spell.get("frozenGround", 0.0)) + _flat(t, tune, "frozen")
 	if _flat(t, tune, "rime") > 0.0:
 		out["noStatus"] = false
@@ -158,10 +160,12 @@ static func begin(w: World, raw: Dictionary, stats: CharacterStats, origin: Vect
 					g.by_player = by_player
 					w.things.add_child(g)
 					g.start(target, damage(spell, stats))
+		"Ally":
+			WaterBlanket.cast(w, spell, stats, who, target, by_player)
 		"Self":
 			match str(spell.effect):
-				"HealingCircle":
-					WaterCircle.make(w, spell, stats, who, by_player)
+				"HealingBlanket":
+					WaterBlanket.cast(w, spell, stats, who, who.global_position, by_player)
 				"FrostArmor":
 					FrostArmor.cast(w, spell, stats, who, by_player)
 
@@ -589,159 +593,208 @@ class FrozenGround extends Node2D:
 				draw_line(p + Vector2(0, -sz), p + Vector2(0, sz), c, 1.5, true)
 
 
-## Healing Circle: water welling up round the caster for some seconds, going where they go, droplets springing up and
-## ripples running out; everyone on their side standing in it (whoever's played, the companions) is mended a little
-## every moment, the numbers rising blue now and then. With Cold Edge the monsters in it are chilled, slowed. Cast
-## again while one's up, the new one takes its place.
-class WaterCircle extends Node2D:
+## Healing Blanket: one of the caster's side (whoever's nearest where it's aimed, else the caster) wrapped a few seconds
+## in a cool blanket of water and frost: their body shines a soft icy blue, pulsing slowly, frost motes drifting up
+## round them, and they're mended a little every moment (the numbers rising blue now and then, the shine brightening
+## as they do). Nothing else is touched: no ground, no monsters. Cast on them again, it starts afresh; another can be
+## wrapped meanwhile. Cold Comfort: monsters the wrapped one strikes are frostbitten. Shared Warmth: the most hurt
+## ally near them is wrapped too, more weakly.
+class WaterBlanket extends Node2D:
 	const EVERY := 0.5
 	const SHOW_EVERY := 3             ## mends between the numbers shown
-	static var _on := {}              # caster -> their circle
+	const FADE := 0.6
+	static var _on := {}              # wearer -> their blanket
+	static var mended := 0.0          ## all blankets have mended so far (the scenarios read it)
 
 	var world: World
 	var spell: Dictionary
-	var stats: CharacterStats
-	var who: Node2D
+	var wearer: Node2D
+	var wear_stats: CharacterStats
+	var hit: Damageable
 	var by_player := true
-	var radius := 0.0
-	var time := 8.0
 	var per_tick := 0.0
-	var chill := 0.0
+	var time := 8.0
+	var frost := 0.0                  ## Cold Comfort's bite a second on monsters they strike (0: none)
 	var age := 0.0
-	var healed := 0.0                 ## all it's mended so far (the scenarios read it)
+	var healed := 0.0                 ## all this one's mended
 	var _next := 0.0
 	var _ticks := 0
-	var _shown := {}                  # body -> mended since its number was last shown
-	var drops: CPUParticles2D
+	var _shown := 0.0
+	var _pulse := 0.0
+	var _motes: CPUParticles2D
 
-	static func make(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D, mine: bool) -> WaterCircle:
-		var old: Variant = _on.get(caster)
-		if old != null and is_instance_valid(old):
-			(old as WaterCircle)._end()
-		var h := WaterCircle.new()
-		h.world = w
-		h.spell = sp
-		h.stats = st
-		h.who = caster
-		h.by_player = mine
-		h.radius = float(sp.aoeRadius)
-		h.time = float(sp.get("healTime", 8.0))
-		h.per_tick = SpellEffects.by_magic(float(sp.get("heal", 5.0)), st) * EVERY
-		h.chill = float(sp.get("chill", 0.0))
-		h.position = caster.global_position if caster != null else Vector2.ZERO
-		h.visibility_layer |= LightMap.UNLIT_LAYER   # (bright at night too)
-		w.add_ground_layer(h, -9978)
+	## Wraps whoever of the caster's side is nearest [param spot] (within the spell's pickReach), else the caster; with
+	## Shared Warmth, the most hurt ally near them too. The one wrapped first.
+	static func cast(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D, spot: Vector2, mine: bool) -> WaterBlanket:
+		var pick: Array = []
+		var best := INF
+		for pair in SpellEffects.party_near(w, spot, float(sp.get("pickReach", 160.0))):
+			var gap := SpellEffects._ground_gap((pair[0] as Node2D).global_position, spot)
+			if gap < best:
+				best = gap
+				pick = pair
+		if pick.is_empty():
+			if caster == null:
+				return null
+			pick = [caster, st]
+		var b := put_on(w, sp, st, pick[0], pick[1], 1.0, mine)
+		var share := float(sp.get("share", 0.0))
+		if share > 0.0:
+			var other: Array = []
+			var low := 1.0
+			for pair in SpellEffects.party_near(w, (pick[0] as Node2D).global_position, float(sp.get("shareReach", 320.0))):
+				if pair[0] == pick[0]:
+					continue
+				var f := share_of_hp(pair[0], pair[1])
+				if f < low:
+					low = f
+					other = pair
+			if not other.is_empty():
+				put_on(w, sp, st, other[0], other[1], share / 100.0, mine)
+		return b
+
+	## A blanket on [param who] (whose stats are [param wst]) at [param k] of its strength, cast by one with [param st];
+	## on them already, it starts afresh.
+	static func put_on(w: World, sp: Dictionary, st: CharacterStats, who: Node2D, wst: CharacterStats, k: float, mine: bool) -> WaterBlanket:
+		if who == null:
+			return null
+		var per := SpellEffects.by_magic(float(sp.get("heal", 6.0)), st) * EVERY * k
+		var b := of(who)
+		if b != null:
+			b.age = minf(b.age, FADE)
+			b.time = float(sp.get("healTime", 8.0))
+			b.per_tick = maxf(b.per_tick, per)
+			b.frost = maxf(b.frost, float(sp.get("frost", 0.0)) * SpellEffects.by_magic(float(sp.get("frostBite", 2.0)), st))
+			return b
+		b = WaterBlanket.new()
+		b.world = w
+		b.spell = sp
+		b.wearer = who
+		b.wear_stats = wst
+		b.hit = who.get("hit") as Damageable if "hit" in who else null
+		b.by_player = mine
+		b.per_tick = per
+		b.time = float(sp.get("healTime", 8.0))
+		b.frost = float(sp.get("frost", 0.0)) * SpellEffects.by_magic(float(sp.get("frostBite", 2.0)), st)
+		b.z_index = 1
+		b.material = CanvasItemMaterial.new()
+		(b.material as CanvasItemMaterial).blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		who.add_child(b)   # (lit as their body is: a shine on it, not a lamp at night)
 		var m := CPUParticles2D.new()
-		m.amount = 40
-		m.lifetime = 0.9
+		m.amount = 26
+		m.lifetime = 1.3
 		m.local_coords = false
-		m.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-		m.emission_rect_extents = Vector2(h.radius * 0.7, h.radius * 0.35)
-		m.direction = Vector2(0, -1)
-		m.spread = 18.0
-		m.gravity = Vector2(0, 520)
-		m.initial_velocity_min = 120.0
-		m.initial_velocity_max = 240.0
 		m.texture = Waterfall._dot(16, 1.0)
-		m.scale_amount_min = 0.7
-		m.scale_amount_max = 1.2
+		m.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		m.emission_rect_extents = Vector2(0.22 * w.px, 0.35 * w.px)
+		m.position = Vector2(0, -0.55 * w.px)
+		m.direction = Vector2(0, -1)
+		m.spread = 30.0
+		m.gravity = Vector2.ZERO
+		m.initial_velocity_min = 14.0
+		m.initial_velocity_max = 40.0
+		m.scale_amount_min = 0.45
+		m.scale_amount_max = 1.0
 		var g := Gradient.new()
-		g.set_color(0, Color(0.85, 0.95, 1.0, 0.9))
-		g.set_color(1, Color(0.3, 0.6, 1.0, 0.0))
-		g.add_point(0.5, Color(0.45, 0.72, 1.0, 0.75))
+		g.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
+		g.set_color(1, Color(0.6, 0.85, 1.0, 0.0))
+		g.add_point(0.25, Color(0.92, 0.98, 1.0, 0.95))
+		g.add_point(0.7, Color(0.65, 0.88, 1.0, 0.6))
 		m.color_ramp = g
-		m.z_as_relative = false
-		m.z_index = 3990
-		m.position = h.position
 		World.keep_lit(m)
-		w.add_child(m)
+		b.add_child(m)
 		m.emitting = true
-		h.drops = m
-		if caster != null:
-			_on[caster] = h
-		SpellEffects.sound(w, str(sp.impactSound), h.position, float(sp.soundVolume))
-		return h
+		b._motes = m
+		_on[who] = b
+		SpellEffects.sound(w, str(sp.get("impactSound", "")), who.global_position, float(sp.get("soundVolume", 0.6)))
+		return b
 
-	## [param caster]'s circle while it's up, else null.
-	static func of(caster: Node2D) -> WaterCircle:
-		var c: Variant = _on.get(caster)
-		return c as WaterCircle if c != null and is_instance_valid(c) and (c as WaterCircle).age < (c as WaterCircle).time else null
+	## [param who]'s blanket while it's on, else null.
+	static func of(who: Node2D) -> WaterBlanket:
+		var b: Variant = _on.get(who)
+		return b as WaterBlanket if b != null and is_instance_valid(b) and (b as WaterBlanket).age < (b as WaterBlanket).time else null
+
+	## Whether [param who] is wrapped now.
+	static func on(who: Node2D) -> bool:
+		return of(who) != null
+
+	## How much of their HP [param who] (with [param st]) has now, as a share.
+	static func share_of_hp(who: Node2D, st: CharacterStats) -> float:
+		var h: Damageable = who.get("hit") as Damageable if "hit" in who else null
+		if h != null and is_instance_valid(h):
+			return h.hp / maxf(1.0, h.max_hp)
+		return st.hp / maxf(1.0, st.stat("maxHp"))
+
+	## Cold Comfort: [param attacker] just struck [param foe]; wrapped, the cold bites it.
+	static func struck(attacker: Node2D, foe: Damageable) -> void:
+		var b := of(attacker)
+		if b == null or b.frost <= 0.0 or foe == null or not is_instance_valid(foe) or not foe.alive():
+			return
+		var k: Dictionary = StatusEffects.kinds().get("Frostbite", {})
+		StatusEffects.apply(foe, "Frostbite", float(k.get("seconds", 4.0)), b.frost, float(k.get("slow", 35.0)), &"Frostbite", b.by_player)
 
 	func _process(delta: float) -> void:
 		var __t := Time.get_ticks_usec()
 		_process_timed(delta)
-		Perf.add(&"spell_effects.WaterCircle.process", __t)
+		Perf.add(&"spell_effects.WaterBlanket.process", __t)
 
 	func _process_timed(delta: float) -> void:
 		age += delta
-		if who != null and is_instance_valid(who) and age < time:
-			position = who.global_position
-		if drops != null:
-			drops.position = position
-			if age >= time:
-				drops.emitting = false
+		_pulse = maxf(0.0, _pulse - delta * 2.5)
 		queue_redraw()
 		if age < time and age >= _next:
 			_next = age + EVERY
 			_mend()
-			_chill()
-		if age >= time + 0.6:
-			_end()
+		if age >= time and _motes != null:
+			_motes.emitting = false
+		if age >= time + FADE:
+			if _on.get(wearer) == self:
+				_on.erase(wearer)
+			queue_free()
 
-	# Its time up (or another cast): gone, the droplets left to fall.
-	func _end() -> void:
-		if drops != null:
-			var m := drops
-			drops = null
-			m.emitting = false
-			m.get_tree().create_timer(1.0).timeout.connect(m.queue_free)
-		if _on.get(who) == self:
-			_on.erase(who)
-		queue_free()
-
-	# One mend: everyone on the caster's side standing in it.
 	func _mend() -> void:
+		var got := 0.0
+		if hit != null and is_instance_valid(hit):
+			if not hit.alive():
+				return
+			var b := hit.hp
+			hit.heal(per_tick)
+			got = hit.hp - b
+		elif wear_stats != null and is_instance_valid(wear_stats):
+			var b2 := wear_stats.hp
+			wear_stats.heal(per_tick)
+			got = wear_stats.hp - b2
+		healed += got
+		mended += got
+		_shown += got
 		_ticks += 1
-		var show := _ticks % SHOW_EVERY == 0
-		for pair in SpellEffects.party_near(world, position, radius):
-			var body: Node2D = pair[0]
-			var st: CharacterStats = pair[1]
-			var got := 0.0
-			var hit: Damageable = body.get("hit") as Damageable if "hit" in body else null
-			if hit != null and is_instance_valid(hit):
-				var b := hit.hp
-				hit.heal(per_tick)
-				got = hit.hp - b
-			else:
-				var b2 := st.hp
-				st.heal(per_tick)
-				got = st.hp - b2
-			healed += got
-			_shown[body] = float(_shown.get(body, 0.0)) + got
-			if show:
-				var n := float(_shown[body])
-				_shown[body] = 0.0
-				if n >= 0.5:
-					FloatingText.spawn(world, "+%d" % maxi(1, roundi(n)), body.global_position + Vector2(0, -0.9 * world.px), Color(0.5, 0.85, 1.0))
+		if _ticks % SHOW_EVERY == 0 and _shown >= 0.5:
+			FloatingText.spawn(world, "+%d" % maxi(1, roundi(_shown)), wearer.global_position + Vector2(0, -1.0 * world.px), Color(0.6, 0.88, 1.0))
+			_shown = 0.0
+			_pulse = 1.0
 
-	# Cold Edge: the monsters in it chilled, slowed while they stay.
-	func _chill() -> void:
-		if chill <= 0.0:
-			return
-		for d in Damageable.all:
-			if is_instance_valid(d) and d.team == Damageable.Team.ENEMY and d.alive() and SpellEffects._ground_gap(d.global_position, position) <= radius:
-				StatusEffects.apply(d, "Frostbite", EVERY + 0.3, 0.0, chill, &"Frostbite:pool", by_player)
-
+	# The shine over their body: a soft pale blue glow hugging it, pulsing slowly (brighter as it mends), and a few
+	# glints of frost twinkling on it.
 	func _draw() -> void:
-		var shown := clampf(age / 0.3, 0.0, 1.0) * clampf((time + 0.6 - age) / 0.6, 0.0, 1.0)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, radius, Color(0.35, 0.62, 1.0, 0.16 * shown))
-		for i in 3:
-			var f := fmod(age * 0.6 + i / 3.0, 1.0)
-			draw_arc(Vector2.ZERO, radius * f, 0.0, TAU, 48, Color(0.75, 0.9, 1.0, 0.55 * shown * (1.0 - f)), 3.0, true)
-		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(0.55, 0.8, 1.0, 0.65 * shown), 3.0, true)
-		if chill > 0.0:
-			draw_arc(Vector2.ZERO, radius * 0.96, 0.0, TAU, 64, Color(0.88, 0.97, 1.0, 0.45 * shown), 2.0, true)
+		var shown := clampf(age / FADE, 0.0, 1.0) * clampf((time + FADE - age) / FADE, 0.0, 1.0)
+		var beat := 0.5 + 0.5 * sin(age * 2.4)
+		var a := (0.3 + 0.12 * beat + 0.25 * _pulse) * shown
+		var px := world.px
+		draw_set_transform(Vector2(0, -0.55 * px), 0.0, Vector2(0.42, 1.0))
+		for i in 4:
+			var f := 1.0 - i * 0.2
+			draw_circle(Vector2.ZERO, 0.5 * px * f, Color(0.5, 0.78, 1.0, a * 0.4))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		for i in 5:
+			var ph := age * 1.7 + i * 1.9
+			var tw := maxf(0.0, sin(ph))
+			if tw < 0.4:
+				continue
+			var at := Vector2(sin(i * 2.3) * 0.18 * px, -(0.2 + 0.13 * i) * px)
+			var sz := 6.0 * tw
+			var c := Color(0.85, 0.95, 1.0, 0.8 * tw * shown)
+			draw_line(at + Vector2(-sz, 0), at + Vector2(sz, 0), c, 1.5, true)
+			draw_line(at + Vector2(0, -sz), at + Vector2(0, sz), c, 1.5, true)
 
 
 ## Frost Armor: a shell of ice round everyone on the caster's side near them (whoever's played, the companions, the
@@ -773,10 +826,10 @@ class FrostArmor extends Node2D:
 		var out := []
 		if caster == null:
 			return out
-		var who := SpellEffects.party_near(w, caster.global_position, float(sp.get("reach", 0.0)))
-		if not who.any(func(pair): return pair[0] == caster):
-			who.append([caster, st])
-		for pair in who:
+		var nearby := SpellEffects.party_near(w, caster.global_position, float(sp.get("reach", 0.0)))
+		if not nearby.any(func(pair): return pair[0] == caster):
+			nearby.append([caster, st])
+		for pair in nearby:
 			out.append(make(w, sp, st, pair[0], pair[1], mine))
 		return out
 

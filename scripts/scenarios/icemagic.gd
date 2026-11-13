@@ -1,7 +1,7 @@
 extends Scenario
 ## Ice and water magic, and what lingers after a spell: a Fireball leaving a slime burning; an Ice Blast frostbiting
 ## another and freezing the ground under it (a mutated villager walking onto it slowed harder); Frost Armor soaking
-## blows on Sera and bursting into frostbite when it breaks; Healing Circle mending her; and the barrier and the heal cast
+## blows on Sera and bursting into frostbite when it breaks; Healing Blanket on her; and the barrier and the heal cast
 ## by a villager instead of Sera. Prints HP over time and takes a few pictures. Run with --window=icemagic.
 
 var md: Dictionary

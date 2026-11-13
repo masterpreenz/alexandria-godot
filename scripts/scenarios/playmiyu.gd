@@ -71,6 +71,19 @@ func run() -> void:
 	tw.show_for({})
 	print("Play miyu: her talents as played: tree ", miko.stats.tree_id(), ", window's first group '", tw.stats.character.groups[0].name, "', Ice Shard rank ", miko.stats.rank("is"), ", Frost Armor ", miko.stats.rank("ifa"))
 	shot("miyu")
+	# Her Healing Blanket, aimed: at Sera (the ally nearest the aim), then at bare ground (herself).
+	var cn: SpellCaster = world.get_node("Caster")
+	var sbody := _sera_body()
+	miko.stats.mana = miko.stats.stat("maxMana")
+	cn.ready_at.clear()
+	cn.cast_at("HealingCircle", sbody.position + Vector2(0.3, 0.1) * world.px)
+	await get_tree().create_timer(1.3).timeout
+	print("Play miyu: blanket aimed at Sera: on Sera ", SpellEffects.WaterBlanket.on(sbody), ", on Miyu ", SpellEffects.WaterBlanket.on(miko))
+	shot("blanket_aimed")
+	cn.ready_at.clear()
+	cn.cast_at("HealingCircle", miko.position + Vector2(-4.0, 2.0) * world.px)
+	await get_tree().create_timer(1.3).timeout
+	print("Play miyu: blanket aimed at bare ground: on Miyu ", SpellEffects.WaterBlanket.on(miko))
 	# Moving the played body: Sera follows.
 	var sb := _sera_body()
 	miko.place(miko.position + Vector2(5.0, 2.0) * world.px)

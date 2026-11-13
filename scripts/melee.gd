@@ -104,6 +104,7 @@ func _strike() -> void:
 	var dir := Vector2(_toward.x, _toward.y * 2.0).normalized()
 	var at := miko.position + Vector2(dir.x, dir.y * 0.5) * REACH * world.px
 	var attack := miko.stats.stat("attack") if miko.stats != null else 0.0
-	var n := Damageable.hit_around(at, SWEEP * world.px, BASE_DAMAGE + attack * ATTACK_SHARE, Damageable.Team.ENEMY, true)
+	var n := Damageable.hit_around(at, SWEEP * world.px, BASE_DAMAGE + attack * ATTACK_SHARE, Damageable.Team.ENEMY, true, func(d: Damageable) -> void:
+		SpellEffects.WaterBlanket.struck(miko, d))   # (wrapped with Cold Comfort: the cold bites what she hits)
 	if n > 0:
 		Sfx.play(world, Sfx.one_of("blunt"), at, 0.55, 0.12)   # (one of the staff's takes, at random)

@@ -2,8 +2,8 @@ class_name CompanionMagic
 extends Node
 ## A companion's own spellcasting (Miyu once she has her water book): while she's with Sera and a monster's near (the
 ## ones she'd fight), she casts the spells she knows when they're ready and she has the mana for them: a heal when
-## anyone with her is hurt (and her Healing Circle kept up through a fight), armour when she or Sera is being hit and
-## nobody near has any on, else her attack spells, the strongest first, at the monster (in their range), or where the
+## anyone with her is hurt (her Healing Blanket on the most hurt, and kept on whoever's taking the blows in a fight),
+## armour when she or Sera is being hit and nobody near has any on, else her attack spells, the strongest first, at the monster (in their range), or where the
 ## monsters are thickest for those that cover an area (Ice Blast, Blizzard). Each is a short pause: she stands, turns
 ## to it, a circle in the spell's colour at her feet, and it goes. Otherwise she fights as ever. data/companions.json's
 ## "magic" holds the timings and what each spell is for.
@@ -23,6 +23,7 @@ var _sera_hit_at := -99.0
 var _pending := ""                ## the spell being cast, till the pause is over
 var _pending_foe: Damageable      ## the monster it goes at (followed till it goes), or null: at her own feet
 var _pending_fixed := false       ## it goes at a spot on the ground (where the monsters are thickest), not at a monster
+var _pending_ally: Node2D         ## the one of her side it's for (her Healing Blanket), followed till it goes
 var _pending_spot := Vector2.ZERO
 var _circle: Sprite2D
 var _circle_flat: Node2D
@@ -103,12 +104,17 @@ func _think(_delta: float) -> void:
 				continue
 			var at: Damageable = null
 			var spot := Vector2.INF
+			var ally: Node2D = null
 			var use: Dictionary = uses.get(sp, {})
 			match want:
 				"heal":
-					# Someone's low; or (keepUp) her circle's down in a fight while anyone's hurt at all.
-					var keep := float(use.get("keepUp", 0.0))
-					if lowest >= heal_below and not (keep > 0.0 and lowest < keep and SpellEffects.WaterCircle.of(body) == null):
+					if str(s.get("effect", "")) == "HealingBlanket":
+						# The most hurt in reach if they're low; else (keepUp) whoever's taking the blows, kept wrapped.
+						var who := _blanket_for(t, float(s.get("range", 0.0)), heal_below, float(use.get("keepUp", 0.0)), float(cfg.get("guardAfter", 2.5)))
+						if who == null:
+							continue
+						ally = who
+					elif lowest >= heal_below:
 						continue
 				"guard":
 					if not hit_lately:
@@ -129,8 +135,32 @@ func _think(_delta: float) -> void:
 					else:
 						at = foe
 			if st.spend_mana(float(s.get("manaCost", 0.0))):
-				_start(sp, s, at, t, cfg, spot)
+				_start(sp, s, at, t, cfg, spot, ally)
 				return
+
+
+# Who her Healing Blanket's for: the most hurt of her side within [param reach] if they're under [param below] of
+# their HP; else, with [param keep], whoever's been struck lately (Sera, or she) while under that share and not wrapped
+# already; else null.
+func _blanket_for(t: float, reach: float, below: float, keep: float, lately: float) -> Node2D:
+	var worst: Node2D = null
+	var low := below
+	for pair in SpellEffects.party_near(body.world, body.position, reach):
+		var f := SpellEffects.WaterBlanket.share_of_hp(pair[0], pair[1])
+		if f < low:
+			low = f
+			worst = pair[0]
+	if worst != null or keep <= 0.0:
+		return worst
+	var sera := body.world.player as Node2D
+	for pick in [[sera, _sera_hit_at], [body, _hit_at]]:
+		var who: Node2D = pick[0]
+		if who == null or t - float(pick[1]) >= lately or SpellEffects.WaterBlanket.on(who):
+			continue
+		var st: CharacterStats = (who as Miko).stats if who is Miko else Companions.stats_for((who as Villager).person)
+		if st != null and SpellEffects.WaterBlanket.share_of_hp(who, st) < keep:
+			return who
+	return null
 
 
 # The lowest share of HP of anyone with her (Sera, the other companions, herself).
@@ -185,14 +215,15 @@ func _use_of(sp: String, s: Dictionary, uses: Dictionary) -> String:
 
 
 # She stops, turns to it, and the circle comes up at her feet.
-func _start(sp: String, s: Dictionary, at: Damageable, t: float, cfg: Dictionary, spot := Vector2.INF) -> void:
+func _start(sp: String, s: Dictionary, at: Damageable, t: float, cfg: Dictionary, spot := Vector2.INF, ally: Node2D = null) -> void:
 	var st := Companions.stats_for(body.person)
 	var quick := 1.0 + maxf(0.0, st.stat("castSpeed")) / 100.0
 	var pause := clampf(float(s.get("castTime", 1.0)) * float(cfg.get("pauseShare", 0.4)) / quick, float(cfg.get("pauseMin", 0.5)), float(cfg.get("pauseMax", 1.1)))
 	_pending = sp
 	_pending_foe = at
 	_pending_fixed = spot != Vector2.INF
-	_pending_spot = spot if _pending_fixed else (at.global_position if at != null else body.position)
+	_pending_ally = ally
+	_pending_spot = spot if _pending_fixed else (at.global_position if at != null else (ally.global_position if ally != null else body.position))
 	body.cast_until = t + pause
 	body.cast_toward = _pending_spot
 	var c := SpellEffects.color(s) if s.has("color") else Color(0.65, 0.88, 1.0)
@@ -210,10 +241,13 @@ func _release(t: float) -> void:
 	if s.is_empty() or st == null:
 		return
 	var target := _pending_spot
-	if _pending_foe != null and is_instance_valid(_pending_foe) and _pending_foe.alive():
+	if _pending_ally != null and is_instance_valid(_pending_ally):
+		target = _pending_ally.global_position
+	elif _pending_foe != null and is_instance_valid(_pending_foe) and _pending_foe.alive():
 		target = _pending_foe.global_position
-	elif _pending_foe == null and not _pending_fixed:
+	elif _pending_foe == null and not _pending_fixed and _pending_ally == null:
 		target = body.position
+	_pending_ally = null
 	_pending_foe = null
 	var w := body.world
 	var origin := target
