@@ -135,6 +135,7 @@ func _light(at: Vector2, c: Color, radius: float) -> PointLight2D:
 func _dress_teleport(e: Dictionary) -> Dictionary:
 	var px := _px()
 	var sp := _sparkles(e.node, 1.25, Vector2(0.14, 0.37), Color(0.9, 1, 1))
+	_outline(e, Color(0.6, 0.9, 1.0))
 	var l := _light(e.pos + Vector2(0, -0.6 * px), Color(0.45, 0.85, 1.0), 2.2)
 	return {"pos": e.pos, "nodes": [sp, l], "light": l, "phase": randf() * 10.0}
 
@@ -170,11 +171,27 @@ func _sparkles(holder: Node2D, up: float, extents: Vector2, tint: Color) -> CPUP
 	return sp
 
 
+# Findable behind the trees: once most of the pillar is hidden, outlined in its own colour over whatever hides it
+# (gone with it when it's taken down).
+func _outline(e: Dictionary, color: Color) -> void:
+	var holder: Node2D = e.node
+	if holder.get_child_count() == 0 or not holder.get_child(0) is Sprite2D or holder.has_node("OccludedOutline"):
+		return
+	var o := OccludedOutline.new()
+	o.name = "OccludedOutline"
+	o.fade_covers = false
+	o.cover_needed = 0.6
+	o.cover_keep = 0.45
+	holder.add_child(o)
+	o.setup(world, holder.get_child(0) as Sprite2D, color)
+
+
 func _dress_ward(e: Dictionary) -> Dictionary:
 	var px := _px()
 	var l := _light(e.pos + Vector2(0, -0.82 * px), Color(0.78, 0.6, 1.0), 2.4)
 	# Sparkles on its crystal, as on a teleport crystal's, in its violet.
 	var sp := _sparkles(e.node, 0.8, Vector2(0.12, 0.3), Color(1.0, 0.88, 1.0))
+	_outline(e, Color(0.85, 0.7, 1.0))
 	# The curtain: its back half drawn behind what stands in the clearing, its front half over the ground in front.
 	var back := MeshInstance2D.new()
 	var front := MeshInstance2D.new()
