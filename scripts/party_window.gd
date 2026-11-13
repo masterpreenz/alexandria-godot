@@ -172,7 +172,20 @@ func _info(row: HBoxContainer, title: String) -> Dictionary:
 	doing.clip_text = true
 	doing.custom_minimum_size.x = _k(230)
 	col.add_child(doing)
-	return {"lv": lv, "atk": atk, "bars": bars, "doing": doing}
+	var needs := HudStyle.label("", 11, "body", HudStyle.color("muted"))
+	col.add_child(needs)
+	return {"lv": lv, "atk": atk, "bars": bars, "doing": doing, "needs": needs}
+
+
+# How hungry and thirsty someone is, in words and numbers; coral when it's time they ate or drank.
+func _needs_line(label: Label, hunger: float, thirst: float) -> void:
+	var bits := ["Food %d" % ceili(hunger), "Water %d" % ceili(thirst)]
+	if hunger < Party.NEEDY:
+		bits.append("hungry")
+	if thirst < Party.NEEDY:
+		bits.append("thirsty")
+	label.text = "  ·  ".join(bits)
+	label.add_theme_color_override("font_color", HudStyle.color("coral") if hunger < Party.NEEDY or thirst < Party.NEEDY else HudStyle.color("muted"))
 
 
 func _sera_row() -> PanelContainer:
@@ -199,7 +212,10 @@ func _sera_row() -> PanelContainer:
 		bars.mana = stats.mana
 		bars.most_mana = maxf(1.0, float(t.get("maxMana", 50.0)))
 		bars.queue_redraw()
-		(ui.doing as Label).text = "Leading the party")
+		(ui.doing as Label).text = "Leading the party"
+		var nd: Needs = miko.get_node_or_null("Needs")
+		if nd != null:
+			_needs_line(ui.needs, nd.hunger, nd.thirst))
 	return pc
 
 
@@ -232,9 +248,13 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 		pa.leave(id)
 		if body != null:
 			body._stand(Villager.now(), 0.5))
+	var eat := _order("Give food", false, func(): pa.feed(p))
+	var drink := _order("Give a drink", false, func(): pa.give_drink(p))
 	orders.add_child(follow)
 	orders.add_child(wait)
 	orders.add_child(home)
+	orders.add_child(eat)
+	orders.add_child(drink)
 	_rows.append(func():
 		var body := _body(p)
 		face.level = int(p.get("level", 1))
@@ -250,7 +270,13 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 		var low := bars.hp / maxf(1.0, bars.most_hp) < 0.3
 		(ui.doing as Label).text = _doing(p, body)
 		(ui.doing as Label).add_theme_color_override("font_color", HudStyle.color("coral") if low else HudStyle.color("muted"))
-		wait.disabled = body == null or pa.waiting.has(id))
+		wait.disabled = body == null or pa.waiting.has(id)
+		var hunger := float(p.get("hunger", 100.0))
+		var thirst := float(p.get("thirst", 100.0))
+		_needs_line(ui.needs, hunger, thirst)
+		eat.disabled = hunger >= 90.0 or not Villager.FOODS.any(func(f): return miko.bag.count(str(f[0])) > 0)
+		var nd: Needs = miko.get_node_or_null("Needs")
+		drink.disabled = thirst >= 90.0 or nd == null or not miko.bag.items.has("WaterPouch") or nd.pouch < Needs.POUCH_DRINK - 0.01)
 	return pc
 
 

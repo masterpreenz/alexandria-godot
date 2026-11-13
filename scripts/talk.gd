@@ -216,6 +216,10 @@ func _show(line: String) -> void:
 		if Party.active.waiting.has(str(who.person.unique)): _add("Follow me", _order_follow)
 		else: _add("Wait here", _order_wait)
 		_add("Go home", _order_home)
+		if float(who.person.get("hunger", 100.0)) < 90.0:
+			_add("Have something to eat", _order_eat)
+		if float(who.person.get("thirst", 100.0)) < 90.0:
+			_add("Have a drink", _order_drink)
 	elif Party.active != null and Party.willing(who.person) and not Party.active.full():
 		_add("Come with me", _order_join)
 	_add(Loc.t("talk.choice.need"), _ask_need)
@@ -360,6 +364,15 @@ func _order_home() -> void:
 	Party.active.leave(str(p.unique))
 	who._stand(Villager.now(), 0.5)
 	_show("I'll head back to the village, then.")
+
+
+func _order_eat() -> void:
+	var ate := Party.active.feed(who.person)
+	_show(("Thank you, that's better." if ate != "" else "You've nothing to eat in your bag..."))
+
+
+func _order_drink() -> void:
+	_show("Ah... thank you." if Party.active.give_drink(who.person) else "Your pouch is empty. A well, or the river...")
 
 
 func _order_join() -> void:

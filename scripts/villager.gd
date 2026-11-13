@@ -1534,14 +1534,14 @@ func _needs() -> void:
 	# Mending over time: best asleep (not on a cold night), slower awake once they're out of a fight a while; not
 	# while starving or parched, and half as fast hungry or thirsty.
 	if float(p.hunger) > 0.0 and float(p.thirst) > 0.0 and hit.hp < hit.max_hp:
-		var mend := 0.0
+		var healing := 0.0
 		if sleeping and not cold_night:
-			mend = SLEEP_MEND
+			healing = SLEEP_MEND
 		elif not sleeping and state != State.FIGHT and state != State.FLEE and Time.get_ticks_msec() / 1000.0 - hit._last_hit > CALM_FOR:
-			mend = AWAKE_MEND
+			healing = AWAKE_MEND
 		if float(p.hunger) < HUNGRY or float(p.thirst) < THIRSTY:
-			mend *= 0.5
-		hit.heal(mend * dh)
+			healing *= 0.5
+		hit.heal(healing * dh)
 	if float(p.hunger) <= 0.0:
 		# Starving: HP slips away.
 		var loss := 2.0 * dh
@@ -1729,6 +1729,8 @@ static func bark_kind(key: String) -> int:
 		return SpeechBubble.Kind.ALARM
 	if key in ["bark.fight", "bark.no_food"]:
 		return SpeechBubble.Kind.SHOUT
+	if key in ["party.hungry", "party.thirsty"]:
+		return SpeechBubble.Kind.SAY
 	if key in ["bark.hungry", "bark.tired", "bark.rain", "bark.chilly", "bark.chilly.scarf", "miko.hungry"]:
 		return SpeechBubble.Kind.THINK
 	return SpeechBubble.Kind.SAY
@@ -1752,6 +1754,14 @@ func _barks() -> void:
 			State.HOME: bark("bark.tired")
 			State.FIGHT: bark("bark.fight")
 			State.TO_FARM: if farm_task == "pests": bark("bark.pests")
+	# (with Sera: they don't stop to eat or drink on the road, so they ask her)
+	if _in_party() and t >= _next_need_bark:
+		_next_need_bark = t + randf_range(40.0, 60.0)
+		var needs := {"miko": Miko.NAME}
+		if float(person.get("hunger", 100.0)) < Party.NEEDY:
+			bark("party.hungry", needs, true)
+		elif float(person.get("thirst", 100.0)) < Party.NEEDY:
+			bark("party.thirsty", needs, true)
 	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
 	if raining and not _was_raining and not in_bed and randf() < 0.3:
 		bark("bark.rain")
@@ -3176,6 +3186,7 @@ const DUSK_TILL := 21.0            ## ...until bed
 ## What they'll drop to go and light one at dusk: standing about, walking, chatting, on the way to work or at it.
 const DUSK_DROPS := [State.STAND, State.WALK, State.TO_CHAT, State.CHAT, State.CHAT_WAIT, State.TO_WORK, State.WORK]
 var _next_dusk_look := 0.0
+var _next_need_bark := 0.0
 
 
 # At sundown every torch and fire in the village is lit: an unlit one nobody's on the way to goes to whoever's

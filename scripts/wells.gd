@@ -1,12 +1,13 @@
 class_name Wells
 extends Node
-## The wells. At one, E: Sera drinks her fill, and with a bucket in her bag fills it (up to [constant BUCKET_HOLDS]
-## water: one waters a dry crop; with a mug, one is a drink away from the well, G). The villagers drink at the
+## The wells, and the water's edge (a river, a lake). At one, E: Sera drinks her fill, tops up her water pouch (five
+## drinks, G, anywhere), and with a bucket in her bag fills it (up to [constant BUCKET_HOLDS] water: one waters a dry
+## crop; with a mug, one is a drink away from the well, G). The villagers drink at the
 ## village's wells, and farmers fill a bucket at one before they water. Water isn't kept in storage: it's drawn.
 
 const RANGE := 1.4                ## units from a well to use it
 const BUCKET_HOLDS := 10
-const POUCH_HOLDS := 5          ## a water pouch's fill (without a bucket)
+const SHORE := 1.2                ## units from the water's edge (a river, a lake) to drink and fill up there
 
 static var active: Wells
 
@@ -49,16 +50,14 @@ static func has_bucket(bag: Bag) -> bool:
 	return bag.items.has("Bucket")
 
 
-## Something to drink the water she carries from: a mug, or her water pouch.
+## Something to drink the bucket's water from, away from the well: a mug. (Her water pouch is its own: Needs.pouch.)
 static func has_mug(bag: Bag) -> bool:
-	return bag.items.has("Mug") or bag.items.has("WaterPouch")
+	return bag.items.has("Mug")
 
 
-## How much water she can carry: a bucket's worth, a pouch's, or none.
+## How much water she can carry for the crops: a bucket's worth, or none.
 static func holds(bag: Bag) -> int:
-	if has_bucket(bag):
-		return BUCKET_HOLDS
-	return POUCH_HOLDS if bag.items.has("WaterPouch") else 0
+	return BUCKET_HOLDS if has_bucket(bag) else 0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -77,24 +76,61 @@ func _process(_delta: float) -> void:
 	for at in all():
 		if (at as Vector2).distance_to(miko.position) < RANGE * world.px and (near == Vector2.INF or (at as Vector2).distance_to(miko.position) < near.distance_to(miko.position)):
 			near = at
+	# (no well: the water's edge, a river or a lake, looked for now and then)
+	var shore := false
+	if near == Vector2.INF:
+		var now := Time.get_ticks_msec() / 1000.0
+		if now >= _next_shore:
+			_next_shore = now + 0.2
+			_shore_at = _water_by(miko.position)
+		if _shore_at != Vector2.INF and _shore_at.distance_to(miko.position) < (SHORE + 0.6) * world.px:
+			near = _shore_at
+			shore = true
 	if near == Vector2.INF:
 		return
 	var needs: Needs = miko.get_node_or_null("Needs")
 	var carried := miko.bag.count("Water")
-	prompt.visible = true
 	var most := holds(miko.bag)
-	var what := "bucket" if has_bucket(miko.bag) else "pouch"
-	prompt.text = "E  Drink" + (("  ·  fill the %s (%d/%d)" % [what, carried, most]) if most > 0 else "  ·  (a bucket carries water)")
-	WorldPrompts.at(prompt, near + Vector2(0, -1.6 * world.px))
+	var pouch := miko.bag.items.has("WaterPouch") and needs != null
+	var bits := ["E  Drink"]
+	if pouch:
+		bits.append("fill the pouch (%d%%)" % roundi(needs.pouch))
+	if most > 0:
+		bits.append("fill the bucket (%d/%d)" % [carried, most])
+	prompt.visible = true
+	prompt.text = "  ·  ".join(bits)
+	WorldPrompts.at(prompt, near + Vector2(0, (-0.6 if shore else -1.6) * world.px))
 	if not pressed:
 		return
 	var said := []
 	if needs != null and needs.thirst < Needs.MAX - 1.0:
 		needs.thirst = Needs.MAX
 		said.append("Thirst quenched")
+	if pouch and needs.pouch < Needs.MAX - 0.5:
+		needs.pouch = Needs.MAX
+		said.append("Pouch filled")
 	if carried < most:
 		miko.bag.add("Water", most - carried)
-		said.append(what.capitalize() + " filled")
+		said.append("Bucket filled")
 	FloatingText.spawn(world, ", ".join(said) if not said.is_empty() else "Not thirsty", miko.position + Vector2(0, -1.8 * world.px), Color(0.55, 0.78, 1.0))
 	if not said.is_empty():
 		Sfx.play(world, Sfx.stream(Farming.WATER_SOUND), near, 0.5, 0.1)
+
+
+var _next_shore := 0.0
+var _shore_at := Vector2.INF
+
+
+# The nearest open water (a river, a lake) within reach of [param at] while she stands on dry ground: where she'd
+# dip the pouch. INF when there's none.
+func _water_by(at: Vector2) -> Vector2:
+	if world.water_depth(at) > 0.0:
+		return Vector2.INF
+	var best := Vector2.INF
+	for i in 12:
+		var a := i * TAU / 12.0
+		for r in [0.6, 1.0, SHORE]:
+			var p: Vector2 = at + Vector2(cos(a), sin(a) * 0.5) * float(r) * world.px
+			if world.water_depth(p) > 0.05 and (best == Vector2.INF or p.distance_to(at) < best.distance_to(at)):
+				best = p
+	return best

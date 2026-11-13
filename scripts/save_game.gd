@@ -270,7 +270,7 @@ func capture() -> Dictionary:
 	var needs: Needs = miko.get_node_or_null("Needs")
 	s["player"] = JSON.stringify({"x": miko.position.x / world.px, "y": -miko.position.y / world.px,
 		"hunger": needs.hunger if needs != null else 100.0, "energy": needs.energy if needs != null else 100.0,
-		"thirst": needs.thirst if needs != null else 100.0})
+		"thirst": needs.thirst if needs != null else 100.0, "pouch": needs.pouch if needs != null else 100.0})
 	s["help.shown"] = HelpHints.to_json()
 	put.call("world.planted", miko.get_node_or_null("TreePlanter"), func(n): return n.to_json())
 	s["player.life"] = Fainting.to_json(world)

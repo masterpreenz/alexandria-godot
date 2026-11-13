@@ -128,6 +128,7 @@ func _ready() -> void:
 		if sv.get("sections", {}).has("player"):
 			var pl: Dictionary = JSON.parse_string(sv.sections.player)
 			needs.set_levels(float(pl.get("hunger", Needs.MAX)), float(pl.get("energy", Needs.MAX)), float(pl.get("thirst", Needs.MAX)))
+			needs.pouch = clampf(float(pl.get("pouch", Needs.MAX)), 0.0, Needs.MAX)
 		bars.needs = needs
 	# The fires (lighting them, cooking at bonfires) and the farm plots.
 	if FileAccess.file_exists("res://data/farm.json"):

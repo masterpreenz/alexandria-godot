@@ -77,6 +77,33 @@ static func willing(p: Dictionary) -> bool:
 	return active == null or active.world.clock.hours >= float(p.get("restUntil", -1.0))
 
 
+## A companion hungry or thirsty under this (they don't stop to eat or drink while they're with her: it's up to her).
+const NEEDY := 35.0
+
+
+## Hands [param p] the best of what's to eat in Sera's bag; what they ate, or "" if she has nothing (or they're full).
+func feed(p: Dictionary) -> String:
+	if float(p.get("hunger", 100.0)) >= 90.0:
+		return ""
+	for f in Villager.FOODS:
+		var kind := str(f[0])
+		if miko.bag.count(kind) > 0:
+			miko.bag.spend(kind, 1)
+			p.hunger = minf(100.0, float(p.get("hunger", 100.0)) + float(f[1]))
+			return kind
+	return ""
+
+
+## A drink for [param p] from Sera's water pouch: whether there was one to give.
+func give_drink(p: Dictionary) -> bool:
+	var needs: Needs = miko.get_node_or_null("Needs")
+	if needs == null or not miko.bag.items.has("WaterPouch") or needs.pouch < Needs.POUCH_DRINK - 0.01 or float(p.get("thirst", 100.0)) >= 90.0:
+		return false
+	needs.pouch = maxf(0.0, needs.pouch - Needs.POUCH_DRINK)
+	p["thirst"] = minf(100.0, float(p.get("thirst", 100.0)) + 40.0)
+	return true
+
+
 func full() -> bool:
 	return members.size() >= MOST
 

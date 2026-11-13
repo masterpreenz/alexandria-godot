@@ -33,6 +33,8 @@ var data: Dictionary              ## needs.json
 var hunger := MAX
 var energy := MAX
 var thirst := MAX
+var pouch := MAX                 ## how full her water pouch is (percent): a drink takes [constant POUCH_DRINK]
+const POUCH_DRINK := 20.0        ## a drink from the pouch: five to a full one
 var mist_sickness := 0.0
 var sleep := Sleep.AWAKE
 var comfort := ""                 ## "Well rested", "Rested", "Stiff" or ""
@@ -127,9 +129,9 @@ func effects() -> Array:
 	elif hungry():
 		list.append(["Hungry", false, "HP regen -%d%%, attack, defense and magic -%d%%. Eat something (F)." % [pct.call(1.0 - float(s.hungryRegen)), pct.call(float(s.hungryWeaker))]])
 	if parched():
-		list.append(["Parched", false, "%d%% slower, no HP regen, attack, defense and magic -%d%%. Drink at a well, or water with a mug (G)." % [roundi(float(s.parchedSlow)), roundi(float(s.parchedWeaker) * 100.0)]])
+		list.append(["Parched", false, "%d%% slower, no HP regen, attack, defense and magic -%d%%. Drink at a well, a river or a lake, or from your water pouch (G)." % [roundi(float(s.parchedSlow)), roundi(float(s.parchedWeaker) * 100.0)]])
 	elif thirsty():
-		list.append(["Thirsty", false, "HP regen halved. Drink at a well, or water with a mug (G)."])
+		list.append(["Thirsty", false, "HP regen halved. Drink at a well, a river or a lake, or from your water pouch (G)."])
 	if exhausted():
 		list.append(["Exhausted", false, "Can't run, 25% slower, mana regen -50%. Rest, sleep (Z) or drink tea (G)."])
 	match cold():
@@ -439,6 +441,13 @@ func _drink_potion(potion: String) -> bool:
 func drink() -> bool:
 	if sleeping():
 		return false
+	# (from her water pouch first: filled at a well, a river or a lake)
+	if thirst < MAX - 5.0 and miko.bag.items.has("WaterPouch") and pouch >= POUCH_DRINK - 0.01:
+		pouch = maxf(0.0, pouch - POUCH_DRINK)
+		thirst = minf(MAX, thirst + float(s.get("waterFills", 40)))
+		_say("+%d thirst  ·  pouch %d%%" % [roundi(float(s.get("waterFills", 40))), roundi(pouch)], Color(0.55, 0.78, 1.0))
+		_sound("drinkSound")
+		return true
 	if thirst < MAX - 5.0 and miko.bag.count("Water") > 0 and Wells.has_mug(miko.bag):
 		miko.bag.spend("Water", 1)
 		thirst = minf(MAX, thirst + float(s.get("waterFills", 40)))

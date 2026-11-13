@@ -125,8 +125,11 @@ func _draw() -> void:
 		var food := 0
 		for pair in Needs.EAT_ORDER:
 			food += miko.bag.count(str(pair[0]))
-		var water := miko.bag.count("Water")
-		var sr := Rect2(Vector2(x, y), Vector2(86, TAG_H) * k)
+		# (water: her pouch, how full; else what a bucket's carrying)
+		var has_pouch := miko.bag.items.has("WaterPouch")
+		var water := roundi(needs.pouch) if has_pouch else miko.bag.count("Water")
+		var water_text := ("%d%%" % water) if has_pouch else str(water)
+		var sr := Rect2(Vector2(x, y), Vector2(96, TAG_H) * k)
 		draw_style_box(HudStyle.piece("panel"), sr)
 		var meal_icon := UiKit.resource_icon("Meal")
 		var water_icon := UiKit.resource_icon("Water")
@@ -136,10 +139,11 @@ func _draw() -> void:
 		_text(str(food), Vector2(x + 22 * k, y + TAG_H * 0.72 * k), 11, "bold", HudStyle.color("coral") if food == 0 else HudStyle.color("text"))
 		if water_icon != null:
 			draw_texture_rect(water_icon, Rect2(Vector2(x + 46 * k, iy), Vector2(13, 13) * k), false)
-		_text(str(water), Vector2(x + 62 * k, y + TAG_H * 0.72 * k), 11, "bold", HudStyle.color("coral") if water == 0 else HudStyle.color("text"))
+		_text(water_text, Vector2(x + 62 * k, y + TAG_H * 0.72 * k), 11, "bold", HudStyle.color("coral") if water < (roundi(Needs.POUCH_DRINK) if has_pouch else 1) else HudStyle.color("text"))
 		if _tag_rects.size() == _hovered:
 			tip = {"name": "In your bag", "color": HudStyle.color("text"), "x": x,
-				"what": "%d to eat (F eats the best of it) and %d water (G to drink, with a mug)." % [food, water]}
+				"what": ("%d to eat (F eats the best of it). Water pouch %d%% full: G drinks from it, five drinks when full; fill it at a well, a river or a lake (E)." % [food, water]) if has_pouch
+					else ("%d to eat (F eats the best of it) and %d water (G to drink, with a mug)." % [food, water])}
 		_tag_rects.append(sr)
 		x += sr.size.x + 4 * k
 		for e in needs.effects():
