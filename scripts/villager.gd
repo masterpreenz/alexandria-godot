@@ -1030,11 +1030,21 @@ func _scale() -> float:
 	return World.BODY_SCALE   # one scale for every person (villagers.json's look scale no longer counts)
 
 
-# Something to tell Miko (a rumor): shown over their head while they're up and about with nothing else showing.
+# Something to tell Miko (a rumor), shown over their head while they're up and about with nothing else showing; or a
+# story scene of theirs waiting (the elder handing over the village), shown over whatever they're doing, at home too.
 func _rumor_emote() -> String:
-	if Rumors.active == null or state == State.ASLEEP or state == State.HOME or state == State.CELLAR:
+	if state == State.ASLEEP or state == State.CELLAR:
+		return ""
+	if _scene_waiting():
+		return "quest"
+	if Rumors.active == null or state == State.HOME:
 		return ""
 	return "quest" if Rumors.active.has_offer(self) else ""
+
+
+# Whether a story scene's waiting for Sera to talk to them.
+func _scene_waiting() -> bool:
+	return person.has("unique") and not Scenes.for_speaker(person).is_empty()
 
 
 func _show_idle() -> void:
@@ -1770,8 +1780,10 @@ func _status() -> void:
 		_:
 			if state != State.ASLEEP and hit.hp < hit.max_hp * 0.35:
 				e = "sick"
-	if e == "":
-		e = _rumor_emote()
+	if e == "" or _scene_waiting():
+		var told := _rumor_emote()
+		if told != "" or e == "":
+			e = told
 	_emote(e)
 
 

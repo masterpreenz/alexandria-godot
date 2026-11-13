@@ -387,6 +387,8 @@ func grow(bag: Bag, who: Node2D, rect: Rect2i) -> bool:
 		return false
 	blocks.append(rect)
 	changed.emit()
+	if Chronicle.active != null and not Chronicle.active.happened("village_grown"):
+		Chronicle.active.record("village_grown")   # (Genzo's "room for more")
 	return true
 
 

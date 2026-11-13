@@ -331,6 +331,8 @@ func _land() -> void:
 		FloatingText.spawn(world, "It got away", over, Color(0.75, 0.8, 0.9))
 		return
 	world.village.give(miko.bag, miko, "Fish", n, miko.position)
+	if Chronicle.active != null and not Chronicle.active.happened("fish_caught"):
+		Chronicle.active.record("fish_caught")   # (the river rumor)
 	FloatingText.spawn(world, "+%d Fish" % n, over, Color(0.6, 0.85, 1.0))
 	_caught_until = Time.get_ticks_msec() / 1000.0 + CAUGHT_SHOWS
 

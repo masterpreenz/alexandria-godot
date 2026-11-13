@@ -274,6 +274,117 @@
   "log": "Tracks in the mud under the trees, bigger than a boar's. Whatever made them isn't here now."
  },
  "leads": {}
+},
+{
+ "id": "village_room",
+ "title": "Room for more",
+ "teller": {
+  "name": "Genzo"
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "village_given",
+    "days": 0.25
+   }
+  ],
+  "unless": []
+ },
+ "told": "Sera, a word, now the village is yours. If the next village is gone, then whoever got out of it, and anyone else the mist drives off the roads, will come here. We haven't the ground for them as we are: the fence is tight round our own houses already. Grow the village out, before they come knocking. It's done at the town banner.",
+ "accept": "Then we'll make room. Leave it to me.",
+ "steps": [
+  {
+   "id": "grow",
+   "safe": true,
+   "note": "Genzo wants the village grown, ready for the people the mist will drive here. At the town banner (E), choose where to grow, and pay for the new ground: wood, stone and gold.",
+   "place": {
+    "kind": "village",
+    "vague": 2
+   },
+   "done": {
+    "kind": "event",
+    "event": "village_grown"
+   }
+  }
+ ],
+ "reward": {
+  "effects": [],
+  "gifts": [
+   [
+    "Wood",
+    15
+   ],
+   [
+    "Stone",
+    10
+   ],
+   [
+    "Food",
+    4
+   ]
+  ],
+  "log": "The village has new ground: room for houses, and for whoever comes. The villagers chipped in what they could spare."
+ },
+ "leads": {}
+},
+{
+ "id": "river_fish",
+ "title": "The river to the west",
+ "teller": {
+  "any": true
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "village_given",
+    "days": 1
+   }
+  ],
+  "unless": []
+ },
+ "told": "{miko}, have you been down to the river? Just west of the fence, past the trees. My father fished it every morning when I was small, and it fed half the village through the winters. Fish don't mind the mist, as far as anyone knows. A dock on the bank and a rod or two, and we'd never go hungry.",
+ "accept": "A river full of fish. I'll go and see.",
+ "steps": [
+  {
+   "id": "bank",
+   "safe": true,
+   "note": "{teller} says there's a river just west of the village, good for fishing. Go down to its bank.",
+   "place": {
+    "kind": "cell",
+    "x": -32,
+    "y": -32,
+    "vague": 5
+   },
+   "done": {
+    "kind": "reach",
+    "within": 4
+   }
+  },
+  {
+   "id": "fish",
+   "safe": true,
+   "note": "Fish for the village: build a Fishing Dock on the bank (Farming, in the build bar), make a Fishing Rod at the tool workbench, and E at the dock to cast. Villagers set to fishing will work it too.",
+   "place": {
+    "kind": "same",
+    "vague": 3
+   },
+   "done": {
+    "kind": "event",
+    "event": "fish_caught"
+   }
+  }
+ ],
+ "reward": {
+  "effects": [],
+  "gifts": [
+   [
+    "Fish",
+    3
+   ]
+  ],
+  "log": "The river's fishing well: food all year round, even in winter."
+ },
+ "leads": {}
 }
 ]
 }
