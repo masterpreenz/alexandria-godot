@@ -82,6 +82,14 @@ var facing_up := false
 var talking := false              ## in a conversation with Miko (Talk): standing still, facing her
 var cast_until := 0.0             ## a companion casting a spell (CompanionMagic): standing still till then...
 var cast_toward := Vector2.ZERO   ## ...turned to where it goes
+var dodge_to := Vector2.INF       ## a companion stepping out of a strip a monster has marked: where to...
+var dodge_until := 0.0            ## ...till then at most
+var melee_until := 0.0            ## a companion told by their tactics to close in hand to hand (even keeping their distance)
+var hold_until := 0.0             ## a companion told by their tactics to come back to the leader: no fights till then
+var repositions := 0              ## times a companion keeping their distance has moved to keep it (the scenarios read it)
+var _reposition := Vector2.INF    ## where they're stepping to, keeping their distance
+var _reposition_until := 0.0
+var _next_reposition := 0.0
 var _bark: SpeechBubble           ## a short line over their head (barks), shown a moment
 var _bark_until := 0.0
 var _bark_next := 0.0
@@ -451,6 +459,11 @@ func _following(t: float, delta: float) -> void:
 		return
 	var me: Node2D = world.player
 	var at := Party.active.spot_for(person)
+	# (a strip a monster has marked over where they'd stand: they wait out of it till it's gone)
+	if not Telegraph.live.is_empty() and Tactics.strip_at(at) != null and Tactics.strip_at(position) == null:
+		velocity = Vector2.ZERO
+		_show_idle()
+		return
 	var far := position.distance_to(at)
 	# A long way behind (she teleported, or ran off): brought up to her.
 	if me != null and position.distance_to(me.position) > Party.CATCH_UP * world.px and not Party.active.waiting.has(str(person.unique)):
@@ -474,13 +487,19 @@ func _following(t: float, delta: float) -> void:
 	state = State.FOLLOW   # (walking there isn't arriving anywhere)
 
 
-# The monster nearest Sera (or them) going for either: a party member's fight.
+# The monster nearest Sera (or them) going for either: a party member's fight. (Told back to the leader by their
+# tactics: none for now. A defender's leash keeps them to what's near the leader, and what's right on them.)
 func _party_threat() -> Damageable:
-	if (s.stabDown as Array).is_empty() or world.player == null:
+	if (s.stabDown as Array).is_empty() or world.player == null or now() < hold_until:
 		return null
 	var me: Vector2 = world.player.position
 	var best: Damageable = null
-	var best_d := Party.GUARD * world.px
+	var leash := float(Tactics.stance(person).get("leash", Party.GUARD))
+	if leash < Party.GUARD:
+		var close := _danger(1.5)
+		if close != null:
+			return close
+	var best_d := minf(leash, Party.GUARD) * world.px
 	for d in Damageable.all:
 		if not d.alive() or not d.get_parent() is Creature:
 			continue
@@ -613,6 +632,13 @@ func _physics_process_timed(delta: float) -> void:
 		facing_up = to.y < 0.0
 		_show_idle()
 		return
+	# Out of a strip a monster has marked (a companion's tactics): straight out of it, quickly.
+	if t < dodge_until and dodge_to != Vector2.INF:
+		if _step_to(dodge_to, delta, 1.7):
+			dodge_until = 0.0
+			dodge_to = Vector2.INF
+		move_and_slide()
+		return
 	# Casting a spell (a companion with magic): a moment standing still, turned to it, arms up.
 	if t < cast_until:
 		velocity = Vector2.ZERO
@@ -626,6 +652,14 @@ func _physics_process_timed(delta: float) -> void:
 		if pose.is_empty(): _show_idle()
 		else: _show(int(pose[0]))
 		return
+	# Stepping to keep their distance from the monsters (a companion fighting from range): there, then still again.
+	if _reposition != Vector2.INF:
+		if t > _reposition_until or not _in_party() or _step_to(_reposition, delta, 1.0):
+			_reposition = Vector2.INF
+			velocity = Vector2.ZERO
+		else:
+			move_and_slide()
+			return
 	# A slime about: go for it (unless asleep, or already at one).
 	# Badly hurt (under a fifth of their health) with a monster near: they run instead.
 	# A raid: everyone's up and out of whatever they were at (the sleeping too), to fight.
@@ -2182,6 +2216,15 @@ func _fighting(t: float, delta: float) -> void:
 		foe = null
 		_stand(t, randf_range(1.0, 2.0))
 		return
+	# A companion's tactics: back to the leader when told; kept at a distance when that's their stance.
+	if _in_party():
+		if t < hold_until:
+			foe = null
+			_follow_start(t)
+			return
+		if t >= melee_until and Tactics.keeps_distance(person):
+			_keep_distance(t)
+			return
 	var to := foe.global_position - position
 	var reach := float(s.stabReach) * world.px + foe.radius * 0.5
 	if to.length() > reach:
@@ -2212,6 +2255,78 @@ func _fighting(t: float, delta: float) -> void:
 				Sfx.play(world, Sfx.stream("res://assets/Sounds/shiki_spear_stab.mp3"), position, 0.55, 0.1)   # (their spear: its own stab, not a sword's swing)
 				people.practise(person, LifeSkills.Skill.STRENGTH)
 	last_frame = frame
+
+
+# A companion fighting from range: still, turned to the monster, casting (their magic does that); a step back when it
+# comes too close, nearer when it's too far for their spells; no more than a step every so often, never mid-spell.
+func _keep_distance(t: float) -> void:
+	velocity = Vector2.ZERO
+	var to := foe.global_position - position
+	facing_up = to.y < 0.0
+	facing_right = to.x > 0.0
+	_show_idle()
+	if t < _next_reposition:
+		return
+	var td := Tactics.data()
+	var near := float(td.get("keepNear", 4.0)) * world.px
+	var far := float(td.get("keepFar", 6.0)) * world.px
+	var d := to.length()
+	if d < near:
+		step_back(foe.global_position, t)
+	elif d > far:
+		_move_for_distance(foe.global_position - to.normalized() * (near + far) * 0.5, t)
+
+
+## A step back from [param from] (a monster come close) to where they'd keep their distance, leaning towards the
+## leader rather than away from everyone; not while casting, nor again too soon. Whether they went.
+func step_back(from: Vector2, t: float) -> bool:
+	if t < _next_reposition or t < cast_until or _reposition != Vector2.INF:
+		return false
+	var td := Tactics.data()
+	var mid := (float(td.get("keepNear", 4.0)) + float(td.get("keepFar", 6.0))) * 0.5 * world.px
+	var away := position - from
+	var dir := away.normalized() if away.length() > 1.0 else Vector2(1.0 if facing_right else -1.0, 0.0)
+	var lead := world.player as Node2D
+	if lead != null:
+		var tl := lead.position - position
+		if tl.length() > 0.5 * world.px and tl.normalized().dot(dir) > -0.3:
+			dir = (dir * 0.7 + tl.normalized() * 0.3).normalized()
+	_move_for_distance(position + dir * maxf(world.px, mid - away.length()), t)
+	return true
+
+
+func _move_for_distance(goal: Vector2, t: float) -> void:
+	# (not into a strip a monster has marked)
+	if not Telegraph.live.is_empty() and Tactics.strip_at(goal) != null:
+		return
+	_reposition = goal
+	_reposition_until = t + 2.5
+	_next_reposition = t + float(Tactics.data().get("moveEvery", 2.0))
+	repositions += 1
+
+
+# Straight towards [param goal] (round whoever's in the way), at [param pace] times their walk. Whether they're there
+# (or can't get any nearer).
+func _step_to(goal: Vector2, delta: float, pace: float) -> bool:
+	var dir := goal - position
+	if dir.length() < 0.12 * world.px:
+		velocity = Vector2.ZERO
+		return true
+	facing_up = dir.y < 0.0
+	if absf(dir.x) > 0.02 * world.px:
+		facing_right = dir.x > 0.0
+	clock += delta
+	var frames: Array = s.walkUp if facing_up else s.walkDown
+	if not frames.is_empty():
+		_show(int(frames[int(clock * float(s.walkFps) * pace) % frames.size()]))
+	var speed := float(s.walkSpeed) * world.px * pace * Traits.mul(person, "speed")
+	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
+	v = steer.around(v, delta)
+	if steer.stuck:
+		velocity = Vector2.ZERO
+		return true
+	velocity = v
+	return false
 
 
 

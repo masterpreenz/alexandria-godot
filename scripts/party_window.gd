@@ -5,7 +5,8 @@ extends PanelContainer
 ## Each takes the same orders as in a talk: "Follow me", "Wait here" (where they stand now), "Go home" (they leave the
 ## party). The places left say so, with anyone who'd come along if asked. It steps aside while Sera's talking.
 ## Each companion's Gear opens their page in the Character & Bag window (their slots, with Sera's bag to dress them
-## from) and Talents their talent web; under their attack, the spells they know.
+## from) and Talents their talent web; Tactics how they fight (their stance and rules, the Tactics window); under
+## their attack, the spells they know.
 
 const FAR := 12.0                 ## units behind her a companion's "far behind"
 
@@ -264,8 +265,12 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 	row.add_child(own)
 	var gear := _order("Gear", false, func(): _open_page(p, false))
 	var tal := _order("Talents", false, func(): _open_page(p, true))
+	var tac := _order("Tactics", false, func():
+		if TacticsWindow.active != null:
+			TacticsWindow.active.open_for(p))
 	own.add_child(gear)
 	own.add_child(tal)
+	own.add_child(tac)
 	var spells := HudStyle.label("", 10, "body", HudStyle.color("mana"))
 	spells.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	spells.custom_minimum_size.x = _k(230)

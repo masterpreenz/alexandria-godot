@@ -1,0 +1,110 @@
+{
+"_about": "A companion's tactics (scripts/tactics.gd, the Tactics window from the party window, scripts/companion_magic.gd thinking with them): a stance and a list of rules. think: seconds between their looks. keepNear/keepFar: units from the monster a companion keeping their distance stays between (they step back nearer than keepNear, come in further than keepFar); moveEvery: seconds at least between two such steps. dodgeMargin: units past a marked strip's edge they step to; dodgeFill: how full a strip can be and still be got out of. potionEvery: seconds at least between two potions; meleeRange: units counted as 'in melee'; nearRange: units counted as 'near' (Enemies near). guardAfter: seconds since a blow that still counts as being attacked. weights: a rule's weight, 1 (Rarely) to 5 (Always): every (seconds before it can fire again) and chance (that it's taken when it could be; tried again a second later if not). frequencies: how freely they cast: gap (seconds between two casts at least) and reserve (% of mana kept back on top of the stance's own, for attack spells; heals and shields may spend it). conditions/actions: what a rule is made of (value: pct, count or none; spell: the action names a spell). spellKinds: the spells a rule can name by what they're for (the best of that kind they know), before the spells by name. The stance's dodge (on: out of a marked strip before anything else, dropping a spell) is what keeps them out of charges and leaps; a rule 'Standing in a marked strip -> Dodge' does it in its turn among the rules, never mid-spell. defaults: the preset each companion starts with (by unique id; '' for anyone else). presets: stance and rules; a rule is when (condition), value, do (action), spell (cast only), weight 1-5, on.",
+"think": 0.3,
+"keepNear": 4.0,
+"keepFar": 6.0,
+"moveEvery": 2.0,
+"dodgeMargin": 0.45,
+"dodgeFill": 0.92,
+"potionEvery": 8.0,
+"meleeRange": 1.6,
+"nearRange": 5.0,
+"guardAfter": 2.5,
+"weights": [
+ {"label": "Rarely", "every": 8.0, "chance": 0.35},
+ {"label": "Seldom", "every": 4.0, "chance": 0.6},
+ {"label": "Normal", "every": 1.5, "chance": 1.0},
+ {"label": "Often", "every": 0.6, "chance": 1.0},
+ {"label": "Always", "every": 0.0, "chance": 1.0}
+],
+"frequencies": [
+ {"id": "sparing", "label": "Sparing", "gap": 2.6, "reserve": 15, "about": "A spell now and then; mana kept for when it counts."},
+ {"id": "normal", "label": "Normal", "gap": 1.2, "reserve": 0, "about": "Casts when there's call for it."},
+ {"id": "eager", "label": "Eager", "gap": 0.5, "reserve": 0, "about": "Casts whatever's ready, as fast as they can."}
+],
+"ranges": [
+ {"id": "close", "label": "Close", "about": "Closes in and stabs; casts from wherever they are."},
+ {"id": "distance", "label": "Keep distance", "about": "Stays 4-6 steps from the monsters and casts from there; steps back only when one comes close, never mid-spell."}
+],
+"protects": [
+ {"id": "leader", "label": "The leader", "about": "Heals and shields go to the one you play first."},
+ {"id": "lowest", "label": "Most hurt", "about": "Heals and shields go to whoever's lowest."},
+ {"id": "self", "label": "Themselves", "about": "They look after themselves first."}
+],
+"conditions": [
+ {"id": "always", "label": "Always"},
+ {"id": "inFight", "label": "In a fight"},
+ {"id": "selfHpBelow", "label": "Own HP below", "value": "pct", "default": 30},
+ {"id": "selfManaBelow", "label": "Own mana below", "value": "pct", "default": 20},
+ {"id": "allyHpBelow", "label": "An ally's HP below", "value": "pct", "default": 50},
+ {"id": "leaderHpBelow", "label": "Leader's HP below", "value": "pct", "default": 50},
+ {"id": "beingAttacked", "label": "Being attacked"},
+ {"id": "leaderAttacked", "label": "Leader attacked"},
+ {"id": "enemyInMelee", "label": "Enemy in melee range"},
+ {"id": "enemiesNear", "label": "Enemies near at least", "value": "count", "default": 3},
+ {"id": "allyNoShield", "label": "Ally hit, no shield"},
+ {"id": "allyNoBlanket", "label": "Ally hurt, no blanket", "value": "pct", "default": 85},
+ {"id": "enemyFrozen", "label": "Enemy frozen or frostbitten"},
+ {"id": "inTelegraph", "label": "Standing in a marked strip"}
+],
+"actions": [
+ {"id": "cast", "label": "Cast", "spell": true},
+ {"id": "hpPotion", "label": "Drink a health potion"},
+ {"id": "manaPotion", "label": "Drink a mana potion"},
+ {"id": "attackNearest", "label": "Attack the nearest (melee)"},
+ {"id": "attackLeaderTarget", "label": "Attack the leader's foe"},
+ {"id": "keepDistance", "label": "Step back"},
+ {"id": "toLeader", "label": "Go to the leader"},
+ {"id": "dodge", "label": "Dodge out of the strip"}
+],
+"spellKinds": [
+ {"id": "@attack", "label": "Best attack spell"},
+ {"id": "@area", "label": "Best area spell"},
+ {"id": "@heal", "label": "Best heal"},
+ {"id": "@guard", "label": "Best shield"}
+],
+"defaults": {"miyu": "support", "sera": "ranged", "": "melee"},
+"presets": [
+ {"id": "melee", "label": "Melee", "about": "Closes in and stabs; a shield when struck, a potion when low, a spell now and then.",
+  "stance": {"range": "close", "frequency": "normal", "reserve": 10, "dodge": true, "protect": "self"},
+  "rules": [
+   {"when": "selfHpBelow", "value": 30, "do": "hpPotion", "weight": 3, "on": true},
+   {"when": "beingAttacked", "do": "cast", "spell": "@guard", "weight": 3, "on": true},
+   {"when": "enemiesNear", "value": 3, "do": "cast", "spell": "@area", "weight": 1, "on": true},
+   {"when": "inFight", "do": "cast", "spell": "@attack", "weight": 1, "on": true},
+   {"when": "inFight", "do": "attackNearest", "weight": 5, "on": true}
+  ]},
+ {"id": "ranged", "label": "Ranged", "about": "Keeps their distance and leads with damage spells; steps back from what comes close.",
+  "stance": {"range": "distance", "frequency": "eager", "reserve": 15, "dodge": true, "protect": "leader"},
+  "rules": [
+   {"when": "selfHpBelow", "value": 35, "do": "hpPotion", "weight": 3, "on": true},
+   {"when": "enemyInMelee", "do": "keepDistance", "weight": 4, "on": true},
+   {"when": "enemiesNear", "value": 2, "do": "cast", "spell": "@area", "weight": 3, "on": true},
+   {"when": "inFight", "do": "cast", "spell": "@attack", "weight": 4, "on": true},
+   {"when": "selfManaBelow", "value": 15, "do": "manaPotion", "weight": 2, "on": true},
+   {"when": "allyHpBelow", "value": 40, "do": "cast", "spell": "@heal", "weight": 3, "on": true}
+  ]},
+ {"id": "defender", "label": "Defender", "about": "Stays by the leader, shields whoever's struck and goes for what's hitting the leader.",
+  "stance": {"range": "close", "frequency": "normal", "reserve": 30, "dodge": true, "protect": "leader", "leash": 3.5},
+  "rules": [
+   {"when": "allyNoShield", "do": "cast", "spell": "@guard", "weight": 4, "on": true},
+   {"when": "selfHpBelow", "value": 35, "do": "hpPotion", "weight": 3, "on": true},
+   {"when": "leaderHpBelow", "value": 50, "do": "cast", "spell": "@heal", "weight": 3, "on": true},
+   {"when": "leaderAttacked", "do": "attackLeaderTarget", "weight": 5, "on": true},
+   {"when": "always", "do": "toLeader", "weight": 3, "on": true},
+   {"when": "inFight", "do": "attackLeaderTarget", "weight": 3, "on": true}
+  ]},
+ {"id": "support", "label": "Support", "about": "Heals, shields and blankets first; attacks only when there's nothing else to do.",
+  "stance": {"range": "distance", "frequency": "normal", "reserve": 25, "dodge": true, "protect": "lowest"},
+  "rules": [
+   {"when": "allyHpBelow", "value": 50, "do": "cast", "spell": "@heal", "weight": 4, "on": true},
+   {"when": "selfHpBelow", "value": 30, "do": "hpPotion", "weight": 3, "on": true},
+   {"when": "allyNoShield", "do": "cast", "spell": "@guard", "weight": 4, "on": true},
+   {"when": "allyNoBlanket", "value": 80, "do": "cast", "spell": "@heal", "weight": 3, "on": true},
+   {"when": "selfManaBelow", "value": 20, "do": "manaPotion", "weight": 3, "on": true},
+   {"when": "enemyInMelee", "do": "keepDistance", "weight": 3, "on": true},
+   {"when": "enemiesNear", "value": 3, "do": "cast", "spell": "@area", "weight": 1, "on": true},
+   {"when": "inFight", "do": "cast", "spell": "@attack", "weight": 2, "on": true}
+  ]}
+]
+}

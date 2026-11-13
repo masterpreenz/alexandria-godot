@@ -9,6 +9,8 @@ const PALE := Color(1.0, 0.35, 0.3, 0.3)
 const RIM := Color(1.0, 0.4, 0.35, 0.8)
 const DARK := Color(0.85, 0.05, 0.05, 0.7)
 
+static var live: Array[Telegraph] = []   ## every strip on the ground now (companions look for one under them)
+
 var world: World
 var from := Vector2.ZERO          ## where it starts (px): the attacker's feet
 var dir := Vector2.RIGHT          ## which way, on screen
@@ -27,6 +29,14 @@ static func make(w: World, width_units: float) -> Telegraph:
 	t.visibility_layer |= LightMap.UNLIT_LAYER   # (as bright at night: not dimmed by the dark)
 	w.add_ground_layer(t, -9964)   # (over the village's border and build mode's grid, under everyone standing)
 	return t
+
+
+func _enter_tree() -> void:
+	live.append(self)
+
+
+func _exit_tree() -> void:
+	live.erase(self)
 
 
 ## Points it from [param at] towards [param to] (px), at most [param most] px long.

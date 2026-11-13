@@ -293,3 +293,9 @@ static func teach(st: CharacterStats, b: Dictionary) -> Array:
 ## A spell's name as the game shows it.
 static func spell_name(id: String) -> String:
 	return str(spell(id).get("name", id.capitalize()))
+
+
+## A companion's own bag, for what they carry for themselves (their potions), or null while they have none: what
+## they'd take then comes from the bag of the one played.
+static func bag_of(_p: Dictionary) -> Bag:
+	return null

@@ -1,12 +1,13 @@
 class_name CompanionMagic
 extends Node
-## A companion's own spellcasting (Miyu once she has her water book): while she's with Sera and a monster's near (the
-## ones she'd fight), she casts the spells she knows when they're ready and she has the mana for them: a heal when
-## anyone with her is hurt (her Healing Blanket on the most hurt, and kept on whoever's taking the blows in a fight),
-## armour when she or Sera is being hit and nobody near has any on, else her attack spells, the strongest first, at the monster (in their range), or where the
-## monsters are thickest for those that cover an area (Ice Blast, Blizzard). Each is a short pause: she stands, turns
-## to it, a circle in the spell's colour at her feet, and it goes. Otherwise she fights as ever. data/companions.json's
-## "magic" holds the timings and what each spell is for.
+## A companion's own mind in a fight, by their tactics (Tactics: their stance and rules, set in the Tactics window):
+## every little while they look about and go down their rules, top first, and do the first whose "when" holds and
+## whose "do" can be done now: a spell (a heal on whoever's hurt, armour on whoever's struck, an attack at the monster
+## or where the monsters are thickest), a potion from the bag, closing in hand to hand, stepping back, back to the
+## leader. With Dodge on, a strip a monster has marked under them for its charge or leap sends them out of it first,
+## dropping any spell. Each spell is a short pause: they stand, turn to it, a circle in the spell's colour at their
+## feet, and it goes. data/companions.json's "magic" holds the spells' timings and what each is for;
+## data/tactics.json the presets and how often each weight lets a rule come round.
 
 const PROJECTILE_LIFT := 0.45     ## units above her feet a spell she throws leaves from
 
@@ -28,6 +29,18 @@ var _pending_spot := Vector2.ZERO
 var _circle: Sprite2D
 var _circle_flat: Node2D
 var _charge: CPUParticles2D
+var _cast_gap := 1.2              ## seconds after a spell before the next (their stance's skill use)
+var _rule_next := {}              ## a rule (its place) -> when it may fire again (its weight)
+var _rules_hash := 0
+var _potion_next := 0.0
+var _next_strip_look := 0.0
+var _spells_now := {}             ## a rule's spell -> the spells of theirs it stands for, this look
+var _foes: Array[Damageable] = [] ## the monsters about, at the last look
+var done := {}                    ## action -> times done (the scenarios read these)
+var potions := {}                 ## potion -> drunk
+var dodges := 0                   ## times stepped out of a marked strip
+var cancelled := 0                ## spells dropped to get out of the way
+var cast_in_strip := 0            ## spells finished standing in a marked strip
 
 
 ## Gives [param v] their own spellcasting (once).
@@ -61,6 +74,17 @@ func _physics_process(delta: float) -> void:
 
 func _think(_delta: float) -> void:
 	var t := Villager.now()
+	# A strip a monster has marked under them: with Dodge on, out of it before anything else (a spell being cast
+	# dropped); looked for often, as a leap comes quickly. With it off they keep at what they're doing.
+	if not Telegraph.live.is_empty() and t >= _next_strip_look and t >= body.dodge_until:
+		_next_strip_look = t + 0.1
+		if body.world != null and body._in_party() and not body.talking and body.hit != null and body.hit.alive() 				and body.state != Villager.State.FLEE and bool(Tactics.stance(body.person).get("dodge", true)):
+			var strip := Tactics.strip_at(body.position)
+			if strip != null:
+				if _pending != "":
+					_cancel()
+				_dodge(strip, t)
+				return
 	if _pending != "":
 		_follow_circle()
 		if t >= body.cast_until:
@@ -68,129 +92,351 @@ func _think(_delta: float) -> void:
 		return
 	if t < _next:
 		return
-	var cfg: Dictionary = Companions.data().get("magic", {})
-	_next = t + float(cfg.get("think", 0.35))
-	if t < _gap_until or body.world == null or not body._in_party() or body.talking or body.hit == null or not body.hit.alive():
+	_next = t + float(Tactics.data().get("think", 0.3))
+	if body.world == null or not body._in_party() or body.talking or body.hit == null or not body.hit.alive():
 		return
-	if body.state == Villager.State.FLEE or body.state == Villager.State.ASLEEP:
+	if body.state == Villager.State.FLEE or body.state == Villager.State.ASLEEP or t < body.dodge_until or t < body.cast_until:
 		return
 	var st := Companions.stats_for(body.person)
 	if st == null:
 		return
-	var known := st.known_spells()
-	if known.is_empty():
-		return
-	var sera: Miko = body.world.player as Miko
-	if sera != null and sera.stats != null:
-		if _sera_hp >= 0.0 and sera.stats.hp < _sera_hp - 0.01:
-			_sera_hit_at = t
-		_sera_hp = sera.stats.hp
-	var foe := body.foe if body.foe != null and is_instance_valid(body.foe) and body.foe.alive() else body._party_threat()
-	if foe == null:
-		return
-	var uses: Dictionary = cfg.get("spells", {})
-	# The strongest first (each spell's priority).
-	known.sort_custom(func(a, b): return float(uses.get(a, {}).get("priority", 0.0)) > float(uses.get(b, {}).get("priority", 0.0)))
-	# What's called for, most pressing first: a heal, armour, then the attacks.
-	var heal_below := float(cfg.get("healBelow", 0.6))
-	var lowest := _lowest_share()
-	var hit_lately := t - maxf(_hit_at, _sera_hit_at) < float(cfg.get("guardAfter", 2.5))
-	for want in ["heal", "guard", "attack"]:
-		for sp in known:
-			var s := Companions.spell(sp)
-			if s.is_empty() or _use_of(sp, s, uses) != want or t < float(ready_at.get(sp, 0.0)):
-				continue
-			if st.mana + 0.001 < float(s.get("manaCost", 0.0)):
-				continue
-			var at: Damageable = null
-			var spot := Vector2.INF
-			var ally: Node2D = null
-			var use: Dictionary = uses.get(sp, {})
-			match want:
-				"heal":
-					if str(s.get("effect", "")) == "HealingBlanket":
-						# The most hurt in reach if they're low; else (keepUp) whoever's taking the blows, kept wrapped.
-						var who := _blanket_for(t, float(s.get("range", 0.0)), heal_below, float(use.get("keepUp", 0.0)), float(cfg.get("guardAfter", 2.5)))
-						if who == null:
-							continue
-						ally = who
-					elif lowest >= heal_below:
-						continue
-				"guard":
-					if not hit_lately:
-						continue
-					if str(s.get("effect", "")) == "FrostArmor":
-						if _armoured(float(s.get("reach", 0.0))):
-							continue
-					elif body.hit.shields.size() > 0 or st.shield() > 0.0:
-						continue
-				"attack":
-					if str(use.get("aim", "")) == "group":
-						var best := _thickest(float(s.get("range", 0.0)), float(s.get("aoeRadius", 64.0)))
-						if int(best[1]) < int(use.get("atLeast", 1)):
-							continue
-						spot = best[0]
-					elif foe.global_position.distance_to(body.position) > float(s.get("range", 0.0)):
-						continue
-					else:
-						at = foe
-			if st.spend_mana(float(s.get("manaCost", 0.0))):
-				_start(sp, s, at, t, cfg, spot, ally)
-				return
+	_look_at_lead(t)
+	var __t := Time.get_ticks_usec()
+	_follow_rules(t, st, Tactics.of(body.person))
+	Perf.add(&"companion_magic.rules", __t)
 
 
-# Who her Healing Blanket's for: the most hurt of her side within [param reach] if they're under [param below] of
-# their HP; else, with [param keep], whoever's been struck lately (Sera, or she) while under that share and not wrapped
-# already; else null.
-func _blanket_for(t: float, reach: float, below: float, keep: float, lately: float) -> Node2D:
-	var worst: Node2D = null
-	var low := below
-	for pair in SpellEffects.party_near(body.world, body.position, reach):
-		var f := SpellEffects.WaterBlanket.share_of_hp(pair[0], pair[1])
-		if f < low:
-			low = f
-			worst = pair[0]
-	if worst != null or keep <= 0.0:
-		return worst
-	var sera := body.world.player as Node2D
-	for pick in [[sera, _sera_hit_at], [body, _hit_at]]:
-		var who: Node2D = pick[0]
-		if who == null or t - float(pick[1]) >= lately or SpellEffects.WaterBlanket.on(who):
+# Their rules, top first: the first that holds and can be done now is done.
+func _follow_rules(t: float, st: CharacterStats, tac: Dictionary) -> void:
+	var stance: Dictionary = tac.stance
+	_gather_foes()
+	var foe := _foe()
+	_spells_now.clear()
+	var rules: Array = tac.rules
+	# (their rules changed in the Tactics window: each starts afresh)
+	if rules.hash() != _rules_hash:
+		_rules_hash = rules.hash()
+		_rule_next.clear()
+	for i in rules.size():
+		var r: Dictionary = rules[i]
+		if not bool(r.get("on", true)) or (str(r.get("do", "")) == "cast" and _spells(st, str(r.get("spell", ""))).is_empty()):
 			continue
-		var st: CharacterStats = (who as Miko).stats if who is Miko else Companions.stats_for((who as Villager).person)
-		if st != null and SpellEffects.WaterBlanket.share_of_hp(who, st) < keep:
-			return who
-	return null
+		var key := i
+		if t < float(_rule_next.get(key, 0.0)):
+			continue
+		var ctx := _holds(r, t, st, foe)
+		if ctx.is_empty():
+			continue
+		# (its weight: how soon it can come again, and how readily it's taken)
+		var w := Tactics.weight(int(r.get("weight", 3)))
+		if randf() > float(w.get("chance", 1.0)):
+			_rule_next[key] = t + 1.0
+			continue
+		if _do(r, ctx, t, st, stance):
+			_rule_next[key] = t + float(w.get("every", 1.5))
+			var what := str(r.get("do", ""))
+			done[what] = int(done.get(what, 0)) + 1
+			return
 
 
-# The lowest share of HP of anyone with her (Sera, the other companions, herself).
-func _lowest_share() -> float:
-	var low := 1.0
+# The spells of theirs a rule's spell stands for (worked out once a look).
+func _spells(st: CharacterStats, spell: String) -> Array:
+	if not _spells_now.has(spell):
+		if not _spells_now.has(""):
+			_spells_now[""] = st.known_spells()
+		_spells_now[spell] = Tactics.spells_for(st, spell, _spells_now[""])
+	return _spells_now[spell]
+
+
+# The leader's HP watched: less than at the last look, they've been hit.
+func _look_at_lead(t: float) -> void:
+	var lead: Miko = body.world.player as Miko
+	if lead != null and lead.stats != null:
+		if _sera_hp >= 0.0 and lead.stats.hp < _sera_hp - 0.01:
+			_sera_hit_at = t
+		_sera_hp = lead.stats.hp
+
+
+# The monster they're fighting, else the one nearest the leader or them coming for either.
+func _foe() -> Damageable:
+	if body.foe != null and is_instance_valid(body.foe) and body.foe.alive():
+		return body.foe
+	return body._party_threat()
+
+
+# Whether a rule's condition holds now: {} if not, else what it found (the foe, the ally it's about, the strip).
+func _holds(r: Dictionary, t: float, st: CharacterStats, foe: Damageable) -> Dictionary:
+	var td := Tactics.data()
+	var when := str(r.get("when", ""))
+	var v := float(r.get("value", Tactics.condition(when).get("default", 50)))
+	var lately := float(td.get("guardAfter", 2.5))
+	var yes := {"foe": foe}
+	var lead := body.world.player as Miko
+	match when:
+		"always":
+			return yes
+		"inFight":
+			return yes if foe != null else {}
+		"selfHpBelow":
+			return yes if body.hit.hp < body.hit.max_hp * v / 100.0 else {}
+		"selfManaBelow":
+			var most := st.stat("maxMana")
+			return yes if most > 0.0 and st.mana < most * v / 100.0 else {}
+		"allyHpBelow":
+			var who := _ally(func(b: Node2D, s: CharacterStats) -> bool: return SpellEffects.WaterBlanket.share_of_hp(b, s) < v / 100.0)
+			return {"foe": foe, "ally": who} if who != null else {}
+		"leaderHpBelow":
+			if lead != null and lead.stats != null and SpellEffects.WaterBlanket.share_of_hp(lead, lead.stats) < v / 100.0:
+				return {"foe": foe, "ally": lead}
+		"beingAttacked":
+			return yes if t - _hit_at < lately else {}
+		"leaderAttacked":
+			if lead != null and t - _sera_hit_at < lately:
+				return {"foe": _nearest_foe(lead.position, Party.GUARD), "ally": lead}
+		"enemyInMelee":
+			var f := _nearest_foe(body.position, float(td.get("meleeRange", 1.6)))
+			return {"foe": f} if f != null else {}
+		"enemiesNear":
+			return yes if _count_near(float(td.get("nearRange", 5.0))) >= int(v) else {}
+		"allyNoShield":
+			var who := _ally(func(b: Node2D, _s: CharacterStats) -> bool: return t - _hit_time(b) < lately and not SpellEffects.FrostArmor.on(b))
+			return {"foe": foe, "ally": who} if who != null else {}
+		"allyNoBlanket":
+			var who := _ally(func(b: Node2D, s: CharacterStats) -> bool: return SpellEffects.WaterBlanket.share_of_hp(b, s) < v / 100.0 and not SpellEffects.WaterBlanket.on(b))
+			return {"foe": foe, "ally": who} if who != null else {}
+		"enemyFrozen":
+			var f := _frozen_foe()
+			return {"foe": f} if f != null else {}
+		"inTelegraph":
+			var strip := Tactics.strip_at(body.position)
+			return {"foe": foe, "strip": strip} if strip != null else {}
+	return {}
+
+
+# Does a rule's action, if it can be done now (and makes a difference): whether it was.
+func _do(r: Dictionary, ctx: Dictionary, t: float, st: CharacterStats, stance: Dictionary) -> bool:
+	var td := Tactics.data()
+	var w := body.world
+	var lead := w.player as Node2D
+	match str(r.get("do", "")):
+		"cast":
+			return _cast_rule(str(r.get("spell", "@attack")), ctx, t, st, stance)
+		"hpPotion", "manaPotion":
+			if t < _potion_next:
+				return false
+			var potion := "HpPotion" if str(r.do) == "hpPotion" else "ManaPotion"
+			if Tactics.drink(body, st, potion):
+				_potion_next = t + float(td.get("potionEvery", 8.0))
+				potions[potion] = int(potions.get(potion, 0)) + 1
+				return true
+		"attackNearest":
+			return _melee(_nearest_foe(body.position, Party.GUARD), t)
+		"attackLeaderTarget":
+			var f: Damageable = ctx.get("foe") if str(r.get("when", "")) == "leaderAttacked" else null
+			if f == null and lead != null:
+				f = _nearest_foe(lead.position, Party.GUARD)
+			return _melee(f, t)
+		"keepDistance":
+			var f := _nearest_foe(body.position, float(td.get("keepNear", 4.0)))
+			return f != null and body.step_back(f.global_position, t)
+		"toLeader":
+			if lead == null or lead.position.distance_to(body.position) < 2.5 * w.px:
+				return false
+			body.hold_until = t + 2.5
+			body.foe = null
+			body._follow_start(t)
+			return true
+		"dodge":
+			var strip: Telegraph = ctx.get("strip") if ctx.get("strip") != null else Tactics.strip_at(body.position)
+			if strip == null:
+				return false
+			_dodge(strip, t)
+			return true
+	return false
+
+
+# Into the fight hand to hand with [param f] (closing in a while, even if they'd keep their distance otherwise).
+# Whether that's a change.
+func _melee(f: Damageable, t: float) -> bool:
+	if f == null:
+		return false
+	body.melee_until = t + 3.0
+	body.hold_until = 0.0
+	if body.state == Villager.State.FIGHT and body.foe == f:
+		return false
+	body._fight(f)
+	return true
+
+
+# A rule's spell cast, if one of those it stands for is ready, affordable (attacks keep the mana reserve back) and
+# has someone or something to go at: whether one was started.
+func _cast_rule(spell: String, ctx: Dictionary, t: float, st: CharacterStats, stance: Dictionary) -> bool:
+	if t < _gap_until:
+		return false
+	var cfg: Dictionary = Companions.data().get("magic", {})
+	var uses: Dictionary = cfg.get("spells", {})
+	var freq := Tactics.frequency(str(stance.get("frequency", "normal")))
+	var reserve := (float(stance.get("reserve", 0.0)) + float(freq.get("reserve", 0.0))) / 100.0 * st.stat("maxMana")
+	var foe: Damageable = ctx.get("foe")
+	for sp in _spells(st, spell):
+		var s := Companions.spell(str(sp))
+		if s.is_empty() or t < float(ready_at.get(sp, 0.0)):
+			continue
+		var kind := Tactics.kind_of(str(sp))
+		var cost := float(s.get("manaCost", 0.0))
+		if st.mana + 0.001 < cost + (reserve if kind in ["attack", "area"] else 0.0):
+			continue
+		var at: Damageable = null
+		var spot := Vector2.INF
+		var ally: Node2D = null
+		match kind:
+			"heal":
+				ally = ctx.get("ally")
+				if ally == null:
+					ally = _ally(func(b: Node2D, bs: CharacterStats) -> bool: return SpellEffects.WaterBlanket.share_of_hp(b, bs) < 0.95)
+				if ally == null or SpellEffects._ground_gap(ally.global_position, body.position) > float(s.get("range", 640.0)):
+					continue
+			"guard":
+				# (armour goes on everyone near them: the one it's for must be within its reach, and not wearing it)
+				var who: Node2D = ctx.get("ally") if ctx.get("ally") != null else body
+				if SpellEffects._ground_gap(who.global_position, body.position) > float(s.get("reach", s.get("range", 200.0))):
+					continue
+				if str(s.get("effect", "")) == "FrostArmor" and SpellEffects.FrostArmor.on(who):
+					continue
+			"area":
+				var best := _thickest(float(s.get("range", 0.0)), float(s.get("aoeRadius", 64.0)))
+				if int(best[1]) < maxi(1, int(uses.get(sp, {}).get("atLeast", 1))):
+					continue
+				spot = best[0]
+			"attack":
+				var f := foe if foe != null else _foe()
+				if f == null or f.global_position.distance_to(body.position) > float(s.get("range", 0.0)):
+					continue
+				at = f
+			_:
+				continue
+		if st.spend_mana(cost):
+			_cast_gap = float(freq.get("gap", cfg.get("gap", 1.2)))
+			_start(str(sp), s, at, t, cfg, spot, ally)
+			return true
+	return false
+
+
+# Whom of the party (the leader, the companions, themselves) a heal or shield is for, of those [param fits] holds for:
+# as their stance says (the leader first, themselves first, or the most hurt); null if nobody.
+func _ally(fits: Callable) -> Node2D:
+	var protect := str(Tactics.stance(body.person).get("protect", "lowest"))
+	var best: Node2D = null
+	var low := INF
 	for pair in SpellEffects.party_near(body.world, body.position, INF):
 		var b: Node2D = pair[0]
-		var st: CharacterStats = pair[1]
-		var hit: Damageable = b.get("hit") as Damageable if "hit" in b else null
-		if hit != null and is_instance_valid(hit):
-			low = minf(low, hit.hp / maxf(1.0, hit.max_hp))
-		else:
-			low = minf(low, st.hp / maxf(1.0, st.stat("maxHp")))
-	return low
+		if not fits.call(b, pair[1]):
+			continue
+		if (protect == "leader" and b == body.world.player) or (protect == "self" and b == body):
+			return b
+		var f := SpellEffects.WaterBlanket.share_of_hp(b, pair[1])
+		if f < low:
+			low = f
+			best = b
+	return best
 
 
-# Whether anyone her armour would reach has armour on already.
-func _armoured(reach: float) -> bool:
-	for pair in SpellEffects.party_near(body.world, body.position, reach):
-		if SpellEffects.FrostArmor.on(pair[0]):
-			return true
-	return SpellEffects.FrostArmor.on(body)
+# When [param who] (of the party) was last struck.
+func _hit_time(who: Node2D) -> float:
+	if who == body:
+		return _hit_at
+	if who == body.world.player:
+		return _sera_hit_at
+	var m := who.get_node_or_null("Magic") as CompanionMagic
+	return m._hit_at if m != null else -99.0
+
+
+# A monster (one they'd fight) within [param units] of [param at], the nearest; or null.
+func _nearest_foe(at: Vector2, units: float) -> Damageable:
+	var best: Damageable = null
+	var best_d := units * body.world.px
+	for d in _foes:
+		if _is_foe(d):
+			var dd := d.global_position.distance_to(at)
+			if dd < best_d:
+				best_d = dd
+				best = d
+	return best
+
+
+func _count_near(units: float) -> int:
+	var n := 0
+	for d in _foes:
+		if _is_foe(d) and d.global_position.distance_to(body.position) <= units * body.world.px:
+			n += 1
+	return n
+
+
+# The nearest monster near them frozen solid or frostbitten.
+func _frozen_foe() -> Damageable:
+	var best: Damageable = null
+	var best_d := Party.GUARD * body.world.px
+	for d in _foes:
+		if _is_foe(d) and (StatusEffects.frozen(d) or StatusEffects.has_effect(d, "Frostbite")):
+			var dd := d.global_position.distance_to(body.position)
+			if dd < best_d:
+				best_d = dd
+				best = d
+	return best
+
+
+# The monsters about (near them or the leader), gathered once a look for the rules to ask about.
+func _gather_foes() -> void:
+	_foes.clear()
+	var lead := body.world.player as Node2D
+	var far := 2.0 * Party.GUARD * body.world.px
+	for d in Damageable.all:
+		if _is_foe(d) and (d.global_position.distance_to(body.position) < far or (lead != null and d.global_position.distance_to(lead.position) < far)):
+			_foes.append(d)
+
+
+static func _is_foe(d: Damageable) -> bool:
+	return is_instance_valid(d) and d.alive() and d.team == Damageable.Team.ENEMY and d.get_parent() is Creature and not d.get_parent() is Rabbit
+
+
+# Out of [param strip] sideways (to the nearer edge), a step past it.
+func _dodge(strip: Telegraph, t: float) -> void:
+	var w := body.world
+	var g := Telegraph._ground(body.position - strip.from)
+	var gd := Telegraph._ground(strip.dir * strip.length)
+	var n := Vector2(-gd.y, gd.x).normalized()
+	var side := g.dot(n)
+	var sgn := signf(side)
+	if absf(side) < 0.05 * w.px:
+		# (right down the middle: the side nearer the leader)
+		var lead := w.player as Node2D
+		sgn = signf(Telegraph._ground(lead.position - body.position).dot(n)) if lead != null else 1.0
+		sgn = 1.0 if sgn == 0.0 else sgn
+	var out := sgn * (strip.width * 0.5 + float(Tactics.data().get("dodgeMargin", 0.45)) * w.px) - side
+	body.dodge_to = body.position + Telegraph._screen(n * out)
+	body.dodge_until = t + 1.2
+	dodges += 1
+
+
+# The spell being cast dropped (to get out of the way): its mana back, the circle gone.
+func _cancel() -> void:
+	var st := Companions.stats_for(body.person)
+	var s := Companions.spell(_pending)
+	if st != null and not s.is_empty():
+		st.mana = minf(st.stat("maxMana"), st.mana + float(s.get("manaCost", 0.0)))
+	_pending = ""
+	_pending_foe = null
+	_pending_ally = null
+	_hide_circle()
+	body.cast_until = 0.0
+	cancelled += 1
 
 
 # Where the monsters are thickest within [param reach] of her, for a spell of area [param area]: [spot, how many].
 func _thickest(reach: float, area: float) -> Array:
 	var foes := []
-	for d in Damageable.all:
-		if is_instance_valid(d) and d.alive() and d.team == Damageable.Team.ENEMY and d.get_parent() is Creature \
-				and not d.get_parent() is Rabbit and d.global_position.distance_to(body.position) <= reach:
+	for d in _foes:
+		if _is_foe(d) and d.global_position.distance_to(body.position) <= reach:
 			foes.append(d.global_position)
 	var best := [Vector2.INF, 0]
 	for a in foes:
@@ -203,15 +449,6 @@ func _thickest(reach: float, area: float) -> Array:
 		if n > int(best[1]):
 			best = [mid / float(n), n]
 	return best
-
-
-# What a spell's for: as companions.json says, else to attack if it does damage.
-func _use_of(sp: String, s: Dictionary, uses: Dictionary) -> String:
-	if uses.has(sp):
-		return str(uses[sp].get("use", ""))
-	if str(s.get("effect", "")) == "Shikigami":
-		return ""
-	return "attack" if float(s.get("damage", 0.0)) > 0.0 and str(s.get("delivery", "")) in ["Directional", "SkyFall", "Ground"] else ""
 
 
 # She stops, turns to it, and the circle comes up at her feet.
@@ -261,7 +498,9 @@ func _release(t: float) -> void:
 			origin = target + Vector2(float(sky[0]), float(sky[1]))
 	SpellEffects.begin(w, s, st, origin, ground_origin, target, body)
 	ready_at[sp] = t + SpellEffects.cooldown(s, st)
-	_gap_until = t + float(Companions.data().get("magic", {}).get("gap", 1.2))
+	_gap_until = t + _cast_gap
+	if Tactics.strip_at(body.position) != null:
+		cast_in_strip += 1
 	casts.append([sp, target])
 	cast.emit(sp, target)
 
