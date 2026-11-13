@@ -1,19 +1,64 @@
 {
 "name": "wayside_post",
-"at": [-264, 22],
+"at": [-264,22],
 "width": 22,
 "height": 8,
 "addToSaves": true,
 "clear": true,
-"floors": [],
-"walls": [],
-"props": [
-{"scale":1.0,"turn":1,"type":"StreetLamp","x":5,"y":3},
-{"scale":1.0,"turn":0,"type":"StreetLamp","x":16,"y":3},
-{"scale":1.0,"turn":0,"type":"Bonfire","x":3,"y":2,"out":true},
-{"scale":1.0,"turn":0,"type":"Bedroll","x":18,"y":4},
-{"scale":1.0,"turn":0,"type":"Rocks","x":2,"y":5},
-{"scale":1.0,"turn":0,"type":"Pebble","x":17,"y":5}
+"floors": [
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":0},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":1},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":2},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":3},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":4},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":5},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":6},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":12,"y":7},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":0},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":1},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":2},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":3},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":4},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":5},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":6},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":13,"y":7},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":0},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":1},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":2},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":3},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":4},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":5},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":6},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":14,"y":7},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":0},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":1},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":2},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":3},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":4},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":5},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":6},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":15,"y":7},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":0},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":1},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":2},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":3},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":4},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":5},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":6},
+{"ground":"Dirt","laid":"","roof":"","turned":false,"x":16,"y":7}
 ],
-"free": []
+"walls": [
+
+],
+"props": [
+{"scale":1.0,"turn":0,"type":"Bonfire","x":3,"y":2},
+{"scale":1.0,"turn":0,"type":"Rocks","x":2,"y":5},
+{"scale":1.0,"turn":0,"type":"Pebble","x":17,"y":5},
+{"scale":1.0,"turn":2,"type":"StreetLamp","x":11,"y":4},
+{"scale":1.0,"turn":0,"type":"StreetLamp","x":17,"y":4},
+{"scale":1.0,"turn":0,"type":"Bedroll","x":19,"y":2}
+],
+"free": [
+
+]
 }

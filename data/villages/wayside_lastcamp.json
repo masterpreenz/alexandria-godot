@@ -1,19 +1,25 @@
 {
 "name": "wayside_lastcamp",
-"at": [-246, 74],
+"at": [-246,74],
 "width": 10,
 "height": 9,
 "addToSaves": true,
 "clear": true,
-"floors": [],
-"walls": [],
+"floors": [
+
+],
+"walls": [
+
+],
 "props": [
-{"scale":1.0,"turn":0,"type":"Bonfire","x":4,"y":4,"out":true},
-{"scale":1.0,"turn":0,"type":"Bedroll","x":6,"y":4},
-{"scale":1.0,"turn":0,"type":"Chest","x":2,"y":3},
+{"scale":1.0,"turn":0,"type":"Bonfire","x":4,"y":4},
 {"scale":1.0,"turn":0,"type":"MiningSign","x":7,"y":2},
 {"scale":1.0,"turn":0,"type":"Rocks","x":3,"y":6},
-{"scale":1.0,"turn":0,"type":"TallGrass","x":6,"y":6}
+{"scale":1.0,"turn":0,"type":"TallGrass","x":6,"y":6},
+{"scale":1.0,"turn":0,"type":"Bedroll","x":7,"y":5},
+{"scale":1.0,"turn":0,"type":"Chest","x":7,"y":7}
 ],
-"free": []
+"free": [
+
+]
 }

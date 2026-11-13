@@ -92,7 +92,9 @@ func _draw() -> void:
 	var m := tracked()
 	if m.is_empty() or not _card.visible or miko.locked:
 		return
-	var to: Vector2 = (m.at as Vector2) - miko.position
+	# (from where she's drawn, as the camera follows her: her last physics step would jitter against her as she moves)
+	var here := miko.drawn_position()
+	var to: Vector2 = (m.at as Vector2) - here
 	var d := to / world.px
 	if Vector2(d.x, d.y * 2.0).length() <= float(m.radius) / world.px:
 		return
@@ -100,7 +102,7 @@ func _draw() -> void:
 	var zoom := view.get_scale().x
 	var dir := to.normalized()
 	var bob := sin(Time.get_ticks_msec() / 1000.0 * 4.0) * 0.06
-	var centre: Vector2 = view * (miko.position + Vector2(0, -0.55 * world.px))
+	var centre: Vector2 = view * (here + Vector2(0, -0.55 * world.px))
 	var at := centre + Vector2(dir.x, dir.y) * (ARROW_OUT + bob) * world.px * zoom
 	var k := HudStyle.SCALE
 	var side := Vector2(-dir.y, dir.x)
