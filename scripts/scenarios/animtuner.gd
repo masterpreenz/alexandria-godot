@@ -4,7 +4,7 @@ extends Scenario
 ## run, then Save (the files read back) and Revert + Save (the files as they were). Run with --window=animtuner.
 
 
-func _key(code: int, alt := false) -> void:
+func _key(code: Key, alt := false) -> void:
 	var e := InputEventKey.new()
 	e.keycode = code
 	e.pressed = true

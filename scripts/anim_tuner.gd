@@ -769,7 +769,8 @@ func _pills(title: String, items: Array) -> void:
 	h.custom_minimum_size.x = _k(80)
 	r.add_child(h)
 	for it in items:
-		var b := HudStyle.button(str(it[0]), 10, "tileOn" if it[1] else "pill", HudStyle.color("accentLight") if it[1] else null)
+		var accent: Variant = HudStyle.color("accentLight")
+		var b := HudStyle.button(str(it[0]), 10, "tileOn" if it[1] else "pill", accent if it[1] else null)
 		b.pressed.connect(it[2])
 		r.add_child(b)
 
