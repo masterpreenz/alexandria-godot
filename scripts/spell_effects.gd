@@ -991,7 +991,7 @@ class FrostArmor extends Node2D:
 ## (landsAfter), hurting and frostbiting everything in the area, and with Frozen Ground leaving it frozen there.
 class IceBlastArea extends Node2D:
 	const SCENE := "res://vfx/ice_blast/ice_blast.tscn"
-	const RING := 0.86                ## the animation's frosted ring at its widest, as a share of its frame's width
+	const RING := 0.69                ## the animation's frosted ring at its widest, as a share of its frame's width
 	static var blasts := 0            ## blasts landed so far (the scenarios read it)
 	static var hits := 0              ## monsters they've hit
 
