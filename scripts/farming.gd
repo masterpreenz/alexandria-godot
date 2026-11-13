@@ -53,6 +53,9 @@ func setup(w: World, who: Miko, data: Dictionary, hud: Node) -> void:
 	world = w
 	miko = who
 	d = data
+	# (after build mode's turn each frame: a plot it adds, clears or moves is drawn as a crop that same frame, not for
+	# a frame in its bare picture)
+	process_priority = 50
 	panel = FieldPanel.new()
 	panel.name = "FieldPanel"
 	hud.add_child(panel)

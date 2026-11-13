@@ -481,7 +481,7 @@ func marks() -> Array:
 		# (a place in a named section: its ring kept wholly in that section)
 		var sect := _section_rect(step_of(def, st))
 		if sect.has_area():
-			var v := mini(int(ceilf(vague)), mini(sect.size.x, sect.size.y) / 2 - 1)
+			var v := mini(int(ceilf(vague)), floori(mini(sect.size.x, sect.size.y) / 2.0) - 1)
 			var c := world.floors.cell_at(at + off)
 			var inside := Vector2i(clampi(c.x, sect.position.x + v, sect.end.x - 1 - v), clampi(c.y, sect.position.y + v, sect.end.y - 1 - v))
 			if inside != c:
