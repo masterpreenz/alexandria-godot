@@ -19,9 +19,9 @@ func run() -> void:
 		miyu = Villager.all[1]
 		miyu.person["unique"] = "miyu"
 		miyu.person["name"] = "Miyu"
-		var tr: Array = miyu.person.get("traits", []).duplicate()
-		tr.append("unique")
-		miyu.person["traits"] = tr
+		var trait_list: Array = miyu.person.get("traits", []).duplicate()
+		trait_list.append("unique")
+		miyu.person["traits"] = trait_list
 	ch.events = ch.events.filter(func(e): return not str(e.what) in ["scene:miyu_magic", "miyu_errand", "water_tome_found", "scene:miyu_wakes"])
 	r.heard.erase("village_salvage")
 	for e in ["miyu_home", "party:miyu"]:

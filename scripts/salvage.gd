@@ -83,6 +83,6 @@ func _search(at: Vector2) -> void:
 		else:
 			world.village.store_crafted(BOOK)
 		ch.record("water_tome_found")
-		FloatingText.spawn(world, "A book of water magic: Miyu's book!", over, Color(0.6, 0.85, 1.0), 18, 2.5)
+		FloatingText.spawn(world, "The Water Spell Book: Miyu's book!", over, Color(0.6, 0.85, 1.0), 18, 2.5)
 		return
 	FloatingText.spawn(world, NOTHING[absi(hash(world.floors.cell_at(at))) % NOTHING.size()], over, Color(0.8, 0.8, 0.75), 14, 2.0)

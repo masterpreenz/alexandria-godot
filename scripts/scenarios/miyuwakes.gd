@@ -18,9 +18,9 @@ func run() -> void:
 		miyu.person["unique"] = "miyu"
 		miyu.person["name"] = "Miyu"
 		miyu.person["restUntil"] = -1.0
-		var tr: Array = miyu.person.get("traits", []).duplicate()
-		tr.append("unique")
-		miyu.person["traits"] = tr
+		var trait_list: Array = miyu.person.get("traits", []).duplicate()
+		trait_list.append("unique")
+		miyu.person["traits"] = trait_list
 	ch.events = ch.events.filter(func(e): return not str(e.what) in ["party:miyu", "party_join:miyu", "scene:miyu_wakes"])
 	if Party.active.members.has("miyu"):
 		Party.active.members.erase("miyu")
