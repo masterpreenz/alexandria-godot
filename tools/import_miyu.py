@@ -138,14 +138,25 @@ def tips(dr):
 
 
 def lying(dr):
-    a = np.array(sheets[('sleep', dr)][15])
+    """Where her body's middle and her head are in the settled sleeping frame, from the frame's pivot, in the world's
+    pixels as the game draws her (frame px x 128 / PPU x the body's scale 0.7), as the other looks' are. The head is
+    the end of her (left or right) where her purple hair is."""
+    a = np.array(sheets[('sleep', dr)][-1])
     px, py = PV[('sleep', dr)]
     al = a[..., 3] > 40
     ys, xs = np.nonzero(al)
     r, g, b = a[..., 0].astype(int), a[..., 1].astype(int), a[..., 2].astype(int)
-    hy, hx = np.nonzero(al & (b > r + 8) & (r > 80) & (r < 190) & (g < r - 15) & (b < 200))
-    return {"middle": [round(float((xs.min() + xs.max()) / 2 - px), 1), round(float((ys.min() + ys.max()) / 2 - py), 1)],
-            "head": [round(float(hx.mean() - px), 1), round(float(hy.mean() - py), 1)]}
+    hair = al & (r > 70) & (b > 60) & (r > g + 25) & (b > g + 10) & (r < 215)
+    hy, hx = np.nonzero(hair)
+    x0, x1 = xs.min(), xs.max()
+    mid_x = (x0 + x1) / 2
+    right = hx.mean() > mid_x if len(hx) else True
+    side = hair & ((np.arange(a.shape[1])[None, :] > mid_x) if right else (np.arange(a.shape[1])[None, :] <= mid_x))
+    sy, sx = np.nonzero(side)
+    head = [float(np.percentile(sx, 70 if right else 30)), float(sy.mean())]
+    k = 128.0 / PPU * 0.7
+    return {"middle": [round((mid_x - px) * k, 1), round(((ys.min() + ys.max()) / 2 - py) * k, 1)],
+            "head": [round((head[0] - px) * k, 1), round((head[1] - py) * k, 1)]}
 
 
 vpath = GAME + 'data/villagers.json'
