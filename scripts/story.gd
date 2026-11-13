@@ -171,6 +171,8 @@ var _casts_from := 0
 var _cast_by := {}              ## spell -> how many times she's cast it
 var _cast_by_from := {}
 var _hunger_was := 0.0
+var _caught_up := false         ## an older game's been checked for the guide's later steps
+var _catch_up_at := 0.0
 
 
 func _needs() -> Needs:
@@ -300,6 +302,7 @@ func _tick_parts() -> void:
 			"stored": done = _stored_since(bits[1]) >= int(bits[2])
 			"cooked": done = _dishes_in_bag() - int(_from.cooked) >= int(bits[1])
 			"event": done = Chronicle.active.happened(bits[1])
+			"item": done = _has_item(bits[1])
 			"dishes": done = _dishes_stored() - int(_from.dishes) >= int(bits[1])
 		if done:
 			_did[key] = true
@@ -378,6 +381,7 @@ func _finish() -> void:
 func _process(delta: float) -> void:
 	_hold_weather()
 	if beat < 0:
+		_catch_up()
 		return
 	# (out of the way while a window's open over her: her bag and character, a conversation)
 	var talk: Control = game.get_node_or_null("Hud/Talk")
@@ -477,12 +481,38 @@ func _done(dn: Dictionary) -> bool:
 			return _dishes_stored() - int(_from.dishes) >= int(dn.count)
 		"event":
 			return Chronicle.active.happened(str(dn.event))
+		"item":
+			return _has_item(str(dn.what))
 		"morning":
 			var h := world.clock.hour()
 			# (a six o'clock come since the beat began: she's slept the night through, however late she went to bed)
 			var began := float(_from.get("hours", world.clock.hours))
 			return h >= 6.0 and h < 12.0 and floorf((world.clock.hours - 6.0) / 24.0) > floorf((began - 6.0) / 24.0)
 	return false
+
+
+# Whether she has the piece of gear [param item]: in her bag, on her, or in the village's storage.
+func _has_item(item: String) -> bool:
+	return miko.bag.items.has(item) or miko.bag.worn.has(item) or world.village.items.has(item)
+
+
+# A game that finished the guide before its later steps were added (the workbench, the rod, fishing) picks them up:
+# once, with the intro done and Miyu home.
+func _catch_up() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _caught_up or Chronicle.active == null or now < _catch_up_at:
+		return
+	_catch_up_at = now + 2.0   # (looked at now and then: till a loaded game's story is known)
+	var ch := Chronicle.active
+	if not ch.happened("intro_done") or not ch.happened("miyu_home"):
+		return
+	_caught_up = true
+	if ch.happened("guide_fishing"):
+		return
+	var ids := _beats().map(func(b): return str(b.get("id", "")))
+	var at := ids.find("workbench")
+	if at >= 0:
+		_begin(at, false)
 
 
 ## Talking to [param v]: if the story's waiting for her to hand them something (a beat's "give": {to: a unique, dishes:

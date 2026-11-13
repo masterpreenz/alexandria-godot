@@ -126,7 +126,7 @@
  "steps": [
   {
    "id": "find",
-   "note": "{teller} spoke of the great misted woods to the {dir} of the village. Find the way into them.",
+   "note": "{teller} spoke of the great misted woods to the {dir} of the village. Find the way into them. A Cleansing Crystal set among the trees would drive the mist off and cleanse the wood of its corruption.",
    "place": {
     "kind": "forest",
     "section": "F6",
@@ -141,7 +141,7 @@
   },
   {
    "id": "clear",
-   "note": "The mist lies thick among these trees. Something that drives the mist off, set here, might clear it.",
+   "note": "The mist lies thick among these trees, and they're rotting in it. Set a Cleansing Crystal here (B to build; three mist crystals and some wood): it clears the mist round it, and over a few hours the corrupted trees in its clearing heal.",
    "place": {
     "kind": "same",
     "vague": 3
