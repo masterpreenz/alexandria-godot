@@ -222,6 +222,10 @@ func _show(line: String) -> void:
 			_add("Have a drink", _order_drink)
 	elif Party.active != null and Party.willing(who.person) and not Party.active.full():
 		_add("Come with me", _order_join)
+	# (a spell book of theirs in Sera's bag: Miyu's book of water magic)
+	var book := Companions.book_for(who.person, miko.bag)
+	if not book.is_empty():
+		_add(str(book.offer), _give_book.bind(book), true)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
 
@@ -373,6 +377,20 @@ func _order_eat() -> void:
 
 func _order_drink() -> void:
 	_show("Ah... thank you." if Party.active.give_drink(who.person) else "Your pouch is empty. A well, or the river...")
+
+
+# The book handed over: they learn its spells there and then, and say so (its scene, if it has one).
+func _give_book(book: Dictionary) -> void:
+	var got := Companions.give_book(who.person, book, miko.bag)
+	who.show_mood("success", 4.0)
+	if not got.is_empty():
+		var names := PackedStringArray(got.map(func(sp): return Companions.spell_name(str(sp))))
+		FloatingText.spawn(world, "%s learned %s" % [str(who.person.name), ", ".join(names)], who.position + Vector2(0, -2.2 * world.px), Color(0.65, 0.88, 1.0), 20, 3.0)
+	var scene := Scenes.for_speaker(who.person)
+	if not scene.is_empty():
+		_play(scene, 0)
+	else:
+		_show(str(book.get("says", "")).format({"miko": Miko.NAME}))
 
 
 func _order_join() -> void:

@@ -4,6 +4,8 @@ extends PanelContainer
 ## level, name, HP and mana, attack, and what they're at (with her, waiting and roughly where, fighting, far behind).
 ## Each takes the same orders as in a talk: "Follow me", "Wait here" (where they stand now), "Go home" (they leave the
 ## party). The places left say so, with anyone who'd come along if asked. It steps aside while Sera's talking.
+## Each companion's Gear opens their page in the Character & Bag window (their slots, with Sera's bag to dress them
+## from) and Talents their talent web; under their attack, the spells they know.
 
 const FAR := 12.0                 ## units behind her a companion's "far behind"
 
@@ -255,12 +257,30 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 	orders.add_child(home)
 	orders.add_child(eat)
 	orders.add_child(drink)
+	# Their gear and talents (the Character & Bag window, on their page).
+	var own := VBoxContainer.new()
+	own.add_theme_constant_override("separation", roundi(_k(3)))
+	own.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(own)
+	var gear := _order("Gear", false, func(): _open_page(p, false))
+	var tal := _order("Talents", false, func(): _open_page(p, true))
+	own.add_child(gear)
+	own.add_child(tal)
+	var spells := HudStyle.label("", 10, "body", HudStyle.color("mana"))
+	spells.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	spells.custom_minimum_size.x = _k(230)
+	(ui.needs as Label).get_parent().add_child(spells)
 	_rows.append(func():
 		var body := _body(p)
 		face.level = int(p.get("level", 1))
 		face.queue_redraw()
 		(ui.lv as Label).text = "Lv %d" % int(p.get("level", 1))
 		(ui.atk as Label).text = "Attack %s" % CharacterStats.fmt(float(p.get("atk", 0.0)))
+		var st := Companions.stats_for(p)
+		var known: Array = st.known_spells() if st != null else []
+		spells.text = "" if known.is_empty() else "Spells: " + ", ".join(PackedStringArray(known.map(func(k): return Companions.spell_name(str(k)))))
+		spells.visible = not known.is_empty()
+		tal.text = "Talents (%d)" % st.talent_points if st != null and st.talent_points > 0 else "Talents"
 		var bars: Bars = ui.bars
 		bars.hp = body.hit.hp if body != null and body.hit != null else float(p.get("hp", 0.0))
 		bars.most_hp = body.hit.max_hp if body != null and body.hit != null else maxf(1.0, float(p.get("maxHp", 1.0)))
@@ -278,6 +298,15 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 		var nd: Needs = miko.get_node_or_null("Needs")
 		drink.disabled = thirst >= 90.0 or nd == null or not miko.bag.items.has("WaterPouch") or nd.pouch < Needs.POUCH_DRINK - 0.01)
 	return pc
+
+
+# Their page in the Character & Bag window (or their talents), this window out of the way.
+func _open_page(p: Dictionary, talents_tab: bool) -> void:
+	var cp: CharacterPanel = get_tree().current_scene.get_node_or_null("Hud/CharacterPanel")
+	if cp == null:
+		return
+	close()
+	cp.open_for(p, talents_tab)
 
 
 func _order(text: String, off: bool, act: Callable) -> Button:

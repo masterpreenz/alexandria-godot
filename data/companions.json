@@ -1,0 +1,34 @@
+{
+"_about": "Sera's companions as fighters (scripts/companions.gd, scripts/companion_magic.gd). character: what a companion has on top of their own HP and attack (which come from who they are): base and perLevel stats, as in combat.json's character; xpPerLevel matches the villagers' 30 a level. books: a spell book a companion can be given in a talk (offer: the reply's words; item: the book, taken from Sera's bag; for: the unique it's for; spells: what they learn from it at once; records: chronicle events written; says: their line when there's no scene for it). magic: how a companion casts on their own in a fight: think (seconds between looks), pauseShare (share of a spell's cast time they stand casting, between pauseMin and pauseMax seconds), gap (seconds at least between any two casts), healBelow (share of HP under which Sera or they get a heal), guardAfter (seconds since they were last hit that still counts as being hit, for a barrier), spells: each spell's use (attack, heal or guard); a spell not listed that does damage is used to attack.",
+"character": {
+ "base": {"maxMana": 40, "manaRegen": 1.5, "magic": 6, "hpRegen": 0},
+ "perLevel": {"maxMana": 6, "magic": 2},
+ "xpPerLevel": 30
+},
+"books": [
+ {
+  "item": "WaterTome",
+  "for": "miyu",
+  "offer": "Give her the Water Spell Book",
+  "from": "Water Spell Book",
+  "spells": ["IceSpikes", "IceBlast", "WaterHeal", "IceBarrier"],
+  "records": ["book_given:miyu", "miyu_water"],
+  "says": "It's really it! The water book! Look, it's already making sense... Sera, I can feel it. I can do this!"
+ }
+],
+"magic": {
+ "think": 0.35,
+ "pauseShare": 0.4,
+ "pauseMin": 0.5,
+ "pauseMax": 1.1,
+ "gap": 1.2,
+ "healBelow": 0.6,
+ "guardAfter": 2.5,
+ "spells": {
+  "IceBlast": {"use": "attack"},
+  "IceSpikes": {"use": "attack"},
+  "WaterHeal": {"use": "heal"},
+  "IceBarrier": {"use": "guard"}
+ }
+}
+}

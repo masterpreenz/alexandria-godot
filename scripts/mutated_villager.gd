@@ -163,7 +163,7 @@ func _physics_process_timed(delta: float) -> void:
 		_stand(t)
 	Perf.add(&"mutated: water ahead", __m)
 	__m = Time.get_ticks_usec()
-	move_and_slide()
+	slide()
 	Perf.add(&"mutated: moving (physics)", __m)
 	__m = Time.get_ticks_usec()
 	_show()

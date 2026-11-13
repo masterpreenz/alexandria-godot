@@ -8,6 +8,9 @@ extends PanelContainer
 ## Small talents are small dots, notables bigger, keystones the biggest (turned to diamonds, with their skill's icon).
 ## Lit in their region's colour when learnt, brighter when they can be reached. Hovering one lights the cheapest path
 ## out to it and says what it costs; clicking picks it; right-click a learnt one to give it back, for gold.
+##
+## Whose talents they are is picked along the top of the right side: Sera's, or a companion's (theirs are spent the
+## same way, from their own points; their skills are the ones they cast by themselves in a fight).
 
 const SIDE_W := 352.0
 const WEB := Vector2(720, 470)
@@ -31,6 +34,9 @@ var _learn: Button
 var _skills: VBoxContainer
 var _tip: PanelContainer
 var _tip_text: RichTextLabel
+var _who: HBoxContainer
+var _points_label: Label
+var person: Dictionary = {}       ## the companion whose talents are shown, or {} for Sera's own
 
 
 func _k(v: float) -> float:
@@ -108,6 +114,9 @@ func setup(w: World, who: Miko, p: CharacterPanel) -> void:
 	var right := VBoxContainer.new()
 	right.custom_minimum_size.x = _k(SIDE_W)
 	right.add_theme_constant_override("separation", int(_k(12)))
+	_who = HBoxContainer.new()
+	_who.add_theme_constant_override("separation", int(_k(6)))
+	right.add_child(_who)
 	var points := PanelContainer.new()
 	points.add_theme_stylebox_override("panel", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.5)))
 	var prow := HBoxContainer.new()
@@ -116,7 +125,8 @@ func setup(w: World, who: Miko, p: CharacterPanel) -> void:
 	prow.add_child(_points)
 	var pl := VBoxContainer.new()
 	pl.add_theme_constant_override("separation", 0)
-	pl.add_child(HudStyle.label("talent points", 13, "bold"))
+	_points_label = HudStyle.label("talent points", 13, "bold")
+	pl.add_child(_points_label)
 	pl.add_child(HudStyle.label("+1 each level", 11, "bold", HudStyle.color("muted")))
 	prow.add_child(pl)
 	points.add_child(prow)
@@ -195,6 +205,52 @@ func _on_changed() -> void:
 		refresh()
 
 
+## Shows [param p]'s talents (a companion's), or Sera's own with {}.
+func show_for(p: Dictionary) -> void:
+	var st: CharacterStats = miko.stats if p.is_empty() else Companions.stats_for(p)
+	if st == null:
+		return
+	person = p
+	if st != stats:
+		if stats.changed.is_connected(_on_changed):
+			stats.changed.disconnect(_on_changed)
+		stats = st
+		web.stats = st
+		stats.changed.connect(_on_changed)
+		selected = ""
+	refresh()
+
+
+## Whose talents these are, as a name.
+func owner_name() -> String:
+	return Miko.NAME if person.is_empty() else str(person.get("name", "?"))
+
+
+# The row of whose talents to show: Sera, then each companion with her.
+func _whose() -> void:
+	for ch in _who.get_children():
+		_who.remove_child(ch)
+		ch.queue_free()
+	var all: Array = [{}]
+	if Party.active != null:
+		for id in Party.active.members:
+			var p := Uniques.person(Party.active.people, str(id))
+			if not p.is_empty():
+				all.append(p)
+	if all.size() < 2:
+		_who.visible = false
+		return
+	_who.visible = true
+	for p in all:
+		var here: bool = (p as Dictionary).is_empty() == person.is_empty() and (p.is_empty() or is_same(p, person))
+		var b := HudStyle.button(Miko.NAME if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
+		if here:
+			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
+		b.custom_minimum_size.y = _k(28)
+		b.pressed.connect((panel.show_for if panel != null else show_for).bind(p))
+		_who.add_child(b)
+
+
 func _rich(sz: float) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
@@ -240,7 +296,9 @@ func hide_tip() -> void:
 
 
 func refresh() -> void:
+	_whose()
 	_points.text = str(stats.talent_points)
+	_points_label.text = "talent points" if person.is_empty() else "%s's talent points" % str(person.get("name", "?"))
 	if selected == "":
 		for t in stats.character.talents:
 			if t.kind == "Start":
@@ -311,6 +369,8 @@ func _picked() -> void:
 func _learn_selected() -> void:
 	if not stats.learn_path(selected):
 		FloatingText.spawn(world, "Not enough talent points", miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
+	if not person.is_empty():
+		Companions.sync(person)
 	refresh()
 
 
@@ -338,7 +398,10 @@ func _others() -> void:
 		ch.queue_free()
 	var all := stats.spell_sources()
 	if all.is_empty():
-		_skills.add_child(HudStyle.label("Skills from gear and talents show here.", 12, "bold", HudStyle.color("faint")))
+		_skills.add_child(HudStyle.label("Skills from gear and talents show here." if person.is_empty() else "%s knows no spells yet." % owner_name(), 12, "bold", HudStyle.color("faint")))
+		return
+	if not person.is_empty():
+		_companion_skills(all)
 		return
 	var bar: Hotbar = get_tree().current_scene.get_node_or_null("Hud/Hotbar")
 	for s in all:
@@ -371,6 +434,31 @@ func _others() -> void:
 				FloatingText.spawn(world, "Hotbar is full", miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
 			_others())
 		_skills.add_child(b)
+
+
+# A companion's skills: what they know and where from, cast by themselves in a fight (not on Sera's hotbar).
+func _companion_skills(all: Array) -> void:
+	for s in all:
+		var spell: String = s[0]
+		var row := HBoxContainer.new()
+		row.custom_minimum_size.y = _k(40)
+		row.add_theme_constant_override("separation", int(_k(8)))
+		var icon := TextureRect.new()
+		icon.texture = UiKit.sprite_texture(int(Companions.spell(spell).get("icon", -1)))
+		icon.custom_minimum_size = Vector2(_k(32), _k(32))
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon)
+		var names := VBoxContainer.new()
+		names.add_theme_constant_override("separation", 0)
+		names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		names.add_child(HudStyle.label(Companions.spell_name(spell), 13, "bold"))
+		names.add_child(HudStyle.label("From " + str(s[1]), 11, "bold", HudStyle.color("muted")))
+		row.add_child(names)
+		var sp := Companions.spell(spell)
+		row.add_child(HudStyle.label("%s mana" % CharacterStats.fmt(float(sp.get("manaCost", 0))) if not sp.is_empty() else "", 11, "bold", HudStyle.color("mana")))
+		_skills.add_child(row)
+	_skills.add_child(HudStyle.label("%s casts these in a fight, unasked." % owner_name(), 11, "bold", HudStyle.color("faint")))
 
 
 ## The hover card: the name in its region's colour, kind and region, what it does, its bonus, any skill, what a click does.

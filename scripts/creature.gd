@@ -305,11 +305,22 @@ func resting() -> bool:
 	return asleep
 
 
-## A hit flashes it pale for a moment.
+## A hit flashes it pale for a moment; frostbitten or burning, it's tinted (StatusEffects) the rest of the time.
 func paint_flash(c := Color(1, 0.75, 0.75)) -> void:
 	if fx != null and fx.active():
 		return   # (flinching: its red shows)
-	art.self_modulate = c if now() < flash_until else Color.WHITE
+	art.self_modulate = c if now() < flash_until else StatusEffects.tint_of(hit)
+
+
+## Moves it by its velocity (move_and_slide), slowed while frostbitten.
+func slide() -> void:
+	var k := StatusEffects.speed_of(hit)
+	if k >= 0.999:
+		move_and_slide()
+		return
+	velocity *= k
+	move_and_slide()
+	velocity /= maxf(k, 0.01)   # (its own speed kept for next time: only the step taken is slowed)
 
 
 ## Hits Miko for [param amount] (softened by her defense), showing the number, and shoves her [param knock] px/s for

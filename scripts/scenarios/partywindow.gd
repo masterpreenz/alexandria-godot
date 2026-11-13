@@ -29,12 +29,12 @@ func run() -> void:
 		await get_tree().process_frame
 	var pw: PartyWindow = g.get_node("Hud/PartyWindow")
 	var ev := InputEventKey.new()
-	ev.keycode = KEY_C
+	ev.keycode = KEY_P
 	ev.pressed = true
 	Input.parse_input_event(ev)
 	for i in 10:
 		await get_tree().process_frame
-	print("Party window: open after C ", pw.visible, " at ", pw.position, " size ", pw.size, " (screen ", get_viewport().get_visible_rect().size, ")")
+	print("Party window: open after P ", pw.visible, " at ", pw.position, " size ", pw.size, " (screen ", get_viewport().get_visible_rect().size, ")")
 	_print_window(pw)
 	shot("open")
 	_button(pw, "Wait here").pressed.emit()

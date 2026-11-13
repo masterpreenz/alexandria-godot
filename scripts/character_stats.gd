@@ -40,6 +40,9 @@ var wind_ready_at := 0.0           ## when Second Wind can save her again (_now'
 var _wind_left := 0.0              ## seconds of Second Wind's mending still to come
 var _wind_safe_until := 0.0
 var _talents := {}                 ## id -> talent
+var learned := {}                  ## spell -> the book it was learnt from: known for good, whatever's worn (a companion's)
+var wears_bag := true              ## false for a companion: what they wear doesn't change the room in Sera's bag
+var speaker: Node2D                ## who "not something to wear" shows over (else whoever these stats belong to)
 
 
 func setup(c: Dictionary, items: Dictionary) -> void:
@@ -123,6 +126,9 @@ func known_spells() -> Array:
 		var g2: String = _talents.get(id, {}).get("grantsSpell", "")
 		if g2 != "" and ranks[id] > 0 and not out.has(g2):
 			out.append(g2)
+	for sp in learned:
+		if not out.has(sp):
+			out.append(sp)
 	return out
 
 
@@ -283,6 +289,7 @@ func from_json(json: String) -> void:
 			ranks[t.id] = 1
 	equipped = d.get("equipped", [])
 	wear = d.get("wear", {})
+	learned = d.get("learned", {})
 	wear_saved()
 	var tot := total()
 	hp = clampf(float(d.get("hp", tot.get("maxHp", 100.0))), 1.0, tot.get("maxHp", 100.0))
@@ -354,7 +361,7 @@ func slot_for(item: String, clear: Array) -> String:
 
 
 func _say(text: String, c := Color(1, 0.6, 0.5)) -> void:
-	var who := get_parent() as Node2D
+	var who := speaker if speaker != null and is_instance_valid(speaker) else get_parent() as Node2D
 	if who != null and UiKit._world != null:
 		FloatingText.spawn(UiKit._world, text, who.position + Vector2(0, -1.2 * UiKit._world.px), c)
 
@@ -377,7 +384,7 @@ func equip(bag: Bag, from: int) -> void:
 		if worn.has(s) and not off.has(worn[s]):
 			off.append(worn[s])
 	# A smaller bag than the one on: only if what's in the old bag's slots fits.
-	if kind == "Bag" and worn.has("Bag") and int(it.get("bagSlots", 0)) < int(UiKit.item(worn.Bag).get("bagSlots", 0)):
+	if wears_bag and kind == "Bag" and worn.has("Bag") and int(it.get("bagSlots", 0)) < int(UiKit.item(worn.Bag).get("bagSlots", 0)):
 		if _used_past(bag, Bag.BASE_SLOTS + int(it.get("bagSlots", 0)), from) > 0:
 			_say("Empty the bag's slots first")
 			return
@@ -392,7 +399,8 @@ func equip(bag: Bag, from: int) -> void:
 		worn.erase(s)
 	worn[slot] = item
 	_sync_equipped()
-	bag.worn = equipped
+	if wears_bag:
+		bag.worn = equipped
 	for i in off.size():
 		var to := from if i == 0 else bag.free_slot()
 		if to >= 0:
@@ -434,7 +442,8 @@ func break_worn(bag: Bag, slot: String) -> void:
 	worn.erase(slot)
 	wear.erase(item)
 	_sync_equipped()
-	bag.worn = equipped
+	if wears_bag:
+		bag.worn = equipped
 	bag.changed.emit()
 	_clamp()
 	changed.emit()
@@ -444,7 +453,7 @@ func break_worn(bag: Bag, slot: String) -> void:
 func unequip(bag: Bag, slot: String) -> void:
 	if not worn.has(slot):
 		return
-	if slot == "Bag":
+	if slot == "Bag" and wears_bag:
 		var used := 0
 		for i in Bag.BASE_SLOTS:
 			if bag.items[i] != "" or bag.stack_in(i) != "":
@@ -456,12 +465,14 @@ func unequip(bag: Bag, slot: String) -> void:
 	var item: String = worn[slot]
 	worn.erase(slot)
 	_sync_equipped()
-	bag.worn = equipped
+	if wears_bag:
+		bag.worn = equipped
 	var to := bag.free_slot()
 	if to < 0:
 		worn[slot] = item
 		_sync_equipped()
-		bag.worn = equipped
+		if wears_bag:
+			bag.worn = equipped
 		_say("The bag is full")
 		return
 	bag.items[to] = item
@@ -599,6 +610,8 @@ func spell_sources() -> Array:
 	for t in character.talents:
 		if unlocked(t.id) and str(t.get("grantsSpell", "")) != "":
 			out.append([t.grantsSpell, str(t.name)])
+	for sp in learned:
+		out.append([sp, str(learned[sp])])
 	return out
 
 
@@ -661,4 +674,4 @@ func to_json() -> String:
 		ids.append(id)
 		rs.append(int(ranks[id]))
 	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana, "tree": int(character.get("treeVersion", 1)), "windIn": maxf(0.0, wind_ready_at - _now()),
-		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear})
+		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear, "learned": learned})

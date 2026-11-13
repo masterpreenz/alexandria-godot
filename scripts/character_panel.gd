@@ -6,6 +6,10 @@ extends Control
 ## vitals, her stats or life skills, and a call to spend talent points. Right, the 8 x 8 bag with its filters and,
 ## under it, the picked thing: what it is, and buttons to use or wear it, drop it or destroy it. The Talents tab
 ## ([TalentsWindow]) holds the talent web.
+##
+## With companions along, a row of names by the tabs picks whose it shows: a companion's page is the same (their slots,
+## level, vitals and stats; their talents in the Talents tab), with Sera's bag beside it, so gear goes from her bag
+## onto them (double-click, or Wear) and back off into it (a worn slot's Take off).
 
 const EQUIP_W := 330.0
 const STATS_W := 280.0
@@ -63,6 +67,9 @@ var _drop: Button
 var _destroy: Button
 var _points_button: Button
 var _badge: Label
+var shown: Dictionary = {}       ## the companion whose page this is, or {} for Sera's own
+var _name_label: Label
+var _who_row: HBoxContainer
 
 
 func setup(w: World, who: Miko, _hud: Node) -> void:
@@ -78,9 +85,71 @@ func setup(w: World, who: Miko, _hud: Node) -> void:
 	add_child(talents)
 	talents.setup(w, who, self)
 	_active = self
-	stats.changed.connect(func(): _dirty = true)
-	bag.changed.connect(func(): _dirty = true)
+	stats.changed.connect(_mark_dirty)
+	bag.changed.connect(_mark_dirty)
 	window.visible = false
+
+
+func _mark_dirty() -> void:
+	_dirty = true
+
+
+## Shows [param p]'s page and talents (a companion's), or Sera's own with {}.
+func show_for(p: Dictionary) -> void:
+	var st: CharacterStats = miko.stats if p.is_empty() else Companions.stats_for(p)
+	if st == null:
+		return
+	shown = p
+	if st != stats:
+		if stats.changed.is_connected(_mark_dirty):
+			stats.changed.disconnect(_mark_dirty)
+		stats = st
+		stats.changed.connect(_mark_dirty)
+	picked_slot = ""
+	_figure.miko = miko if p.is_empty() else Companions.body_of(p)
+	_name_label.text = Miko.NAME if p.is_empty() else str(p.get("name", "?"))
+	talents.show_for(p)
+	_dirty = true
+
+
+## Opens [param p]'s page (Character & Bag), or with [param talents_tab] their talents.
+func open_for(p: Dictionary, talents_tab := false) -> void:
+	show_for(p)
+	if talents_tab:
+		window.visible = false
+		talents.visible = true
+		talents.refresh()
+	else:
+		talents.visible = false
+		window.visible = true
+	_dirty = true
+
+
+# The names to pick whose page it is: Sera, then each companion with her (only shown with someone along).
+func _whose() -> void:
+	for ch in _who_row.get_children():
+		_who_row.remove_child(ch)
+		ch.queue_free()
+	var all: Array = [{}]
+	if Party.active != null:
+		for id in Party.active.members:
+			var p := Uniques.person(Party.active.people, str(id))
+			if not p.is_empty():
+				all.append(p)
+	# (someone who's left the party: back to Sera's own)
+	if not shown.is_empty() and not all.any(func(q): return is_same(q, shown)):
+		show_for({})
+	_who_row.visible = all.size() > 1
+	if all.size() < 2:
+		return
+	for p in all:
+		var here: bool = (p as Dictionary).is_empty() == shown.is_empty() and (p.is_empty() or is_same(p, shown))
+		var b := HudStyle.button(Miko.NAME if p.is_empty() else str(p.name), 12, "pill", HudStyle.color("text") if here else HudStyle.color("muted"))
+		if here:
+			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
+		b.custom_minimum_size.y = _k(30)
+		b.pressed.connect(show_for.bind(p))
+		_who_row.add_child(b)
 
 
 func _k(v: float) -> float:
@@ -190,6 +259,10 @@ func tabs(here: int, points_badge: bool) -> HBoxContainer:
 		_badge = HudStyle.label("", 12, "bold", HudStyle.color("accentLight"))
 		row.add_child(_badge)
 	row.add_child(_gap())
+	if here == 0:
+		_who_row = HBoxContainer.new()
+		_who_row.add_theme_constant_override("separation", int(_k(6)))
+		row.add_child(_who_row)
 	var close := HudStyle.button("×", 18, "slot")
 	close.custom_minimum_size = Vector2(_k(34), _k(34))
 	close.pressed.connect(_close_tab.bind(here))
@@ -268,8 +341,8 @@ func _build_equipment() -> Control:
 	box.add_theme_constant_override("separation", int(_k(6)))
 	well.add_child(box)
 	var head := HBoxContainer.new()
-	var nm := HudStyle.label(Miko.NAME, 18, "bold")
-	head.add_child(nm)
+	_name_label = HudStyle.label(Miko.NAME, 18, "bold")
+	head.add_child(_name_label)
 	head.add_child(_gap())
 	head.add_child(_label("level", 14, "pixel", HudStyle.color("accentLight")))
 	box.add_child(head)
@@ -474,6 +547,7 @@ func _build_bag() -> Control:
 # ---- Filling it in ----
 
 func _refresh() -> void:
+	_whose()
 	_layout()
 	var cap := bag.capacity()
 	var keep := filter == "All" or filter == "Equipment"
@@ -548,6 +622,14 @@ func _stats_list() -> void:
 	var faint := HudStyle.color("faint").to_html(false)
 	var green := HudStyle.color("green").to_html(false)
 	var small := roundi(_k(11))
+	if stats_tab == 1 and not shown.is_empty():
+		var c := "[font_size=%d][color=#%s]%s'S LIFE SKILLS[/color][/font_size]
+" % [small, faint, str(shown.get("name", "")).to_upper()]
+		for i in Villagers.SKILL_NAMES.size():
+			c += "[color=#%s]%s[/color]  %d
+" % [muted, str(Villagers.SKILL_NAMES[i]).capitalize(), Villagers.skill(shown, i)]
+		_stats_text.text = c.strip_edges()
+		return
 	if stats_tab == 1:
 		var t := "[font_size=%d][color=#%s]LIFE SKILLS  ·  MAX LEVEL %d[/color][/font_size]\n" % [small, faint, LifeSkills.MOST]
 		for i in LifeSkills.NAMES.size():
@@ -843,12 +925,15 @@ class SlotCell extends ChestWindow.Cell:
 			accept_event()
 
 
-## Miko as she is in the world right now (walking, turning, whatever she's doing), drawn big between her slots.
+## Miko (or the companion whose page it is) as she is in the world right now (walking, turning, whatever she's doing),
+## drawn big between her slots.
 class MikoFigure extends Control:
-	var miko: Miko
+	var miko: Node2D
 
 	func _draw() -> void:
-		var art := miko.art
+		if miko == null or not is_instance_valid(miko):
+			return
+		var art: Sprite2D = miko.get("art")
 		if art == null or art.texture == null:
 			return
 		var src := art.region_rect if art.region_enabled else Rect2(Vector2.ZERO, art.texture.get_size())

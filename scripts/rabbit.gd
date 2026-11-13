@@ -181,7 +181,7 @@ func _physics_process_timed(delta: float) -> void:
 		# Never into the water: a step that would end in the river stops at the bank.
 		if velocity != Vector2.ZERO and world.wet(position + velocity * get_physics_process_delta_time() * 4.0):
 			velocity = Vector2.ZERO
-		move_and_slide()
+		slide()
 	if shadow != null:
 		shadow.scale = _shadow_scale * _squash
 	paint_flash(Color(1, 0.75, 0.72))

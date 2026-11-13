@@ -4914,5 +4914,8 @@
 {"name":"mutated_wolf_jump_attack_nw_12","tex":"res://assets/Art/Characters/Monsters/MutatedWolf/mutated_wolf_jump_attack_nw.png","rect":[0,1536,512,512],"pivot":[266.5,425],"ppu":200},
 {"name":"mutated_wolf_jump_attack_nw_13","tex":"res://assets/Art/Characters/Monsters/MutatedWolf/mutated_wolf_jump_attack_nw.png","rect":[512,1536,512,512],"pivot":[266.5,425],"ppu":200},
 {"name":"mutated_wolf_jump_attack_nw_14","tex":"res://assets/Art/Characters/Monsters/MutatedWolf/mutated_wolf_jump_attack_nw.png","rect":[1024,1536,512,512],"pivot":[266.5,425],"ppu":200},
-{"name":"mutated_wolf_jump_attack_nw_15","tex":"res://assets/Art/Characters/Monsters/MutatedWolf/mutated_wolf_jump_attack_nw.png","rect":[1536,1536,512,512],"pivot":[266.5,425],"ppu":200}
+{"name":"mutated_wolf_jump_attack_nw_15","tex":"res://assets/Art/Characters/Monsters/MutatedWolf/mutated_wolf_jump_attack_nw.png","rect":[1536,1536,512,512],"pivot":[266.5,425],"ppu":200},
+{"name":"spell_icon_IceBlast","tex":"res://assets/Icons/Spells/IceBlast.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":128},
+{"name":"spell_icon_WaterHeal","tex":"res://assets/Icons/Spells/WaterHeal.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":128},
+{"name":"spell_icon_IceBarrier","tex":"res://assets/Icons/Spells/IceBarrier.png","rect":[0,0,128,128],"pivot":[64,64],"ppu":128}
 ]

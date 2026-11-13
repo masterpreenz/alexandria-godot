@@ -333,6 +333,42 @@
  "records": [
   "miyu_errand"
  ]
+},
+{
+ "id": "miyu_water_book",
+ "speaker": "miyu",
+ "when": {
+  "after": [
+   "miyu_water"
+  ]
+ },
+ "lines": [
+  [
+   "miyu",
+   "Is that... Sera, that's it. That's her book. The water one. You went all the way back there for it?"
+  ],
+  [
+   "sera",
+   "It was on the old woman's shelf, right where you said. It's yours."
+  ],
+  [
+   "miyu",
+   "Wait, wait, look at this page. It's not like reading at all. The words just... sit down in my head and stay there."
+  ],
+  [
+   "miyu",
+   "Oh! Sera, look at my hands! It's cold, it's actually cold! Ice, from nothing!"
+  ],
+  [
+   "sera",
+   "Told you most of it is learned."
+  ],
+  [
+   "miyu",
+   "Spikes from the ground, a blast of ice, water that mends, a wall of frost to stand behind. I know them all. Next time something comes at us, I'm not just standing behind you. I'll be casting right beside you!"
+  ]
+ ],
+ "records": []
 }
 ]
 }

@@ -9,6 +9,7 @@ extends Node2D
 ##
 ## A person (Unity's Villagers.Person, as saved): name, look (0 a man, 1 and 2 women), hasBed, bedX, bedY (units), level,
 ## xp, maxHp, hp, atk, skills {level, xp}, hunger, energy, job, toolsLeft, bag, bagSlots, bagLeft.
+## A unique who's been Sera's companion also has maxMana, mana and companion (their gear, talents and spells: Companions).
 
 const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"],
 	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"], ["Genzo", "Tetsuo", "Isamu"], ["Haruko", "Fumiko", "Setsuko"]]
@@ -59,6 +60,7 @@ func from_json(json: String) -> void:
 
 
 func to_json() -> String:
+	Companions.store_all(people)
 	return JSON.stringify({"people": people, "board": board})
 
 

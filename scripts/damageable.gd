@@ -58,6 +58,16 @@ func ground_distance(p: Vector2) -> float:
 ## Takes [param amount] damage, showing the number; [param by_player]: Miko dealt it.
 ## Takes [param amount]; [param crit]: a critical hit, its number big, yellow ringed in red.
 func hurt(amount: float, by_player := false, crit := false) -> void:
+	_take(amount, by_player, crit, Color(1, 0.82, 0.35), true)
+
+
+## Hurt by something lingering on it (frostbite, a burn): the number in [param c], and no flinch (it isn't knocked
+## back or startled, the way a blow would).
+func wear(amount: float, by_player: bool, c: Color) -> void:
+	_take(amount, by_player, false, c, false)
+
+
+func _take(amount: float, by_player: bool, crit: bool, c: Color, flinch: bool) -> void:
 	if not alive() or amount <= 0.0:
 		return
 	if by_player:
@@ -74,9 +84,10 @@ func hurt(amount: float, by_player := false, crit := false) -> void:
 	if crit:
 		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height - 0.1 * world.px), Color(1.0, 0.9, 0.2), 34, 1.4, Color(0.85, 0.08, 0.05))
 	else:
-		FloatingText.spawn(world, str(roundi(amount)), global_position + Vector2(0, -height), Color(1, 0.82, 0.35))
+		FloatingText.spawn(world, str(maxi(1, roundi(amount))), global_position + Vector2(0, -height), c, 22 if flinch else 18)
 	hp = maxf(1.0, hp - amount) if dummy or unkillable else maxf(0.0, hp - amount)
-	damaged.emit(amount)
+	if flinch:
+		damaged.emit(amount)
 	if team == Team.ENEMY and hp > 0.0:
 		_bar_until = _last_hit + 3.0
 		queue_redraw()
@@ -102,13 +113,16 @@ func heal(amount: float) -> void:
 		queue_redraw()
 
 
-## Hurts everyone on [param side] within [param area] (px, across the ground) of [param at].
-static func hit_around(at: Vector2, area: float, amount: float, side: int, by_player := false) -> int:
+## Hurts everyone on [param side] within [param area] (px, across the ground) of [param at]; [param then] is told of
+## each one hit and still standing (a spell leaving frostbite or a burn on them).
+static func hit_around(at: Vector2, area: float, amount: float, side: int, by_player := false, then := Callable()) -> int:
 	var n := 0
 	for d in all.duplicate():
 		if is_instance_valid(d) and d.team == side and d.alive() and d.ground_distance(at) <= area:
 			d.hurt(amount, by_player)
 			n += 1
+			if then.is_valid() and is_instance_valid(d) and d.alive():
+				then.call(d)
 	return n
 
 

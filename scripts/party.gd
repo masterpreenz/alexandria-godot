@@ -170,14 +170,34 @@ func spot_for(p: Dictionary) -> Vector2:
 
 
 var _next := 0.0
+var _next_sync := 0.0
 
 
 func _process(_delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _next_sync:
+		_next_sync = now + 0.5
+		var __t := Time.get_ticks_usec()
+		_companions()
+		Perf.add(&"party.companions", __t)
 	if now < _next:
 		return
 	_next = now + 1.0
 	_hud()
+
+
+# Each companion's stats kept up to date with them (their gear, their talents, a level gained), and those with her
+# able to cast what they know.
+func _companions() -> void:
+	for id in members:
+		var p := Uniques.person(people, str(id))
+		if p.is_empty():
+			continue
+		Companions.stats_for(p)
+		var body := Companions.body_of(p)
+		if body != null:
+			CompanionMagic.give(body)
+	Companions.sync_all()
 
 
 # Their cards, under Sera's.

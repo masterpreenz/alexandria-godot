@@ -80,6 +80,8 @@ var state_until := 0.0
 var clock := 0.0
 var facing_up := false
 var talking := false              ## in a conversation with Miko (Talk): standing still, facing her
+var cast_until := 0.0             ## a companion casting a spell (CompanionMagic): standing still till then...
+var cast_toward := Vector2.ZERO   ## ...turned to where it goes
 var _bark: SpeechBubble           ## a short line over their head (barks), shown a moment
 var _bark_until := 0.0
 var _bark_next := 0.0
@@ -191,8 +193,9 @@ func setup(w: World, vs: Villagers, l: Dictionary, who: Dictionary, bed: Diction
 	add_child(hit)
 	hit.setup(world, Damageable.Team.ALLY, float(who.get("maxHp", 40.0)), 0.18 * world.px, 0.9 * world.px)
 	hit.hp = clampf(float(who.get("hp", hit.max_hp)), 1.0, hit.max_hp)
-	hit.damaged.connect(func(_a):
+	hit.damaged.connect(func(a):
 		_hit_at = now()
+		Companions.soften(person, hit, a)
 		bark("bark.hurt")
 		person.hp = hit.hp
 		VillageLog.event("hurt:" + name, "%s is under attack!" % person.name, VillageLog.Kind.DANGER))
@@ -609,6 +612,19 @@ func _physics_process_timed(delta: float) -> void:
 		facing_right = to.x > 0.0
 		facing_up = to.y < 0.0
 		_show_idle()
+		return
+	# Casting a spell (a companion with magic): a moment standing still, turned to it, arms up.
+	if t < cast_until:
+		velocity = Vector2.ZERO
+		var aim := cast_toward - position
+		if aim.length() > 1.0:
+			facing_right = aim.x > 0.0
+			facing_up = aim.y < 0.0
+		var up: Array = s.get("stabUp", [])
+		var down: Array = s.get("stabDown", [])
+		var pose: Array = up if facing_up and not up.is_empty() else down
+		if pose.is_empty(): _show_idle()
+		else: _show(int(pose[0]))
 		return
 	# A slime about: go for it (unless asleep, or already at one).
 	# Badly hurt (under a fifth of their health) with a monster near: they run instead.

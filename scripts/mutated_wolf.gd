@@ -182,7 +182,7 @@ func _physics_process_timed(delta: float) -> void:
 			_leap_to = position
 		elif state == State.WALK or state == State.CHASE:
 			_stand(t)
-	move_and_slide()
+	slide()
 	_feet(delta)
 	_show()
 	paint_flash()
