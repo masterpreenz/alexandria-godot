@@ -6,7 +6,8 @@ extends Node
 ##   village, in a house, on anything solid or right beside her. Each is stronger by the mist it came out of. Every
 ##   so often the numbers are topped back up; ones left on ground the mist no longer covers, away from her, go. A few
 ##   small ones also live in the healthy forest, spread out.
-## - Mutated villagers and mutated wolves roam the mist, a few of each, the first of each not far from Miko.
+## - Mutated villagers roam the mist, a few, the first not far from Miko. Mutated wolves come at night, in packs, from
+##   the north and east.
 ## - Boars live in the healthy forest: among trees, not by roads or out in the open, outside the village, never beside
 ##   her, one to a stretch of forest. Each new day the number is topped back up.
 
@@ -75,21 +76,57 @@ func restock_mutants() -> void:
 	Perf.add(&"spawning: mutated villagers", __t)
 
 
-## Keeps a few mutated wolves roaming the mist: the first near Miko (out of sight), the rest anywhere.
+## The mutated wolves: they come only at night, in packs (three, and one more for every few of Miko's levels), out to
+## the north and east of the village; one of each pack howls once as it nears her. By day they're gone (once she's not
+## close by).
 func restock_wolves() -> void:
 	var __t := Time.get_ticks_usec()
+	var sp: Dictionary = d.mutatedWolfSpawner
 	wolves.assign(_alive(wolves))
-	for i in range(wolves.size(), int(d.mutatedWolfSpawner.count)):
-		if not _budget():
-			_next_wolves = _now()
-			break
-		var at: Variant = _spot_near(12.0, 20.0) if i == 0 else null
-		if at == null:
-			at = Wilds.find_spot(world, _free, 60)
-		if at == null:
-			break
-		wolves.append(MutatedWolf.spawn(world, d.mutatedWolf, at))
+	var h: float = world.clock.hour() if world.clock != null else 12.0
+	var night := h >= float(sp.nightFrom) or h < float(sp.nightTill)
+	if not night:
+		for wv in wolves.duplicate():
+			if _ppos().distance_to(wv.position) > float(sp.goneBeyond) * world.px:
+				wolves.erase(wv)
+				wv.queue_free()
+		Perf.add(&"spawning: mutated wolves", __t)
+		return
+	var packs := {}
+	for wv in wolves:
+		packs[wv.pack] = true
+	if packs.size() < int(sp.packs) and _budget():
+		var lv: int = (world.player as Miko).stats.level if (world.player as Miko).stats != null else 1
+		@warning_ignore("integer_division")
+		var size := mini(int(sp.packBase) + lv / int(sp.packPerLevels), int(sp.packMost))
+		var at: Variant = Wilds.find_spot(world, _wolf_ground, 80)
+		if at != null:
+			_pack_id += 1
+			for i in size:
+				for tries in 8:
+					var r := Vector2.from_angle(randf() * TAU) * randf_range(0.0, 1.8) * world.px
+					var spot: Vector2 = at + Vector2(r.x, r.y * 0.5)
+					if Wilds.open(world, spot, 0.5) and world.water_depth(spot) <= 0.0:
+						var wv := MutatedWolf.spawn(world, d.mutatedWolf, spot)
+						wv.pack = _pack_id
+						wv.howler = i == 0
+						wolves.append(wv)
+						break
 	Perf.add(&"spawning: mutated wolves", __t)
+
+
+var _pack_id := 0
+
+
+# Where a pack may come: north or east of the village (well out), open dry ground, not near Miko.
+func _wolf_ground(at: Vector2) -> bool:
+	var sp: Dictionary = d.mutatedWolfSpawner
+	if _ppos().distance_to(at) < float(sp.awayFromPlayer) * world.px:
+		return false
+	var off := world.floors.cell_at(at) - world.village.banner_cell()
+	if off.x < int(sp.northOrEast) and off.y < int(sp.northOrEast):
+		return false
+	return Wilds.open(world, at, float(sp.villageMargin)) and world.water_depth(at) <= 0.0
 
 
 static func _alive(list: Array) -> Array:

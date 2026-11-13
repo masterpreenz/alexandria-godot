@@ -1,10 +1,11 @@
 class_name MutatedWolf
 extends Creature
-## A wolf the mist has taken (a purple flame for a tail, crystal on its brow). It roams the mist, standing a while then
-## trotting off somewhere dry nearby. While Miko is in the mist and it sees her, it runs her down, much faster than the
-## mutated villagers; in leaping range it crouches, and a strip on the ground shows where it will land (pale red,
+## A wolf the mist has taken (a purple flame for a tail, crystal on its brow). They come at night in packs (Spawners),
+## out to the north and east; one of each howls once as they near her. It stands a while then trots off somewhere dry
+## nearby. When it sees Miko (out of the village; by day only in the mist) it runs her down, much faster than the
+## mutated villagers, its feet loud on grass or stone; in leaping range it crouches, and a strip on the ground shows where it will land (pale red,
 ## filling dark red as the leap nears; its line follows her, then is set a moment before it goes, so a step aside
-## makes it miss). Then it leaps along the strip: anyone on it when it lands is hit and knocked back. It lands,
+## makes it miss). Then it leaps along the strip with a snarl: anyone on it when it lands is hit and knocked back. It lands,
 ## shakes itself, and comes on again. Out of the mist, or far enough off, it gives up. When it falls it gives XP, a
 ## few coins, and now and then a mist crystal.
 ##
@@ -26,6 +27,17 @@ var _leap_to := Vector2.ZERO
 var _hit_done := false
 var warn: Telegraph                ## where it will land, on the ground, while it crouches
 var prey: Node2D = null
+var pack := 0                      ## which pack it came with
+var howler := false                ## the one of its pack that howls (once, as they near her)
+var _howled := false
+var _run_grass: AudioStreamPlayer2D
+var _run_solid: AudioStreamPlayer2D
+var _grass_mix := 1.0
+static var _last_snarl := -1
+
+const SNARLS := ["res://assets/Sounds/Wolf/wolf_attack1.mp3", "res://assets/Sounds/Wolf/wolf_attack2.mp3"]
+const HOWL := "res://assets/Sounds/Wolf/wolf_howl.mp3"
+const HOWL_WITHIN := 24.0          ## units from her when its pack's howl comes
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedWolf:
@@ -38,8 +50,51 @@ static func spawn(w: World, d: Dictionary, at: Vector2) -> MutatedWolf:
 	m.state_until = now() + randf_range(0.5, 3.0)
 	m.clock = randf() * 2.0
 	w.things.add_child(m)
+	m._run_grass = m._loop("res://assets/Sounds/Wolf/wolf_run_grass.mp3")
+	m._run_solid = m._loop("res://assets/Sounds/Wolf/wolf_run_solid.mp3")
 	m._show()
 	return m
+
+
+# Its running feet, a loop kept paused till it runs.
+func _loop(path: String) -> AudioStreamPlayer2D:
+	var clip := Sfx.stream(path)
+	var p := AudioStreamPlayer2D.new()
+	if clip is AudioStreamMP3:
+		var looping := (clip as AudioStreamMP3).duplicate() as AudioStreamMP3
+		looping.loop = true
+		p.stream = looping
+	else:
+		p.stream = clip
+	p.max_distance = 1800.0
+	p.attenuation = 1.6
+	p.volume_db = -80.0
+	add_child(p)
+	return p
+
+
+# Its feet while it runs: on grass or on paths and floors, crossfaded as it crosses between.
+func _feet(delta: float) -> void:
+	if _run_grass == null:
+		return
+	var running := velocity.length() > 1.2 * world.px and state != State.LEAP
+	_grass_mix = move_toward(_grass_mix, 0.0 if world.on_floor(position) else 1.0, delta * 8.0)
+	var loud := 0.7 if running else 0.0
+	for pair in [[_run_grass, _grass_mix], [_run_solid, 1.0 - _grass_mix]]:
+		var pl: AudioStreamPlayer2D = pair[0]
+		var v := loud * float(pair[1])
+		pl.volume_db = linear_to_db(maxf(v, 0.0001))
+		Sfx.keep_going(pl, v > 0.01)
+
+
+# One of its pack, once: a howl as they come near her (so she knows they're about).
+func _maybe_howl() -> void:
+	if not howler or _howled:
+		return
+	var p := player()
+	if p != null and p.position.distance_to(position) < HOWL_WITHIN * world.px:
+		_howled = true
+		Sfx.play(world, Sfx.stream(HOWL), position, 1.0, 0.03)
 
 
 func _physics_process(delta: float) -> void:
@@ -49,8 +104,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _physics_process_timed(delta: float) -> void:
+	_maybe_howl()
 	if resting():
 		_clear_warn()
+		if _run_grass != null:
+			Sfx.keep_going(_run_grass, false)
+			Sfx.keep_going(_run_solid, false)
 		return
 	var t := now()
 	clock += delta
@@ -124,15 +183,19 @@ func _physics_process_timed(delta: float) -> void:
 		elif state == State.WALK or state == State.CHASE:
 			_stand(t)
 	move_and_slide()
+	_feet(delta)
 	_show()
 	paint_flash()
 
 
-# Whether it's after Miko: she's up, in the mist, within its sight (once after her, till she's got far enough away).
+# Whether it's after Miko: she's up, out of the village, within its sight (once after her, till she's got far enough
+# away); by day only in the mist (at night, its hunting time, anywhere).
 func _hunting(p: Miko) -> bool:
-	if p == null or p.stats == null or p.stats.hp <= 0.0:
+	if p == null or p.stats == null or p.stats.hp <= 0.0 or world.village.contains(p.position, 1.0):
 		return false
-	if world.mist == null or world.mist.tier_at(p.position) == Mist.Tier.CLEAR:
+	var h: float = world.clock.hour() if world.clock != null else 12.0
+	var night := h >= 19.5 or h < 5.5
+	if not night and (world.mist == null or world.mist.tier_at(p.position) == Mist.Tier.CLEAR):
 		return false
 	var busy := state == State.CHASE or state == State.CROUCH or state == State.LEAP or state == State.LAND
 	return p.position.distance_to(position) <= float(s.giveUpAt if busy else s.sight) * world.px
@@ -174,6 +237,12 @@ func _aim(at: Vector2) -> void:
 
 
 func _leap(t: float) -> void:
+	# A snarl as it goes: one of its two, not the same twice running.
+	var i := randi() % SNARLS.size()
+	if i == _last_snarl:
+		i = (i + 1) % SNARLS.size()
+	_last_snarl = i
+	Sfx.play(world, Sfx.stream(SNARLS[i]), position, 0.9, 0.06)
 	_leap_from = position
 	_leap_to = warn.end() if warn != null else position
 	state = State.LEAP
