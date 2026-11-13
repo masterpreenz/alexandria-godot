@@ -184,7 +184,7 @@ func _fill() -> void:
 ## Whether they're in the village now, where its storage is to hand.
 func at_home() -> bool:
 	var w := miko.world
-	var who: Node2D = miko if person.is_empty() else Companions.body_of(person)
+	var who: Node2D = miko as Node2D if person.is_empty() else Companions.body_of(person) as Node2D
 	return who != null and w.village.founded() and w.village.contains(who.position)
 
 
