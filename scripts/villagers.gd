@@ -81,6 +81,11 @@ func _fix(p: Dictionary) -> void:
 			p[k] = int(p[k])
 	if p.has("first"):
 		p["first"] = int(p.first)
+	# A unique wears their own look (Miyu was given one of her own; older saves had her in look 2, now anyone's).
+	if p.has("unique"):
+		var u: Dictionary = Uniques.all().get(str(p.unique), {})
+		if u.has("look") and int(p.get("look", -1)) != int(u.look):
+			p["look"] = int(u.look)
 	# (a save's numbers come back as fractions: the jobs ticked are whole)
 	if p.has("jobs"):
 		p["jobs"] = (p.jobs as Array).map(func(j): return int(j))

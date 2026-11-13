@@ -5,7 +5,7 @@
  {"name": "Taro", "look": 0, "role": "messenger"},
  {"name": "Kenji", "look": 0, "role": "fighter"},
  {"name": "Hana", "look": 1, "role": "fighter"},
- {"name": "Yui", "look": 1, "role": "survivor"},
+ {"name": "Yui", "look": 2, "role": "survivor"},
  {"name": "Daichi", "look": 0, "role": "doomed"},
  {"name": "Sota", "look": 0, "role": "doomed"},
  {"name": "Mei", "look": 1, "role": "doomed"},
