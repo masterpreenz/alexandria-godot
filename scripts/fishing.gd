@@ -231,7 +231,7 @@ static func new_line(w: World) -> FishingLine:
 
 ## Puts a line and its float where they are [param t] seconds into a cast with [param left] to go: out from the
 ## frame the rod comes forward, from the rod's [param tip] (px); the float through the air in an arc to
-## [param target], a splash, then sitting in the water, bobbing; tugged under as the cast comes to its end.
+## [param target], then sitting in the water, bobbing; tugged under as the cast comes to its end.
 static func draw_line_from(w: World, line: FishingLine, tip: Vector2, target: Vector2, t: float, left: float, now: float) -> void:
 	var out_at := LINE_FROM / CAST_FPS
 	line.visible = t >= out_at
@@ -240,8 +240,6 @@ static func draw_line_from(w: World, line: FishingLine, tip: Vector2, target: Ve
 		return
 	line.tip = tip
 	var fly := clampf((t - out_at) / FLIES, 0.0, 1.0)
-	if fly >= 1.0 and not line.landed:
-		Sfx.play(w, Sfx.stream(Farming.WATER_SOUND), target, 0.35, 0.1)
 	line.landed = fly >= 1.0
 	var at := tip.lerp(target, fly) + Vector2(0, -sin(fly * PI) * 0.9 * w.px)
 	line.bite = left < BITES
