@@ -51,7 +51,7 @@ static func play(w: World, who: Node2D, level: int) -> void:
 	_banner(w, level)
 
 
-# A banner across the top of the screen: "Level up! · Level 9 · +1 talent point (K)", sliding in and fading after a
+# A banner across the top of the screen: "Level up! · Level 9 · +2 talent points (K)", sliding in and fading after a
 # few seconds.
 static func _banner(w: World, level: int) -> void:
 	var hud := w.get_tree().current_scene.get_node_or_null("Hud")
@@ -67,7 +67,7 @@ static func _banner(w: World, level: int) -> void:
 	var title := HudStyle.label(Loc.t("levelup.title"), 22, "bold", GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
-	var sub := HudStyle.label(Loc.t("levelup.banner", {"level": level}), 13, "bold", HudStyle.color("text"))
+	var sub := HudStyle.label(Loc.t("levelup.banner", {"level": level, "points": CharacterStats.points_per_level_of(w.player.stats.character if w.player != null and "stats" in w.player else {})}), 13, "bold", HudStyle.color("text"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
 	hud.add_child(box)

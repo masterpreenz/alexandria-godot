@@ -23,20 +23,43 @@ static func by_magic(v: float, stats: CharacterStats) -> float:
 	return v if stats == null else v * CharacterStats.percent(stats.stat("magic"))
 
 
-## Casts [param spell] for [param caster] (null: Sera), whose stats are [param stats]: from [param origin] (the staff,
-## or the sky) with [param ground_origin] its feet, at [param target].
-static func begin(w: World, spell: Dictionary, stats: CharacterStats, origin: Vector2, ground_origin: Vector2, target: Vector2, caster: Node2D = null) -> void:
+const SHOWER_GAP := 0.55          ## seconds between the meteors of a Meteor Shower
+
+
+## [param spell] as the caster's talents shape it ([param stats]): a meteor's damage and area (Skyfall's ranks, Wide
+## Crater), how long and how hard a fire spell's burn goes on (Scorch).
+static func tuned(spell: Dictionary, stats: CharacterStats) -> Dictionary:
+	if stats == null:
+		return spell
+	var t := stats.total()
+	var out := spell.duplicate()
+	if str(spell.get("delivery", "")) == "SkyFall":
+		out.damage = float(spell.damage) * CharacterStats.percent(float(t.get("meteorDamage", 0.0)))
+		out.aoeRadius = float(spell.aoeRadius) * CharacterStats.percent(float(t.get("meteorArea", 0.0)))
+	if str(spell.get("element", "")) == "Fire":
+		out["statusTime"] = CharacterStats.percent(float(t.get("burnTime", 0.0)))
+		out["statusBite"] = CharacterStats.percent(float(t.get("burnDamage", 0.0)))
+	return out
+
+
+## Casts [param raw] for [param caster] (null: Sera), whose stats are [param stats]: from [param origin] (the staff,
+## or the sky) with [param ground_origin] its feet, at [param target]. With Meteor Shower, more meteors follow the
+## first, a moment apart, close by.
+static func begin(w: World, raw: Dictionary, stats: CharacterStats, origin: Vector2, ground_origin: Vector2, target: Vector2, caster: Node2D = null) -> void:
+	var spell := tuned(raw, stats)
 	var who: Node2D = caster if caster != null else w.player as Node2D
 	var by_player := caster == null or caster == w.player
 	match spell.delivery:
 		"Directional", "SkyFall":
-			var p := Projectile.new()
-			p.world = w
-			p.spell = spell
-			p.amount = damage(spell, stats)
-			p.by_player = by_player
-			w.add_child(p)
-			p.start(origin, ground_origin, target)
+			var amount := damage(spell, stats)
+			_launch(w, spell, amount, by_player, origin, ground_origin, target)
+			var more := int(stats.stat("meteorShower") + 0.001) if stats != null and spell.delivery == "SkyFall" else 0
+			for i in more:
+				var off := Vector2.from_angle(randf() * TAU) * float(spell.aoeRadius) * randf_range(0.5, 0.9)
+				off.y *= 0.5
+				w.get_tree().create_timer(SHOWER_GAP * (i + 1)).timeout.connect(func():
+					if is_instance_valid(w):
+						_launch(w, spell, amount, by_player, origin + off, ground_origin + off, target + off))
 		"Ground":
 			var g := Spikes.new()
 			g.world = w
@@ -50,6 +73,16 @@ static func begin(w: World, spell: Dictionary, stats: CharacterStats, origin: Ve
 					WaterHeal.make(w, spell, stats, who)
 				"IceBarrier":
 					IceBarrier.make(w, spell, stats, who, by_player)
+
+
+static func _launch(w: World, spell: Dictionary, amount: float, by_player: bool, origin: Vector2, ground_origin: Vector2, target: Vector2) -> void:
+	var p := Projectile.new()
+	p.world = w
+	p.spell = spell
+	p.amount = amount
+	p.by_player = by_player
+	w.add_child(p)
+	p.start(origin, ground_origin, target)
 
 
 ## Hits everyone on the other side within [param area] of [param at] for [param amount], leaving the spell's element's

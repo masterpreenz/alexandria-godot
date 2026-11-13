@@ -3,7 +3,7 @@
 
 	"levelup.title": "LEVEL UP!",
 	"levelup.level": "Level {level}",
-	"levelup.banner": "Level {level}  ·  +1 talent point (P)",
+	"levelup.banner": "Level {level}  ·  +{points} talent points (K)",
 
 	"dir.east": "east", "dir.south-east": "south-east", "dir.south": "south", "dir.south-west": "south-west",
 	"dir.west": "west", "dir.north-west": "north-west", "dir.north": "north", "dir.north-east": "north-east",

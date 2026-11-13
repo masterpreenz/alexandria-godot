@@ -309,7 +309,6 @@ func _put_stats(c: Dictionary, json: String, wears: bool) -> void:
 	st._talents.clear()
 	for t in c.get("talents", []):
 		st._talents[t.id] = t
-	st._links.clear()
 	st.wears_bag = wears
 	st.buffs.clear()
 	st.shields.clear()

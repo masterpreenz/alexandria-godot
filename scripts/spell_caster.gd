@@ -87,7 +87,11 @@ func cooldown_total(spell: String) -> float:
 
 func _cooldown(spell: String) -> float:
 	var cdr := clampf(stats.stat("cooldownReduction"), 0.0, 60.0)
-	return float(spells[spell].cooldown) * (1.0 - cdr / 100.0)
+	var cd := float(spells[spell].cooldown) * (1.0 - cdr / 100.0)
+	# Short Fuse: a meteor sooner again.
+	if str(spells[spell].get("delivery", "")) == "SkyFall":
+		cd *= 1.0 - clampf(stats.stat("meteorCooldown"), 0.0, 60.0) / 100.0
+	return cd
 
 
 ## Starts [param spell]'s cooldown (now, or when its summon has gone).
@@ -165,7 +169,7 @@ func _process_timed(delta: float) -> void:
 
 # The ring art lies flat on the ground; sized to the spell's area.
 func _size_ring(r: Sprite2D, spell: String, k: float) -> void:
-	var s := float(spells[spell].aoeRadius) / float(data.markerRadius) * k
+	var s := float(SpellEffects.tuned(spells[spell], stats).aoeRadius) / float(data.markerRadius) * k
 	var info: Dictionary = world.sprites[int(data.marker)]
 	var base := world.px / float(info.ppu)
 	r.scale = Vector2(s, s) * base

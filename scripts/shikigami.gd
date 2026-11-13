@@ -4,7 +4,7 @@ extends Damageable
 ## spot, falling in behind when they walk and gliding to catch up. It lasts a while (flickering for its last couple of
 ## seconds) and then fades away upward; only so many follow at once (one, plus Max Summons), a new one sending the
 ## oldest away. Its power is raised by Summon Effect (and an attacker's by Summon Damage), its time by Summon Duration
-## and its HP by Summon HP.
+## and its HP by Summon HP (and the talents for each kind: see below).
 ## - Healer: lays healing circles at its summoner's feet and circles them while they heal; its presence alone mends a
 ##   little faster.
 ## - Attacker: picks on enemies Miko has hit herself (within its leash of her), hovers round them, draws back and
@@ -12,6 +12,10 @@ extends Damageable
 ## - Defender: follows its summoner. When monsters come at them it raises a ward round them by itself (ShieldBubble),
 ##   again every so often, and draws the monsters going for anyone nearby onto itself. It doesn't attack.
 ## Its skill can start cooling down only once it's gone (cooldownAfterSummon).
+## Talents: Swift Paper (faster about), Long Bond (attack and healing ones stay longer), Kindred Spirits (an attacker
+## hits harder in its summoner's healing circle), Mending Paper (the circles mend all their shikigami), Thorned Ward (a
+## shield one strikes back at what hits it) and Bursting Ward (it bursts as it goes), the shield's longer ward and
+## harder guard (Shield Shikigami's ranks).
 
 static var active: Array[Shikigami] = []
 
@@ -60,6 +64,10 @@ var strike_to := Vector2.ZERO
 var strike_dir := Vector2.RIGHT
 var strike_hit := false
 var stab_sounded := false
+var speed_k := 1.0               ## how much faster than its own speed it flies (Swift Paper)
+var ward_secs := 0.0             ## seconds more its ward lasts (Shield Shikigami's ranks)
+var ward_guard := 0.0            ## % less damage more inside its ward (Shield Shikigami's ranks)
+var burst_done := false
 
 
 static func now() -> float:
@@ -96,6 +104,11 @@ func _begin(_target: Vector2) -> void:
 		"Defender": power *= CharacterStats.percent(float(t.get("shieldPower", 0.0)))
 	born_at = now()
 	ends_at = born_at + float(s.lifetime) * CharacterStats.percent(float(t.get("summonDuration", 0.0))) + float(t.get("summonSeconds", 0.0))
+	if kind != "Defender":
+		ends_at += float(t.get("bondSeconds", 0.0))
+	speed_k = CharacterStats.percent(float(t.get("summonSpeed", 0.0)))
+	ward_secs = float(t.get("wardSeconds", 0.0))
+	ward_guard = float(t.get("wardGuard", 0.0))
 	next_act = born_at + (0.4 if kind == "Attacker" else 0.2)
 	_make_room(t)
 	if kind == "Defender":
@@ -109,6 +122,9 @@ func _begin(_target: Vector2) -> void:
 	fx = HitFx.add_to(self, body, null, world.px)
 	fx.thud = world
 	damaged.connect(func(_a): fx.play())
+	if kind == "Defender":
+		damaged.connect(_thorns)
+		died.connect(_burst)
 	_show(int(s.idleDown[0]) if s.idleDown.size() > 0 else -1)
 	last_owner = owner_node.position
 	# A ward sets off from its summoner; the others appear beside them.
@@ -134,7 +150,7 @@ func _show(id: int) -> void:
 
 ## How many of each kind may be out at once: one, and one more for each talent that says so; never more than
 ## [constant MOST_OUT] of all kinds together.
-const MOST_OUT := 3
+const MOST_OUT := 6
 const KIND_LIMIT := {"Attacker": "attackerSummons", "Healer": "healerSummons", "Defender": "defenderSummons"}
 
 
@@ -159,6 +175,8 @@ func dismiss() -> void:
 	if bubble != null and is_instance_valid(bubble):
 		bubble.end()
 	_drop_buff()
+	if kind == "Defender":
+		_burst()
 
 
 func _drop_buff() -> void:
@@ -258,7 +276,7 @@ func _process_timed(delta: float) -> void:
 		if kind == "Healer" and t < healing_until: eased = 0.12
 		elif recalled: eased *= 0.5
 		elif walking: eased *= 0.55
-		position = _smooth_damp(position, goal, eased, _px(s.speed) * (1.6 if recalled else 1.0), delta)
+		position = _smooth_damp(position, goal, eased, _px(s.speed) * speed_k * (1.6 if recalled else 1.0), delta)
 	else:
 		velocity = Vector2.ZERO
 	# Floats and bobs; faces the way it's going.
@@ -483,7 +501,40 @@ func _jab(target: Damageable) -> void:
 	var crit := randf() < chance
 	if crit:
 		hit *= (CRIT_DAMAGE + float(owner_stats.stat("summonCritDamage"))) / 100.0
+	# Kindred Spirits: harder in a healing circle of its summoner's (it there, or they).
+	var kindred := float(owner_stats.stat("kindredSpirits")) if owner_stats != null else 0.0
+	if kindred > 0.0 and (HealingCircle.covers(owner_stats, position) or HealingCircle.covers(owner_stats, owner_node.position)):
+		hit *= CharacterStats.percent(kindred)
 	target.hurt(hit, false, crit)
+
+
+# Thorned Ward: a blow on the shield shikigami comes back on the monster that struck it (one drawn onto it, else the
+# nearest), a share of the blow raised by its summoner's magic.
+func _thorns(amount: float) -> void:
+	var share := float(owner_stats.stat("thornWard")) if owner_stats != null else 0.0
+	if share <= 0.0 or not alive():
+		return
+	var by: Damageable = null
+	var best := 2.5 * world.px
+	for c in Creature.all:
+		if is_instance_valid(c) and c.taunted_by == self and c.hit.alive() and c.position.distance_to(position) < best:
+			best = c.position.distance_to(position)
+			by = c.hit
+	if by == null:
+		by = Damageable.nearest(position, 2.0 * world.px, Damageable.Team.ENEMY)
+	if by != null:
+		by.hurt(SpellEffects.by_magic(amount * share / 100.0, owner_stats), true)
+
+
+# Bursting Ward: as the shield shikigami falls or its time is up, it bursts, hurting the monsters round it.
+func _burst() -> void:
+	var hurt_by := float(owner_stats.stat("wardBurst")) if owner_stats != null else 0.0
+	if burst_done or hurt_by <= 0.0 or world == null:
+		return
+	burst_done = true
+	var r := float(s.get("tauntRadius", 4.5)) * 0.6 * world.px
+	Damageable.hit_around(position, r, SpellEffects.by_magic(hurt_by, owner_stats), Damageable.Team.ENEMY, true)
+	SpellEffects.Burst.make(world, position, r, _color(s.wardTint))
 
 
 # The shield shikigami's part: the monsters going for anyone near it are drawn onto it instead (again and again while
@@ -524,8 +575,8 @@ func _defend(t: float) -> void:
 		holding = false
 	if threatened and bubble == null and t >= next_act:
 		guard_at = owner_node.position
-		bubble = ShieldBubble.spawn(world, owner_stats, owner_node, guard_at, guard_radius, float(s.guardPercent), power, float(s.shieldFillTime), int(s.circleSprite) if s.circleSprite != null else -1, _color(s.wardTint))
-		ward_until = t + float(s.get("shieldTime", 6.0))
+		bubble = ShieldBubble.spawn(world, owner_stats, owner_node, guard_at, guard_radius, float(s.guardPercent) + ward_guard, power, float(s.shieldFillTime), int(s.circleSprite) if s.circleSprite != null else -1, _color(s.wardTint))
+		ward_until = t + float(s.get("shieldTime", 6.0)) + ward_secs
 		next_act = ward_until + float(s.get("shieldRest", 4.0))
 
 
@@ -543,6 +594,14 @@ func heal_around(at: Vector2, r: float) -> void:
 			var b: float = a.hp
 			a.heal(power)
 			_show_heal(a.hp - b, a.global_position + Vector2(0, -a.height * 0.6))
+	# Mending Paper: the summoner's shikigami away from the circle are mended too.
+	var mend := owner_stats.stat("mendShikigami")
+	if mend > 0.0:
+		for k in active:
+			if is_instance_valid(k) and k.owner_stats == owner_stats and k.alive() and k.dismissed_at < 0.0 and k.ground_distance(at) > r:
+				var b2 := k.hp
+				k.heal(power * mend / 100.0)
+				_show_heal(k.hp - b2, k.global_position + Vector2(0, -k.height * 0.6))
 
 
 func _show_heal(healed: float, at: Vector2) -> void:

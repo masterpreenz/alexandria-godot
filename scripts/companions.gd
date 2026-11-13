@@ -62,9 +62,9 @@ static func stats_for(p: Dictionary) -> CharacterStats:
 	if json != "" and JSON.parse_string(json) is Dictionary:
 		st.from_json(json)
 	else:
-		# New to it: their level as it is, a talent point for each level past the first, full of mana.
+		# New to it: their level as it is, talent points for each level past the first, full of mana.
 		st.level = maxi(1, int(p.get("level", 1)))
-		st.talent_points = st.level - 1
+		st.talent_points = (st.level - 1) * st.points_per_level()
 		st.xp = int(p.get("xp", 0))
 		st.mana = st.stat("maxMana")
 	st.hp = float(p.get("hp", st.stat("maxHp")))
@@ -117,10 +117,10 @@ static func sync(p: Dictionary, body: Villager = null) -> void:
 		nat.atk = float(nat.atk) + more_atk
 		st.character.base["maxHp"] = nat.maxHp
 		st.character.base["attack"] = nat.atk
-	# Their level is the village's: each one gained is a talent point.
+	# Their level is the village's: each one gained brings talent points.
 	var lv := maxi(1, int(p.get("level", 1)))
 	if lv > st.level:
-		st.talent_points += lv - st.level
+		st.talent_points += (lv - st.level) * st.points_per_level()
 		st.level = lv
 	st.xp = int(p.get("xp", 0))
 	var t := st.total()

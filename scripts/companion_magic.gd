@@ -159,7 +159,10 @@ func _release(t: float) -> void:
 			origin = target + Vector2(float(sky[0]), float(sky[1]))
 	SpellEffects.begin(w, s, st, origin, ground_origin, target, body)
 	var cdr := clampf(st.stat("cooldownReduction"), 0.0, 60.0)
-	ready_at[sp] = t + float(s.get("cooldown", 0.0)) * (1.0 - cdr / 100.0)
+	var cd := float(s.get("cooldown", 0.0)) * (1.0 - cdr / 100.0)
+	if str(s.get("delivery", "")) == "SkyFall":
+		cd *= 1.0 - clampf(st.stat("meteorCooldown"), 0.0, 60.0) / 100.0
+	ready_at[sp] = t + cd
 	_gap_until = t + float(Companions.data().get("magic", {}).get("gap", 1.2))
 	casts.append([sp, target])
 	cast.emit(sp, target)

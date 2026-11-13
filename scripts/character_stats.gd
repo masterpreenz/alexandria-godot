@@ -2,8 +2,9 @@ class_name CharacterStats
 extends Node
 ## A character's stats (from Unity's CharacterStats): their base for their level, plus their worn gear, their learnt
 ## talents and any buffs lent them; HP and mana with regen (HP comes back in ticks, not while being hurt), damage
-## softened by defense, shields first; XP and levels (a talent point each). The skills they know come from their gear
-## and their talents.
+## softened by defense, shields first; XP and levels (talent points with each). The skills they know come from their gear
+## and their talents. The talents are a tree: each opens at a level and may need others learnt first, and some take
+## several ranks (a core skill grows stronger with each, more so at its milestones).
 
 signal changed
 signal hurt(amount: float)
@@ -71,7 +72,7 @@ func total() -> Dictionary:
 		_add(t, item_stats.get(n, {}).get("stats", {}))
 	for id in ranks:
 		if _talents.has(id):
-			_add(t, _talents[id].perRank, ranks[id])
+			_add(t, talent_stats(_talents[id], ranks[id]))
 	for b in buffs.values():
 		_add(t, b)
 	return t
@@ -109,6 +110,15 @@ func stat(nm: String) -> float:
 ## A stat that's a percentage bonus, as a multiplier (10 -> 1.1).
 static func percent(v: float) -> float:
 	return 1.0 + v / 100.0
+
+
+## The talent points each level brings.
+func points_per_level() -> int:
+	return points_per_level_of(character)
+
+
+static func points_per_level_of(c: Dictionary) -> int:
+	return maxi(1, int(c.get("pointsPerLevel", 1)))
 
 
 func xp_to_next() -> int:
@@ -260,7 +270,7 @@ func gain_xp(amount: int) -> void:
 	while xp >= xp_to_next():
 		xp -= xp_to_next()
 		level += 1
-		talent_points += 1
+		talent_points += points_per_level()
 		leveled_up.emit(level)
 	changed.emit()
 
@@ -277,13 +287,9 @@ func from_json(json: String) -> void:
 	var rs: Array = d.get("talentRanks", [])
 	for i in mini(ids.size(), rs.size()):
 		ranks[ids[i]] = int(rs[i])
-	# Saved on an older tree: the points in talents it's since rebuilt (or dropped) come back to be spent again.
+	# Saved on an older tree: carried over onto this one.
 	if int(d.get("tree", 1)) < int(character.get("treeVersion", 1)):
-		for id in ranks.keys():
-			var tl: Dictionary = _talents.get(id, {})
-			if tl.is_empty() or (str(tl.get("region", "")) == "Shikigami" and tl.kind != "Start"):
-				talent_points += int(ranks[id])
-				ranks.erase(id)
+		_migrate()
 	for t in character.talents:
 		if t.kind == "Start" and not ranks.has(t.id):
 			ranks[t.id] = 1
@@ -487,7 +493,7 @@ func _clamp() -> void:
 	mana = minf(mana, float(t.get("maxMana", mana)))
 
 
-# ---- The talent web: learning a path out from what's learnt, and giving talents back ----
+# ---- The talent tree: learning talents (and what they need first), ranking them up, and giving them back ----
 
 func talent(id: String) -> Dictionary:
 	return _talents.get(id, {})
@@ -501,84 +507,90 @@ func unlocked(id: String) -> bool:
 	return rank(id) > 0
 
 
-## The talents [param id] connects to, both ways.
-func neighbours(id: String) -> Array:
-	if _links.is_empty():
-		for t in character.talents:
-			for l in t.links:
-				if not _talents.has(l):
-					continue
-				if not _links.has(t.id): _links[t.id] = []
-				if not _links.has(l): _links[l] = []
-				if not _links[t.id].has(l): _links[t.id].append(l)
-				if not _links[l].has(t.id): _links[l].append(t.id)
-	return _links.get(id, [])
+## The most ranks [param id] can be learnt to.
+func max_rank(id: String) -> int:
+	return maxi(1, int(talent(id).get("maxRank", 1)))
 
 
-var _links := {}
+## Whether [param id] is learnt as far as it goes.
+func maxed(id: String) -> bool:
+	return rank(id) >= max_rank(id)
 
 
-## The cheapest run of locked talents from what's learnt out to [param id] (ending with it), [] when it's learnt, or
-## null when it can't be reached. Its length is the points it costs.
-func path_to(id: String) -> Variant:
-	if unlocked(id):
-		return []
-	var from := {}
-	var queue := []
+## What talent [param t] gives at rank [param r]: its stats for each rank, and each milestone it's reached.
+static func talent_stats(t: Dictionary, r: int) -> Dictionary:
+	var out := {}
+	if r <= 0:
+		return out
+	_add(out, t.get("perRank", {}), r)
+	var ms: Dictionary = t.get("milestones", {})
+	for k in ms:
+		if r >= int(k):
+			_add(out, ms[k])
+	return out
+
+
+## The level [param id] opens at: its own, else its group's.
+func level_for(id: String) -> int:
+	var t := talent(id)
+	var lv := int(t.get("level", 0))
+	var g := int(t.get("group", -1))
+	var groups: Array = character.get("groups", [])
+	if lv <= 0 and g >= 0 and g < groups.size():
+		lv = int(groups[g].get("level", 1))
+	return maxi(1, lv)
+
+
+## The talents that need [param id] learnt first.
+func dependents(id: String) -> Array:
+	var out := []
 	for t in character.talents:
-		if unlocked(t.id):
-			from[t.id] = ""
-			queue.append(t.id)
+		if (t.get("needs", []) as Array).has(id):
+			out.append(t.id)
+	return out
+
+
+## What learning one more rank of [param id] takes: every talent it needs that isn't learnt yet (the farthest back
+## first), then itself; [] when it's learnt as far as it goes, null while it's beyond their level.
+## Its length is the points it costs.
+func path_to(id: String) -> Variant:
+	if not _talents.has(id):
+		return null
+	if maxed(id):
+		return []
+	var path := [id]
+	var queue := [id]
 	while not queue.is_empty():
 		var n: String = queue.pop_front()
-		if n == id:
-			break
-		for nx in neighbours(n):
-			if not from.has(nx):
-				from[nx] = n
-				queue.append(nx)
-	if not from.has(id):
-		return null
-	var path := []
-	var at := id
-	while at != "" and not unlocked(at):
-		path.push_front(at)
-		at = from[at]
+		if level_for(n) > level:
+			return null
+		for need in talent(n).get("needs", []):
+			if _talents.has(need) and not unlocked(need) and not path.has(need):
+				path.push_front(need)
+				queue.append(need)
 	return path
 
 
-## Learns the whole path out to [param id] if there are the points for it.
+## Learns [param id] one rank further (and what it needs first) if there are the points for it.
 func learn_path(id: String) -> bool:
 	var path: Variant = path_to(id)
 	if path == null or path.is_empty() or path.size() > talent_points:
 		return false
 	for n in path:
-		ranks[n] = 1
+		ranks[n] = rank(n) + 1
 	talent_points -= path.size()
 	changed.emit()
 	return true
 
 
-## Whether [param id] can be given back: learnt, not the start, and everything else learnt still joins up to the start
-## without it.
+## Whether a rank of [param id] can be given back: learnt, and (for its last rank) nothing learnt needs it.
 func can_refund(id: String) -> bool:
 	if not unlocked(id) or str(talent(id).get("kind", "")) == "Start":
 		return false
-	var start := ""
-	for t in character.talents:
-		if t.kind == "Start":
-			start = t.id
-	if start == "":
+	if rank(id) > 1:
 		return true
-	var seen := {start: true}
-	var queue := [start]
-	while not queue.is_empty():
-		for nx in neighbours(queue.pop_front()):
-			if nx != id and unlocked(nx) and not seen.has(nx):
-				seen[nx] = true
-				queue.append(nx)
-	for t in character.talents:
-		if unlocked(t.id) and t.id != id and not seen.has(t.id):
+	for d in dependents(id):
+		if unlocked(d):
 			return false
 	return true
 
@@ -593,7 +605,9 @@ func refund(id: String, bag: Bag) -> bool:
 		return false
 	if bag != null and not bag.spend("Gold", refund_cost()):
 		return false
-	ranks.erase(id)
+	ranks[id] = rank(id) - 1
+	if ranks[id] <= 0:
+		ranks.erase(id)
 	talent_points += 1
 	_clamp()
 	changed.emit()
@@ -629,7 +643,14 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["healDuration", "Healing Circle Duration", "%"], ["lastingHeal", "HP Regen after a Healing Circle", "/s"],
 	["shieldPower", "Shield Strength", "%"], ["shieldManaRegen", "Mana Regen inside a Shield", "/s"],
 	["attackerSummons", "Attack Shikigami at once", ""], ["healerSummons", "Healing Shikigami at once", ""],
-	["defenderSummons", "Shield Shikigami at once", ""], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
+	["defenderSummons", "Shield Shikigami at once", ""], ["summonSpeed", "Shikigami Move Speed", "%"],
+	["kindredSpirits", "Shikigami Damage in a Healing Circle", "%"], ["bondSeconds", "s Attack and Healing Shikigami Duration", ""],
+	["mendShikigami", "of Circle Healing Mends Your Shikigami", "%"], ["circleSear", "Damage a Second in a Healing Circle", ""],
+	["circleSize", "Healing Circle Size", "%"], ["thornWard", "of Blows Struck Back by the Shield Shikigami", "%"],
+	["wardBurst", "Damage as the Shield Shikigami Bursts", ""], ["wardSeconds", "s Shield Ward Duration", ""],
+	["wardGuard", "Less Damage inside the Ward", "%"], ["meteorDamage", "Meteor Damage", "%"], ["meteorArea", "Meteor Area", "%"],
+	["meteorCooldown", "Shorter Meteor Cooldown", "%"], ["meteorShower", "Extra Meteor", ""], ["burnTime", "Longer Burns", "%"],
+	["burnDamage", "Harder Burns", "%"], ["gatherSpeed", "Gather Speed", "%"], ["woodYield", "Wood Yield", "%"],
 	["stoneYield", "Stone Yield", "%"], ["growthSpeed", "Tree Growth", "%"], ["moveSpeed", "Move Speed", "%"],
 	["harvestBonus", "Chance of an Extra Crop", "%"], ["foodKeeps", "Slower Food Spoiling", "%"], ["cookSpeed", "Cooking Speed", "%"],
 	["cookBonus", "Chance of an Extra Dish", "%"], ["craftBonus", "Chance of an Extra when Making Materials", "%"],
@@ -662,8 +683,36 @@ func bonuses() -> Dictionary:
 		_add(t, item_stats.get(n, {}).get("stats", {}))
 	for id in ranks:
 		if _talents.has(id):
-			_add(t, _talents[id].perRank, ranks[id])
+			_add(t, talent_stats(_talents[id], ranks[id]))
 	return t
+
+
+## A save from an older tree onto this one: talents folded into one with ranks add their ranks up (past its most,
+## the points come back); talents the tree no longer has give their points back; the start (never paid for) goes.
+func _migrate() -> void:
+	var merged: Dictionary = character.get("merged", {})
+	var free: Array = character.get("freeIds", [])
+	var old := ranks.duplicate()
+	ranks.clear()
+	for id in old:
+		var r := int(old[id])
+		if free.has(id) or r <= 0:
+			continue
+		var to := str(merged.get(id, id))
+		if not _talents.has(to):
+			talent_points += r
+			continue
+		ranks[to] = rank(to) + r
+	for id in ranks.keys():
+		var over := rank(id) - max_rank(id)
+		if over > 0:
+			talent_points += over
+			ranks[id] = max_rank(id)
+	# More points come with each level now: whatever's short of that for the levels gained so far, given at once.
+	var spent := 0
+	for id in ranks:
+		spent += rank(id)
+	talent_points += maxi(0, (level - 1) * points_per_level() - (talent_points + spent))
 
 
 ## The stats as Unity's player.stats.

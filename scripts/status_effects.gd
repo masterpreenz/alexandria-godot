@@ -40,13 +40,16 @@ static func kind_for(element: String) -> String:
 
 
 ## Leaves on [param d] what [param spell] (just hit it for [param amount]) leaves by its element: frostbite for ice, a
-## burn for fire. Its bite is a share of the hit.
+## burn for fire. Its bite is a share of the hit; the caster's talents can make it last longer and bite harder (the
+## spell's statusTime and statusBite, SpellEffects.tuned).
 static func from_spell(d: Damageable, spell: Dictionary, amount: float, from_sera := true) -> void:
 	var kind := kind_for(str(spell.get("element", "")))
 	if kind == "":
 		return
 	var k: Dictionary = kinds()[kind]
-	apply(d, kind, float(k.seconds), amount * float(k.perSecond), float(k.get("slow", 0.0)), StringName(kind), from_sera)
+	var secs := float(k.seconds) * float(spell.get("statusTime", 1.0))
+	var bite := amount * float(k.perSecond) * float(spell.get("statusBite", 1.0))
+	apply(d, kind, secs, bite, float(k.get("slow", 0.0)), StringName(kind), from_sera)
 
 
 ## Puts [param kind] on [param d] for [param seconds], biting [param dps] a second and slowing it [param slow]% (if it
