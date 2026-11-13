@@ -121,6 +121,27 @@ func _draw() -> void:
 	var tip := {}
 	if needs != null:
 		var x := 0.0
+		# What she has to eat and drink in her bag: a pill of its own, always there, first in the row.
+		var food := 0
+		for pair in Needs.EAT_ORDER:
+			food += miko.bag.count(str(pair[0]))
+		var water := miko.bag.count("Water")
+		var sr := Rect2(Vector2(x, y), Vector2(86, TAG_H) * k)
+		draw_style_box(HudStyle.piece("panel"), sr)
+		var meal_icon := UiKit.resource_icon("Meal")
+		var water_icon := UiKit.resource_icon("Water")
+		var iy := y + (TAG_H - 13) / 2.0 * k
+		if meal_icon != null:
+			draw_texture_rect(meal_icon, Rect2(Vector2(x + 6 * k, iy), Vector2(13, 13) * k), false)
+		_text(str(food), Vector2(x + 22 * k, y + TAG_H * 0.72 * k), 11, "bold", HudStyle.color("coral") if food == 0 else HudStyle.color("text"))
+		if water_icon != null:
+			draw_texture_rect(water_icon, Rect2(Vector2(x + 46 * k, iy), Vector2(13, 13) * k), false)
+		_text(str(water), Vector2(x + 62 * k, y + TAG_H * 0.72 * k), 11, "bold", HudStyle.color("coral") if water == 0 else HudStyle.color("text"))
+		if _tag_rects.size() == _hovered:
+			tip = {"name": "In your bag", "color": HudStyle.color("text"), "x": x,
+				"what": "%d to eat (F eats the best of it) and %d water (G to drink, with a mug)." % [food, water]}
+		_tag_rects.append(sr)
+		x += sr.size.x + 4 * k
 		for e in needs.effects():
 			var c: Color = HudStyle.color("green") if e[1] else HudStyle.color("coral")
 			var nm: String = e[0]
@@ -133,8 +154,7 @@ func _draw() -> void:
 				tip = {"name": nm, "color": c, "what": e[2] if e.size() > 2 else "", "x": x}
 			_tag_rects.append(r)
 			x += w + 4 * k
-		if not needs.effects().is_empty():
-			y += (TAG_H + 6.0) * k
+		y += (TAG_H + 6.0) * k
 	_rack(y)
 	bottom = y + (CHIP + 8.0) * k   # (what's under it starts below the rack's room)
 	if not tip.is_empty() and tip.what != "":
