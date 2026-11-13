@@ -555,6 +555,8 @@
 {"scale":1.0,"turn":0,"type":"WoodenBed","x":12,"y":7},
 {"scale":1.0,"turn":1,"type":"WoodenBed","x":11,"y":6},
 {"scale":1.0,"turn":2,"type":"Chest","x":10,"y":5},
+{"scale":1.0,"turn":0,"type":"Bookshelf","x":13,"y":8,"late":true},
+{"scale":1.0,"turn":1,"type":"Bookshelf","x":2,"y":14,"late":true},
 {"scale":1.0,"turn":2,"type":"WoodenBed","x":11,"y":23},
 {"scale":1.0,"turn":2,"type":"Chest","x":11,"y":30},
 {"scale":1.0,"turn":1,"type":"WoodenBed","x":33,"y":5},

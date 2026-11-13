@@ -104,6 +104,13 @@ static func keep_up(w: World, t: Dictionary) -> void:
 			w.walls.remove(e)
 		else:
 			w.walls.set_turned(e, bool(r.get("turned", false)))
+	# Props added to the place after it was first built ("late": true) go in where their spot's still empty.
+	for r in t.get("props", []):
+		if not bool(r.get("late", false)) or not w.props.types.has(str(r.type)):
+			continue
+		var c := lo + Vector2i(int(r.x), int(r.y))
+		if w.props.get_prop(c, int(w.props.types[str(r.type)].slot)) == "":
+			w.props.place(c, str(r.type), float(r.get("scale", 1.0)), int(r.get("turn", -1)))
 
 
 ## Builds template [param t] into the world, at its own place or [param at] (its first cell): the trees and rocks

@@ -26,8 +26,13 @@ static func for_speaker(p: Dictionary) -> Dictionary:
 		if str(s.speaker) != str(p.unique) or ch.happened("scene:" + str(s.id)):
 			continue
 		var w: Dictionary = s.get("when", {})
-		if (w.get("after", []) as Array).all(func(e): return ch.happened(str(e))) and not (w.get("unless", []) as Array).any(func(e): return ch.happened(str(e))):
-			return s
+		var after: Array = w.get("after", [])
+		if not after.all(func(e): return ch.happened(str(e))) or (w.get("unless", []) as Array).any(func(e): return ch.happened(str(e))):
+			continue
+		# (and "days": that long since the last of what it waits on)
+		if w.has("days") and after.any(func(e): return ch.days_since(str(e)) < float(w.days)):
+			continue
+		return s
 	return {}
 
 

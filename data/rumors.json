@@ -385,6 +385,81 @@
   "log": "The river's fishing well: food all year round, even in winter."
  },
  "leads": {}
+},
+{
+ "id": "village_salvage",
+ "title": "What's left in the next village",
+ "teller": {
+  "name": "Miyu"
+ },
+ "appears": {
+  "after": [
+   {
+    "event": "miyu_errand",
+    "days": 0
+   }
+  ],
+  "unless": [
+   "lost:miyu"
+  ]
+ },
+ "told": "{miko}, will you go back to that village? There's nobody left to need what's there: food, wood, tools, whatever the monsters didn't trample. And the old woman's bookshelf was in a house on the west side, the one with the two beds. If my book's still on it...",
+ "accept": "We'll go back and see what's left. And look for your book.",
+ "steps": [
+  {
+   "id": "go",
+   "safe": true,
+   "note": "Miyu says there's still plenty left in the overrun village to the north: up the road west, over the bridge, then north. Go back and see what can be saved. Mind what's still in the mist there.",
+   "place": {
+    "kind": "cell",
+    "x": -250,
+    "y": 110,
+    "vague": 6
+   },
+   "done": {
+    "kind": "reach",
+    "within": 12
+   }
+  },
+  {
+   "id": "search",
+   "safe": true,
+   "note": "Search the bookshelves in the houses (E by one) for the book of magic Miyu went to borrow. The old woman's house was on the west side, with two beds in it.",
+   "place": {
+    "kind": "cell",
+    "x": -260,
+    "y": 98,
+    "vague": 3
+   },
+   "done": {
+    "kind": "event",
+    "event": "water_tome_found"
+   }
+  }
+ ],
+ "reward": {
+  "effects": [],
+  "gifts": [
+   [
+    "Wood",
+    12
+   ],
+   [
+    "Stone",
+    6
+   ],
+   [
+    "Food",
+    4
+   ],
+   [
+    "Gold",
+    25
+   ]
+  ],
+  "log": "You found Miyu's book on the old woman's shelf: a book of water magic. And what could be saved from the village is on its way home."
+ },
+ "leads": {}
 }
 ]
 }

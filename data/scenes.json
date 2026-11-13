@@ -1,5 +1,5 @@
 {
-"_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done. joins: a unique who joins Sera's party as it ends.",
+"_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events], days (that long since the last of them)}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done. joins: a unique who joins Sera's party as it ends.",
 "scenes": [
 {
  "id": "miyu_brought",
@@ -285,6 +285,53 @@
  ],
  "records": [
   "party_join:miyu"
+ ]
+},
+{
+ "id": "miyu_magic",
+ "speaker": "miyu",
+ "when": {
+  "after": [
+   "scene:miyu_wakes"
+  ],
+  "days": 0.5
+ },
+ "lines": [
+  [
+   "miyu",
+   "Sera... can I ask you something? How does it feel, when you call fire like that? Or your shikigami?"
+  ],
+  [
+   "sera",
+   "Warm, mostly. Like holding your breath, then letting it all go at once."
+  ],
+  [
+   "miyu",
+   "I'd give anything to feel that. Just once. I've watched you every time, you know. I even try the gestures when nobody's looking."
+  ],
+  [
+   "miyu",
+   "That's why I went to the next village, really. Grandfather thinks it was for thread. There's an old woman there with a shelf of books, and one of them is a book of magic. She'd promised to lend it to me."
+  ],
+  [
+   "miyu",
+   "I'd only just got there when the mist came down. Then the shouting... I never even saw the book."
+  ],
+  [
+   "sera",
+   "It might still be there."
+  ],
+  [
+   "miyu",
+   "It might! Whatever's left in that village is just lying there now. If you went back, and found it, and gave it to me..."
+  ],
+  [
+   "miyu",
+   "...I don't know what would happen. Something, maybe. Something good."
+  ]
+ ],
+ "records": [
+  "miyu_errand"
  ]
 }
 ]

@@ -411,6 +411,11 @@ func _ready() -> void:
 	rescue.setup(world, miko, get_node("Villagers") as Villagers, monsters_data, $Hud)
 	if sv.get("sections", {}).has("world.rescue"):
 		rescue.from_json(sv.sections["world.rescue"])
+	# The overrun village's bookshelves (Miyu's book on one).
+	var salvage := Salvage.new()
+	salvage.name = "Salvage"
+	add_child(salvage)
+	salvage.setup(world, miko, $Hud)
 	# A new game: the village's own people from the start (the elders, as the template has it), and the story begins.
 	if not sv.get("sections", {}).has("world.props") and has_node("Villagers"):
 		for t_name in world.stamped_villages:
