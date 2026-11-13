@@ -17,7 +17,7 @@ func run() -> void:
 		miyu = Villager.all[1]
 		miyu.person["unique"] = "miyu"
 		miyu.person["name"] = "Miyu"
-		miyu.person["look"] = 2
+		miyu.person["look"] = 5
 		var trait_list: Array = miyu.person.get("traits", []).duplicate()
 		trait_list.append("unique")
 		miyu.person["traits"] = trait_list
