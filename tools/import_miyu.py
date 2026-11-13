@@ -9,6 +9,8 @@ rewrites the same entries in place, so the sprite ids never change) and sets the
 (found by looking for the thin rod sticking out of the body in each fishing frame), lying offsets and faint order in
 data/villagers.json (the look whose settings say uniqueTo miyu). Needs numpy, Pillow and scipy. Then run Godot's
 --import.
+Kept from before: her run's walkCycle, and any frames drawn bigger or smaller by hand (data/art_tune.json, saved by
+the animation tuner, F4).
 """
 import json, os, shutil, sys
 import numpy as np
@@ -104,6 +106,16 @@ for key, name in ANIMS.items():
             j = min(i, len(fr) - 1)   # (16 entries kept so the ids never move; past a short sheet's end, its last frame)
             rows.append({"name": f"miyu2_{key}_{dr}_{i}", "tex": f"res://assets/Art/Characters/Villager/miyu/{out}",
                          "rect": [(j % 4) * 256, (j // 4) * 256, 256, 256], "pivot": PV[(key, dr)], "ppu": PPU})
+
+# Frames drawn bigger or smaller by hand (the animation tuner, F4, saves data/art_tune.json): kept on a re-import.
+tune_path = GAME + 'data/art_tune.json'
+TUNE = json.load(open(tune_path, encoding='utf-8')).get('sprites', {}) if os.path.exists(tune_path) else {}
+for r in rows:
+    t = TUNE.get(r['name'])
+    if t:
+        r['ppu'] = round(PPU / float(t.get('scale', 1.0)), 2)
+        n = t.get('nudge', [0, 0])
+        r['pivot'] = [round(r['pivot'][0] + float(n[0]), 1), round(r['pivot'][1] + float(n[1]), 1)]
 
 # sprites.json: in place when the entries exist, else appended (read just now, written straight back).
 path = GAME + 'data/sprites.json'

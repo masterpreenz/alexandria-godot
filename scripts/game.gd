@@ -448,6 +448,13 @@ func _ready() -> void:
 	kit_window.name = "KitWindow"
 	$Hud.add_child(kit_window)
 	kit_window.setup(miko)
+	# The animation tuner (F4), in a dev build only.
+	var tuned := get_node_or_null("Villagers") as Villagers
+	if AnimTuner.allowed() and tuned != null:
+		var tuner := AnimTuner.new()
+		tuner.name = "AnimTuner"
+		$Hud.add_child(tuner)
+		tuner.setup(world, miko, tuned)
 	var world_map := WorldMap.new()
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
@@ -677,7 +684,7 @@ func _window_up() -> bool:
 		return true
 	if CharacterPanel.up() or BuildMode.is_open():
 		return true
-	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow", "Hud/PartyWindow", "Hud/TacticsWindow", "Hud/KitWindow"]:
+	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow", "Hud/PartyWindow", "Hud/TacticsWindow", "Hud/KitWindow", "Hud/AnimTuner"]:
 		var n: Control = get_node_or_null(path)
 		if n != null and n.visible:
 			return true
