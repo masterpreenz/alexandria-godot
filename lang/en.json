@@ -25,7 +25,7 @@
 	"bark.chilly": ["So cold!", "So cold... I wish I had a scarf.", "Brr... it's freezing!", "My hands are numb.", "I can't feel my toes.", "This wind cuts right through me."],
 	"bark.chilly.scarf": ["Still cold, even with the scarf.", "Brr. Good thing I've a scarf.", "This snow won't stop."],
 	"bark.scarf": ["Ah, that's warmer.", "A scarf! Much better."],
-	"bark.tired": ["Off to bed.", "So sleepy...", "Good night!", "My bed's calling."],
+	"bark.tired": ["Off to bed.", "So sleepy...", "Good night!"],
 	"bark.pests": ["Pests again!", "Shoo, bugs!", "Not my crops!"],
 	"bark.hurt": ["Ow!", "Ouch!", "Get away!", "Help!"],
 	"bark.flee": ["Run!", "Help me!", "I can't take any more!", "Get it away from me!"],
