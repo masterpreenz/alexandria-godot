@@ -1,15 +1,16 @@
 class_name Rescue
 extends Node
 ## Miyu's rescue, as the rumor "The elder's granddaughter" plays out. Coming near the overrun village, its monsters are
-## there (only monsters: nobody's left). Reaching it, Miyu lies in the street, unconscious. E picks her up: Sera carries
-## her (slower) home, and in her own village the elder's marked: she carries her to him ("miyu_carried_home"), his
-## scene plays (scenes.json's miyu_brought, "miyu_told"), and she takes Miyu on to a bed in the elders' house (or the
-## nearest free one) and lays her down (E): Miyu comes to live there, asleep the whole day through ("miyu_home"). If
-## the day runs out before Sera comes, the rumor says she's gone. What it's at is saved (world.rescue).
+## there (only monsters: nobody's left). On the way, Miyu lies on the road, unconscious: she'd got out and collapsed
+## on her way home. E picks her up: Sera carries her (slower) home, and in her own village the elder's marked: she
+## carries her to him ("miyu_carried_home"), his scene plays (scenes.json's miyu_brought, "miyu_told"), and she takes
+## Miyu on to a bed in the elders' house (or the nearest free one) and lays her down (E): Miyu comes to live there,
+## asleep the whole day through ("miyu_home"). If the day runs out before Sera comes, the rumor says she's gone. What
+## it's at is saved (world.rescue).
 
 const WHO := "miyu"
 const RUMOR := "find_miyu"
-const LIES_AT := Vector2i(-250, 113)   ## in the street, by the square
+const LIES_AT := Vector2i(-251, 70)    ## on the road back south, some way short of the village: she collapsed on her way home
 const MONSTERS := {"slime": 6, "boar": 2, "mutatedVillager": 4}
 const NEAR := 40.0                      ## cells from the village its monsters are met
 const REACH := 1.3                      ## units from her to pick her up
@@ -85,7 +86,7 @@ func _process(_delta: float) -> void:
 	if open and not monsters_out and Rect2i(village.position - Vector2i.ONE * int(NEAR), village.size + Vector2i.ONE * int(NEAR) * 2).has_point(here):
 		monsters_out = true
 		_monsters()
-	# Reached: Miyu in the street.
+	# Reached: Miyu on the road.
 	if open and state == "" and int(st.step) >= 1:
 		state = "lying"
 	if state == "lying":

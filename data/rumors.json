@@ -70,7 +70,7 @@
    "place": {
     "kind": "cell",
     "x": -250,
-    "y": 110,
+    "y": 70,
     "vague": 10
    },
    "done": {
@@ -81,7 +81,7 @@
   {
    "id": "carry",
    "safe": true,
-   "note": "The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home to the elder, then lay her in a bed in the elders' house.",
+   "note": "Miyu lies on the road, unconscious: she must have got out of the village and collapsed on her way home. Pick her up (E) and carry her home to the elder, then lay her in a bed in the elders' house.",
    "place": {
     "kind": "village",
     "vague": 4

@@ -128,7 +128,7 @@ Everything the opening says, in the order it plays, numbered: a story step is a 
 
 - **16.1** Genzo: Sera... a word, if you'd hear an old man. My granddaughter, Miyu. I sent her to the next village on an errand, two days ago: up the road west, over the bridge, then north. She should have been back by now. If the mist is there as it was here... Please. Go and look for her. I can't ask anyone else.
 - **16.2** (note, reach) The elder's granddaughter, Miyu, went to the next village on an errand and hasn't come back: up the road west over the bridge, then north. Go today. The mist has spread everywhere overnight: never mind it and head straight there. Your crystal necklace keeps it off you.
-- **16.3** (note, carry) The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home to the elder, then lay her in a bed in the elders' house.
+- **16.3** (note, carry) Miyu lies on the road, unconscious: she must have got out of the village and collapsed on her way home. Pick her up (E) and carry her home to the elder, then lay her in a bed in the elders' house.
 - **16.4** (when it's done) Miyu is home, asleep. The elders want to speak with you.
 - **16.5** (if it's missed) Word has come from the next village: nobody was left alive there. Miyu is gone.
 
