@@ -39,7 +39,7 @@
 "Crystal":{"name":"Mist crystal","icon":{"tex":"res://assets/Icons/Resources/Crystal.png"},"usable":false,"group":"Materials"},
 "Jelly":{"name":"Slime jelly","icon":{"s":3307},"usable":false,"group":"Materials"},
 "Candy":{"name":"Candied jelly","icon":{"tex":"res://assets/Icons/Resources/Candy.png"},"usable":true,"group":"Consumables"},
-"Potato":{"name":"Potato","icon":{"s":3309},"usable":true,"group":"Consumables"},
+"Potato":{"name":"Potato","icon":{"s":3309},"usable":false,"group":"Consumables"},
 "BakedPotato":{"name":"Baked potato","icon":{"s":3310},"usable":true,"group":"Consumables"},
 "Rabbit":{"name":"Live rabbit","icon":{"tex":"res://assets/Icons/Resources/Rabbit.png"},"usable":false,"group":"Materials"},
 "Bottle":{"name":"Bottle","icon":{"tex":"res://assets/Icons/Resources/Bottle.png"},"usable":false,"group":"Materials"},
