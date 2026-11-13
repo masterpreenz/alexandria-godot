@@ -9,10 +9,10 @@ func run() -> void:
 	var c := world.village.centre()
 	var tree: Gatherable = null
 	var best := INF
-	for g in Gatherable.all:
-		if g.axe and not g.depleted() and g.foot.distance_to(c) > 12.0 * world.px and g.foot.distance_to(c) < best:
-			best = g.foot.distance_to(c)
-			tree = g
+	for gt in Gatherable.all:
+		if gt.axe and not gt.depleted() and gt.foot.distance_to(c) > 12.0 * world.px and gt.foot.distance_to(c) < best:
+			best = gt.foot.distance_to(c)
+			tree = gt
 	var tc := world.floors.cell_at(tree.foot)
 	var spot := tc + Vector2i(-1, -1)
 	for o in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-2, -1), Vector2i(-1, -2)]:
