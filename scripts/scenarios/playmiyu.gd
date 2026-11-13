@@ -27,11 +27,11 @@ func run() -> void:
 		miyu.name = "Miyu"
 	Party.active.join("miyu")
 	miyu._follow_start(Villager.now())
-	miyu.person["level"] = 4
+	miyu.person["level"] = 12
 	var mst := Companions.stats_for(miyu.person)
-	for sp in ["IceSpikes", "IceBlast", "WaterHeal", "IceBarrier"]:
-		mst.learned[sp] = "Water Spell Book"
-	mst.changed.emit()
+	# (the Water Spell Book given: Ice Shard; then her own points spent on to Frost Armor)
+	Companions.teach(mst, Companions.data().books[0])
+	mst.learn_path("ifa")
 	# Both in the village, side by side.
 	var centre := world.village.centre()
 	miko.place(centre + Vector2(1.5, 1.0) * world.px)
@@ -67,6 +67,9 @@ func run() -> void:
 	_report("as Miyu")
 	print("Play miyu: Miko (now Miyu) at ", miko.position, " (Miyu stood at ", miyu_at, "); Sera's body at ", _sera_body().position if _sera_body() != null else Vector2.INF, " (Sera stood at ", sera_at, ")")
 	print("Play miyu: Miyu's hotbar ", hotbar.slots.filter(func(x): return str(x) != ""))
+	var tw: TalentsWindow = (g.get_node("Hud/CharacterPanel") as CharacterPanel).talents
+	tw.show_for({})
+	print("Play miyu: her talents as played: tree ", miko.stats.tree_id(), ", window's first group '", tw.stats.character.groups[0].name, "', Ice Shard rank ", miko.stats.rank("is"), ", Frost Armor ", miko.stats.rank("ifa"))
 	shot("miyu")
 	# Moving the played body: Sera follows.
 	var sb := _sera_body()

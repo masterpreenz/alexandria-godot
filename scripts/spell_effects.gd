@@ -5,9 +5,12 @@ class_name SpellEffects
 ## the target; or spikes bursting up out of the ground across the area. Each hits everything in its area for the
 ## spell's damage, raised by the caster's magic and spell damage, and leaves what its element leaves on those it hit
 ## (StatusEffects: frostbite from ice, a burn from fire); an ice spell with "frozenGround" leaves the ground frozen
-## there a few seconds too. Spells cast on oneself: Water Heal (mending the caster and allies round them over a
-## moment) and Ice Barrier (a shield of ice on the caster that bursts when it breaks, frostbiting what's near).
-## Anyone can cast them: Sera, or a companion with their own stats.
+## there a few seconds too, and Cold Snap now and then freezes what ice hits solid. Miyu's ice and water: Ice Shard
+## (a fast shard, two with Twin Shard), Healing Circle (water round the caster for some seconds, mending the party
+## standing in it), Frost Armor (a shell of ice on everyone on her side near her, each bursting when it breaks), Ice
+## Blast (ice bursting up out of the ground where she aims: the user's animation) and Blizzard (shards falling from
+## the sky over an area a few seconds, each shattering where it lands). Anyone can cast them: Sera, or a companion
+## with their own stats.
 
 
 ## A spell's damage: its own, raised by the caster's magic (1% a point) and spell damage.
@@ -24,10 +27,13 @@ static func by_magic(v: float, stats: CharacterStats) -> float:
 
 
 const SHOWER_GAP := 0.55          ## seconds between the meteors of a Meteor Shower
+const TWIN_GAP := 0.12            ## seconds between an Ice Shard and its twin
 
 
 ## [param spell] as the caster's talents shape it ([param stats]): a meteor's damage and area (Skyfall's ranks, Wide
-## Crater), how long and how hard a fire spell's burn goes on (Scorch).
+## Crater), how long and how hard a fire spell's burn goes on (Scorch), how hard ice's frostbite bites and how often it
+## freezes solid (Frost Bite, Cold Snap); and whatever the spell's "tune" names: the stat that raises its damage,
+## area, time, healing, shield strength, frostbite, shards, extra shots, chill, frozen ground (Miyu's talents).
 static func tuned(spell: Dictionary, stats: CharacterStats) -> Dictionary:
 	if stats == null:
 		return spell
@@ -39,7 +45,78 @@ static func tuned(spell: Dictionary, stats: CharacterStats) -> Dictionary:
 	if str(spell.get("element", "")) == "Fire":
 		out["statusTime"] = CharacterStats.percent(float(t.get("burnTime", 0.0)))
 		out["statusBite"] = CharacterStats.percent(float(t.get("burnDamage", 0.0)))
+	if str(spell.get("element", "")) == "Ice":
+		out["statusBite"] = CharacterStats.percent(float(t.get("frostbiteDamage", 0.0)))
+		out["coldSnap"] = float(t.get("coldSnap", 0.0))
+	var tune: Dictionary = spell.get("tune", {})
+	if tune.is_empty():
+		return out
+	out.damage = float(spell.damage) * _pct(t, tune, "damage")
+	out.aoeRadius = float(spell.aoeRadius) * _pct(t, tune, "area")
+	for f in ["healTime", "shieldTime", "stormTime"]:
+		if spell.has(f):
+			out[f] = float(spell[f]) * _pct(t, tune, "time")
+	if spell.has("heal"):
+		out.heal = float(spell.heal) * _pct(t, tune, "heal")
+	if spell.has("shield"):
+		out.shield = float(spell.shield) * _pct(t, tune, "strength")
+	out["statusBite"] = float(out.get("statusBite", 1.0)) * _pct(t, tune, "status")
+	out["shards"] = int(spell.get("shards", 0)) + int(_flat(t, tune, "count") + 0.001)
+	out["extra"] = int(_flat(t, tune, "extra") + 0.001)
+	out["chill"] = _flat(t, tune, "chill")
+	out["frozenGround"] = float(spell.get("frozenGround", 0.0)) + _flat(t, tune, "frozen")
+	if _flat(t, tune, "rime") > 0.0:
+		out["noStatus"] = false
 	return out
+
+
+# The stat a spell's tune names for [param key], as a multiplier (and as it is).
+static func _pct(t: Dictionary, tune: Dictionary, key: String) -> float:
+	return CharacterStats.percent(_flat(t, tune, key))
+
+
+static func _flat(t: Dictionary, tune: Dictionary, key: String) -> float:
+	return float(t.get(str(tune.get(key, "")), 0.0)) if tune.has(key) else 0.0
+
+
+## [param spell]'s cooldown for a caster with [param stats]: shortened by cooldown reduction (at most 60%), a meteor's
+## by Short Fuse, and any spell's by the stat its tune names for it (Quick Freeze: Ice Blast).
+static func cooldown(spell: Dictionary, stats: CharacterStats) -> float:
+	var cd := float(spell.get("cooldown", 0.0))
+	if stats == null:
+		return cd
+	cd *= 1.0 - clampf(stats.stat("cooldownReduction"), 0.0, 60.0) / 100.0
+	if str(spell.get("delivery", "")) == "SkyFall":
+		cd *= 1.0 - clampf(stats.stat("meteorCooldown"), 0.0, 60.0) / 100.0
+	var by := str((spell.get("tune", {}) as Dictionary).get("cooldown", ""))
+	if by != "":
+		cd *= 1.0 - clampf(stats.stat(by), 0.0, 60.0) / 100.0
+	return cd
+
+
+## Everyone on Sera's side within [param reach] of [param at] on the ground: whoever's played, and each companion
+## with her (their body and their stats), as [[body, stats]].
+static func party_near(w: World, at: Vector2, reach: float) -> Array:
+	var out := []
+	var lead := w.player as Miko
+	if lead != null and lead.stats != null and _ground_gap(lead.position, at) <= reach:
+		out.append([lead, lead.stats])
+	if Party.active == null:
+		return out
+	for v in Villager.all:
+		if not is_instance_valid(v) or v.hit == null or not v.hit.alive() or not Party.active.has_member(v.person):
+			continue
+		if _ground_gap(v.position, at) <= reach:
+			var st := Companions.stats_for(v.person)
+			if st != null:
+				out.append([v, st])
+	return out
+
+
+# How far apart two spots are on the ground (its depth counts double: the ground is drawn at half height).
+static func _ground_gap(a: Vector2, b: Vector2) -> float:
+	var d := a - b
+	return Vector2(d.x, d.y * 2.0).length()
 
 
 ## Casts [param raw] for [param caster] (null: Sera), whose stats are [param stats]: from [param origin] (the staff,
@@ -53,6 +130,12 @@ static func begin(w: World, raw: Dictionary, stats: CharacterStats, origin: Vect
 		"Directional", "SkyFall":
 			var amount := damage(spell, stats)
 			_launch(w, spell, amount, by_player, origin, ground_origin, target)
+			# Twin Shard: another, a moment after, a hair to the side.
+			for i in int(spell.get("extra", 0)):
+				var aim := ground_origin + (target - ground_origin).rotated(deg_to_rad(4.0 * (1.0 if i % 2 == 0 else -1.0)))
+				w.get_tree().create_timer(TWIN_GAP * (i + 1)).timeout.connect(func():
+					if is_instance_valid(w):
+						_launch(w, spell, amount, by_player, origin, ground_origin, aim))
 			var more := int(stats.stat("meteorShower") + 0.001) if stats != null and spell.delivery == "SkyFall" else 0
 			for i in more:
 				var off := Vector2.from_angle(randf() * TAU) * float(spell.aoeRadius) * randf_range(0.5, 0.9)
@@ -61,18 +144,26 @@ static func begin(w: World, raw: Dictionary, stats: CharacterStats, origin: Vect
 					if is_instance_valid(w):
 						_launch(w, spell, amount, by_player, origin + off, ground_origin + off, target + off))
 		"Ground":
-			var g := Spikes.new()
-			g.world = w
-			g.spell = spell
-			g.by_player = by_player
-			w.things.add_child(g)
-			g.start(target, damage(spell, stats))
+			match str(spell.effect):
+				"IceBlast":
+					IceBlastArea.make(w, spell, target, damage(spell, stats), by_player)
+				"Blizzard":
+					Blizzard.make(w, spell, target, damage(spell, stats), by_player)
+				"Unmade":
+					pass   # (Glacial Spikes, Ice Pillar: not made yet)
+				_:
+					var g := Spikes.new()
+					g.world = w
+					g.spell = spell
+					g.by_player = by_player
+					w.things.add_child(g)
+					g.start(target, damage(spell, stats))
 		"Self":
 			match str(spell.effect):
-				"WaterHeal":
-					WaterHeal.make(w, spell, stats, who)
-				"IceBarrier":
-					IceBarrier.make(w, spell, stats, who, by_player)
+				"HealingCircle":
+					WaterCircle.make(w, spell, stats, who, by_player)
+				"FrostArmor":
+					FrostArmor.cast(w, spell, stats, who, by_player)
 
 
 static func _launch(w: World, spell: Dictionary, amount: float, by_player: bool, origin: Vector2, ground_origin: Vector2, target: Vector2) -> void:
@@ -86,10 +177,16 @@ static func _launch(w: World, spell: Dictionary, amount: float, by_player: bool,
 
 
 ## Hits everyone on the other side within [param area] of [param at] for [param amount], leaving the spell's element's
-## effect (frostbite, a burn) on whoever's still standing, and frozen ground if the spell leaves it.
+## effect (frostbite, a burn) on whoever's still standing (not a Blizzard's shards, but with Rime), now and then
+## freezing them solid (Cold Snap), and frozen ground if the spell leaves it.
 static func strike(w: World, spell: Dictionary, at: Vector2, area: float, amount: float, by_player: bool) -> int:
+	var snap := float(spell.get("coldSnap", 0.0))
+	var quiet := bool(spell.get("noStatus", false))
 	var n := Damageable.hit_around(at, area, amount, Damageable.Team.ENEMY, by_player, func(d: Damageable) -> void:
-		StatusEffects.from_spell(d, spell, amount, by_player))
+		if not quiet:
+			StatusEffects.from_spell(d, spell, amount, by_player)
+		if snap > 0.0 and randf() < snap / 100.0:
+			StatusEffects.freeze(d, by_player))
 	if float(spell.get("frozenGround", 0.0)) > 0.0:
 		FrozenGround.make(w, spell, at, area, amount, by_player)
 	return n
@@ -108,6 +205,19 @@ static func core(c: Color) -> Color:
 static func sound(w: World, path: String, at: Vector2, volume: float) -> void:
 	if path != "" and ResourceLoader.exists(path):
 		Sfx.play(w, Sfx.stream(path), at, volume)
+
+
+## [param spell]'s impact sound at [param at]; one that comes thick and fast (soundCap: Ice Shard's, a Blizzard's
+## shards) is kept to that many playing at once, a moment apart, shared by everything playing the same sound.
+static func impact_sound(w: World, spell: Dictionary, at: Vector2) -> void:
+	var path := str(spell.get("impactSound", ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var cap := int(spell.get("soundCap", 0))
+	if cap > 0:
+		Sfx.play_capped(w, Sfx.stream(path), at, float(spell.soundVolume), 0.06, path, cap, 0.08)
+	else:
+		Sfx.play(w, Sfx.stream(path), at, float(spell.soundVolume))
 
 
 ## A glowing ball with a trail, flying or falling; bursting with sparks and a ring where it lands.
@@ -222,7 +332,7 @@ class Projectile extends Node2D:
 
 	func _explode(at: Vector2) -> void:
 		SpellEffects.strike(world, spell, at, float(spell.aoeRadius), amount, by_player)
-		SpellEffects.sound(world, spell.impactSound, at, spell.soundVolume)
+		SpellEffects.impact_sound(world, spell, at)
 		Burst.make(world, at, float(spell.aoeRadius), SpellEffects.color(spell))
 		# The trail finishes on its own.
 		trail.emitting = false
@@ -361,8 +471,9 @@ class Spikes extends Node2D:
 		return 1.0 + (c1 + 1.0) * pow(x - 1.0, 3.0) + c1 * pow(x - 1.0, 2.0)
 
 
-## Ground frozen where an ice spell landed: a pale patch of ice, cracked and glinting, lying flat on the ground a few
-## seconds. A monster standing on it is frostbitten harder (slowed more, bitten harder) for as long as it stays, and a
+## Ground frozen where an ice spell landed: a sheet of ice lying flat on the ground a few seconds, its edge uneven
+## (lobed, wobbling), see-through enough that the ground shows faintly, a frosty rim, glossy streaks shimmering slowly
+## across it, a few thin cracks; it spreads out quickly and melts back from its edge at the end. A monster standing on it is frostbitten harder (slowed more, bitten harder) for as long as it stays, and a
 ## moment after it steps off.
 class FrozenGround extends Node2D:
 	const EVERY := 0.25
@@ -380,6 +491,9 @@ class FrozenGround extends Node2D:
 	var _next := 0.0
 	var _cracks := []     # [from, to] across the ice (px, before squashing flat)
 	var _glints := []     # [where, phase]
+	var _edge := []       # how far out the edge lies all round, as a share of the radius
+	var _streaks := []    # [middle, half length, phase] of the glossy streaks
+	const EDGE_POINTS := 48
 
 	static func make(w: World, spell: Dictionary, at: Vector2, area: float, amount: float, mine: bool) -> FrozenGround:
 		var k: Dictionary = StatusEffects.kinds().get("FrozenGround", {})
@@ -399,8 +513,20 @@ class FrozenGround extends Node2D:
 			var to := mid + Vector2.from_angle(a + randf_range(-0.6, 0.6)) * g.radius * randf_range(0.2, 0.35)
 			g._cracks.append([from, mid])
 			g._cracks.append([mid, to])
-		for i in 9:
-			g._glints.append([Vector2.from_angle(randf() * TAU) * sqrt(randf()) * g.radius * 0.85, randf() * TAU])
+		for i in 5:
+			g._glints.append([Vector2.from_angle(randf() * TAU) * sqrt(randf()) * g.radius * 0.75, randf() * TAU])
+		# Its edge: a few broad lobes and smaller wobbles, a little jitter, smoothed.
+		var lobes := randi_range(3, 5)
+		var p1 := randf() * TAU
+		var p2 := randf() * TAU
+		var raw := []
+		for i in EDGE_POINTS:
+			var t := TAU * i / EDGE_POINTS
+			raw.append(0.86 + 0.09 * sin(lobes * t + p1) + 0.05 * sin((lobes + 4) * t + p2) + randf_range(-0.04, 0.04))
+		for i in EDGE_POINTS:
+			g._edge.append((float(raw[(i - 1 + EDGE_POINTS) % EDGE_POINTS]) + 2.0 * float(raw[i]) + float(raw[(i + 1) % EDGE_POINTS])) / 4.0)
+		for i in 3:
+			g._streaks.append([Vector2(randf_range(-0.4, 0.3), randf_range(-0.5, 0.3)) * g.radius, g.radius * randf_range(0.18, 0.32), randf() * TAU])
 		g.visibility_layer |= LightMap.UNLIT_LAYER   # (glinting at night too)
 		w.add_ground_layer(g, -9978)   # on the ground, under everyone
 		return g
@@ -422,62 +548,91 @@ class FrozenGround extends Node2D:
 				if d.team == Damageable.Team.ENEMY and d.alive() and d.ground_distance(position) <= radius:
 					StatusEffects.apply(d, "Frostbite", linger, dps, slow, &"Frostbite:ground", by_player)
 
+	# The sheet's outline at [param k] of its size, and pulled in by [param inset] (px), flat (before squashing).
+	func _outline(k: float, inset := 0.0) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for i in EDGE_POINTS:
+			out.append(Vector2.from_angle(TAU * i / EDGE_POINTS) * maxf(0.0, radius * float(_edge[i]) * k - inset))
+		return out
+
 	func _draw() -> void:
 		var shown := minf(clampf(age / FADE_IN, 0.0, 1.0), clampf((life - age) / FADE_OUT, 0.0, 1.0))
-		var r := radius * lerpf(0.6, 1.0, clampf(age / FADE_IN, 0.0, 1.0))
+		# Spreading out as it forms, melting back from its edge as it goes.
+		var k := lerpf(0.65, 1.0, clampf(age / FADE_IN, 0.0, 1.0)) * lerpf(0.82, 1.0, clampf((life - age) / FADE_OUT, 0.0, 1.0))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, r, Color(0.72, 0.88, 1.0, 0.5 * shown))
-		draw_circle(Vector2(-r * 0.2, -r * 0.15), r * 0.55, Color(0.9, 0.97, 1.0, 0.22 * shown))
-		draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, Color(0.92, 0.98, 1.0, 0.75 * shown), 3.0, true)
-		var k := r / radius
+		var sheet := _outline(k)
+		draw_colored_polygon(sheet, Color(0.76, 0.89, 1.0, 0.3 * shown))
+		draw_colored_polygon(_outline(k * 0.72), Color(0.9, 0.96, 1.0, 0.1 * shown))
+		var rim := sheet.duplicate()
+		rim.append(sheet[0])
+		draw_polyline(rim, Color(0.93, 0.98, 1.0, 0.6 * shown), 3.0, true)
+		var inner := _outline(k, 7.0)
+		inner.append(inner[0])
+		draw_polyline(inner, Color(0.85, 0.94, 1.0, 0.25 * shown), 1.5, true)
 		for c in _cracks:
-			draw_line(c[0] * k, c[1] * k, Color(1.0, 1.0, 1.0, 0.6 * shown), 2.0, true)
+			draw_line(c[0] * k, c[1] * k, Color(1.0, 1.0, 1.0, 0.35 * shown), 1.5, true)
+		# Glossy streaks, catching the light now and then.
+		for st in _streaks:
+			var gl := 0.5 + 0.5 * sin(age * 1.3 + float(st[2]))
+			var m: Vector2 = st[0] * k
+			var dir := Vector2(1.0, -0.55).normalized() * float(st[1]) * k
+			draw_line(m - dir, m + dir, Color(1.0, 1.0, 1.0, (0.12 + 0.28 * gl) * shown), 5.0, true)
+			draw_line(m - dir * 0.6 + Vector2(0, 9), m + dir * 0.6 + Vector2(0, 9), Color(1.0, 1.0, 1.0, (0.06 + 0.16 * gl) * shown), 3.0, true)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		for g in _glints:
 			var p: Vector2 = g[0] * k * Vector2(1.0, 0.5)
-			var tw := maxf(0.0, sin(age * 4.0 + g[1]))
-			if tw > 0.3:
-				var s := 7.0 * tw
-				var c := Color(1.0, 1.0, 1.0, 0.9 * shown * tw)
-				draw_line(p + Vector2(-s, 0), p + Vector2(s, 0), c, 1.5, true)
-				draw_line(p + Vector2(0, -s), p + Vector2(0, s), c, 1.5, true)
+			var tw := maxf(0.0, sin(age * 2.0 + g[1]))
+			if tw > 0.5:
+				var sz := 5.0 * tw
+				var c := Color(1.0, 1.0, 1.0, 0.7 * shown * tw)
+				draw_line(p + Vector2(-sz, 0), p + Vector2(sz, 0), c, 1.5, true)
+				draw_line(p + Vector2(0, -sz), p + Vector2(0, sz), c, 1.5, true)
 
 
-## Water Heal: a ring of water spreading on the ground round the caster and droplets springing up about them; over a
-## moment it mends the caster and everyone on their side near them (Sera, her companions, villagers), a little each
-## tick, the numbers rising blue.
-class WaterHeal extends Node2D:
-	const EVERY := 0.4
+## Healing Circle: water welling up round the caster for some seconds, going where they go, droplets springing up and
+## ripples running out; everyone on their side standing in it (whoever's played, the companions) is mended a little
+## every moment, the numbers rising blue now and then. With Cold Edge the monsters in it are chilled, slowed. Cast
+## again while one's up, the new one takes its place.
+class WaterCircle extends Node2D:
+	const EVERY := 0.5
+	const SHOW_EVERY := 3             ## mends between the numbers shown
+	static var _on := {}              # caster -> their circle
 
 	var world: World
 	var spell: Dictionary
 	var stats: CharacterStats
 	var who: Node2D
+	var by_player := true
 	var radius := 0.0
-	var time := 2.0
+	var time := 8.0
 	var per_tick := 0.0
-	var ticks := 1
-	var done := 0
+	var chill := 0.0
 	var age := 0.0
+	var healed := 0.0                 ## all it's mended so far (the scenarios read it)
 	var _next := 0.0
+	var _ticks := 0
+	var _shown := {}                  # body -> mended since its number was last shown
 	var drops: CPUParticles2D
 
-	static func make(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D) -> WaterHeal:
-		var h := WaterHeal.new()
+	static func make(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D, mine: bool) -> WaterCircle:
+		var old: Variant = _on.get(caster)
+		if old != null and is_instance_valid(old):
+			(old as WaterCircle)._end()
+		var h := WaterCircle.new()
 		h.world = w
 		h.spell = sp
 		h.stats = st
 		h.who = caster
+		h.by_player = mine
 		h.radius = float(sp.aoeRadius)
-		h.time = float(sp.get("healTime", 2.0))
-		h.ticks = maxi(1, roundi(h.time / EVERY))
-		h.per_tick = SpellEffects.by_magic(float(sp.get("heal", 20.0)), st) / h.ticks
+		h.time = float(sp.get("healTime", 8.0))
+		h.per_tick = SpellEffects.by_magic(float(sp.get("heal", 5.0)), st) * EVERY
+		h.chill = float(sp.get("chill", 0.0))
 		h.position = caster.global_position if caster != null else Vector2.ZERO
 		h.visibility_layer |= LightMap.UNLIT_LAYER   # (bright at night too)
 		w.add_ground_layer(h, -9978)
-		# Droplets springing up all round and falling back.
 		var m := CPUParticles2D.new()
-		m.amount = 70
+		m.amount = 40
 		m.lifetime = 0.9
 		m.local_coords = false
 		m.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
@@ -485,15 +640,15 @@ class WaterHeal extends Node2D:
 		m.direction = Vector2(0, -1)
 		m.spread = 18.0
 		m.gravity = Vector2(0, 520)
-		m.initial_velocity_min = 160.0
-		m.initial_velocity_max = 300.0
+		m.initial_velocity_min = 120.0
+		m.initial_velocity_max = 240.0
 		m.texture = Waterfall._dot(16, 1.0)
-		m.scale_amount_min = 0.8
-		m.scale_amount_max = 1.4
+		m.scale_amount_min = 0.7
+		m.scale_amount_max = 1.2
 		var g := Gradient.new()
-		g.set_color(0, Color(0.85, 0.95, 1.0, 0.95))
+		g.set_color(0, Color(0.85, 0.95, 1.0, 0.9))
 		g.set_color(1, Color(0.3, 0.6, 1.0, 0.0))
-		g.add_point(0.5, Color(0.45, 0.72, 1.0, 0.8))
+		g.add_point(0.5, Color(0.45, 0.72, 1.0, 0.75))
 		m.color_ramp = g
 		m.z_as_relative = false
 		m.z_index = 3990
@@ -502,84 +657,106 @@ class WaterHeal extends Node2D:
 		w.add_child(m)
 		m.emitting = true
 		h.drops = m
+		if caster != null:
+			_on[caster] = h
 		SpellEffects.sound(w, str(sp.impactSound), h.position, float(sp.soundVolume))
 		return h
+
+	## [param caster]'s circle while it's up, else null.
+	static func of(caster: Node2D) -> WaterCircle:
+		var c: Variant = _on.get(caster)
+		return c as WaterCircle if c != null and is_instance_valid(c) and (c as WaterCircle).age < (c as WaterCircle).time else null
 
 	func _process(delta: float) -> void:
 		var __t := Time.get_ticks_usec()
 		_process_timed(delta)
-		Perf.add(&"spell_effects.WaterHeal.process", __t)
+		Perf.add(&"spell_effects.WaterCircle.process", __t)
 
 	func _process_timed(delta: float) -> void:
 		age += delta
-		if who != null and is_instance_valid(who):
+		if who != null and is_instance_valid(who) and age < time:
 			position = who.global_position
 		if drops != null:
 			drops.position = position
 			if age >= time:
 				drops.emitting = false
 		queue_redraw()
-		if done < ticks and age >= _next:
+		if age < time and age >= _next:
 			_next = age + EVERY
-			done += 1
 			_mend()
+			_chill()
 		if age >= time + 0.6:
-			if drops != null:
-				var m := drops
-				drops = null
-				m.get_tree().create_timer(1.0).timeout.connect(m.queue_free)
-			queue_free()
+			_end()
 
-	# One tick: the caster, Sera if she's near, and everyone on her side within reach.
+	# Its time up (or another cast): gone, the droplets left to fall.
+	func _end() -> void:
+		if drops != null:
+			var m := drops
+			drops = null
+			m.emitting = false
+			m.get_tree().create_timer(1.0).timeout.connect(m.queue_free)
+		if _on.get(who) == self:
+			_on.erase(who)
+		queue_free()
+
+	# One mend: everyone on the caster's side standing in it.
 	func _mend() -> void:
-		var sera := world.player as Miko
-		var mended := {}
-		if stats != null:
-			_show(stats, who if who != null and is_instance_valid(who) else sera)
-			mended[stats] = true
-		if sera != null and sera.stats != null and not mended.has(sera.stats) and _near(sera.position):
-			_show(sera.stats, sera)
-		for a in Damageable.all.duplicate():
-			if is_instance_valid(a) and a.team == Damageable.Team.ALLY and a.alive() and a.ground_distance(position) <= radius:
-				var b: float = a.hp
-				a.heal(per_tick)
-				_number(a.hp - b, a.global_position + Vector2(0, -a.height * 0.6))
+		_ticks += 1
+		var show := _ticks % SHOW_EVERY == 0
+		for pair in SpellEffects.party_near(world, position, radius):
+			var body: Node2D = pair[0]
+			var st: CharacterStats = pair[1]
+			var got := 0.0
+			var hit: Damageable = body.get("hit") as Damageable if "hit" in body else null
+			if hit != null and is_instance_valid(hit):
+				var b := hit.hp
+				hit.heal(per_tick)
+				got = hit.hp - b
+			else:
+				var b2 := st.hp
+				st.heal(per_tick)
+				got = st.hp - b2
+			healed += got
+			_shown[body] = float(_shown.get(body, 0.0)) + got
+			if show:
+				var n := float(_shown[body])
+				_shown[body] = 0.0
+				if n >= 0.5:
+					FloatingText.spawn(world, "+%d" % maxi(1, roundi(n)), body.global_position + Vector2(0, -0.9 * world.px), Color(0.5, 0.85, 1.0))
 
-	func _show(st: CharacterStats, at: Node2D) -> void:
-		var before := st.hp
-		st.heal(per_tick)
-		if at != null:
-			_number(st.hp - before, at.global_position + Vector2(0, -0.9 * world.px))
-
-	func _near(p: Vector2) -> bool:
-		var d := p - position
-		return Vector2(d.x, d.y * 2.0).length() <= radius
-
-	func _number(healed: float, at: Vector2) -> void:
-		if healed >= 0.5:
-			FloatingText.spawn(world, "+%d" % maxi(1, roundi(healed)), at, Color(0.5, 0.85, 1.0))
+	# Cold Edge: the monsters in it chilled, slowed while they stay.
+	func _chill() -> void:
+		if chill <= 0.0:
+			return
+		for d in Damageable.all:
+			if is_instance_valid(d) and d.team == Damageable.Team.ENEMY and d.alive() and SpellEffects._ground_gap(d.global_position, position) <= radius:
+				StatusEffects.apply(d, "Frostbite", EVERY + 0.3, 0.0, chill, &"Frostbite:pool", by_player)
 
 	func _draw() -> void:
-		var shown := clampf(age / 0.2, 0.0, 1.0) * clampf((time + 0.6 - age) / 0.6, 0.0, 1.0)
+		var shown := clampf(age / 0.3, 0.0, 1.0) * clampf((time + 0.6 - age) / 0.6, 0.0, 1.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, radius, Color(0.35, 0.62, 1.0, 0.18 * shown))
-		# Ripples spreading out from the caster, one after another.
+		draw_circle(Vector2.ZERO, radius, Color(0.35, 0.62, 1.0, 0.16 * shown))
 		for i in 3:
-			var f := fmod(age * 0.9 + i / 3.0, 1.0)
-			draw_arc(Vector2.ZERO, radius * f, 0.0, TAU, 48, Color(0.75, 0.9, 1.0, 0.7 * shown * (1.0 - f)), 3.0, true)
-		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color(0.55, 0.8, 1.0, 0.6 * shown), 2.5, true)
+			var f := fmod(age * 0.6 + i / 3.0, 1.0)
+			draw_arc(Vector2.ZERO, radius * f, 0.0, TAU, 48, Color(0.75, 0.9, 1.0, 0.55 * shown * (1.0 - f)), 3.0, true)
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(0.55, 0.8, 1.0, 0.65 * shown), 3.0, true)
+		if chill > 0.0:
+			draw_arc(Vector2.ZERO, radius * 0.96, 0.0, TAU, 64, Color(0.88, 0.97, 1.0, 0.45 * shown), 2.0, true)
 
 
-## Ice Barrier: a shell of ice round the caster that soaks damage (a shield on their stats, and on what can be hit of
-## them if they have it), glittering shards turning round them and cracks showing as it wears. Broken, it bursts:
-## shards flying out, hurting and frostbiting the monsters round them. Its time up first, it just melts away. Cast
-## again, the old one melts and a new one takes its place.
-class IceBarrier extends Node2D:
-	static var _on := {}   # caster -> their barrier
+## Frost Armor: a shell of ice round everyone on the caster's side near them (whoever's played, the companions, the
+## caster) that soaks damage (a shield on their stats, and on what can be hit of them if they have it), glittering
+## shards turning round them and cracks showing as it wears. Broken, it bursts: shards flying out, hurting and
+## frostbiting the monsters round them. Its time up first, it just melts away. Cast again, the old ones melt and new
+## ones take their place.
+class FrostArmor extends Node2D:
+	static var _on := {}   # wearer -> their armour
+	static var bursts := 0 ## shells burst so far (the scenarios read it)
 
 	var world: World
 	var spell: Dictionary
-	var stats: CharacterStats
+	var stats: CharacterStats       ## the caster's (how hard the burst hits)
+	var wear_stats: CharacterStats  ## the wearer's (the shield's on them)
 	var who: Node2D
 	var hit: Damageable
 	var by_player := true
@@ -591,29 +768,48 @@ class IceBarrier extends Node2D:
 	var _shell: Sprite2D
 	var _cracks := []
 
-	static func make(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D, mine: bool) -> IceBarrier:
+	## Armour on everyone on [param caster]'s side within the spell's reach of them (the caster too). The ones put on.
+	static func cast(w: World, sp: Dictionary, st: CharacterStats, caster: Node2D, mine: bool) -> Array:
+		var out := []
 		if caster == null:
+			return out
+		var who := SpellEffects.party_near(w, caster.global_position, float(sp.get("reach", 0.0)))
+		if not who.any(func(pair): return pair[0] == caster):
+			who.append([caster, st])
+		for pair in who:
+			out.append(make(w, sp, st, pair[0], pair[1], mine))
+		return out
+
+	## Whether [param wearer] has armour on now.
+	static func on(wearer: Node2D) -> bool:
+		var a: Variant = _on.get(wearer)
+		return a != null and is_instance_valid(a) and (a as FrostArmor)._melting < 0.0
+
+	## A shell on [param wearer] (whose stats are [param wst]), cast by one with [param st].
+	static func make(w: World, sp: Dictionary, st: CharacterStats, wearer: Node2D, wst: CharacterStats, mine: bool) -> FrostArmor:
+		if wearer == null:
 			return null
-		var old: Variant = _on.get(caster)
+		var old: Variant = _on.get(wearer)
 		if old != null and is_instance_valid(old):
-			(old as IceBarrier)._melt()
-		var b := IceBarrier.new()
+			(old as FrostArmor)._melt()
+		var b := FrostArmor.new()
 		b.world = w
 		b.spell = sp
 		b.stats = st
-		b.who = caster
+		b.wear_stats = wst
+		b.who = wearer
 		b.by_player = mine
-		b.hit = caster.get("hit") as Damageable if "hit" in caster else null
+		b.hit = wearer.get("hit") as Damageable if "hit" in wearer else null
 		b.full = SpellEffects.by_magic(float(sp.get("shield", 40.0)), st) * (CharacterStats.percent(st.stat("shieldPower")) if st != null else 1.0)
 		b.left = b.full
 		b.life = float(sp.get("shieldTime", 15.0))
-		if st != null:
-			st.set_shield(b, b.full)
+		if wst != null:
+			wst.set_shield(b, b.full)
 		if b.hit != null:
 			b.hit.set_shield(b, b.full)
 		b.z_as_relative = false
 		b.z_index = 3985
-		b.position = caster.global_position
+		b.position = wearer.global_position
 		b._shell = Sprite2D.new()
 		b._shell.texture = ShieldBubble.dome()
 		var d := float(b._shell.texture.get_width())
@@ -625,14 +821,14 @@ class IceBarrier extends Node2D:
 			b._cracks.append([Vector2.from_angle(a) * 0.15 * w.px, Vector2.from_angle(a + randf_range(-0.4, 0.4)) * 0.55 * w.px])
 		World.keep_lit(b)
 		w.add_child(b)
-		_on[caster] = b
+		_on[wearer] = b
 		SpellEffects.sound(w, str(sp.launchSound), b.position, float(sp.soundVolume))
 		return b
 
 	func _process(delta: float) -> void:
 		var __t := Time.get_ticks_usec()
 		_process_timed(delta)
-		Perf.add(&"spell_effects.IceBarrier.process", __t)
+		Perf.add(&"spell_effects.FrostArmor.process", __t)
 
 	func _process_timed(delta: float) -> void:
 		age += delta
@@ -649,8 +845,8 @@ class IceBarrier extends Node2D:
 		position = who.global_position
 		# What's left of it: the least of what its shields hold (kept the same on both).
 		var now_left := left
-		if stats != null:
-			now_left = minf(now_left, stats.shield_from(self))
+		if wear_stats != null and is_instance_valid(wear_stats):
+			now_left = minf(now_left, wear_stats.shield_from(self))
 		if hit != null and is_instance_valid(hit):
 			now_left = minf(now_left, hit.shield_from(self))
 		if now_left <= 0.01:
@@ -658,22 +854,23 @@ class IceBarrier extends Node2D:
 			return
 		if now_left < left:
 			left = now_left
-			if stats != null:
-				stats.set_shield(self, left)
+			if wear_stats != null and is_instance_valid(wear_stats):
+				wear_stats.set_shield(self, left)
 			if hit != null and is_instance_valid(hit):
 				hit.set_shield(self, left)
 		if age >= life:
 			_melt()
 
-	# Broken: it bursts, hurting and frostbiting the monsters round the caster.
+	# Broken: it bursts, hurting and frostbiting the monsters round the wearer.
 	func _burst() -> void:
 		left = 0.0
+		bursts += 1
 		var r := float(spell.aoeRadius)
 		var c := SpellEffects.color(spell)
 		SpellEffects.strike(world, spell, position, r, SpellEffects.damage(spell, stats), by_player)
 		SpellEffects.Burst.make(world, position, r, c)
 		SpellEffects.sound(world, str(spell.impactSound), position, float(spell.soundVolume))
-		FloatingText.spawn(world, "Barrier shattered", position + Vector2(0, -1.6 * world.px), Color(0.7, 0.9, 1.0), 18)
+		FloatingText.spawn(world, "Frost Armor shattered", position + Vector2(0, -1.6 * world.px), Color(0.7, 0.9, 1.0), 18)
 		# Shards of it flying out.
 		var p := CPUParticles2D.new()
 		p.one_shot = true
@@ -702,8 +899,8 @@ class IceBarrier extends Node2D:
 		if _melting >= 0.0:
 			return
 		_melting = 0.0
-		if stats != null and is_instance_valid(stats):
-			stats.set_shield(self, 0.0)
+		if wear_stats != null and is_instance_valid(wear_stats):
+			wear_stats.set_shield(self, 0.0)
 		if hit != null and is_instance_valid(hit):
 			hit.set_shield(self, 0.0)
 		if _on.get(who) == self:
@@ -724,12 +921,189 @@ class IceBarrier extends Node2D:
 			var cr: Array = _cracks[i]
 			draw_line(mid + cr[0], mid + cr[1], Color(1, 1, 1, 0.7 * fading), 2.0, true)
 		# Shards turning round them, on the ground's ellipse.
-		var rx := 0.62 * world.px
+		var rx := 0.5 * world.px
 		for i in 6:
 			var a := age * 1.4 + i * TAU / 6.0
 			var at := Vector2(cos(a) * rx, -0.35 * world.px + sin(a) * rx * 0.3)
 			var h := 0.22 * world.px
 			var front := sin(a) > 0.0
-			var col := Color(0.9, 0.97, 1.0, (0.95 if front else 0.45) * fading)
+			var col := Color(0.9, 0.97, 1.0, (0.8 if front else 0.3) * fading)
 			draw_colored_polygon(PackedVector2Array([at + Vector2(0, -h), at + Vector2(h * 0.28, 0), at + Vector2(0, h * 0.35), at + Vector2(-h * 0.28, 0)]), col)
 			draw_colored_polygon(PackedVector2Array([at + Vector2(0, -h), at + Vector2(h * 0.28, 0), at + Vector2(0, h * 0.35)]), Color(c, 0.8 * fading))
+
+
+## Ice Blast: the user's animation (vfx/ice_blast: a glint, a ring on the ground, a burst of ice spikes up out of it
+## that shatter, frosted cracks fading) at the spot aimed at, sized so its ring is the spell's area; its sound
+## (the user's too) comes in on the eruption (soundAfter), and the blast lands as the spikes break out of the ground
+## (landsAfter), hurting and frostbiting everything in the area, and with Frozen Ground leaving it frozen there.
+class IceBlastArea extends Node2D:
+	const SCENE := "res://vfx/ice_blast/ice_blast.tscn"
+	const RING := 0.86                ## the animation's frosted ring at its widest, as a share of its frame's width
+	static var blasts := 0            ## blasts landed so far (the scenarios read it)
+	static var hits := 0              ## monsters they've hit
+
+	var world: World
+	var spell: Dictionary
+	var amount := 0.0
+	var by_player := true
+	var age := 0.0
+	var lands := 0.57
+	var sound_at := 0.43
+	var _sounded := false
+	var last := 3.6                   ## seconds the animation runs
+	var _landed := false
+
+	static func make(w: World, sp: Dictionary, at: Vector2, dmg: float, mine: bool) -> IceBlastArea:
+		var b := IceBlastArea.new()
+		b.world = w
+		b.spell = sp
+		b.amount = dmg
+		b.by_player = mine
+		b.lands = float(sp.get("landsAfter", 0.57))
+		b.sound_at = float(sp.get("soundAfter", 0.0))
+		b.position = at
+		var r := float(sp.aoeRadius)
+		if ResourceLoader.exists(SCENE):
+			var anim := (load(SCENE) as PackedScene).instantiate() as Node2D
+			var frames := (anim as AnimatedSprite2D).sprite_frames if anim is AnimatedSprite2D else null
+			var wide := 256.0
+			if frames != null and frames.has_animation(&"default") and frames.get_frame_count(&"default") > 0:
+				wide = float(frames.get_frame_texture(&"default", 0).get_width())
+				b.last = frames.get_frame_count(&"default") / maxf(1.0, frames.get_animation_speed(&"default")) + 0.1
+			anim.scale = Vector2.ONE * (2.0 * r / (wide * RING))
+			World.keep_lit(anim)
+			b.add_child(anim)
+		World.keep_lit(b)
+		w.things.add_child(b)
+		return b
+
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"spell_effects.IceBlastArea.process", __t)
+
+	func _process_timed(delta: float) -> void:
+		age += delta
+		if not _sounded and age >= sound_at:
+			_sounded = true
+			SpellEffects.sound(world, str(spell.impactSound), position, float(spell.soundVolume))
+		if not _landed and age >= lands:
+			_landed = true
+			blasts += 1
+			hits += SpellEffects.strike(world, spell, position, float(spell.aoeRadius), amount, by_player)
+			if get_child_count() == 0:
+				SpellEffects.Burst.make(world, position, float(spell.aoeRadius), SpellEffects.color(spell))
+		if age >= last:
+			queue_free()
+
+
+## Blizzard: over the area, for a few seconds, shards of ice fall slanting out of the sky one after another (snow
+## drifting down with them), each with its shadow growing under it; landing, each shatters in a small burst, hurting
+## what's round it (frostbiting too, with Rime).
+class Blizzard extends Node2D:
+	const FALL := 0.45                ## seconds a shard takes to fall
+	const HIGH := 560.0               ## how far up it falls from
+	const SLANT := Vector2(-0.32, -1.0)
+	static var landed := 0            ## shards landed so far (the scenarios read it)
+	static var hits := 0              ## monsters they've hit
+
+	var world: World
+	var spell: Dictionary
+	var amount := 0.0
+	var by_player := true
+	var radius := 256.0
+	var time := 4.0
+	var shard_r := 72.0
+	var age := 0.0
+	var _falls := []                  # [where it lands (from the middle), when it starts falling, landed]
+	var _snow: CPUParticles2D
+
+	static func make(w: World, sp: Dictionary, at: Vector2, dmg: float, mine: bool) -> Blizzard:
+		var b := Blizzard.new()
+		b.world = w
+		b.spell = sp
+		b.amount = dmg
+		b.by_player = mine
+		b.radius = float(sp.aoeRadius)
+		b.time = float(sp.get("stormTime", 4.0))
+		b.shard_r = float(sp.get("shardRadius", 72.0))
+		var n := maxi(1, int(sp.get("shards", 12)))
+		for i in n:
+			var o := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * b.radius
+			o.y *= 0.5
+			b._falls.append([o, (float(i) + randf() * 0.8) * maxf(0.1, b.time - FALL) / float(n), false])
+		b.position = at
+		b.z_as_relative = false
+		b.z_index = 4000
+		var m := CPUParticles2D.new()
+		m.amount = 70
+		m.lifetime = 1.1
+		m.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		m.emission_rect_extents = Vector2(b.radius, b.radius * 0.3)
+		m.position = Vector2(0.2 * HIGH, -0.55 * HIGH)
+		m.direction = Vector2(-0.3, 1.0)
+		m.spread = 8.0
+		m.gravity = Vector2.ZERO
+		m.initial_velocity_min = 380.0
+		m.initial_velocity_max = 520.0
+		m.texture = Waterfall._dot(16, 1.0)
+		m.scale_amount_min = 0.4
+		m.scale_amount_max = 0.9
+		m.color = Color(0.9, 0.97, 1.0, 0.8)
+		b.add_child(m)
+		m.emitting = true
+		b._snow = m
+		World.keep_lit(b)
+		w.add_child(b)
+		SpellEffects.sound(w, str(sp.launchSound), at, float(sp.soundVolume))
+		return b
+
+	func _process(delta: float) -> void:
+		var __t := Time.get_ticks_usec()
+		_process_timed(delta)
+		Perf.add(&"spell_effects.Blizzard.process", __t)
+
+	func _process_timed(delta: float) -> void:
+		age += delta
+		queue_redraw()
+		for f in _falls:
+			if not f[2] and age >= float(f[1]) + FALL:
+				f[2] = true
+				_land(position + (f[0] as Vector2))
+		if age >= time - 0.3 and _snow.emitting:
+			_snow.emitting = false
+		if age >= time + FALL + 1.2:
+			queue_free()
+
+	func _land(at: Vector2) -> void:
+		landed += 1
+		hits += SpellEffects.strike(world, spell, at, shard_r, amount, by_player)
+		SpellEffects.Burst.make(world, at, shard_r, SpellEffects.color(spell))
+		SpellEffects.impact_sound(world, spell, at)
+
+	func _draw() -> void:
+		var c := SpellEffects.color(spell)
+		var shown := clampf(age / 0.4, 0.0, 1.0) * clampf((time + FALL - age) / 0.6, 0.0, 1.0)
+		# The storm's ground, faintly.
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
+		draw_circle(Vector2.ZERO, radius, Color(c, 0.08 * shown))
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(0.9, 0.97, 1.0, 0.35 * shown), 2.0, true)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var down := -SLANT.normalized()
+		var side := down.orthogonal()
+		for f in _falls:
+			var k := (age - float(f[1])) / FALL
+			if k < 0.0 or k >= 1.0:
+				continue
+			var o: Vector2 = f[0]
+			# Its shadow, growing as it nears.
+			draw_set_transform(o, 0.0, Vector2(1.0, 0.5))
+			draw_circle(Vector2.ZERO, 6.0 + 14.0 * k, Color(0.2, 0.35, 0.5, 0.25 * k))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			var p := o + SLANT * HIGH * (1.0 - k * k)
+			var tip := p + down * 26.0
+			var tail := p - down * 30.0
+			draw_line(tail - down * 40.0, tail, Color(0.9, 0.97, 1.0, 0.35), 3.0, true)
+			draw_colored_polygon(PackedVector2Array([tip, p + side * 8.0, tail, p - side * 8.0]), Color(c, 0.95))
+			draw_colored_polygon(PackedVector2Array([tip, p + side * 3.0, p - down * 6.0]), SpellEffects.core(c))
+

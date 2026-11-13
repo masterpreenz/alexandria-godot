@@ -3,7 +3,8 @@ class_name Companions
 ## made from who they are: their own HP and attack (which grow as they level up in the village), with the mana and
 ## magic data/companions.json gives them. Gear Sera puts on them (the same slots as hers) and the talents they learn
 ## change their HP, attack, defense, magic and mana like hers. A spell book given them (Miyu's book of water magic)
-## teaches its spells for good. Kept in their person (Villagers) under "companion", saved with the village's people.
+## opens their own tree of its magic (Miyu's ice and water), its first skill learnt at once. Kept in their person
+## (Villagers) under "companion", saved with the village's people.
 ##
 ## Their person's maxHp, atk, maxMana and mana are kept to what their stats come to, so their cards, their bars and
 ## their fighting go by them; anything else that raises those (a level gained in the village) goes into their own.
@@ -13,6 +14,7 @@ const FILE := "res://data/companions.json"
 static var _data: Dictionary = {}
 static var _combat: Dictionary = {}
 static var _by_id := {}            ## unique id -> {stats, person, natural, written}
+static var _trees := {}            ## unique id -> their own talent tree, or {}
 
 
 static func data() -> Dictionary:
@@ -76,21 +78,25 @@ static func stats_for(p: Dictionary) -> CharacterStats:
 	return st
 
 
-## What [param p]'s stats are built on: the companions' base, with their own HP and attack (the talents are Sera's
-## web); or, for Sera herself (a companion while someone else is played), her own as the player has them.
+## What [param p]'s stats are built on: the companions' base, with their own HP and attack, and their own talent tree
+## if they have one (Miyu's ice and water), else Sera's; or, for Sera herself (a companion while someone else is
+## played), her own as the player has them.
 static func character_of(p: Dictionary, natural: Dictionary) -> Dictionary:
 	if Playable.own_levels(p):
 		var mine: Dictionary = (combat().get("character", {}) as Dictionary).duplicate(true)
 		mine.base["maxHp"] = float(natural.get("maxHp", mine.base.get("maxHp", 100.0)))
 		mine.base["attack"] = float(natural.get("atk", mine.base.get("attack", 6.0)))
 		return mine
-	return _character(natural)
+	return _character(natural, str(p.get("unique", "")))
 
 
-# A companion's: the companions' base, with their own HP and attack; the talents are Sera's web.
-static func _character(natural: Dictionary) -> Dictionary:
+# A companion's: the companions' base, with their own HP and attack; the talents are their own tree's, else Sera's.
+static func _character(natural: Dictionary, id := "") -> Dictionary:
 	var own: Dictionary = data().get("character", {})
 	var c: Dictionary = combat().get("character", {}).duplicate()
+	var own_tree := tree(id)
+	for k in own_tree:
+		c[k] = own_tree[k]
 	var base: Dictionary = (own.get("base", {}) as Dictionary).duplicate()
 	base["maxHp"] = float(natural.get("maxHp", 40.0))
 	base["attack"] = float(natural.get("atk", 6.0))
@@ -98,6 +104,36 @@ static func _character(natural: Dictionary) -> Dictionary:
 	c["perLevel"] = own.get("perLevel", {})
 	c["xpPerLevel"] = int(own.get("xpPerLevel", 30))
 	return c
+
+
+## [param id]'s own talent tree (data/companions.json's trees), with Sera's Life & Body row added to it (its
+## talents, its lines and the old ids folded into them); {} for someone who learns on Sera's.
+static func tree(id: String) -> Dictionary:
+	if _trees.has(id):
+		return _trees[id]
+	var path := str(data().get("trees", {}).get(id, ""))
+	var out := {}
+	if path != "":
+		var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if d is Dictionary:
+			out = d
+			var sera: Dictionary = combat().get("character", {})
+			var talents: Array = (out.get("talents", []) as Array).duplicate()
+			var life := {}
+			for t in sera.get("talents", []):
+				if int(t.get("group", -1)) < 0:
+					talents.append(t)
+					life[str(t.id)] = true
+			out["talents"] = talents
+			out["lifeLines"] = sera.get("lifeLines", [])
+			var merged := {}
+			for k in sera.get("merged", {}):
+				if life.has(str(sera.merged[k])):
+					merged[k] = sera.merged[k]
+			out["merged"] = merged
+			out["freeIds"] = sera.get("freeIds", [])
+	_trees[id] = out
+	return out
 
 
 ## Brings [param p]'s person and body up to date with their stats (and their stats with anything the village gave
@@ -217,8 +253,8 @@ static func book_for(p: Dictionary, bag: Bag) -> Dictionary:
 	return {}
 
 
-## Sera hands [param p] the book [param b]: out of her bag, the story told of it, and its spells learnt at once.
-## The spells they learnt.
+## Sera hands [param p] the book [param b]: out of her bag, the story told of it, and what it teaches learnt at once
+## (the first rank of its talent in their own tree, opening the rest of it). The spells they learnt.
 static func give_book(p: Dictionary, b: Dictionary, bag: Bag) -> Array:
 	var at := bag.items.find(str(b.item))
 	if at < 0:
@@ -230,13 +266,27 @@ static func give_book(p: Dictionary, b: Dictionary, bag: Bag) -> Array:
 			if not Chronicle.active.happened(str(ev)):
 				Chronicle.active.record(str(ev))
 	var st := stats_for(p)
+	var got := teach(st, b)
+	sync(p)
+	return got
+
+
+## What book [param b] teaches, put into [param st]: its talent at rank 1 for nothing (and any spells it teaches
+## outright). The spells learnt.
+static func teach(st: CharacterStats, b: Dictionary) -> Array:
 	var got := []
+	var id := str(b.get("talent", ""))
+	if id != "" and not st.talent(id).is_empty() and not st.unlocked(id):
+		st.ranks[id] = 1
+		st.gifted[id] = 1
+		var g := str(st.talent(id).get("grantsSpell", ""))
+		if g != "":
+			got.append(g)
 	for sp in b.get("spells", []):
 		if not st.learned.has(sp):
 			st.learned[str(sp)] = str(b.get("from", UiKit.item(str(b.item)).get("name", b.item)))
 			got.append(str(sp))
 	st.changed.emit()
-	sync(p)
 	return got
 
 

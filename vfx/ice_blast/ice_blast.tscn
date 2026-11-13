@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="SpriteFrames" path="res://vfx/ice_blast/ice_blast.tres" id="1_frames"]
+[ext_resource type="Script" path="res://vfx/ice_blast/ice_blast.gd" id="2_script"]
+
+[node name="IceBlast" type="AnimatedSprite2D"]
+sprite_frames = ExtResource("1_frames")
+offset = Vector2(0, -24)
+script = ExtResource("2_script")

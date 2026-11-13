@@ -286,8 +286,12 @@ func player() -> Miko:
 	return world.player as Miko
 
 
-## Rests while far from Miko; true while resting (the caller skips its thinking).
+## Rests while far from Miko; true while resting (the caller skips its thinking). Frozen solid (Cold Snap), it does
+## nothing at all till the ice lets go.
 func resting() -> bool:
+	if hit != null and StatusEffects.frozen(hit):
+		velocity = Vector2.ZERO
+		return true
 	if raid_to != Vector2.INF:
 		asleep = false   # a raider keeps coming, however far from Miko
 		return false

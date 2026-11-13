@@ -1,10 +1,12 @@
 class_name CompanionMagic
 extends Node
 ## A companion's own spellcasting (Miyu once she has her water book): while she's with Sera and a monster's near (the
-## ones she'd fight), she casts the spells she knows when they're ready and she has the mana for them: a heal when Sera
-## or she is hurt, a barrier while she's being hit, else her attack spells at the monster (in their range). Each is a
-## short pause: she stands, turns to it, a circle in the spell's colour at her feet, and it goes. Otherwise she fights
-## as ever. data/companions.json's "magic" holds the timings.
+## ones she'd fight), she casts the spells she knows when they're ready and she has the mana for them: a heal when
+## anyone with her is hurt (and her Healing Circle kept up through a fight), armour when she or Sera is being hit and
+## nobody near has any on, else her attack spells, the strongest first, at the monster (in their range), or where the
+## monsters are thickest for those that cover an area (Ice Blast, Blizzard). Each is a short pause: she stands, turns
+## to it, a circle in the spell's colour at her feet, and it goes. Otherwise she fights as ever. data/companions.json's
+## "magic" holds the timings and what each spell is for.
 
 const PROJECTILE_LIFT := 0.45     ## units above her feet a spell she throws leaves from
 
@@ -16,8 +18,11 @@ var casts: Array = []             ## [spell, at] of each cast so far (the scenar
 var _next := 0.0
 var _gap_until := 0.0
 var _hit_at := -99.0
+var _sera_hp := -1.0                ## Sera's HP at the last look (less now: she's been hit)
+var _sera_hit_at := -99.0
 var _pending := ""                ## the spell being cast, till the pause is over
 var _pending_foe: Damageable      ## the monster it goes at (followed till it goes), or null: at her own feet
+var _pending_fixed := false       ## it goes at a spot on the ground (where the monsters are thickest), not at a monster
 var _pending_spot := Vector2.ZERO
 var _circle: Sprite2D
 var _circle_flat: Node2D
@@ -74,16 +79,21 @@ func _think(_delta: float) -> void:
 	var known := st.known_spells()
 	if known.is_empty():
 		return
+	var sera: Miko = body.world.player as Miko
+	if sera != null and sera.stats != null:
+		if _sera_hp >= 0.0 and sera.stats.hp < _sera_hp - 0.01:
+			_sera_hit_at = t
+		_sera_hp = sera.stats.hp
 	var foe := body.foe if body.foe != null and is_instance_valid(body.foe) and body.foe.alive() else body._party_threat()
 	if foe == null:
 		return
 	var uses: Dictionary = cfg.get("spells", {})
-	# What's called for, most pressing first: a heal, a barrier, then the attacks.
+	# The strongest first (each spell's priority).
+	known.sort_custom(func(a, b): return float(uses.get(a, {}).get("priority", 0.0)) > float(uses.get(b, {}).get("priority", 0.0)))
+	# What's called for, most pressing first: a heal, armour, then the attacks.
 	var heal_below := float(cfg.get("healBelow", 0.6))
-	var sera: Miko = body.world.player as Miko
-	var sera_low := sera != null and sera.stats != null and sera.stats.hp < sera.stats.stat("maxHp") * heal_below
-	var me_low := body.hit.hp < body.hit.max_hp * heal_below
-	var hit_lately := t - _hit_at < float(cfg.get("guardAfter", 2.5))
+	var lowest := _lowest_share()
+	var hit_lately := t - maxf(_hit_at, _sera_hit_at) < float(cfg.get("guardAfter", 2.5))
 	for want in ["heal", "guard", "attack"]:
 		for sp in known:
 			var s := Companions.spell(sp)
@@ -92,20 +102,77 @@ func _think(_delta: float) -> void:
 			if st.mana + 0.001 < float(s.get("manaCost", 0.0)):
 				continue
 			var at: Damageable = null
+			var spot := Vector2.INF
+			var use: Dictionary = uses.get(sp, {})
 			match want:
 				"heal":
-					if not (sera_low or me_low):
+					# Someone's low; or (keepUp) her circle's down in a fight while anyone's hurt at all.
+					var keep := float(use.get("keepUp", 0.0))
+					if lowest >= heal_below and not (keep > 0.0 and lowest < keep and SpellEffects.WaterCircle.of(body) == null):
 						continue
 				"guard":
-					if not hit_lately or body.hit.shields.size() > 0 or st.shield() > 0.0:
+					if not hit_lately:
+						continue
+					if str(s.get("effect", "")) == "FrostArmor":
+						if _armoured(float(s.get("reach", 0.0))):
+							continue
+					elif body.hit.shields.size() > 0 or st.shield() > 0.0:
 						continue
 				"attack":
-					if foe.global_position.distance_to(body.position) > float(s.get("range", 0.0)):
+					if str(use.get("aim", "")) == "group":
+						var best := _thickest(float(s.get("range", 0.0)), float(s.get("aoeRadius", 64.0)))
+						if int(best[1]) < int(use.get("atLeast", 1)):
+							continue
+						spot = best[0]
+					elif foe.global_position.distance_to(body.position) > float(s.get("range", 0.0)):
 						continue
-					at = foe
+					else:
+						at = foe
 			if st.spend_mana(float(s.get("manaCost", 0.0))):
-				_start(sp, s, at, t, cfg)
+				_start(sp, s, at, t, cfg, spot)
 				return
+
+
+# The lowest share of HP of anyone with her (Sera, the other companions, herself).
+func _lowest_share() -> float:
+	var low := 1.0
+	for pair in SpellEffects.party_near(body.world, body.position, INF):
+		var b: Node2D = pair[0]
+		var st: CharacterStats = pair[1]
+		var hit: Damageable = b.get("hit") as Damageable if "hit" in b else null
+		if hit != null and is_instance_valid(hit):
+			low = minf(low, hit.hp / maxf(1.0, hit.max_hp))
+		else:
+			low = minf(low, st.hp / maxf(1.0, st.stat("maxHp")))
+	return low
+
+
+# Whether anyone her armour would reach has armour on already.
+func _armoured(reach: float) -> bool:
+	for pair in SpellEffects.party_near(body.world, body.position, reach):
+		if SpellEffects.FrostArmor.on(pair[0]):
+			return true
+	return SpellEffects.FrostArmor.on(body)
+
+
+# Where the monsters are thickest within [param reach] of her, for a spell of area [param area]: [spot, how many].
+func _thickest(reach: float, area: float) -> Array:
+	var foes := []
+	for d in Damageable.all:
+		if is_instance_valid(d) and d.alive() and d.team == Damageable.Team.ENEMY and d.get_parent() is Creature \
+				and not d.get_parent() is Rabbit and d.global_position.distance_to(body.position) <= reach:
+			foes.append(d.global_position)
+	var best := [Vector2.INF, 0]
+	for a in foes:
+		var n := 0
+		var mid := Vector2.ZERO
+		for b in foes:
+			if SpellEffects._ground_gap(a, b) <= area * 0.9:
+				n += 1
+				mid += b
+		if n > int(best[1]):
+			best = [mid / float(n), n]
+	return best
 
 
 # What a spell's for: as companions.json says, else to attack if it does damage.
@@ -118,13 +185,14 @@ func _use_of(sp: String, s: Dictionary, uses: Dictionary) -> String:
 
 
 # She stops, turns to it, and the circle comes up at her feet.
-func _start(sp: String, s: Dictionary, at: Damageable, t: float, cfg: Dictionary) -> void:
+func _start(sp: String, s: Dictionary, at: Damageable, t: float, cfg: Dictionary, spot := Vector2.INF) -> void:
 	var st := Companions.stats_for(body.person)
 	var quick := 1.0 + maxf(0.0, st.stat("castSpeed")) / 100.0
 	var pause := clampf(float(s.get("castTime", 1.0)) * float(cfg.get("pauseShare", 0.4)) / quick, float(cfg.get("pauseMin", 0.5)), float(cfg.get("pauseMax", 1.1)))
 	_pending = sp
 	_pending_foe = at
-	_pending_spot = at.global_position if at != null else body.position
+	_pending_fixed = spot != Vector2.INF
+	_pending_spot = spot if _pending_fixed else (at.global_position if at != null else body.position)
 	body.cast_until = t + pause
 	body.cast_toward = _pending_spot
 	var c := SpellEffects.color(s) if s.has("color") else Color(0.65, 0.88, 1.0)
@@ -144,7 +212,7 @@ func _release(t: float) -> void:
 	var target := _pending_spot
 	if _pending_foe != null and is_instance_valid(_pending_foe) and _pending_foe.alive():
 		target = _pending_foe.global_position
-	elif _pending_foe == null:
+	elif _pending_foe == null and not _pending_fixed:
 		target = body.position
 	_pending_foe = null
 	var w := body.world
@@ -158,11 +226,7 @@ func _release(t: float) -> void:
 			var sky: Array = Companions.combat().get("caster", {}).get("skyOffset", [-320, -1024])
 			origin = target + Vector2(float(sky[0]), float(sky[1]))
 	SpellEffects.begin(w, s, st, origin, ground_origin, target, body)
-	var cdr := clampf(st.stat("cooldownReduction"), 0.0, 60.0)
-	var cd := float(s.get("cooldown", 0.0)) * (1.0 - cdr / 100.0)
-	if str(s.get("delivery", "")) == "SkyFall":
-		cd *= 1.0 - clampf(st.stat("meteorCooldown"), 0.0, 60.0) / 100.0
-	ready_at[sp] = t + cd
+	ready_at[sp] = t + SpellEffects.cooldown(s, st)
 	_gap_until = t + float(Companions.data().get("magic", {}).get("gap", 1.2))
 	casts.append([sp, target])
 	cast.emit(sp, target)

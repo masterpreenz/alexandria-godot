@@ -6,11 +6,14 @@ extends Node2D
 ## up: the longer time, the harder bite and the deeper slow kept, never piled up); frozen ground adds a second, harder
 ## frostbite of its own while the monster stands on it. Shown on the monster as a tint over its art (Creature's
 ## paint_flash) and motes about it (frost glinting, flames licking up); the bites come every half second, their numbers
-## in the effect's colour, without the flinch a blow brings.
+## in the effect's colour, without the flinch a blow brings. Frozen (Miyu's Cold Snap) holds a monster solid in ice a
+## moment: it can't move or strike (Creature.resting), shorter each time soon after, and shaken off after a few.
 
 const TICK := 0.5                ## seconds between bites
+const MARK_ICON := 4921          ## the Cold Snap mark shown over something frozen solid
 
 static var _kinds := {}          ## name -> settings (combat.json "statuses")
+static var freezes := 0          ## monsters frozen solid so far (the scenarios read it)
 
 var target: Damageable
 var by_player := false            ## Sera (or her side) put it on: what it bites counts as hers
@@ -18,6 +21,9 @@ var effects := {}                ## key -> {kind, until, dps, slow}
 var _next_tick := 0.0
 var _motes := {}                 ## kind -> CPUParticles2D
 var _age := 0.0
+var _froze_at := -99.0            ## when it was last frozen solid
+var _frozen_times := 0            ## how often since, each soon after the one before
+var _ice: Node2D                  ## the block of ice it's held in, while frozen
 
 
 ## Every lasting effect's settings, by name (combat.json's "statuses").
@@ -32,6 +38,8 @@ static func kinds() -> Dictionary:
 
 ## The lasting effect a spell of [param element] leaves ("" for none).
 static func kind_for(element: String) -> String:
+	if element == "":
+		return ""
 	var all_kinds := kinds()
 	for k in all_kinds:
 		if str(all_kinds[k].get("element", "")) == element:
@@ -56,16 +64,50 @@ static func from_spell(d: Damageable, spell: Dictionary, amount: float, from_ser
 ## has the effect under [param key] already, that's topped up instead). Frozen ground uses its own key, so its harder
 ## frostbite comes on top of a spell's.
 static func apply(d: Damageable, kind: String, seconds: float, dps: float, slow: float, key := &"", from_sera := true) -> void:
-	if d == null or not is_instance_valid(d) or not d.alive() or d.team != Damageable.Team.ENEMY:
+	var s := _made_on(d)
+	if s == null:
 		return
+	s.by_player = s.by_player or from_sera
+	s._put(kind, seconds, dps, slow, key if key != &"" else StringName(kind))
+
+
+# [param d]'s effects, made if it has none yet; null for what can't have them (gone, or not a monster).
+static func _made_on(d: Damageable) -> StatusEffects:
+	if d == null or not is_instance_valid(d) or not d.alive() or d.team != Damageable.Team.ENEMY:
+		return null
 	var s := d.get_node_or_null("Status") as StatusEffects
 	if s == null:
 		s = StatusEffects.new()
 		s.name = "Status"
 		s.target = d
 		d.add_child(s)
+	return s
+
+
+## Freezes [param d] solid a moment (Cold Snap): each time soon after the one before it lasts less, and after a few it
+## shakes the rest off till it's been a while. Whether it froze.
+static func freeze(d: Damageable, from_sera := true) -> bool:
+	var s := _made_on(d)
+	if s == null:
+		return false
+	var k: Dictionary = kinds().get("Frozen", {})
+	var t := _now()
+	if t - s._froze_at > float(k.get("again", 8.0)):
+		s._frozen_times = 0
+	if s._frozen_times >= int(k.get("most", 3)):
+		return false
+	var secs := float(k.get("seconds", 1.2)) * pow(float(k.get("fade", 0.5)), s._frozen_times)
+	s._frozen_times += 1
+	s._froze_at = t
 	s.by_player = s.by_player or from_sera
-	s._put(kind, seconds, dps, slow, key if key != &"" else StringName(kind))
+	s._put("Frozen", secs, 0.0, float(k.get("slow", 100.0)), &"Frozen")
+	freezes += 1
+	return true
+
+
+## Whether [param d] is frozen solid now (it can't move or strike).
+static func frozen(d: Damageable) -> bool:
+	return has_effect(d, "Frozen")
 
 
 ## How fast [param d] moves now: 1 as it should, less while frostbitten.
@@ -171,7 +213,36 @@ func _process_timed(delta: float) -> void:
 	var on := kinds_on()
 	for kind in _motes:
 		(_motes[kind] as CPUParticles2D).emitting = on.has(kind)
+	if on.has("Frozen") and _ice == null:
+		_ice = Node2D.new()
+		_ice.z_index = 2
+		_ice.draw.connect(_draw_ice)
+		World.keep_lit(_ice)
+		add_child(_ice)
+	elif not on.has("Frozen") and _ice != null:
+		_ice.queue_free()
+		_ice = null
+	if _ice != null:
+		_ice.queue_redraw()
 	queue_redraw()
+
+
+# Frozen solid: a block of ice round it, catching the light, with the snowflake mark over it.
+func _draw_ice() -> void:
+	var r := maxf(18.0, target.radius * 1.15)
+	var h := maxf(40.0, target.height * 1.05)
+	var block := PackedVector2Array([Vector2(-r, 0), Vector2(-r * 1.08, -h * 0.68), Vector2(-r * 0.55, -h * 1.02), Vector2(r * 0.35, -h * 1.1),
+		Vector2(r * 1.06, -h * 0.74), Vector2(r, 0), Vector2(0, r * 0.38)])
+	_ice.draw_colored_polygon(block, Color(0.72, 0.9, 1.0, 0.42))
+	var edge := block.duplicate()
+	edge.append(block[0])
+	_ice.draw_polyline(edge, Color(0.9, 0.97, 1.0, 0.9), 2.0, true)
+	_ice.draw_line(Vector2(-r * 0.7, -h * 0.75), Vector2(-r * 0.25, -h * 0.25), Color(1, 1, 1, 0.75), 3.0, true)
+	_ice.draw_line(Vector2(r * 0.55, -h * 0.85), Vector2(r * 0.7, -h * 0.55), Color(1, 1, 1, 0.6), 2.0, true)
+	var mark := UiKit.sprite_texture(MARK_ICON)
+	if mark != null:
+		var sz := 30.0
+		_ice.draw_texture_rect(mark, Rect2(Vector2(-sz / 2.0, -h * 1.1 - sz - 6.0), Vector2(sz, sz)), false)
 
 
 func _draw() -> void:

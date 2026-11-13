@@ -1,7 +1,8 @@
 extends Scenario
-## Miyu's water magic: Sera gives her the Water Spell Book in a talk, she learns its spells at once; Sera dresses her
-## from the bag (her own page in the Character & Bag window) and spends her talent points; then monsters come and she
-## casts on her own beside Sera. Run with --window=miyumagic.
+## Miyu's water magic: Sera gives her the Water Spell Book in a talk, she learns Ice Shard at once (her ice tree
+## opened); Sera dresses her from the bag (her own page in the Character & Bag window) and spends her talent points on
+## her own tree (Deep Spring, then on to Healing Circle); then monsters come and she casts on her own beside Sera. Run
+## with --window=miyumagic.
 
 
 func run() -> void:
@@ -23,7 +24,7 @@ func run() -> void:
 	ch.events = ch.events.filter(func(e): return not str(e.what) in ["book_given:miyu", "miyu_water", "scene:miyu_water_book"])
 	Party.active.join("miyu")
 	miyu._follow_start(Villager.now())
-	miyu.person["level"] = 4   # (a few levels: talent points to spend)
+	miyu.person["level"] = 6   # (a few levels: talent points to spend, Healing Circle open)
 	if not miko.bag.items.has("WaterTome"):
 		miko.bag.items[miko.bag.free_slot()] = "WaterTome"
 		miko.bag.changed.emit()
@@ -52,7 +53,7 @@ func run() -> void:
 		await get_tree().process_frame
 	shot("book")
 	print("Miyu magic: book_given:miyu ", ch.happened("book_given:miyu"), ", miyu_water ", ch.happened("miyu_water"), ", rumor miyu_book done step event, tome still in bag ", miko.bag.items.has("WaterTome"))
-	print("Miyu magic: learned ", st.learned, ", known ", st.known_spells(), ", offer again '", Companions.book_for(miyu.person, miko.bag).get("offer", ""), "'")
+	print("Miyu magic: learned ", st.learned, ", Ice Shard rank ", st.rank("is"), " (gifted ", st.gifted_rank("is"), "), known ", st.known_spells(), ", tree ", st.tree_id(), ", offer again '", Companions.book_for(miyu.person, miko.bag).get("offer", ""), "'")
 	var scene := Scenes.for_speaker(miyu.person)
 	if not scene.is_empty():
 		Talk.active._play(scene, (scene.get("lines", []) as Array).size())
@@ -89,11 +90,11 @@ func run() -> void:
 		await get_tree().process_frame
 	cp.clicked(miko.bag.items.find("CopperRing"), true)
 	print("Miyu magic: on again ", st.worn_in("Ring1"), " / ", st.worn_in("Ring2"))
-	# Her talents: a path to the nearest that gives magic.
+	# Her talents: a path to the nearest that gives mana (Deep Spring, in her own tree).
 	var best := ""
 	var best_cost := 99
 	for t in st.character.talents:
-		if float(t.perRank.get("magic", 0.0)) > 0.0 and not st.unlocked(t.id):
+		if float(t.perRank.get("maxMana", 0.0)) > 0.0 and not st.unlocked(t.id):
 			var path: Variant = st.path_to(t.id)
 			if path != null and (path as Array).size() < best_cost:
 				best_cost = (path as Array).size()
@@ -106,6 +107,9 @@ func run() -> void:
 		await get_tree().process_frame
 	shot("talents")
 	print("Miyu magic: after learning: points ", st.talent_points, ", ", st.talent(best).get("name", ""), " rank ", st.rank(best), ", talents window shows '", cp.talents.owner_name(), "'")
+	cp.talents.select("ihc")
+	cp.talents._learn_selected()
+	print("Miyu magic: Healing Circle learnt ", st.unlocked("ihc"), " (Twin Shard on the way ", st.unlocked("its"), "), points ", st.talent_points, ", known ", st.known_spells())
 	_stats("with a talent", miyu, st)
 	cp.talents.visible = false
 	cp.show_for({})
@@ -146,9 +150,9 @@ func run() -> void:
 	var again: Dictionary = (JSON.parse_string(saved).people as Array).filter(func(p): return str(p.get("unique", "")) == "miyu")[0]
 	print("Miyu magic: saved companion ", (again.get("companion", {}) as Dictionary).keys(), ", maxHp ", again.maxHp, ", atk ", again.atk, ", maxMana ", again.get("maxMana", "-"))
 	var back := CharacterStats.new()
-	back.setup(Companions._character(again.companion.natural), Companions.combat().items)
+	back.setup(Companions._character(again.companion.natural, "miyu"), Companions.combat().items)
 	back.from_json(again.companion.stats)
-	print("Miyu magic: loaded back: level ", back.level, ", points ", back.talent_points, ", worn ", back.worn, ", learned ", back.learned.keys(), ", magic ", back.stat("magic"))
+	print("Miyu magic: loaded back: level ", back.level, ", points ", back.talent_points, ", worn ", back.worn, ", learned ", back.learned.keys(), ", known ", back.known_spells(), ", magic ", back.stat("magic"))
 	back.free()
 
 

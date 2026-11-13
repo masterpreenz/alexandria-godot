@@ -1,7 +1,7 @@
 extends Scenario
 ## Ice and water magic, and what lingers after a spell: a Fireball leaving a slime burning; an Ice Blast frostbiting
-## another and freezing the ground under it (a mutated villager walking onto it slowed harder); Ice Barrier soaking
-## blows on Sera and bursting into frostbite when it breaks; Water Heal mending her; and the barrier and the heal cast
+## another and freezing the ground under it (a mutated villager walking onto it slowed harder); Frost Armor soaking
+## blows on Sera and bursting into frostbite when it breaks; Healing Circle mending her; and the barrier and the heal cast
 ## by a villager instead of Sera. Prints HP over time and takes a few pictures. Run with --window=icemagic.
 
 var md: Dictionary
@@ -125,7 +125,7 @@ func _slowed() -> void:
 	StatusEffects.from_spell(mv.hit, spells.IceSpikes, 12.0)
 	print("Slow: frostbitten ", snappedf(await pace.call(), 0.01), " units/s, speed x", StatusEffects.speed_of(mv.hit))
 	mv.position = miko.position + Vector2(8.0, 0.0) * world.px
-	SpellEffects.FrozenGround.make(world, spells.IceBlast, mv.position + Vector2(-1.0, 0.0) * world.px, 160.0, 13.0, true)
+	SpellEffects.FrozenGround.make(world, spells.IceSpikes, mv.position + Vector2(-1.0, 0.0) * world.px, 160.0, 13.0, true)
 	await _frames(20)
 	print("Slow: on frozen ground ", snappedf(await pace.call(), 0.01), " units/s, speed x", StatusEffects.speed_of(mv.hit), " HP ", _hp(mv.hit))
 	mv.queue_free()
@@ -141,7 +141,7 @@ func _barrier() -> void:
 		sl.hit.hp = 300.0
 		near.append(sl)
 	miko.stats.hp = miko.stats.stat("maxHp")
-	_cast("IceBarrier", miko.position)
+	_cast("FrostArmor", miko.position)
 	await _frames(10)
 	print("Barrier: Sera's shield ", snappedf(miko.stats.shield(), 0.1), ", HP ", snappedf(miko.stats.hp, 0.1))
 	shot("barrier")
@@ -163,7 +163,7 @@ func _barrier() -> void:
 # Water Heal: Sera mended over two seconds.
 func _heal() -> void:
 	miko.stats.hp = 30.0
-	_cast("WaterHeal", miko.position)
+	_cast("HealingCircle", miko.position)
 	var hp := [snappedf(miko.stats.hp, 0.1)]
 	for i in 6:
 		await get_tree().create_timer(0.4).timeout
@@ -179,7 +179,7 @@ func _others() -> void:
 		print("Others: no villagers")
 		return
 	var v: Villager = Villager.all[0]
-	_cast("IceBarrier", v.global_position, v)
+	_cast("FrostArmor", v.global_position, v)
 	await _frames(5)
 	print("Others: ", v.name, "'s barrier shield ", snappedf(v.hit.shield_from(_barrier_of(v)), 0.1))
 	var hp0 := v.hit.hp
@@ -191,14 +191,14 @@ func _others() -> void:
 	print("Others: hit for 30 again (HP ", snappedf(v.hit.hp, 0.1), "), barrier left ", _barrier_left(v))
 	v.hit.hp = maxf(1.0, v.hit.max_hp * 0.5)
 	var before := v.hit.hp
-	_cast("WaterHeal", v.global_position, v)
+	_cast("HealingCircle", v.global_position, v)
 	await get_tree().create_timer(2.5).timeout
 	print("Others: ", v.name, " healed ", snappedf(before, 0.1), " -> ", snappedf(v.hit.hp, 0.1), " of ", v.hit.max_hp)
 
 
 func _barrier_of(v: Node2D) -> Object:
 	for k in v.hit.shields.keys():
-		if k is SpellEffects.IceBarrier:
+		if k is SpellEffects.FrostArmor:
 			return k
 	return null
 

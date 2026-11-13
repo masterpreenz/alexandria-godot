@@ -86,12 +86,7 @@ func cooldown_total(spell: String) -> float:
 
 
 func _cooldown(spell: String) -> float:
-	var cdr := clampf(stats.stat("cooldownReduction"), 0.0, 60.0)
-	var cd := float(spells[spell].cooldown) * (1.0 - cdr / 100.0)
-	# Short Fuse: a meteor sooner again.
-	if str(spells[spell].get("delivery", "")) == "SkyFall":
-		cd *= 1.0 - clampf(stats.stat("meteorCooldown"), 0.0, 60.0) / 100.0
-	return cd
+	return SpellEffects.cooldown(spells[spell], stats)
 
 
 ## Starts [param spell]'s cooldown (now, or when its summon has gone).

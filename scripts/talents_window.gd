@@ -14,7 +14,9 @@ extends PanelContainer
 ## along it, Ctrl+scroll to zoom.
 ##
 ## Whose talents they are is picked along the top of the right side: Sera's, or a companion's (theirs are spent the
-## same way, from their own points; their skills are the ones they cast by themselves in a fight).
+## same way, from their own points; their skills are the ones they cast by themselves in a fight). Each is shown on
+## their own tree (Miyu's of ice and water), drawn the same way. A talent that can't be learnt yet at any level (it
+## waits on a book, or on something to happen: Miyu's advanced ice) is dimmed with a small lock, and says why.
 
 const SIDE_W := 352.0
 const WEB := Vector2(720, 500)
@@ -305,7 +307,7 @@ func refresh() -> void:
 	_whose()
 	_points.text = str(stats.talent_points)
 	_points_label.text = "talent points" if person.is_empty() else "%s's talent points" % str(person.get("name", "?"))
-	if selected == "" and not stats.character.talents.is_empty():
+	if (selected == "" or stats.talent(selected).is_empty()) and not stats.character.talents.is_empty():
 		selected = stats.character.talents[0].id
 	web.selection = selected
 	web.queue_redraw()
@@ -416,9 +418,12 @@ func _picked() -> void:
 	var path: Variant = stats.path_to(t.id)
 	var cost: int = path.size() if path != null else 0
 	var can: bool = path != null and cost > 0 and cost <= stats.talent_points
+	var why := stats.barred_on_path(t.id) if path == null and not full else ""
 	var refund := ("Right-click it to give a rank back (%d gold)." % stats.refund_cost()) if stats.can_refund(t.id) else "Others need it."
 	if full:
 		_path.text = ("Learned. " if most <= 1 else "Learned in full. ") + refund
+	elif why != "":
+		_path.text = stats.lock_text(why)
 	elif path == null:
 		_path.text = "Opens at level %d (you're %d)." % [waits_on(t.id), stats.level]
 	elif cost == 1:
@@ -430,6 +435,8 @@ func _picked() -> void:
 		_path.text = "Learning this takes what it needs first: %s. %d points." % [" → ".join(names), cost]
 	if full:
 		_learn.text = "Learned"
+	elif why != "":
+		_learn.text = "Can't learn yet" if not why.begins_with("book:") else "Needs the book"
 	elif path == null:
 		_learn.text = "Opens at Lv %d" % waits_on(t.id)
 	elif not can:
@@ -463,7 +470,7 @@ func _reset() -> void:
 				again = true
 	var left := 0
 	for t in stats.character.talents:
-		if stats.unlocked(t.id) and t.kind != "Start":
+		if stats.rank(t.id) > stats.gifted_rank(t.id) and t.kind != "Start":
 			left += 1
 	if left > 0:
 		FloatingText.spawn(world, "Not enough gold to refund %d more" % left, miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
@@ -560,6 +567,8 @@ func describe(id: String) -> String:
 	if stats.maxed(id):
 		foot = ("[color=#%s]Learned[/color][color=#%s] · right-click to give a rank back (%d gold)[/color]" % [green, faint, stats.refund_cost()]) if stats.can_refund(id) \
 			else "[color=#%s]Learned[/color][color=#%s] · others need it[/color]" % [green, faint]
+	elif path == null and stats.barred_on_path(id) != "":
+		foot = "[color=#%s]%s[/color]" % [hex.call(HudStyle.color("coral")), stats.lock_text(stats.barred_on_path(id))]
 	elif path == null:
 		foot = "[color=#%s]Opens at level %d[/color]" % [hex.call(HudStyle.color("coral")), waits_on(id)]
 	else:
@@ -611,6 +620,7 @@ class TalentWeb extends Control:
 	var _pos := {}                   ## talent id -> its place on the tree (unscaled)
 	var _boxes: Array = []           ## each group's column: {x, w, group}
 	var _width := 0.0
+	var _laid_for: Array = []        ## the talents laid out (another tree shown: laid out afresh)
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -621,6 +631,7 @@ class TalentWeb extends Control:
 	# Where every talent goes: the groups side by side, each as wide as its longest row, left to right by level; Life
 	# & Body's two lines along the bottom, evenly across the whole width.
 	func _layout() -> void:
+		_laid_for = stats.character.talents
 		_pos.clear()
 		_boxes.clear()
 		var groups: Array = stats.character.get("groups", [])
@@ -657,13 +668,13 @@ class TalentWeb extends Control:
 		return pan + p * _k()
 
 	func _at(t: Dictionary) -> Vector2:
-		if _pos.is_empty():
+		if _pos.is_empty() or not is_same(_laid_for, stats.character.talents):
 			_layout()
 		return _view(_pos.get(t.id, Vector2.ZERO))
 
 	## The tree to its height, from its left end.
 	func fit() -> void:
-		if _pos.is_empty():
+		if _pos.is_empty() or not is_same(_laid_for, stats.character.talents):
 			_layout()
 		zoom = clampf(size.y / (BOTTOM + 10.0) / HudStyle.SCALE, 0.4, 1.4)
 		pan = Vector2(0, maxf(0.0, (size.y - BOTTOM * _k()) / 2.0))
@@ -714,7 +725,7 @@ class TalentWeb extends Control:
 
 	## Scrolls [param id] into view if it's off to the side (under the row names, or past the right edge).
 	func reveal(id: String) -> void:
-		if _pos.is_empty():
+		if _pos.is_empty() or not is_same(_laid_for, stats.character.talents):
 			_layout()
 		if not _pos.has(id):
 			return
@@ -816,7 +827,7 @@ class TalentWeb extends Control:
 
 	# Whether [param id] could be learnt now (its group open, what it needs learnt), not yet in full.
 	func _open(id: String) -> bool:
-		if stats.maxed(id) or stats.level_for(id) > stats.level:
+		if stats.maxed(id) or stats.level_for(id) > stats.level or stats.barred(id) != "":
 			return false
 		for n in stats.talent(id).get("needs", []):
 			if not stats.unlocked(n):
@@ -824,7 +835,7 @@ class TalentWeb extends Control:
 		return true
 
 	func _draw() -> void:
-		if _pos.is_empty():
+		if _pos.is_empty() or not is_same(_laid_for, stats.character.talents):
 			_layout()
 		var talents: Array = stats.character.talents
 		var groups: Array = stats.character.get("groups", [])
@@ -901,7 +912,8 @@ class TalentWeb extends Control:
 		var pulse := 1.2 + 0.15 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 		for t in talents:
 			var tint := color_of(t)
-			var shut := stats.level_for(t.id) > stats.level
+			var barred := stats.barred(t.id) != ""
+			var shut := stats.level_for(t.id) > stats.level or barred
 			var c: Color
 			if stats.unlocked(t.id): c = tint
 			elif on_path.has(t.id): c = HudStyle.color("accent") if affordable else RED
@@ -950,7 +962,9 @@ class TalentWeb extends Control:
 					if icon != null:
 						var off := Vector2((i - (icons.size() - 1) / 2.0) * s * 0.75, 0)
 						draw_texture_rect(icon, Rect2(p + off - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color.WHITE if stats.unlocked(t.id) or on_path.has(t.id) else Color(1, 1, 1, 0.4))
-			if shut and not stats.unlocked(t.id):
+			if barred and not stats.unlocked(t.id):
+				_lock(p + Vector2(r * 0.72, -r * 0.72), maxf(5.0, r * 0.36))
+			elif shut and not stats.unlocked(t.id):
 				draw_string(bold, p + Vector2(-r, px * 0.35), "Lv%d" % stats.level_for(t.id), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, roundi(9 * k), Color(1, 1, 1, 0.35))
 			# Ranks: how far it's learnt, under it.
 			if stats.max_rank(t.id) > 1:
@@ -979,6 +993,16 @@ class TalentWeb extends Control:
 			_fade(Rect2(band.size.x, 0, 28.0, size.y), true)
 
 	# A diamond round [param p], [param half] from its middle to each point.
+	# A small padlock at [param p]: a talent that can't be learnt yet, whatever the level (it waits on something).
+	func _lock(p: Vector2, sz: float) -> void:
+		var ink := HudStyle.color("ink")
+		var body := Rect2(p + Vector2(-sz, -sz * 0.2), Vector2(sz * 2.0, sz * 1.5))
+		draw_arc(p + Vector2(0, -sz * 0.2), sz * 0.62, PI, TAU, 16, ink, sz * 0.62, true)
+		draw_arc(p + Vector2(0, -sz * 0.2), sz * 0.62, PI, TAU, 16, HudStyle.color("coral"), sz * 0.32, true)
+		draw_rect(body.grow(sz * 0.18), ink)
+		draw_rect(body, HudStyle.color("coral"))
+		draw_circle(body.get_center(), sz * 0.22, ink)
+
 	func _diamond(p: Vector2, half: float) -> PackedVector2Array:
 		return PackedVector2Array([p + Vector2(0, -half), p + Vector2(half, 0), p + Vector2(0, half), p + Vector2(-half, 0)])
 

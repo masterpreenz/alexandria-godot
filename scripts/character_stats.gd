@@ -42,6 +42,7 @@ var _wind_left := 0.0              ## seconds of Second Wind's mending still to 
 var _wind_safe_until := 0.0
 var _talents := {}                 ## id -> talent
 var learned := {}                  ## spell -> the book it was learnt from: known for good, whatever's worn (a companion's)
+var gifted := {}                   ## talent id -> ranks of it given for nothing (a book's), which can't be given back
 var wears_bag := true              ## false for a companion: what they wear doesn't change the room in Sera's bag
 var speaker: Node2D                ## who "not something to wear" shows over (else whoever these stats belong to)
 
@@ -287,15 +288,22 @@ func from_json(json: String) -> void:
 	var rs: Array = d.get("talentRanks", [])
 	for i in mini(ids.size(), rs.size()):
 		ranks[ids[i]] = int(rs[i])
-	# Saved on an older tree: carried over onto this one.
-	if int(d.get("tree", 1)) < int(character.get("treeVersion", 1)):
+	gifted = {}
+	var g: Variant = d.get("gifted", {})
+	if g is Dictionary:
+		for id in g:
+			gifted[str(id)] = int(g[id])
+	learned = d.get("learned", {})
+	# Spells an old book taught at once, now talents of their own tree (once: they're taken out of learned).
+	var from_book := _from_book()
+	# Saved on an older tree, or on someone else's (Miyu's talents were Sera's once): carried over onto this one.
+	if from_book or str(d.get("treeId", "sera")) != tree_id() or int(d.get("tree", 1)) < int(character.get("treeVersion", 1)):
 		_migrate()
 	for t in character.talents:
 		if t.kind == "Start" and not ranks.has(t.id):
 			ranks[t.id] = 1
 	equipped = d.get("equipped", [])
 	wear = d.get("wear", {})
-	learned = d.get("learned", {})
 	wear_saved()
 	var tot := total()
 	hp = clampf(float(d.get("hp", tot.get("maxHp", 100.0))), 1.0, tot.get("maxHp", 100.0))
@@ -562,13 +570,64 @@ func path_to(id: String) -> Variant:
 	var queue := [id]
 	while not queue.is_empty():
 		var n: String = queue.pop_front()
-		if level_for(n) > level:
+		if level_for(n) > level or barred(n) != "":
 			return null
 		for need in talent(n).get("needs", []):
 			if _talents.has(need) and not unlocked(need) and not path.has(need):
 				path.push_front(need)
 				queue.append(need)
 	return path
+
+
+## Whose tree this is ("sera" unless it says otherwise).
+func tree_id() -> String:
+	return str(character.get("treeId", "sera"))
+
+
+## What keeps [param id] from being learnt at any level, if anything: its lockedBy event not yet happened (the
+## event's name), or, not yet learnt, the book its first rank comes with ("book:" and the book); else "".
+func barred(id: String) -> String:
+	var t := talent(id)
+	var ev := str(t.get("lockedBy", ""))
+	if ev != "" and (Chronicle.active == null or not Chronicle.active.happened(ev)):
+		return ev
+	if str(t.get("book", "")) != "" and not unlocked(id):
+		return "book:" + str(t.book)
+	return ""
+
+
+## What keeps [param id], or something it needs that isn't learnt yet, from being learnt (as barred), or "".
+func barred_on_path(id: String) -> String:
+	var queue := [id]
+	var seen := {}
+	while not queue.is_empty():
+		var n: String = queue.pop_front()
+		if seen.has(n):
+			continue
+		seen[n] = true
+		if not unlocked(n) or n == id:
+			var why := barred(n)
+			if why != "":
+				return why
+		for need in talent(n).get("needs", []):
+			if not unlocked(need):
+				queue.append(need)
+	return ""
+
+
+## What's said of a talent barred by [param why] (the tree's locks), or a plain word.
+func lock_text(why: String) -> String:
+	var said := str(character.get("locks", {}).get(why, ""))
+	if said != "":
+		return said
+	if why.begins_with("book:"):
+		return "This comes with the %s." % str(UiKit.item(why.trim_prefix("book:")).get("name", why.trim_prefix("book:")))
+	return "This can't be learnt yet."
+
+
+## The ranks of [param id] given for nothing.
+func gifted_rank(id: String) -> int:
+	return int(gifted.get(id, 0))
 
 
 ## Learns [param id] one rank further (and what it needs first) if there are the points for it.
@@ -585,7 +644,7 @@ func learn_path(id: String) -> bool:
 
 ## Whether a rank of [param id] can be given back: learnt, and (for its last rank) nothing learnt needs it.
 func can_refund(id: String) -> bool:
-	if not unlocked(id) or str(talent(id).get("kind", "")) == "Start":
+	if not unlocked(id) or str(talent(id).get("kind", "")) == "Start" or rank(id) <= gifted_rank(id):
 		return false
 	if rank(id) > 1:
 		return true
@@ -657,7 +716,15 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["bagSlots", "Bag Slots", ""], ["rabbitBreeding", "Rabbit Breeding Speed", "%"], ["butcherBonus", "Meat from Butchering", ""],
 	["villageWork", "Villager Work Speed", "%"], ["calmRegen", "HP Regen out of a Fight", "/s"],
 	["mistResist", "Slower Mist Sickness", "%"], ["hungerResist", "Less Starving Damage", "%"],
-	["knockResist", "Knockback Resistance", "%"], ["blockChance", "Chance to Block a Hit", "%"]]
+	["knockResist", "Knockback Resistance", "%"], ["blockChance", "Chance to Block a Hit", "%"],
+	["shardDamage", "Ice Shard Damage", "%"], ["twinShard", "Extra Ice Shard", ""], ["frostbiteDamage", "Harder Frostbite", "%"],
+	["poolHeal", "Healing Circle Healing", "%"], ["poolSeconds", "Longer Healing Circle", "%"], ["poolSize", "Healing Circle Size", "%"],
+	["poolChill", "Slower Monsters in the Healing Circle", "%"], ["armorStrength", "Frost Armor Strength", "%"],
+	["armorSeconds", "Longer Frost Armor", "%"], ["armorBurst", "Frost Armor Burst Damage", "%"],
+	["armorFrost", "Harder Frostbite from the Burst", "%"], ["blastDamage", "Ice Blast Damage", "%"], ["blastArea", "Ice Blast Area", "%"],
+	["blastCooldown", "Shorter Ice Blast Cooldown", "%"], ["blastFrozenGround", "s of Frozen Ground after an Ice Blast", ""],
+	["coldSnap", "Chance for Ice to Freeze Solid", "%"], ["stormDamage", "Blizzard Damage", "%"], ["stormShards", "More Blizzard Shards", ""],
+	["stormSeconds", "Longer Blizzard", "%"], ["stormArea", "Blizzard Area", "%"], ["rime", "Blizzard Shards Frostbite", ""]]
 
 
 static func fmt(v: float) -> String:
@@ -711,8 +778,36 @@ func _migrate() -> void:
 	# More points come with each level now: whatever's short of that for the levels gained so far, given at once.
 	var spent := 0
 	for id in ranks:
-		spent += rank(id)
+		spent += maxi(0, rank(id) - gifted_rank(id))
 	talent_points += maxi(0, (level - 1) * points_per_level() - (talent_points + spent))
+	for id in gifted.keys():
+		if not _talents.has(id):
+			gifted.erase(id)
+
+
+# The spells an old book taught at once (Miyu's four from the Water Spell Book), now talents of this tree: each given
+# at rank 1 for nothing (one that opens at a later level than theirs gives a point back instead), and taken out of
+# what they'd learnt. Whether there were any.
+func _from_book() -> bool:
+	var map: Dictionary = character.get("fromBook", {})
+	var any := false
+	for sp in learned.keys():
+		if not map.has(sp):
+			continue
+		any = true
+		learned.erase(sp)
+		var to: Variant = map[sp]
+		var id := str(to.get("talent", "")) if to is Dictionary else str(to)
+		var from_level := int(to.get("fromLevel", 0)) if to is Dictionary else 0
+		if id == "" or not _talents.has(id):
+			continue
+		if level < from_level:
+			talent_points += 1
+			continue
+		if rank(id) < 1:
+			ranks[id] = 1
+		gifted[id] = maxi(gifted_rank(id), 1)
+	return any
 
 
 ## The stats as Unity's player.stats.
@@ -723,4 +818,5 @@ func to_json() -> String:
 		ids.append(id)
 		rs.append(int(ranks[id]))
 	return JSON.stringify({"level": level, "xp": xp, "talentPoints": talent_points, "hp": hp, "mana": mana, "tree": int(character.get("treeVersion", 1)), "windIn": maxf(0.0, wind_ready_at - _now()),
-		"talentIds": ids, "talentRanks": rs, "equipped": equipped, "wear": wear, "learned": learned})
+		"treeId": tree_id(),
+		"talentIds": ids, "talentRanks": rs, "gifted": gifted, "equipped": equipped, "wear": wear, "learned": learned})
