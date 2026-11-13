@@ -25,4 +25,11 @@ func run() -> void:
 	pl.switch_to(miyu)
 	for i in 20:
 		await get_tree().process_frame
-	print("Play anyone: playing ", pl.who, ", party ", Party.active.members)
+	var sera: Villager = null
+	for v in Villager.all:
+		if is_instance_valid(v) and str(v.person.get("unique", "")) == "sera":
+			sera = v
+	print("Play anyone: playing ", pl.who, ", party ", Party.active.members, ", Sera's here ", sera != null, " state ", Villager.State.keys()[sera.state] if sera != null else "-")
+	for i in 120:
+		await get_tree().process_frame
+	print("Play anyone: 2 s on, Sera ", Villager.State.keys()[sera.state] if sera != null else "-", ", in the party ", Party.active.members.has("sera"))

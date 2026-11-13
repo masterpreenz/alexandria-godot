@@ -280,11 +280,11 @@ func _swap_in_village(them: Dictionary, me: Dictionary, to_id: String) -> void:
 	var party := Party.active
 	if party == null:
 		return
+	# (they swap places: the one left takes the other's place in the party if they had one, else lives in the village as
+	# they did: not brought along)
 	var at := party.members.find(to_id)
 	if at >= 0:
 		party.members[at] = who
-	elif not party.members.has(who):
-		party.members.insert(0, who)
 	party.waiting.erase(to_id)
 	party.waiting.erase(who)
 	# (she'd come along again, sent home)
