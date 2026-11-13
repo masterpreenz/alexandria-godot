@@ -141,6 +141,60 @@ static func village_woods(w: World, gather: Dictionary) -> void:
 				_spot(w, rocks[int(pick * rocks.size()) % rocks.size()], spot, wood)
 
 
+## The big forest (F6, where the road from the east runs in) carried on north through F7, thinning into small woods
+## towards F8: so the land between isn't bare, and the forest's edge gives way gradually. Cells, its south edge first.
+const FOREST_LINK := Rect2i(36, 56, 36, 72)
+
+
+## Grows [constant FOREST_LINK]'s trees (and a few rocks): thick where it meets the forest, in ever smaller clumps
+## further north; the same every time, clear of roads, water, walls, what's placed and the trees already there.
+static func forest_link(w: World, gather: Dictionary) -> void:
+	var trees: Array = gather.spots.filter(func(s): return str(s.resource) == "Wood" and int(s.get("planted", 0)) == 0 and int(s.s) in [623, 625])
+	var rocks: Array = gather.spots.filter(func(s): return str(s.resource) == "Stone")
+	if trees.is_empty() or rocks.is_empty():
+		return
+	var f := w.floors
+	var noise := FastNoiseLite.new()
+	noise.seed = SEED + 3
+	noise.frequency = 0.08
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SEED + 3
+	var wood := int(gather.miner.treeWood)
+	# (the cells already stood on, a tree or rock: none closer than a cell to another)
+	var taken := {}
+	for g in w.gatherables:
+		if is_instance_valid(g):
+			taken[f.cell_at(g.foot)] = true
+	var r := FOREST_LINK
+	for y in range(r.position.y, r.end.y):
+		# (how far north, 0 to 1: the clumps fewer and smaller, the trees in them sparser)
+		var north := float(y - r.position.y) / float(r.size.y)
+		var thick := lerpf(0.2, 0.07, north)
+		var clump_from := lerpf(-0.25, 0.3, north)
+		for x in range(r.position.x, r.end.x):
+			var roll := rng.randf()
+			var pick := rng.randf()
+			var jx := rng.randf_range(0.2, 0.8)
+			var jy := rng.randf_range(0.2, 0.8)
+			var c := Vector2i(x, y)
+			if not f.in_bounds(c) or noise.get_noise_2d(x, y) < clump_from or roll >= thick + 0.01:
+				continue
+			var clear := true
+			for dx in range(-1, 2):
+				for dy in range(-1, 2):
+					var n := c + Vector2i(dx, dy)
+					if taken.has(n) or f.get_floor(n) != f.base_floor or w.props.peek_top(n) != "" or w.water_depth(f.cell_centre(n)) > 0.0 							or w.walls.get_wall(WallMap.Edge.new(n, true)) != "" or w.walls.get_wall(WallMap.Edge.new(n, false)) != "":
+						clear = false
+			if not clear:
+				continue
+			taken[c] = true
+			var spot := f.corner(Vector2(x + jx, y + jy))
+			if roll < thick:
+				_spot(w, trees[int(pick * trees.size()) % trees.size()], spot, wood)
+			else:
+				_spot(w, rocks[int(pick * rocks.size()) % rocks.size()], spot, wood)
+
+
 # The trees and rocks by the road where the story begins (the same every time; off the road, clear of what's there).
 static func _intro_woods(w: World, gather: Dictionary) -> void:
 	var trees: Array = gather.spots.filter(func(s): return str(s.resource) == "Wood" and int(s.get("planted", 0)) == 0 and int(s.s) in [623, 625])

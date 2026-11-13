@@ -42,7 +42,7 @@ static func save(t: Dictionary) -> bool:
 		return false
 	# (one entry to a line: readable, and git shows what changed)
 	var lines := []
-	for k in ["name", "at", "width", "height", "tier", "residents", "addToSaves"]:
+	for k in ["name", "at", "width", "height", "tier", "residents", "addToSaves", "clear"]:
 		if t.has(k):
 			lines.append('"%s": %s' % [k, JSON.stringify(t[k])])
 	for k in ["floors", "walls", "props", "free"]:
@@ -91,6 +91,21 @@ static func capture(w: World, area: Rect2i, nm: String) -> Dictionary:
 	return t
 
 
+## A place already built into a game ([param t], at its own spot) kept up with its template: walls marked "gone" taken
+## away (the west village's barricades, from games that had them), barricades turned the way the template has them.
+## Nothing else touched.
+static func keep_up(w: World, t: Dictionary) -> void:
+	var lo := Vector2i(int(t.at[0]), int(t.at[1]))
+	for r in t.get("walls", []):
+		var e := WallMap.Edge.new(lo + Vector2i(int(r.x), int(r.y)), bool(r.alongY))
+		if w.walls.get_wall(e) != str(r.type):
+			continue
+		if bool(r.get("gone", false)):
+			w.walls.remove(e)
+		else:
+			w.walls.set_turned(e, bool(r.get("turned", false)))
+
+
 ## Builds template [param t] into the world, at its own place or [param at] (its first cell): the trees and rocks
 ## where it builds cleared (and what was built there before), then its floors, walls, props.
 static func stamp(w: World, t: Dictionary, at := Vector2i(1 << 30, 0)) -> void:
@@ -106,6 +121,11 @@ static func stamp(w: World, t: Dictionary, at := Vector2i(1 << 30, 0)) -> void:
 		var v := lo + Vector2i(int(r.x), int(r.y))
 		used[v] = true
 		used[v - (Vector2i(1, 0) if bool(r.alongY) else Vector2i(0, 1))] = true
+	# (a small place out in the wilds, "clear": its whole patch cleared, so the woods don't stand over it)
+	if bool(t.get("clear", false)):
+		for x in int(t.width):
+			for y in int(t.height):
+				used[lo + Vector2i(x, y)] = true
 	for c in used:
 		if f.in_bounds(c):
 			w.props.remove_all(c)
@@ -121,6 +141,8 @@ static func stamp(w: World, t: Dictionary, at := Vector2i(1 << 30, 0)) -> void:
 		if str(r.get("roof", "")) != "" and w.roofs != null:
 			w.roofs.roof_floors[c] = str(r.roof)
 	for r in t.get("walls", []):
+		if bool(r.get("gone", false)):
+			continue   # (taken out since: listed so games that had it lose it too, keep_up)
 		var e := WallMap.Edge.new(lo + Vector2i(int(r.x), int(r.y)), bool(r.alongY))
 		w.walls.place(e, str(r.type), bool(r.get("turned", false)))
 		if r.has("hp"):

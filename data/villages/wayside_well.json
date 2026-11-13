@@ -1,0 +1,20 @@
+{
+"name": "wayside_well",
+"at": [-218, 4],
+"width": 9,
+"height": 8,
+"addToSaves": true,
+"clear": true,
+"floors": [],
+"walls": [],
+"props": [
+{"scale":1.0,"turn":0,"type":"Well","x":4,"y":3},
+{"scale":1.0,"turn":1,"type":"StreetLamp","x":2,"y":2},
+{"scale":1.0,"turn":0,"type":"StreetLamp","x":6,"y":2},
+{"scale":1.0,"turn":0,"type":"FlatStone","x":3,"y":4},
+{"scale":1.0,"turn":0,"type":"FlatStone","x":5,"y":4},
+{"scale":1.0,"turn":0,"type":"Flowers","x":2,"y":5},
+{"scale":1.0,"turn":0,"type":"GreyPebble3","x":6,"y":5}
+],
+"free": []
+}

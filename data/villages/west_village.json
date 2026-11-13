@@ -527,14 +527,14 @@
 {"alongY":true,"type":"PlankWall","x":7,"y":13},
 {"alongY":true,"type":"BrokenPlankWall","x":7,"y":14},
 {"alongY":false,"type":"BrokenPlankWall","x":6,"y":15},
-{"alongY":false,"hp":15.5538663268089,"turned":true,"type":"Barricade","x":2,"y":1},
-{"alongY":false,"hp":37.0331838726997,"turned":true,"type":"Barricade","x":6,"y":1},
-{"alongY":false,"hp":47.3900511860847,"turned":true,"type":"Barricade","x":14,"y":1},
-{"alongY":false,"hp":21.5049169957638,"turned":true,"type":"Barricade","x":26,"y":1},
-{"alongY":false,"hp":21.3435530662537,"turned":true,"type":"Barricade","x":34,"y":1},
-{"alongY":false,"hp":33.9770168066025,"turned":true,"type":"Barricade","x":36,"y":1},
-{"alongY":false,"hp":23.8821476697922,"turned":true,"type":"Barricade","x":38,"y":1},
-{"alongY":false,"hp":17.1057544648647,"turned":true,"type":"Barricade","x":40,"y":1}
+{"alongY":false,"hp":15.5538663268089,"gone":true,"type":"Barricade","x":2,"y":1},
+{"alongY":false,"hp":37.0331838726997,"gone":true,"type":"Barricade","x":6,"y":1},
+{"alongY":false,"hp":47.3900511860847,"gone":true,"type":"Barricade","x":14,"y":1},
+{"alongY":false,"hp":21.5049169957638,"gone":true,"type":"Barricade","x":26,"y":1},
+{"alongY":false,"hp":21.3435530662537,"gone":true,"type":"Barricade","x":34,"y":1},
+{"alongY":false,"hp":33.9770168066025,"gone":true,"type":"Barricade","x":36,"y":1},
+{"alongY":false,"hp":23.8821476697922,"gone":true,"type":"Barricade","x":38,"y":1},
+{"alongY":false,"hp":17.1057544648647,"gone":true,"type":"Barricade","x":40,"y":1}
 ],
 "props": [
 {"scale":1.0,"turn":0,"type":"Rocks","x":34,"y":28},

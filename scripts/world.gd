@@ -145,7 +145,9 @@ func _ready() -> void:
 	# The woods round the home village (once the save's own ground, walls, props and the water are in, to keep clear of
 	# them; before the cleared ground's taken out of them).
 	if FileAccess.file_exists("res://data/gather.json"):
-		Wildlands.village_woods(self, _load_json("res://data/gather.json"))
+		var gd2: Dictionary = _load_json("res://data/gather.json")
+		Wildlands.village_woods(self, gd2)
+		Wildlands.forest_link(self, gd2)
 	# Cleared ground stays clear.
 	if sections.has("world.cleared"):
 		var cl: Variant = JSON.parse_string(sections["world.cleared"])
@@ -156,7 +158,10 @@ func _ready() -> void:
 	var stamped: Array = JSON.parse_string(sections.get("world.stamped", "[]")) if sections.has("world.stamped") else []
 	for nm in VillageTemplate.all_names():
 		var t := VillageTemplate.load_named(nm)
-		if stamped.has(nm) or (sections.has("world.props") and not bool(t.get("addToSaves", false))):
+		if stamped.has(nm):
+			VillageTemplate.keep_up(self, t)   # (what's been taken out of it since, gone; its barricades turned as it says)
+			continue
+		if sections.has("world.props") and not bool(t.get("addToSaves", false)):
 			continue
 		VillageTemplate.stamp(self, t)
 		stamped.append(nm)

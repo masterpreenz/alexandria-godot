@@ -12,6 +12,10 @@ extends Node2D
 ## anywhere on dry land, out of the village too, and over the main road. Blueprint mode (N) plans floors and walls for the villagers instead (Start building marks them ready).
 ## Every stroke can be undone and redone (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z). Miko holds still while it's open and
 ## WASD moves the view.
+##
+## The place editor (F7, in a development build only): building for free, anything anywhere (no costs, nothing locked,
+## none of the rules on where a thing may go), and the places laid out ahead (data/villages: the villages, the
+## waysides) to go to, change and save back to their files.
 
 signal changed
 
@@ -20,6 +24,7 @@ const HISTORY := 50
 const BLOCKED := Color(1, 0.35, 0.3, 0.75)
 
 static var active: BuildMode
+static var dev := false           ## the place editor: free building, anything anywhere, the places' files (F7)
 
 var world: World
 var miko: Miko
@@ -49,6 +54,7 @@ var _last_free: Variant = null
 var _wall_along_y: Variant = null
 var _tool_clicked := false
 var area := Rect2i()                ## the area picked with "Save area" (cells), or none
+var place_name := ""                ## the place (data/villages) gone to in the place editor, or none
 var _area_from := Vector2i.ZERO
 var _area_dragging := false
 var _said := 0.0
@@ -106,6 +112,35 @@ func toggle() -> void:
 	set_open(not open)
 
 
+## Whether the place editor can be had: a development build (running from the editor, or a debug export).
+static func dev_allowed() -> bool:
+	return OS.is_debug_build()
+
+
+## The place editor on (build mode opened with it) or off.
+func toggle_dev() -> void:
+	dev = not dev
+	if dev and not open:
+		set_open(true)
+	_say("Place editor: free building, anything anywhere (F7 to leave)" if dev else "Place editor off", miko.position, null, true)
+	changed.emit()
+
+
+## The place editor: goes to the place [param nm] (data/villages), its area picked, ready to change and save back.
+func go_to_place(nm: String) -> void:
+	var t := VillageTemplate.load_named(nm)
+	if t.is_empty():
+		return
+	area = Rect2i(int(t.at[0]), int(t.at[1]), int(t.width), int(t.height))
+	place_name = nm
+	tool = "Area"
+	var cam := get_viewport().get_camera_2d()
+	if cam != null:
+		cam.position = world.floors.cell_centre(area.get_center())
+		cam.reset_smoothing()
+	changed.emit()
+
+
 func set_open(on: bool) -> void:
 	if on == open:
 		return
@@ -142,7 +177,7 @@ func locked(it: Dictionary) -> bool:
 
 ## Ready, Short or Locked.
 func status_of(it: Dictionary) -> String:
-	if it.is_empty():
+	if it.is_empty() or dev:
 		return "Ready"
 	if locked(it):
 		return "Locked"
@@ -253,6 +288,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if get_viewport().gui_get_focus_owner() is LineEdit:
 		return
 	var k: int = event.keycode
+	if k == KEY_F7 and dev_allowed():
+		toggle_dev()
+		get_viewport().set_input_as_handled()
+		return
 	if k == KEY_B and not event.ctrl_pressed:
 		if not open and (CharacterPanel.up() or miko.locked):
 			return
@@ -458,8 +497,8 @@ func limit_of(it: Dictionary) -> int:
 
 
 func why_not(it: Dictionary, at: Vector2, moving: Dictionary = {}) -> String:
-	if it.is_empty():
-		return ""
+	if it.is_empty() or dev:
+		return ""   # (the place editor: anything anywhere)
 	# Down in the cellar: storage only (chests and the like).
 	if Cellars.room_has(world.floors.cell_at(at)) and str(it.get("category", "")) != "Storage":
 		return "Only storage goes in the cellar"
@@ -505,8 +544,8 @@ func _say(text: String, at: Vector2, c: Variant = null, always := false) -> void
 
 
 func _pay(it: Dictionary, at: Vector2) -> bool:
-	if it.is_empty():
-		return true
+	if it.is_empty() or dev:
+		return true   # (the place editor: free)
 	if locked(it):
 		_say("Build a %s first" % it.lockedBy, at)
 		return false
@@ -519,7 +558,7 @@ func _pay(it: Dictionary, at: Vector2) -> bool:
 
 
 func _refund(it: Dictionary, at: Vector2) -> void:
-	if it.is_empty():
+	if it.is_empty() or dev:
 		return
 	var parts := []
 	for c in Village.sum(it.cost):
@@ -1107,7 +1146,23 @@ func _pick_area(cell: Vector2i, over_ui: bool) -> void:
 func save_area(nm: String) -> bool:
 	if area.size == Vector2i.ZERO or nm.strip_edges() == "":
 		return false
-	return VillageTemplate.save(VillageTemplate.capture(world, area, nm.strip_edges().to_snake_case()))
+	var t := VillageTemplate.capture(world, area, nm.strip_edges().to_snake_case())
+	# (saving over a place: what it says beyond what's built kept, added to saves, cleared, who lives there, the walls
+	# taken out since)
+	var old := VillageTemplate.load_named(str(t.name)) if VillageTemplate.exists(str(t.name)) else {}
+	for k in ["addToSaves", "clear", "residents", "tier"]:
+		if old.has(k) and not t.has(k):
+			t[k] = old[k]
+	var lo := area.position
+	var olo := Vector2i(int(old.at[0]), int(old.at[1])) if old.has("at") else lo
+	for r in old.get("walls", []):
+		if bool(r.get("gone", false)):
+			var v := olo + Vector2i(int(r.x), int(r.y)) - lo
+			var row: Dictionary = r.duplicate()
+			row.x = v.x
+			row.y = v.y
+			t.walls.append(row)
+	return VillageTemplate.save(t)
 
 
 func _inspect(point: Vector2, over_ui: bool) -> void:

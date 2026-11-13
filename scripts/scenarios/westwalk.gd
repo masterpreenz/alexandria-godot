@@ -28,9 +28,18 @@ func run() -> void:
 	var frames := 0
 	var slow := []
 	var last := Time.get_ticks_usec()
+	var vers := {}
+	var changed := {"walls": 0, "props": 0, "floors": 0, "trees (look)": 0, "trees (in the way)": 0}
 	while miko.position.distance_to(to) > step and frames < 6000:
 		miko.place(miko.position.move_toward(to, step))
+		if frames % 300 == 150:
+			Corruption.active._tick()   # (an hour of the forest, as time goes by on the way)
 		await get_tree().process_frame
+		var now_v := {"walls": world.walls.version, "props": world.props.version, "floors": world.floors.version, "trees (look)": Gatherable.version, "trees (in the way)": Gatherable.solid_version}
+		for k in now_v:
+			if vers.has(k) and vers[k] != now_v[k]:
+				changed[k] += 1
+		vers = now_v
 		var now := Time.get_ticks_usec()
 		var ms := (now - last) / 1000.0
 		last = now
@@ -41,4 +50,5 @@ func run() -> void:
 				world.solids.get_child_count(), Gatherable.all.size()])
 	print("West walk: physics now: active %d, pairs %d, islands %d" % [Performance.get_monitor(Performance.PHYSICS_2D_ACTIVE_OBJECTS), Performance.get_monitor(Performance.PHYSICS_2D_COLLISION_PAIRS), Performance.get_monitor(Performance.PHYSICS_2D_ISLAND_COUNT)])
 	print("West walk: ", frames, " frames, ", roundi(miko.position.distance_to(from) / world.px), " units; frames over 40 ms: ", slow.size(), " ", slow.slice(0, 40))
+	print("West walk: map changes on the way (frames): ", changed, "; route searches ", Perf._total.get(&"AI: route: search", [0, 0])[1], " (", snappedf(float(Perf._total.get(&"AI: route: search", [0, 0])[0]) / 1000.0, 0.1), " ms), worst frame of route finding ", snappedf(float(Perf._worst.get(&"AI: route finding", 0)) / 1000.0, 0.1), " ms")
 	print("West walk: ", p.summary())

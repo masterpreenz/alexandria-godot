@@ -197,7 +197,8 @@ func _look() -> void:
 				old.erase(e.node)
 				fires.append(kept)
 				continue
-			var f := {"pos": e.pos, "type": type, "s": d.fires[type], "node": e.node, "key": _key(e.pos), "parts": [], "light": null, "shown": true}
+			var f := {"pos": e.pos, "type": type, "s": d.fires[type], "node": e.node, "key": _key(e.pos), "parts": [], "light": null, "shown": true,
+				"turn": int(e.e.get("turn", 0))}
 			_dress(f)
 			fires.append(f)
 	for f in old.values():
@@ -226,7 +227,8 @@ func _dress(f: Dictionary) -> void:
 	var s: Dictionary = f.s
 	var holder: Node2D = f.node
 	var base: Vector2 = (holder.get_child(0) as Node2D).position if holder.get_child_count() > 0 else Vector2.ZERO
-	var at := base + Vector2(s.fireOffset[0], -float(s.fireOffset[1])) * world.px
+	var off := _offset(f)
+	var at := base + Vector2(off[0], -float(off[1])) * world.px
 	var k := float(s.fireSize)
 	var px := world.px
 	# A fireplace's fire burns in its firebox, a little to one side by the way it faces.
@@ -493,8 +495,17 @@ func _stop() -> void:
 
 ## Where a fire's flame is (a torch's high on its post, a bonfire's low): what its prompts point at.
 func flame_point(f: Dictionary) -> Vector2:
-	var off: Array = f.s.get("fireOffset", [0, 0])
+	var off := _offset(f)
 	return f.pos + Vector2(0, -(float(off[1]) + 0.35) * world.px)
+
+
+# Where the flame sits on its prop (cells: across, up): by the way it's turned, for one whose flame moves with that (a
+# street lamp's lantern hangs to one side).
+static func _offset(f: Dictionary) -> Array:
+	var by: Array = f.s.get("fireOffsetByTurn", [])
+	if not by.is_empty():
+		return by[int(f.get("turn", 0)) % by.size()]
+	return f.s.get("fireOffset", [0, 0])
 
 
 func _say(text: String) -> void:

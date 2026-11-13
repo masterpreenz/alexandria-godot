@@ -1,0 +1,35 @@
+{
+"name": "wayside_shed",
+"at": [-268, 50],
+"width": 10,
+"height": 9,
+"addToSaves": true,
+"clear": true,
+"floors": [
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":3,"y":3},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":3,"y":4},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":3,"y":5},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":4,"y":3},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":4,"y":4},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":4,"y":5},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":5,"y":3},
+{"ground":"","laid":"WornBoards","roof":"","turned":false,"x":5,"y":4}
+],
+"walls": [
+{"alongY":false,"type":"BrokenPlankWall","x":3,"y":3},
+{"alongY":false,"type":"BrokenPlankWall","x":4,"y":3},
+{"alongY":false,"type":"PlankWall","x":5,"y":3},
+{"alongY":true,"type":"BrokenPlankWall","x":6,"y":5},
+{"alongY":false,"type":"BrokenPlankWall","x":3,"y":6},
+{"alongY":true,"type":"PlankWall","x":3,"y":3},
+{"alongY":true,"type":"BrokenPlankWall","x":3,"y":4},
+{"alongY":true,"type":"BrokenPlankWall","x":3,"y":5}
+],
+"props": [
+{"scale":1.0,"turn":0,"type":"Rocks","x":4,"y":4},
+{"scale":1.0,"turn":0,"type":"TallGrass","x":2,"y":2},
+{"scale":1.0,"turn":0,"type":"Bush","x":7,"y":6},
+{"scale":1.0,"turn":0,"type":"Pebble","x":3,"y":6}
+],
+"free": []
+}

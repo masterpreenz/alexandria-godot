@@ -92,6 +92,40 @@ var _area_size: Label
 var _area_said: Label
 
 
+var _places_panel: PanelContainer
+var _named_for := ""                ## the place whose name the save card was last given
+
+
+# The place editor's list (F7): every place laid out ahead (data/villages), each a button that goes there and picks
+# its area, to change and save back over its file.
+func _places_card() -> void:
+	var up: bool = BuildMode.dev and build.open
+	if _places_panel == null:
+		if not up:
+			return
+		_places_panel = PanelContainer.new()
+		_places_panel.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", int(_k(4)))
+		_places_panel.add_child(col)
+		col.add_child(HudStyle.label("Place editor  ·  F7", 14, "bold", HudStyle.color("accentLight")))
+		col.add_child(HudStyle.label("Free, anything anywhere. Go to a place:", 10, "body", HudStyle.color("muted")))
+		for nm in VillageTemplate.all_names():
+			var b := HudStyle.button(str(nm), 11, "pill")
+			b.pressed.connect(func():
+				build.go_to_place(str(nm))
+				_area_card()
+				if _area_name != null:
+					_area_name.text = str(nm)
+					_area_said.text = "Change it, then Save template to write it back.")
+			col.add_child(b)
+		add_child(_places_panel)
+	_places_panel.visible = up
+	if up:
+		_places_panel.reset_size()
+		_places_panel.position = Vector2(_k(16), _k(90))
+
+
 # The card for a picked area: how big, a name, and Save (it writes data/villages/<name>.json).
 func _area_card() -> void:
 	var up: bool = build.tool == "Area" and build.area.size != Vector2i.ZERO
@@ -124,6 +158,10 @@ func _area_card() -> void:
 		col.add_child(_area_said)
 		add_child(_area_panel)
 	_area_panel.visible = up
+	# (gone to a place in the place editor: the card saves back over it)
+	if up and build.place_name != "" and build.place_name != _named_for:
+		_named_for = build.place_name
+		_area_name.text = build.place_name
 	if up:
 		_area_size.text = "%d × %d cells, from (%d, %d)" % [build.area.size.x, build.area.size.y, build.area.position.x, build.area.position.y]
 		_area_panel.reset_size()
@@ -294,6 +332,8 @@ func _in_cellar() -> bool:
 
 # Whether [param it] is offered now: everything, or only what the story's asking for (making camp: a bonfire, a bed).
 func _offered(it: Dictionary) -> bool:
+	if BuildMode.dev:
+		return true   # (the place editor: everything)
 	var only := Story.build_only()
 	return only.is_empty() or only.has(str(it.name))
 
@@ -321,7 +361,7 @@ func _process_timed(_delta: float) -> void:
 		_was_in_cellar = not _was_in_cellar
 		_dirty = true
 	# (the story's narrowed what's offered, or let it all back: the tabs and tiles again, on an offered tab)
-	var only := str(Story.build_only())
+	var only := str(Story.build_only()) + (" dev" if BuildMode.dev else "")   # (the place editor offers everything)
 	if only != _only_was:
 		_only_was = only
 		var cats := _categories()
@@ -347,7 +387,7 @@ func _process_timed(_delta: float) -> void:
 	_bar.position = Vector2((vp.x - _bar.size.x) / 2.0, vp.y - _bar.size.y - _k(14)).round()
 	_rail.reset_size()
 	_rail.position = Vector2(_bar.position.x - _rail.size.x - _k(8), vp.y - _rail.size.y - _k(14)).round()
-	_hint.text = build.tool_hint() + ("   ·   PLAN" if build.blueprint else "") + ("   ·   HIDDEN" if build.hide_buildings else "")
+	_hint.text = build.tool_hint() + ("   ·   PLAN" if build.blueprint else "") + ("   ·   HIDDEN" if build.hide_buildings else "") + ("   ·   PLACE EDITOR (free)" if BuildMode.dev else "")
 	_house_card()
 	if _card.visible:
 		_card.reset_size()
@@ -364,7 +404,7 @@ func _refresh() -> void:
 	for ch in _tabs.get_children():
 		_tabs.remove_child(ch)
 		ch.queue_free()
-	for c in (_categories() if Story.build_only().is_empty() else []):
+	for c in (_categories() if Story.build_only().is_empty() or BuildMode.dev else []):
 		var b := HudStyle.button(c, 11, "pill", HudStyle.color("text") if c == category else HudStyle.color("muted"))
 		if c == category and query == "":
 			b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.7)))
@@ -433,6 +473,7 @@ func _refresh() -> void:
 	_light("Inspect", build.tool == "Inspect")
 	_light("Area", build.tool == "Area")
 	_area_card()
+	_places_card()
 	_light("Hide", build.hide_buildings)
 	_card_for = null
 	_rail_buttons.Undo.disabled = not build.can_undo()

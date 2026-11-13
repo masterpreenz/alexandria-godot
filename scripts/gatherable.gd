@@ -12,6 +12,8 @@ static var all: Array[Gatherable] = []
 const GRID := 512.0                ## the squares (px) they're filed under by their foot, to find those near quickly
 static var _grid := {}             ## Vector2i -> Array of Gatherables whose foot is in that square
 static var version := 0          ## counts every change in how one looks (felled, regrown, new, gone): the maps redraw
+static var solid_version := 0    ## counts only the changes in what stands in the way (new, gone, felled, regrown): not a
+                                 ## tree rotting or a rock chipped, so the ways round them are kept (VillagerRoute)
 
 ## Played when a tree crashes down, and the log's art (from the miner's settings).
 static var fall_sound: AudioStream
@@ -89,6 +91,7 @@ func setup(w: World, d: Dictionary, tree_wood: int) -> void:
 		add_child(body)
 	all.append(self)
 	_grid.get_or_add(_square(foot), []).append(self)
+	solid_version += 1
 
 
 func _exit_tree() -> void:
@@ -96,6 +99,7 @@ func _exit_tree() -> void:
 	var here: Array = _grid.get(_square(foot), [])
 	here.erase(self)
 	version += 1
+	solid_version += 1
 
 
 func depleted() -> bool:
@@ -273,6 +277,7 @@ func strike() -> int:
 
 # Run out: a rock crumbles to rubble, a tree falls.
 func _topple() -> void:
+	solid_version += 1
 	if body != null:
 		body.process_mode = Node.PROCESS_MODE_DISABLED
 	if float(data.regrow) > 0.0 and planted_at < 0.0:
@@ -395,6 +400,7 @@ func regrow() -> void:
 	stage = 0
 	world.show_frame(art, _whole, _scale)
 	version += 1
+	solid_version += 1
 	art.set_meta("full_scale", art.scale)
 	art.visible = true
 	art.rotation = 0.0

@@ -77,7 +77,7 @@ static var _solid_key := ""
 
 ## The squares something solid stands on (worked out again when the props, or the trees and rocks, change).
 static func solid_squares(w: World) -> Dictionary:
-	var key := "%d %d" % [w.props.version, Gatherable.version]
+	var key := "%d %d" % [w.props.version, Gatherable.solid_version]
 	if key == _solid_key:
 		return _solid
 	var __t := Time.get_ticks_usec()
@@ -158,7 +158,8 @@ static var _routes := {}                ## Vector4i (from square, to square) -> 
 
 # Everything a way depends on, as one value: the walls, what's placed, the trees and rocks, the ground (its roads).
 static func _map_version(w: World) -> int:
-	return hash([w.walls.version, w.props.version, Gatherable.version, w.floors.version])
+	# (walls built or taken down, not a door swinging: a way goes through a door open or shut)
+	return hash([w.walls.rooms_version, w.props.version, Gatherable.solid_version, w.floors.version])
 
 
 static var _roads := {}                 ## square -> whether it's road (cheaper to walk), for the ground as it is
