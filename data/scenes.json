@@ -1,5 +1,5 @@
 {
-"_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done.",
+"_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done. joins: a unique who joins Sera's party as it ends.",
 "scenes": [
 {
  "id": "miyu_brought",
@@ -235,6 +235,57 @@
   "peculiar_done"
  ],
  "closes": true
+},
+{
+ "id": "miyu_wakes",
+ "speaker": "miyu",
+ "closes": true,
+ "joins": "miyu",
+ "when": {
+  "after": [
+   "miyu_home"
+  ],
+  "unless": [
+   "party:miyu"
+  ]
+ },
+ "lines": [
+  [
+   "miyu",
+   "...Sera? It's you. Grandfather says you carried me all the way home."
+  ],
+  [
+   "sera",
+   "You were lying on the road north. You'd got yourself out of that village alone, you know. That took some doing."
+  ],
+  [
+   "miyu",
+   "I don't remember much of it. The mist came down, and everyone was shouting, and then... just the road. I kept walking."
+  ],
+  [
+   "miyu",
+   "Thank you. Truly. If you hadn't come, I'd still be out there. Or worse."
+  ],
+  [
+   "sera",
+   "Rest a while longer. You're safe now."
+  ],
+  [
+   "miyu",
+   "I've rested enough for a lifetime. Let me come with you. I know these roads, and I can look after myself."
+  ],
+  [
+   "sera",
+   "...All right. Stay close, and no more errands on your own."
+  ],
+  [
+   "miyu",
+   "Deal!"
+  ]
+ ],
+ "records": [
+  "party_join:miyu"
+ ]
 }
 ]
 }

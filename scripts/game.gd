@@ -422,6 +422,10 @@ func _ready() -> void:
 	journal.name = "RumorsWindow"
 	$Hud.add_child(journal)
 	journal.setup(rumors, miko)
+	var party_window := PartyWindow.new()
+	party_window.name = "PartyWindow"
+	$Hud.add_child(party_window)
+	party_window.setup(miko)
 	var world_map := WorldMap.new()
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
@@ -651,7 +655,7 @@ func _window_up() -> bool:
 		return true
 	if CharacterPanel.up() or BuildMode.is_open():
 		return true
-	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow"]:
+	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow", "Hud/PartyWindow"]:
 		var n: Control = get_node_or_null(path)
 		if n != null and n.visible:
 			return true

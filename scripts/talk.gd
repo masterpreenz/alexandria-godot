@@ -216,7 +216,7 @@ func _show(line: String) -> void:
 		if Party.active.waiting.has(str(who.person.unique)): _add("Follow me", _order_follow)
 		else: _add("Wait here", _order_wait)
 		_add("Go home", _order_home)
-	elif Party.active != null and Traits.has(who.person, "unique") and Chronicle.active != null and Chronicle.active.happened("party:" + str(who.person.unique)) and not Party.active.full():
+	elif Party.active != null and Party.willing(who.person) and not Party.active.full():
 		_add("Come with me", _order_join)
 	_add(Loc.t("talk.choice.need"), _ask_need)
 	_add(Loc.t("talk.choice.bye"), _say_bye)
@@ -557,6 +557,9 @@ func _play(scene: Dictionary, i: int) -> void:
 	var lines: Array = scene.lines
 	if i >= lines.size():
 		Scenes.done(scene)
+		# (a scene that ends with them coming along: "joins", they're in her party from here)
+		if str(scene.get("joins", "")) != "" and Party.active != null and Party.active.join(str(scene.joins)) and who != null and is_instance_valid(who):
+			who._follow_start(Villager.now())
 		var next := Scenes.for_speaker(who.person) if who != null and is_instance_valid(who) else {}
 		if not next.is_empty():
 			_play(next, 0)   # (another waiting on them: straight on into it)

@@ -149,10 +149,29 @@ func hours_left(p: Dictionary) -> float:
 	return maxf(0.0, _grow(p) - _grown(p)) if stage(p) == 1 else 0.0
 
 
-# Hours of growing it's had (an old save's plot: since it was sown).
+# Hours of growing it's had: what it had when last tended, and since then at the pace it's growing now (an old
+# save's plot: since it was sown).
 func _grown(p: Dictionary) -> float:
 	var st := _state(p)
-	return float(st.get("grown", _hours() - float(st.sownAt)))
+	if not st.has("grown"):
+		return _hours() - float(st.sownAt)
+	var since := maxf(0.0, _hours() - float(st.get("at", _hours())))
+	return float(st.grown) + since * _rate(st)
+
+
+# How fast a crop grows now: full speed watered, half dry, not at all with pests in it.
+func _rate(st: Dictionary) -> float:
+	if st.get("pest", false):
+		return 0.0
+	return DRY_RATE if _hours() - float(st.get("wateredAt", -INF)) >= WET_FOR else 1.0
+
+
+# A growing crop's growing written down as of now, before its pace changes (watered, pests in or out).
+func _settle(p: Dictionary) -> void:
+	var st := _state(p)
+	if st.sown:
+		st.grown = _grown(p)
+		st.at = _hours()
 
 
 ## Whether a growing crop wants watering.
@@ -168,6 +187,7 @@ func pests(p: Dictionary) -> bool:
 ## Waters a plot (wet for a day), with the sound of it.
 func water(p: Dictionary, sound := true) -> void:
 	for q in field_of(p):   # the whole field at once
+		_settle(q)
 		_state(q).wateredAt = _hours()
 	if sound:
 		splash(p)
@@ -185,11 +205,12 @@ func splash(p: Dictionary) -> float:
 ## Clears the pests out of a plot's whole field.
 func clear_pests(p: Dictionary) -> void:
 	for q in field_of(p):
+		_settle(q)
 		_state(q).pest = false
 
 
-# Growing crops grow by the game hours gone by: at full speed watered, half dry, not at all with pests in them; pests
-# get in now and then; rain waters everything.
+# Once a game hour: growing crops brought up to date (at full speed watered, half dry, not at all with pests in them),
+# pests getting in now and then, rain watering everything, winter's frost.
 func _tend(dh: float) -> void:
 	var raining := world.clock != null and world.clock.weather() in [GameClock.Weather.RAIN, GameClock.Weather.STORM]
 	var frost := winter()
@@ -203,14 +224,9 @@ func _tend(dh: float) -> void:
 			states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": st.setTo, "last": crop(p), "waiting": false}
 			killed += 1
 			continue
+		_settle(p)
 		if raining:
 			st.wateredAt = _hours()
-		if stage(p) != 1 or dh <= 0.0:
-			continue
-		if not st.has("grown"):
-			st.grown = _grown(p)
-		var rate := 0.0 if st.get("pest", false) else (DRY_RATE if dry(p) else 1.0)
-		st.grown = float(st.grown) + dh * rate
 	# Pests get into a field, not a plot: one roll a field, and then into all of its growing plots.
 	if dh > 0.0 and not frost:
 		var seen := {}
@@ -225,6 +241,7 @@ func _tend(dh: float) -> void:
 			if randf() < 1.0 - pow(1.0 - PEST_PER_HOUR, dh):
 				for q in field:
 					if stage(q) == 1:
+						_settle(q)
 						_state(q).pest = true
 	if killed > 0:
 		VillageLog.event("frost", "Winter's frost killed %d growing plot%s: plant again in spring" % [killed, "" if killed == 1 else "s"])
@@ -407,9 +424,11 @@ func _process_timed(_delta: float) -> void:
 	Perf.add(&"farming: finding plots", __t)
 	__t = Time.get_ticks_usec()
 	var now := _hours()
-	if _tended_at > -INF:
+	if _tended_at == -INF or now < _tended_at:
+		_tended_at = now
+	elif now - _tended_at >= 1.0:   # (once a game hour: in between, each crop's growth is reckoned from then)
 		_tend(clampf(now - _tended_at, 0.0, 240.0))
-	_tended_at = now
+		_tended_at = now
 	Perf.add(&"farming: growing", __t)
 	__t = Time.get_ticks_usec()
 	for p in plots:
@@ -525,6 +544,7 @@ func sow(p: Dictionary, c: String) -> bool:
 	st.sownAt = _hours()
 	st.crop = c
 	st.grown = 0.0
+	st.at = _hours()
 	st.wateredAt = _hours()   # sowing waters it
 	st.pest = false
 	return true
