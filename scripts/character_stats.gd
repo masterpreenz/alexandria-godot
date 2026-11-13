@@ -66,6 +66,22 @@ static func _add(into: Dictionary, stats: Dictionary, k := 1.0) -> void:
 
 ## Everything together: base for the level, gear, talents, buffs.
 func total() -> Dictionary:
+	# (asked many times a frame, for every stat: worked out again only when something it's made of has changed)
+	var key := [level, ranks.hash(), equipped.hash(), buffs.hash()]
+	if key == _total_key and is_same(character, _total_char) and not _total.is_empty():
+		return _total.duplicate()
+	_total = _total_fresh()
+	_total_key = key
+	_total_char = character
+	return _total.duplicate()
+
+
+var _total := {}
+var _total_key := []
+var _total_char: Dictionary = {}
+
+
+func _total_fresh() -> Dictionary:
 	var t := {}
 	_add(t, character.get("base", {}))
 	_add(t, character.get("perLevel", {}), level - 1)
@@ -81,11 +97,21 @@ func total() -> Dictionary:
 
 ## Everything but the buffs (what hunger and the mist take a share of).
 func unbuffed() -> Dictionary:
+	var key := [level, ranks.hash(), equipped.hash()]
+	if key == _bare_key and is_same(character, _bare_char) and not _bare.is_empty():
+		return _bare.duplicate()
 	var keep := buffs
 	buffs = {}
-	var t := total()
+	_bare = _total_fresh()
 	buffs = keep
-	return t
+	_bare_key = key
+	_bare_char = character
+	return _bare.duplicate()
+
+
+var _bare := {}
+var _bare_key := []
+var _bare_char: Dictionary = {}
 
 
 ## Lends (or, with null, takes back) the stats [param block] under [param key].
@@ -171,8 +197,11 @@ func _process_timed(delta: float) -> void:
 		changed.emit()
 	var m := clampf(mana + float(t.get("manaRegen", 0.0)) * delta, 0.0, t.get("maxMana", 50.0))
 	if m != mana:
+		# (told only when the whole number shown changes, or it's full: not every frame of a refill)
+		var tell := floori(m) != floori(mana) or m >= float(t.get("maxMana", 50.0))
 		mana = m
-		changed.emit()
+		if tell:
+			changed.emit()
 
 
 static func _now() -> float:
@@ -718,8 +747,9 @@ const STAT_NAMES := [["maxHp", "Max HP", ""], ["maxMana", "Max Mana", ""], ["att
 	["mistResist", "Slower Mist Sickness", "%"], ["hungerResist", "Less Starving Damage", "%"],
 	["knockResist", "Knockback Resistance", "%"], ["blockChance", "Chance to Block a Hit", "%"],
 	["shardDamage", "Ice Shard Damage", "%"], ["twinShard", "Extra Ice Shard", ""], ["frostbiteDamage", "Harder Frostbite", "%"],
-	["poolHeal", "Healing Circle Healing", "%"], ["poolSeconds", "Longer Healing Circle", "%"], ["poolSize", "Healing Circle Size", "%"],
-	["poolChill", "Slower Monsters in the Healing Circle", "%"], ["armorStrength", "Frost Armor Strength", "%"],
+	["poolHeal", "Healing Blanket Mending", "%"], ["poolSeconds", "Longer Healing Blanket", "%"],
+	["blanketShare", "of the Blanket on the Most Hurt Ally Near", "%"], ["blanketFrost", "Cold Comfort (the wrapped ally's blows frostbite)", ""],
+	["armorStrength", "Frost Armor Strength", "%"],
 	["armorSeconds", "Longer Frost Armor", "%"], ["armorBurst", "Frost Armor Burst Damage", "%"],
 	["armorFrost", "Harder Frostbite from the Burst", "%"], ["blastDamage", "Ice Blast Damage", "%"], ["blastArea", "Ice Blast Area", "%"],
 	["blastCooldown", "Shorter Ice Blast Cooldown", "%"], ["blastFrozenGround", "s of Frozen Ground after an Ice Blast", ""],
