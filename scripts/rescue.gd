@@ -2,9 +2,10 @@ class_name Rescue
 extends Node
 ## Miyu's rescue, as the rumor "The elder's granddaughter" plays out. Coming near the overrun village, its monsters are
 ## there (only monsters: nobody's left). Reaching it, Miyu lies in the street, unconscious. E picks her up: Sera carries
-## her (slower), and setting foot back in her own village sets her down: Miyu comes to live there, and sleeps the whole
-## day through. All of it in the chronicle ("miyu_home"). If the day runs out before Sera comes, the rumor says she's
-## gone. What it's at is saved (world.rescue).
+## her (slower) home, and in her own village the elder's marked: she carries her to him ("miyu_carried_home"), his
+## scene plays (scenes.json's miyu_brought, "miyu_told"), and she takes Miyu on to a bed in the elders' house (or the
+## nearest free one) and lays her down (E): Miyu comes to live there, asleep the whole day through ("miyu_home"). If
+## the day runs out before Sera comes, the rumor says she's gone. What it's at is saved (world.rescue).
 
 const WHO := "miyu"
 const RUMOR := "find_miyu"
@@ -21,7 +22,8 @@ var world: World
 var miko: Miko
 var people: Villagers
 var monster_data: Dictionary
-var state := ""                         ## "", "lying", "carried", "home"
+var state := ""                         ## "", "lying", "carried", "told" (the elder knows: on to a bed), "home"
+var bed := Vector2.INF                  ## the bed she's to be laid in (once the elder's been told), or none
 var monsters_out := false
 var prompt: Label
 var _body: Sprite2D
@@ -41,7 +43,10 @@ func setup(w: World, who: Miko, vs: Villagers, md: Dictionary, hud: Node) -> voi
 
 
 func to_json() -> String:
-	return JSON.stringify({"state": state, "monsters": monsters_out})
+	var d := {"state": state, "monsters": monsters_out}
+	if bed != Vector2.INF:
+		d["bed"] = [bed.x / world.px, bed.y / world.px]
+	return JSON.stringify(d)
 
 
 func from_json(json: String) -> void:
@@ -49,7 +54,10 @@ func from_json(json: String) -> void:
 	if d is Dictionary:
 		state = str(d.get("state", ""))
 		monsters_out = bool(d.get("monsters", false))
-	if state == "carried":
+		var b: Variant = d.get("bed")
+		if b is Array:
+			bed = Vector2(float(b[0]), float(b[1])) * world.px
+	if state == "carried" or state == "told":
 		_carry(true)
 
 
@@ -93,9 +101,62 @@ func _process(_delta: float) -> void:
 				_carry(false)
 	elif state == "carried":
 		_show_carried()
-		# Home: she's set down, and taken in.
-		if world.village.founded() and world.village.contains(miko.position):
-			_home()
+		# Home: to the elder with her.
+		var ch := Chronicle.active
+		if ch != null and world.village.founded() and world.village.contains(miko.position) and not ch.happened("miyu_carried_home"):
+			ch.record("miyu_carried_home")
+			if Story.active != null and Story.active._marks != null:
+				Story.active._marks.mark_unique("elder")
+			FloatingText.spawn(world, "Take her to the elder.", miko.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.86, 0.6), 18, 2.5)
+		# He knows: on to a bed with her.
+		if ch != null and ch.happened("miyu_told"):
+			state = "told"
+			bed = _pick_bed()
+			if Story.active != null and Story.active._marks != null:
+				Story.active._marks.uniques.erase("elder")
+			FloatingText.spawn(world, "Lay her in a bed in the elders' house.", miko.position + Vector2(0, -2.0 * world.px), Color(1.0, 0.86, 0.6), 18, 2.5)
+	elif state == "told":
+		_show_carried()
+		if bed == Vector2.INF:
+			_home({})
+			return
+		if miko.position.distance_to(bed) < REACH * 1.2 * world.px and not miko.locked:
+			prompt.visible = true
+			prompt.text = "E  Lay Miyu down"
+			WorldPrompts.at(prompt, bed + Vector2(0, -0.7 * world.px))
+			if pressed:
+				_home(_bed_entry(bed))
+
+
+## Where the bed Miyu's laid in is (once the elder knows), for a mark on it; Vector2.INF when there's none to go to.
+func bed_to_go() -> Vector2:
+	return bed if state == "told" else Vector2.INF
+
+
+# A bed for Miyu: a free one in the elders' house, else the free one nearest it, else none.
+func _pick_bed() -> Vector2:
+	var elder := Uniques.person(people, "elder")
+	var near: Vector2 = Vector2(float(elder.bedX), -float(elder.bedY)) * world.px if not elder.is_empty() and bool(elder.get("hasBed", false)) else world.village.centre()
+	var room: Variant = world.roofs.room_on(near) if world.roofs != null else null
+	var best := Vector2.INF
+	var best_d := INF
+	for b in Needs.all_beds(world, people.d.beds):
+		if not people._home(b) or people._claimant(b) != null or people.living.has(Needs.bed_key(b.pos)):
+			continue
+		var d: float = b.pos.distance_to(near)
+		if room != null and (room as Dictionary).has(world.floors.cell_at(b.pos)):
+			d -= 10000.0   # (the elders' own house first)
+		if d < best_d:
+			best_d = d
+			best = b.pos
+	return best
+
+
+func _bed_entry(at: Vector2) -> Dictionary:
+	for b in Needs.all_beds(world, people.d.beds):
+		if b.pos.distance_to(at) < 0.05 * world.px:
+			return b
+	return {}
 
 
 func _monsters() -> void:
@@ -157,17 +218,28 @@ func _carry(loading: bool) -> void:
 			Chronicle.active.record("miyu_found")
 
 
-func _home() -> void:
+# Laid in [param in_bed] (a bed's entry, or {} with none free: she's taken in all the same): she lives there now, asleep.
+func _home(in_bed: Dictionary) -> void:
 	state = "home"
+	bed = Vector2.INF
 	miko.stats.set_buff("carrying", null)
 	if _body != null:
 		_body.queue_free()
 		_body = null
-	Uniques.arrive(people, WHO)
+	Uniques.arrive(people, WHO, true)
 	var p := Uniques.person(people, WHO)
 	if not p.is_empty():
 		p["restUntil"] = world.clock.hours + SLEEPS
 		p["hp"] = float(p.get("maxHp", 40.0)) * 0.3
+		if not in_bed.is_empty():
+			people._settle(p, in_bed)
+			var v: Variant = people.living.get(Needs.bed_key(in_bed.pos), [null, null])[1]
+			if v is Villager:
+				# (laid in it, asleep at once: not waking to wander off or go for a monster first)
+				var miyu := v as Villager
+				miyu.position = in_bed.pos
+				miyu._go_to_sleep()
+				miyu.state_until = miyu.now() + 5.0
 	Chronicle.active.record("miyu_home")
 	FloatingText.spawn(world, "Miyu's home. She'll sleep the day through.", miko.position + Vector2(0, -2.0 * world.px), Color(0.7, 1.0, 0.7), 18, 2.5)
 	VillageLog.event("miyu_home", "Miyu is home, asleep in the elder's house. The elders want to speak with you.")

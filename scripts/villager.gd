@@ -258,6 +258,11 @@ static func _hour(w: World) -> float:
 	return w.clock.hour() if w.clock != null else 12.0
 
 
+# Sleeping something off (Miyu, brought home): nothing gets them up till it's done.
+func _resting() -> bool:
+	return world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0))
+
+
 # Time to get up: morning (6 to 18) unless worn right out; gone to bed early (tired, from 18), not till well rested.
 func _wake_time() -> bool:
 	if world.clock != null and world.clock.hours < float(person.get("restUntil", -1.0)):
@@ -604,7 +609,8 @@ func _physics_process_timed(delta: float) -> void:
 	# A slime about: go for it (unless asleep, or already at one).
 	# Badly hurt (under a fifth of their health) with a monster near: they run instead.
 	# A raid: everyone's up and out of whatever they were at (the sleeping too), to fight.
-	if Raids.on() and (state == State.ASLEEP or state == State.CELLAR) and not (s.stabDown as Array).is_empty() and not _low():
+	# (not someone sleeping off an ordeal: Miyu, brought home)
+	if Raids.on() and (state == State.ASLEEP or state == State.CELLAR) and not (s.stabDown as Array).is_empty() and not _low() and not _resting():
 		if state == State.ASLEEP: _wake_up(t)
 		_stand(t, 0.0)
 	if state != State.ASLEEP and state != State.FIGHT and state != State.FLEE and not (state == State.TO_LIGHT and _fight_after != null) and t >= next_look:

@@ -2,6 +2,44 @@
 "_about": "Story scenes (closes: true shuts the talk window at the scene's end): a conversation that plays when Sera talks to someone, once, when what it waits on has happened. speaker: the unique character (uniques.json id) who starts it. when: {after: [chronicle events, all needed], unless: [events]}. lines: [who, what they say], who a unique id or \"sera\". records: chronicle events written when it's done.",
 "scenes": [
 {
+ "id": "miyu_brought",
+ "speaker": "elder",
+ "closes": true,
+ "when": {
+  "after": [
+   "miyu_carried_home"
+  ],
+  "unless": [
+   "miyu_told"
+  ]
+ },
+ "lines": [
+  [
+   "elder",
+   "Miyu? Miyu! Is she... Sera, is she...?"
+  ],
+  [
+   "sera",
+   "She's breathing. I found her lying in the street up north. She hasn't woken, but she isn't hurt badly."
+  ],
+  [
+   "elder_wife",
+   "Oh, thank the stars. Her colour's coming back already, look."
+  ],
+  [
+   "elder",
+   "Bring her inside, quickly. Put her in the bed in our house, where it's warm."
+  ],
+  [
+   "sera",
+   "I'll take her in now."
+  ]
+ ],
+ "records": [
+  "miyu_told"
+ ]
+},
+{
  "id": "elders_thanks",
  "speaker": "elder",
  "when": {

@@ -81,7 +81,7 @@
   {
    "id": "carry",
    "safe": true,
-   "note": "The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home.",
+   "note": "The village is overrun, and Miyu lies in the street, unconscious. Pick her up (E) and carry her home to the elder, then lay her in a bed in the elders' house.",
    "place": {
     "kind": "village",
     "vague": 4
