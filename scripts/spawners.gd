@@ -6,6 +6,7 @@ extends Node
 ##   village, in a house, on anything solid or right beside her. Each is stronger by the mist it came out of. Every
 ##   so often the numbers are topped back up; ones left on ground the mist no longer covers, away from her, go. A few
 ##   small ones also live in the healthy forest, spread out.
+## - Mutated villagers and mutated wolves roam the mist, a few of each, the first of each not far from Miko.
 ## - Boars live in the healthy forest: among trees, not by roads or out in the open, outside the village, never beside
 ##   her, one to a stretch of forest. Each new day the number is topped back up.
 
@@ -13,6 +14,8 @@ var world: World
 var d: Dictionary                 ## monsters.json
 var small: Array[Slime] = []
 var mutants: Array = []        ## the mutated villagers about
+var wolves: Array = []         ## the mutated wolves about
+var _next_wolves := 0.0
 var _next_mutants := 0.0
 var large: Array[Slime] = []
 var forest: Array[Slime] = []
@@ -46,6 +49,9 @@ func _process_timed(_delta: float) -> void:
 	if d.has("mutatedVillager") and _now() >= _next_mutants:
 		_next_mutants = _now() + float(d.mutatedVillagerSpawner.restockEvery)
 		restock_mutants()
+	if d.has("mutatedWolf") and _now() >= _next_wolves:
+		_next_wolves = _now() + float(d.mutatedWolfSpawner.restockEvery)
+		restock_wolves()
 	var day: int = world.clock.day() if world.clock != null else 1
 	if d.has("boar") and day != _last_day:
 		_last_day = day
@@ -67,6 +73,23 @@ func restock_mutants() -> void:
 			break
 		mutants.append(MutatedVillager.spawn(world, d.mutatedVillager, at))
 	Perf.add(&"spawning: mutated villagers", __t)
+
+
+## Keeps a few mutated wolves roaming the mist: the first near Miko (out of sight), the rest anywhere.
+func restock_wolves() -> void:
+	var __t := Time.get_ticks_usec()
+	wolves.assign(_alive(wolves))
+	for i in range(wolves.size(), int(d.mutatedWolfSpawner.count)):
+		if not _budget():
+			_next_wolves = _now()
+			break
+		var at: Variant = _spot_near(12.0, 20.0) if i == 0 else null
+		if at == null:
+			at = Wilds.find_spot(world, _free, 60)
+		if at == null:
+			break
+		wolves.append(MutatedWolf.spawn(world, d.mutatedWolf, at))
+	Perf.add(&"spawning: mutated wolves", __t)
 
 
 static func _alive(list: Array) -> Array:

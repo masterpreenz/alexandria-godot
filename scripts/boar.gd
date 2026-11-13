@@ -28,6 +28,8 @@ var bed_tries := 0
 var hit_this_charge := false
 var charge_on_waking := false
 var dust: CPUParticles2D
+var warn: Telegraph               ## where the charge will go, on the ground, while it paws
+const AIM_LOCK := 0.25            ## seconds before it goes when its line is set (a step aside, then, and it misses)
 
 
 static func spawn(w: World, d: Dictionary, at: Vector2) -> Boar:
@@ -211,6 +213,27 @@ func _begin_wind_up() -> void:
 	state = State.WIND_UP
 	state_until = now() + float(s.windUp)
 	velocity = Vector2.ZERO
+	if warn == null:
+		warn = Telegraph.make(world, 0.75)
+	var p := player()
+	var to := (p.position - position) if p != null and p.position.distance_squared_to(position) > 1.0 else charge_dir
+	warn.point(position, position + to.normalized() * _charge_reach(), _charge_reach())
+
+
+# How far a charge goes (px).
+func _charge_reach() -> float:
+	return float(s.chargeSpeed) * float(s.chargeFor) * world.px
+
+
+func _exit_tree() -> void:
+	super._exit_tree()
+	_clear_warn()
+
+
+func _clear_warn() -> void:
+	if warn != null:
+		warn.queue_free()
+		warn = null
 
 
 # Pawing the ground, facing her, a little dust kicked up behind.
@@ -221,10 +244,16 @@ func _wind_up(t: float, to_player: Vector2) -> void:
 	art.position.x = sin(t * 60.0) * 0.02 * world.px
 	if randf() < 0.3:
 		_puff()
+	# The strip on the ground: following her, then set a moment before it goes; filling as it does.
+	if warn != null:
+		if t < state_until - AIM_LOCK and to_player.length_squared() > 0.01 * world.px * world.px:
+			warn.point(position, position + to_player.normalized() * _charge_reach(), _charge_reach())
+		warn.set_fill(1.0 - (state_until - t) / maxf(0.01, float(s.windUp)))
 	if t < state_until:
 		return
 	art.position.x = 0.0
-	charge_dir = to_player.normalized() if to_player.length_squared() > 0.01 * world.px * world.px else (Vector2.RIGHT if flip else Vector2.LEFT)
+	charge_dir = warn.dir if warn != null else (to_player.normalized() if to_player.length_squared() > 0.01 * world.px * world.px else (Vector2.RIGHT if flip else Vector2.LEFT))
+	_clear_warn()
 	state = State.CHARGE
 	state_until = t + float(s.chargeFor)
 	hit_this_charge = false
@@ -348,6 +377,7 @@ func _died() -> void:
 		Pickup.launch_icon(world, "Food", 1, at, 2.2)
 	Pickup.launch_icon(world, "Hide", 1, at, 2.2)
 	drop_seed()
+	_clear_warn()
 	# The dust trail stays a moment to fade, apart from the boar.
 	dust.emitting = false
 	var d := dust
