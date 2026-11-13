@@ -2,7 +2,7 @@ class_name PlayerCard
 extends Control
 ## Miko's card, top left (from Unity's PlayerHud): her portrait with a level badge (click it for the character panel,
 ## with phase 5's character step), her name and coins (carried and stored), HP (with any shield as a blue band over
-## it) and mana, then hunger and rest. Mana flashes red when a spell wanted more; hunger and rest turn coral when low.
+## it) and mana, then hunger, rest and thirst. Mana flashes red when a spell wanted more; hunger, rest and thirst turn coral when low.
 ## Under the card, a row of tags for her buffs and debuffs (green for good, red for bad, with any time left; hovering
 ## one says what it does), and under that a rack of small squares for skills cooling down.
 
@@ -93,7 +93,7 @@ func _draw() -> void:
 		Color(0.62, 0.8, 1.0) if shield > 0.5 else HudStyle.color("text"), shield / max_hp)
 	var back_tint := Color.WHITE.lerp(Color(1, 0.35, 0.3), _mana_flash)
 	_bar(40, 6, "drop", HudStyle.color("mana"), stats.mana / maxf(1.0, float(t.get("maxMana", 50.0))), str(floori(stats.mana)), HudStyle.color("text"), 0.0, back_tint)
-	# Hunger and rest.
+	# Hunger, rest and thirst.
 	if needs != null:
 		var low := HudStyle.color("coral")
 		var calm := HudStyle.color("muted")
@@ -105,6 +105,11 @@ func _draw() -> void:
 		if moon != null:
 			draw_texture_rect(moon, Rect2(Vector2(COL_X + 50, 54) * k, Vector2(12, 12) * k), false, HudStyle.color("rest"))
 		_text(("Asleep " if needs.sleeping() else "Rest ") + str(ceili(needs.energy)), Vector2(COL_X + 66, 66) * k, 12, "pixel", low if needs.energy < 20.0 else calm)
+		# Thirst: a cup of water, coral once she's thirsty.
+		var water := UiKit.resource_icon("Water")
+		if water != null:
+			draw_texture_rect(water, Rect2(Vector2(COL_X + 130, 53) * k, Vector2(14, 14) * k), false)
+		_text(str(ceili(needs.thirst)), Vector2(COL_X + 148, 66) * k, 12, "pixel", low if needs.thirsty() else calm)
 	# Experience: a thin bar along the card's foot, filling towards the next level.
 	var need := maxi(1, stats.xp_to_next())
 	var xr := Rect2(Vector2(8, CARD.y - 6) * k, Vector2(CARD.x - 16, 3) * k)

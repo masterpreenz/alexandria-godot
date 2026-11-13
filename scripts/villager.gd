@@ -47,6 +47,10 @@ static var mending := {}          ## barricade (wall key) -> true: someone's on 
 static var crafting_now := {}     ## stock key -> true: one villager on each kind of thing at a time
 
 ## What they eat, and how much each fills. Raw meat, raw fish and slime jelly aren't food till they're cooked.
+const SLEEP_MEND := 12.0        ## HP a game hour they mend asleep
+const AWAKE_MEND := 6.0         ## ...and awake, out of a fight
+const CALM_FOR := 8.0           ## seconds since they were last hurt before they mend awake
+const HUNGRY := 35.0            ## hungry under this: mending at half
 const FOODS := [["HeartyStew", 70.0], ["FishStew", 65.0], ["FishSoup", 60.0], ["Meal", 60.0], ["BakedPotato", 45.0], ["Bread", 40.0],
 	["GrilledFish", 50.0], ["Candy", 35.0], ["SmokedFish", 40.0], ["Cabbage", 15.0], ["Carrot", 12.0]]   # (not potatoes raw: baked at a fire)
 const EMOTE_FPS := 5.0
@@ -633,6 +637,9 @@ func _physics_process_timed(delta: float) -> void:
 				_fight(threat)
 		Perf.add(&"villager: looking for danger", __tl)
 	__t = Time.get_ticks_usec()
+	if t >= _next_dusk_look:
+		_next_dusk_look = t + 2.0 + randf()
+		_answer_dusk(t)
 	var __deciding := state == State.STAND   # (standing: choosing what to do next; anything else: going about it)
 	match state:
 		State.STAND:
@@ -1524,8 +1531,17 @@ func _needs() -> void:
 		if _awake_hours >= 2.0:
 			_awake_hours = 0.0
 			people.practise(p, LifeSkills.Skill.STAMINA)
-	if sleeping and not cold_night and float(p.hunger) > 0.0 and hit.hp < hit.max_hp:
-		hit.heal(4.0 * dh)
+	# Mending over time: best asleep (not on a cold night), slower awake once they're out of a fight a while; not
+	# while starving or parched, and half as fast hungry or thirsty.
+	if float(p.hunger) > 0.0 and float(p.thirst) > 0.0 and hit.hp < hit.max_hp:
+		var mend := 0.0
+		if sleeping and not cold_night:
+			mend = SLEEP_MEND
+		elif not sleeping and state != State.FIGHT and state != State.FLEE and Time.get_ticks_msec() / 1000.0 - hit._last_hit > CALM_FOR:
+			mend = AWAKE_MEND
+		if float(p.hunger) < HUNGRY or float(p.thirst) < THIRSTY:
+			mend *= 0.5
+		hit.heal(mend * dh)
 	if float(p.hunger) <= 0.0:
 		# Starving: HP slips away.
 		var loss := 2.0 * dh
@@ -3155,6 +3171,53 @@ func _done_cooking(t: float) -> void:
 
 # ---- Lighting the fires and torches at dusk, from storage ----
 
+const DUSK_FROM := 17.5            ## the hour they see to the torches and fires (the sun's going down)
+const DUSK_TILL := 21.0            ## ...until bed
+## What they'll drop to go and light one at dusk: standing about, walking, chatting, on the way to work or at it.
+const DUSK_DROPS := [State.STAND, State.WALK, State.TO_CHAT, State.CHAT, State.CHAT_WAIT, State.TO_WORK, State.WORK]
+var _next_dusk_look := 0.0
+
+
+# At sundown every torch and fire in the village is lit: an unlit one nobody's on the way to goes to whoever's
+# nearest and free (not fighting, eating, asleep or with Sera), who leaves what they're at to see to it.
+func _answer_dusk(t: float) -> void:
+	var h := _hour(world)
+	if h < DUSK_FROM or h >= DUSK_TILL or not _free_at_dusk(self) or not world.village.contains(position, 6.0):
+		return
+	var fires := _fires()
+	if fires == null:
+		return
+	var mine := []
+	for f in fires.fires:
+		if fires.lit(f) or lighting.has(f.key) or not fires.tended(f) or not _can_pay(f):
+			continue
+		mine.append([f.pos.distance_squared_to(position), f])
+	if mine.is_empty():
+		return
+	mine.sort_custom(func(x, y): return x[0] < y[0])
+	for pair in mine:
+		var f: Dictionary = pair[1]
+		var closer := false
+		for v in all:
+			if v != self and is_instance_valid(v) and _free_at_dusk(v) and v.position.distance_squared_to(f.pos) < pair[0]:
+				closer = true
+				break
+		if closer:
+			continue
+		# (what they were at, let go of)
+		match state:
+			State.TO_CHAT, State.CHAT, State.CHAT_WAIT: _end_chat(t)
+			State.TO_WORK, State.WORK:
+				if job != null: claimed.erase(job)
+				job = null
+		_light_this(f)
+		return
+
+
+static func _free_at_dusk(v: Villager) -> bool:
+	return v.state in DUSK_DROPS and v.fire.is_empty() and not v._in_party() and not v._night() and v.hit.alive()
+
+
 func _go_light() -> bool:
 	var fires := _fires()
 	if fires == null:
@@ -3176,12 +3239,17 @@ func _go_light() -> bool:
 	if not _can_pay(best):
 		VillageLog.problem("no-fuel", "Not enough wood and stone in storage to light the %s" % ("torches" if bool(best.s.torch) else "fires"))
 		return false
-	fire = best
+	_light_this(best)
+	return true
+
+
+# Off to light [param f].
+func _light_this(f: Dictionary) -> void:
+	fire = f
 	lighting[fire.key] = true
 	state = State.TO_LIGHT
 	clock = 0.0
 	_set_goal(_beside(fire.pos, 0.5))
-	return true
 
 
 func _light_it(t: float) -> void:
