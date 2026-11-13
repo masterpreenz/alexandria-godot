@@ -109,6 +109,8 @@ func _process(_delta: float) -> void:
 	if pouch and needs.pouch < Needs.MAX - 0.5:
 		needs.pouch = Needs.MAX
 		said.append("Pouch filled")
+	if Party.active != null and Party.active.fill_pouches():
+		said.append("Party's pouches filled")
 	if carried < most:
 		miko.bag.add("Water", most - carried)
 		said.append("Bucket filled")

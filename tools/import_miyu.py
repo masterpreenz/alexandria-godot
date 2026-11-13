@@ -31,7 +31,7 @@ CHOP_STRIKE = [7]                # where the axe lands
 MINE_STRIKE = [4]                # where the pick lands
 STAB_STRIKE = [8]                # the staff "swing" is the casting frames in order; this is its hit (and cast pose) frame
 LIE_FRAMES = 4                   # sleeping frames before she is settled
-WALK_FPS = 16                    # 16 run frames = two strides
+RUN_CYCLE = 0.9                  # seconds for one run cycle (two strides), whatever each sheet's frame count
 FAINT_ORDER = [0, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 12, 13, 14, 15]   # stagger (10), fall (2), lying (4)
 
 os.makedirs(ART, exist_ok=True)
@@ -41,7 +41,21 @@ for f in os.listdir(SRC):
 
 
 def frames(im):
-    return [im.crop(((i % 4) * 256, (i // 4) * 256, (i % 4) * 256 + 256, (i // 4) * 256 + 256)) for i in range(16)]
+    """The sheet's frames, 4 to a row, as many rows as it has, empty cells at the end left out."""
+    rows_ = im.height // 256
+    out = [im.crop(((i % 4) * 256, (i // 4) * 256, (i % 4) * 256 + 256, (i // 4) * 256 + 256)) for i in range(4 * rows_)]
+    while out and out[-1].getbbox() is None:
+        out.pop()
+    return out[:16]
+
+
+def source(name, n):
+    """A sheet's file: its "-trimmed" version when there is one (a redrawn sheet with fewer frames)."""
+    t = SRC + f'Miyu v2-iso_{name}_{n}-trimmed.png'
+    return t if os.path.exists(t) else SRC + f'Miyu v2-iso_{name}_{n}.png'
+
+
+COUNT = {}
 
 
 def pivot(fr, which=None):
@@ -79,15 +93,17 @@ def rod_tip(f):
 rows, sheets, PV = [], {}, {}
 for key, name in ANIMS.items():
     for dr, n in (('down', 'southwest'), ('up', 'northwest')):
-        im = Image.open(SRC + f'Miyu v2-iso_{name}_{n}.png').convert('RGBA')
+        im = Image.open(source(name, n)).convert('RGBA')
         out = f'miyu_{key}_{"sw" if dr == "down" else "nw"}.png'
         im.save(DST + out)
         fr = frames(im)
         sheets[(key, dr)] = fr
         PV[(key, dr)] = pivot(fr, list(range(7)) if key == 'faint' else None)
+        COUNT[(key, dr)] = len(fr)
         for i in range(16):
+            j = min(i, len(fr) - 1)   # (16 entries kept so the ids never move; past a short sheet's end, its last frame)
             rows.append({"name": f"miyu2_{key}_{dr}_{i}", "tex": f"res://assets/Art/Characters/Villager/miyu/{out}",
-                         "rect": [(i % 4) * 256, (i // 4) * 256, 256, 256], "pivot": PV[(key, dr)], "ppu": PPU})
+                         "rect": [(j % 4) * 256, (j // 4) * 256, 256, 256], "pivot": PV[(key, dr)], "ppu": PPU})
 
 # sprites.json: in place when the entries exist, else appended (read just now, written straight back).
 path = GAME + 'data/sprites.json'
@@ -109,7 +125,7 @@ open(path, 'w', newline='').write(body)
 
 
 def idx(key, dr):
-    return [ids[f'miyu2_{key}_{dr}_{i}'] for i in range(16)]
+    return [ids[f'miyu2_{key}_{dr}_{i}'] for i in range(COUNT[(key, dr)])]
 
 
 def tips(dr):
@@ -147,7 +163,9 @@ s['fishTipsDown'], s['fishTipsUp'] = tips('down'), tips('up')
 fd, fu = idx('faint', 'down'), idx('faint', 'up')
 s['faintDown'], s['faintUp'] = [fd[i] for i in FAINT_ORDER], [fu[i] for i in FAINT_ORDER]
 s['idleDown'], s['idleUp'] = idx('idle', 'down')[IDLE_FRAME], idx('idle', 'up')[IDLE_FRAME]
-s['walkDown'], s['walkUp'], s['walkFps'] = idx('run', 'down'), idx('run', 'up'), WALK_FPS
+s['walkDown'], s['walkUp'] = idx('run', 'down'), idx('run', 'up')
+s['walkFps'] = round(COUNT[('run', 'down')] / RUN_CYCLE, 2)
+s['walkFpsUp'] = round(COUNT[('run', 'up')] / RUN_CYCLE, 2)
 s['mineDown'], s['mineUp'] = idx('mine', 'down'), idx('mine', 'up')
 s['mineStrikesDown'] = s['mineStrikesUp'] = MINE_STRIKE
 s['chopDown'], s['chopUp'] = idx('chop', 'down'), idx('chop', 'up')

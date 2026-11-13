@@ -92,11 +92,11 @@ func _window() -> void:
 	# Ice Shard (the last rule) dragged up to second.
 	var rows := tw._rows
 	var from: TacticsWindow.RuleRow = rows[rows.size() - 1]
-	var data: Variant = {"tactic_rule": from.index}
+	var drag_data: Variant = {"tactic_rule": from.index}
 	var pv := PanelContainer.new()
 	pv.add_theme_stylebox_override("panel", HudStyle.piece("tileOn"))
 	pv.add_child(HudStyle.label(Tactics.rule_text(from.rule), 12, "bold"))
-	from.force_drag(data, pv)
+	from.force_drag(drag_data, pv)
 	tw.dragging = from.index
 	var mm := InputEventMouseMotion.new()
 	mm.position = onto_pos(rows[1])
@@ -104,11 +104,11 @@ func _window() -> void:
 	mm.button_mask = MOUSE_BUTTON_MASK_LEFT
 	Input.parse_input_event(mm)
 	var onto: TacticsWindow.RuleRow = rows[1]
-	onto._can_drop_data(Vector2(5, 2), data)
+	onto._can_drop_data(Vector2(5, 2), drag_data)
 	await _frames(5)
 	print("Tactics: dragging rule ", tw.dragging + 1, ", drop mark on rule ", onto.index + 1, " (", onto.mark, ")")
 	shot("drag")
-	onto._drop_data(Vector2(5, 2), data)
+	onto._drop_data(Vector2(5, 2), drag_data)
 	get_viewport().gui_cancel_drag()
 	await _frames(5)
 	_print_rules("after the drag")
@@ -307,15 +307,12 @@ func _dodge_test(dodge: bool) -> void:
 	miyu.position = miko.position + Vector2(-1.2, 0.05) * world.px
 	miyu.reset_physics_interpolation()
 	var in_strip_frames := 0
-	var strips_seen := 0
 	for i in 600:
 		await get_tree().physics_frame
 		miko.stats.hp = miko.stats.stat("maxHp")
 		var s := Tactics.strip_at(miyu.position)
 		if s != null:
 			in_strip_frames += 1
-		if Telegraph.live.size() > 0 and i % 30 == 0:
-			strips_seen += 1
 	print("Tactics: wolf, dodge ", "on" if dodge else "off", ": frames she stood in its strip ", in_strip_frames, " of 600, dodges ", magic.dodges, ", spells dropped ", magic.cancelled, ", finished in a strip ", magic.cast_in_strip)
 
 

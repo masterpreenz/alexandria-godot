@@ -8,6 +8,8 @@ class_name Companions
 ##
 ## Their person's maxHp, atk, maxMana and mana are kept to what their stats come to, so their cards, their bars and
 ## their fighting go by them; anything else that raises those (a level gained in the village) goes into their own.
+##
+## Each also has a bag of their own ([method pack_of]), saved with them as person.pack.
 
 const FILE := "res://data/companions.json"
 
@@ -15,6 +17,7 @@ static var _data: Dictionary = {}
 static var _combat: Dictionary = {}
 static var _by_id := {}            ## unique id -> {stats, person, natural, written}
 static var _trees := {}            ## unique id -> their own talent tree, or {}
+static var _packs := {}            ## unique id -> {bag, person}: their own bag, made from person.pack when first needed
 
 
 static func data() -> Dictionary:
@@ -213,12 +216,16 @@ static func forget(p: Dictionary) -> void:
 	if e.is_empty():
 		return
 	store(p)
+	_packs.erase(id)
 	if is_instance_valid(e.stats):
 		(e.stats as Node).queue_free()
 	_by_id.erase(id)
 
 
 static func store(p: Dictionary) -> void:
+	var b: Dictionary = _packs.get(str(p.get("unique", "")), {})
+	if not b.is_empty() and is_same(b.person, p):
+		p["pack"] = (b.bag as Bag).to_json()
 	var e: Dictionary = _by_id.get(str(p.get("unique", "")), {})
 	if e.is_empty() or not is_instance_valid(e.stats) or not is_same(e.person, p):
 		return
@@ -295,7 +302,31 @@ static func spell_name(id: String) -> String:
 	return str(spell(id).get("name", id.capitalize()))
 
 
-## A companion's own bag, for what they carry for themselves (their potions), or null while they have none: what
-## they'd take then comes from the bag of the one played.
-static func bag_of(_p: Dictionary) -> Bag:
-	return null
+## A companion's own bag (see [method pack_of]): their potions and food come from it first, then from the bag of the
+## one played.
+static func bag_of(p: Dictionary) -> Bag:
+	return pack_of(p)
+
+
+## [param p]'s own bag (a companion's: the same rules as Sera's, their own slots and their worn bag's), made the first
+## time it's needed from what was saved with them (person.pack), else empty. Null for someone who can't have one.
+static func pack_of(p: Dictionary) -> Bag:
+	if not can_have(p):
+		return null
+	var id := str(p.unique)
+	var st := stats_for(p)
+	var e: Dictionary = _packs.get(id, {})
+	var b: Bag
+	if not e.is_empty() and is_same(e.person, p):
+		b = e.bag
+	else:
+		b = Bag.new()
+		b.item_data = UiKit.data.get("items", {})
+		var json := str(p.get("pack", ""))
+		if json != "" and JSON.parse_string(json) is Dictionary:
+			b.from_json(json, st.equipped if st != null else [])
+		_packs[id] = {"bag": b, "person": p}
+	if st != null:
+		b.worn = st.equipped
+		b.bonus_slots = int(st.stat("bagSlots"))
+	return b

@@ -611,7 +611,7 @@ func _physics_process_timed(delta: float) -> void:
 		velocity = Vector2.ZERO
 		var frames: Array = s.walkUp if facing_up else s.walkDown
 		if _held_moving and not frames.is_empty():
-			_show(int(frames[int(t * float(s.walkFps)) % frames.size()]))
+			_show(int(frames[int(t * _walk_fps()) % frames.size()]))
 		else:
 			_show_idle()
 		_status()
@@ -929,7 +929,7 @@ func _walk(t: float, delta: float) -> void:
 	clock += delta
 	var frames: Array = s.walkUp if facing_up else s.walkDown
 	if not frames.is_empty():
-		_show(int(frames[int(clock * float(s.walkFps)) % frames.size()]))
+		_show(int(frames[int(clock * _walk_fps()) % frames.size()]))
 	var speed := float(s.walkSpeed) * world.px * (1.7 if state == State.FLEE else 1.0) * Traits.mul(person, "speed")   # (running for it)
 	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
 	v = steer.around(v, delta)
@@ -1075,6 +1075,12 @@ func _stand(t: float, seconds: float) -> void:
 	state_until = t + seconds
 	velocity = Vector2.ZERO
 	_show_idle()
+
+
+# How fast their walking frames go: a look's back-facing run may have its own pace (walkFpsUp: fewer or more frames
+# than its front, the same stride).
+func _walk_fps() -> float:
+	return float(s.walkFpsUp) if facing_up and s.has("walkFpsUp") else float(s.walkFps)
 
 
 func _show(id: int) -> void:
@@ -1808,7 +1814,10 @@ func _barks() -> void:
 	if _in_party() and t >= _next_need_bark:
 		_next_need_bark = t + randf_range(40.0, 60.0)
 		var needs := {"miko": Playable.name_now()}
-		if float(person.get("hunger", 100.0)) < Party.NEEDY:
+		# (from their own bag first, if they've anything: only asking her when they haven't)
+		if Party.active != null and Party.active.look_after(person):
+			_next_need_bark = t + 5.0
+		elif float(person.get("hunger", 100.0)) < Party.NEEDY:
 			bark("party.hungry", needs, true)
 		elif float(person.get("thirst", 100.0)) < Party.NEEDY:
 			bark("party.thirsty", needs, true)
@@ -2318,7 +2327,7 @@ func _step_to(goal: Vector2, delta: float, pace: float) -> bool:
 	clock += delta
 	var frames: Array = s.walkUp if facing_up else s.walkDown
 	if not frames.is_empty():
-		_show(int(frames[int(clock * float(s.walkFps) * pace) % frames.size()]))
+		_show(int(frames[int(clock * _walk_fps() * pace) % frames.size()]))
 	var speed := float(s.walkSpeed) * world.px * pace * Traits.mul(person, "speed")
 	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
 	v = steer.around(v, delta)
@@ -2784,7 +2793,7 @@ func _nearest_loose(within: float) -> Pickup:
 	var mining := _areas("Mining")
 	var t := now()
 	for p in Pickup.all:
-		if not p.settled() or gathering.has(p) or not _gatherable(p.resource):
+		if not p.settled() or p.thrown or gathering.has(p) or not _gatherable(p.resource):
 			continue
 		if carrying > 0 and p.resource != carry_kind:
 			continue

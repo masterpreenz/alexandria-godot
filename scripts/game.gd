@@ -444,6 +444,10 @@ func _ready() -> void:
 	tactics_window.name = "TacticsWindow"
 	$Hud.add_child(tactics_window)
 	tactics_window.setup(miko)
+	var kit_window := KitWindow.new()
+	kit_window.name = "KitWindow"
+	$Hud.add_child(kit_window)
+	kit_window.setup(miko)
 	var world_map := WorldMap.new()
 	world_map.name = "WorldMap"
 	$Hud.add_child(world_map)
@@ -673,7 +677,7 @@ func _window_up() -> bool:
 		return true
 	if CharacterPanel.up() or BuildMode.is_open():
 		return true
-	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow", "Hud/PartyWindow", "Hud/TacticsWindow"]:
+	for path in ["Hud/WorldMap", "Hud/JobsWindow", "Hud/WorkbenchWindow", "Hud/SaveMenu", "Hud/RumorsWindow", "Hud/PartyWindow", "Hud/TacticsWindow", "Hud/KitWindow"]:
 		var n: Control = get_node_or_null(path)
 		if n != null and n.visible:
 			return true

@@ -115,6 +115,40 @@ func move(from: int, to: int) -> void:
 	changed.emit()
 
 
+## Hands what's in slot [param from] to bag [param to]: its piece of gear, or [param amount] of its stack (all of it
+## with -1), into slot [param at] there when that's free, else into its first free slot (a stack it has already
+## takes it). How many went: 0 when there's no room.
+func give(from: int, to: Bag, amount := -1, at := -1) -> int:
+	if from < 0 or from >= SIZE or to == null or to == self:
+		return 0
+	var it: String = items[from]
+	if it != "":
+		var slot := at if to.open(at) else to.free_slot()
+		if slot < 0:
+			return 0
+		items[from] = ""
+		to.items[slot] = it
+		changed.emit()
+		to.changed.emit()
+		return 1
+	var r := stack_in(from)
+	if r == "":
+		return 0
+	var n := count(r) if amount < 0 else mini(amount, count(r))
+	if n <= 0 or not to.has_room_for(r):
+		return 0
+	if to.count(r) <= 0 and to.open(at):
+		to.stack_slot[r] = at
+	spend(r, n)
+	to.add(r, n)
+	return n
+
+
+## Whether slot [param slot] is in the bag and holds nothing.
+func open(slot: int) -> bool:
+	return slot >= 0 and slot < capacity() and items[slot] == "" and stack_in(slot) == ""
+
+
 ## The saved bag (Unity's player.bag: resources, slots by item name, stack slots by resource order) and what she wears.
 func from_json(json: String, equipped: Array = []) -> void:
 	var d: Dictionary = JSON.parse_string(json)

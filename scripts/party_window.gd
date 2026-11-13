@@ -6,7 +6,8 @@ extends PanelContainer
 ## party). The places left say so, with anyone who'd come along if asked. It steps aside while Sera's talking.
 ## Each companion's Gear opens their page in the Character & Bag window (their slots, with Sera's bag to dress them
 ## from) and Talents their talent web; Tactics how they fight (their stance and rules, the Tactics window); under
-## their attack, the spells they know.
+## their attack, the spells they know. Bag (with how full theirs is) opens their page too, and Kit their adventure kit
+## (the Kit window); the one played has their own Kit, and Restock now in the village.
 
 const FAR := 12.0                 ## units behind her a companion's "far behind"
 
@@ -203,6 +204,13 @@ func _sera_row() -> PanelContainer:
 	row.add_child(face)
 	var ui := _info(row, Playable.name_now())
 	var stats := miko.stats
+	var own := VBoxContainer.new()
+	own.add_theme_constant_override("separation", roundi(_k(3)))
+	own.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(own)
+	own.add_child(_order("Kit", false, func(): _open_kit({})))
+	var restock := _order("Restock now", false, func(): Kit.restock_now({}))
+	own.add_child(restock)
 	_rows.append(func():
 		var t := stats.total()
 		face.level = stats.level
@@ -216,6 +224,8 @@ func _sera_row() -> PanelContainer:
 		bars.most_mana = maxf(1.0, float(t.get("maxMana", 50.0)))
 		bars.queue_redraw()
 		(ui.doing as Label).text = "Leading the party"
+		var v := miko.world.village
+		restock.disabled = not (v.founded() and v.contains(miko.position))
 		var nd: Needs = miko.get_node_or_null("Needs")
 		if nd != null:
 			_needs_line(ui.needs, nd.hunger, nd.thirst))
@@ -264,13 +274,17 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 	own.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(own)
 	var gear := _order("Gear", false, func(): _open_page(p, false))
+	var bag_b := _order("Bag", false, func(): _open_page(p, false))
+	var kit_b := _order("Kit", false, func(): _open_kit(p))
 	var tal := _order("Talents", false, func(): _open_page(p, true))
 	var tac := _order("Tactics", false, func():
 		if TacticsWindow.active != null:
 			TacticsWindow.active.open_for(p))
 	own.add_child(gear)
+	own.add_child(bag_b)
 	own.add_child(tal)
 	own.add_child(tac)
+	own.add_child(kit_b)
 	var spells := HudStyle.label("", 10, "body", HudStyle.color("mana"))
 	spells.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	spells.custom_minimum_size.x = _k(230)
@@ -299,9 +313,15 @@ func _companion_row(p: Dictionary) -> PanelContainer:
 		var hunger := float(p.get("hunger", 100.0))
 		var thirst := float(p.get("thirst", 100.0))
 		_needs_line(ui.needs, hunger, thirst)
-		eat.disabled = hunger >= 90.0 or not Villager.FOODS.any(func(f): return miko.bag.count(str(f[0])) > 0)
-		var nd: Needs = miko.get_node_or_null("Needs")
-		drink.disabled = thirst >= 90.0 or nd == null or not miko.bag.items.has("WaterPouch") or nd.pouch < Needs.POUCH_DRINK - 0.01)
+		var pack := Companions.pack_of(p)
+		eat.disabled = hunger >= 90.0 or not Villager.FOODS.any(func(f): return miko.bag.count(str(f[0])) > 0 or (pack != null and pack.count(str(f[0])) > 0))
+		drink.disabled = thirst >= 90.0 or not [p, {}].any(func(q): return pa.has_pouch(q) and pa.pouch_of(q) >= Needs.POUCH_DRINK - 0.01)
+		if pack != null:
+			var used := 0
+			for i in pack.capacity():
+				if pack.items[i] != "" or pack.stack_in(i) != "":
+					used += 1
+			bag_b.text = "Bag %d/%d" % [used, pack.capacity()])
 	return pc
 
 
@@ -312,6 +332,12 @@ func _open_page(p: Dictionary, talents_tab: bool) -> void:
 		return
 	close()
 	cp.open_for(p, talents_tab)
+
+
+# Their kit in the Kit window, this window out of the way.
+func _open_kit(p: Dictionary) -> void:
+	if KitWindow.active != null:
+		KitWindow.active.open_for(p)
 
 
 func _order(text: String, off: bool, act: Callable) -> Button:

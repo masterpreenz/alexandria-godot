@@ -8,8 +8,10 @@ extends Control
 ## ([TalentsWindow]) holds the talent web.
 ##
 ## With companions along, a row of names by the tabs picks whose it shows: a companion's page is the same (their slots,
-## level, vitals and stats; their talents in the Talents tab), with Sera's bag beside it, so gear goes from her bag
-## onto them (double-click, or Wear) and back off into it (a worn slot's Take off).
+## level, vitals and stats; their talents in the Talents tab), with their own bag and the played one's side by side.
+## Things go from one bag to the other by dragging, or picking one and Give (or Take); with shift held, one at a time.
+## Gear goes onto them from either bag (double-click, or Wear) and back off into theirs (a worn slot's Take off).
+## Each bag's Kit opens its owner's adventure kit.
 
 const EQUIP_W := 330.0
 const STATS_W := 280.0
@@ -70,6 +72,11 @@ var _badge: Label
 var shown: Dictionary = {}       ## the companion whose page this is, or {} for Sera's own
 var _name_label: Label
 var _who_row: HBoxContainer
+var theirs: Bag                  ## the companion's own bag on their page, else null
+var in_theirs := false           ## the pick ([member selected]) is in their bag, not the played one's
+var _their_col: Control
+var _their_cells: Array = []
+var _give: Button
 
 
 func setup(w: World, who: Miko, _hud: Node) -> void:
@@ -100,8 +107,18 @@ func show_for(p: Dictionary) -> void:
 	if st == null:
 		return
 	shown = p
+	var pack: Bag = null if p.is_empty() else Companions.pack_of(p)
+	if pack != theirs:
+		if theirs != null and theirs.changed.is_connected(_mark_dirty):
+			theirs.changed.disconnect(_mark_dirty)
+		theirs = pack
+		if theirs != null:
+			theirs.changed.connect(_mark_dirty)
+	if in_theirs:
+		in_theirs = false
+		selected = -1
 	if st != stats:
-		if stats.changed.is_connected(_mark_dirty):
+		if is_instance_valid(stats) and stats.changed.is_connected(_mark_dirty):
 			stats.changed.disconnect(_mark_dirty)
 		stats = st
 		stats.changed.connect(_mark_dirty)
@@ -222,6 +239,9 @@ func _process(delta: float) -> void:
 func _process_timed(_delta: float) -> void:
 	if not window.visible:
 		return
+	# (whose page it was has just been played, or let go: back to the one played)
+	if not is_instance_valid(stats):
+		show_for({})
 	if _dirty:
 		_dirty = false
 		_refresh()
@@ -303,9 +323,11 @@ func _build() -> void:
 	root.add_child(cols)
 	cols.add_child(_build_equipment())
 	cols.add_child(_build_stats())
+	_their_col = _build_theirs()
+	cols.add_child(_their_col)
 	cols.add_child(_build_bag())
 	var foot := HBoxContainer.new()
-	foot.add_child(HudStyle.label("Click  pick    Double-click  use / wear    Drag  move    Click a worn slot  pick it", 11, "bold", HudStyle.color("faint")))
+	foot.add_child(HudStyle.label("Click  pick    Double-click  use / wear    Drag  move (between bags too; shift: one)    Click a worn slot  pick it", 11, "bold", HudStyle.color("faint")))
 	foot.add_child(_gap())
 	foot.add_child(HudStyle.label("C  toggle  ·  Esc  close", 11, "bold", HudStyle.color("faint")))
 	root.add_child(foot)
@@ -462,8 +484,11 @@ func _build_bag() -> Control:
 	col.add_theme_constant_override("separation", int(_k(8)))
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", int(_k(6)))
-	head.add_child(HudStyle.label("Bag", 15, "bold"))
+	head.add_child(_label("bag_title", 15, "bold"))
 	head.add_child(_label("bag_count", 13, "pixel", HudStyle.color("muted")))
+	var kit := HudStyle.button("Kit", 11)
+	kit.pressed.connect(func(): _open_kit({}))
+	head.add_child(kit)
 	var sort := HudStyle.button("Sort", 11)
 	sort.pressed.connect(func():
 		_sort()
@@ -533,6 +558,10 @@ func _build_bag() -> Control:
 	_action.custom_minimum_size = Vector2(_k(90), _k(28))
 	_action.pressed.connect(_do_action)
 	buttons.add_child(_action)
+	_give = HudStyle.button("", 12)
+	_give.custom_minimum_size = Vector2(_k(90), _k(28))
+	_give.pressed.connect(func(): give_picked(Input.is_key_pressed(KEY_SHIFT)))
+	buttons.add_child(_give)
 	_drop = HudStyle.button("Drop", 12)
 	_drop.custom_minimum_size = Vector2(_k(70), _k(28))
 	_drop.pressed.connect(_do_drop)
@@ -547,6 +576,43 @@ func _build_bag() -> Control:
 	return col
 
 
+# Beside it on a companion's page: their own bag (as many slots as they have, four to a row), its count and Kit.
+func _build_theirs() -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(_k(8)))
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", int(_k(6)))
+	head.add_child(_label("their_title", 15, "bold"))
+	head.add_child(_label("their_count", 13, "pixel", HudStyle.color("muted")))
+	head.add_child(_gap())
+	var kit := HudStyle.button("Kit", 11)
+	kit.pressed.connect(func(): _open_kit(shown))
+	head.add_child(kit)
+	col.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(_k(CELL * 4 + 15 + 12), _k((CELL + 5) * Bag.ROWS - 5))
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", int(_k(5)))
+	grid.add_theme_constant_override("v_separation", int(_k(5)))
+	for i in Bag.SIZE:
+		var c := BagCell.new()
+		c.panel = self
+		c.index = i
+		c.theirs = true
+		c.custom_minimum_size = Vector2(_k(CELL), _k(CELL))
+		grid.add_child(c)
+		_their_cells.append(c)
+	scroll.add_child(grid)
+	col.add_child(scroll)
+	var hint := HudStyle.label("Drag between the two bags, or pick one and Give or Take. Shift: one at a time.", 11, "bold", HudStyle.color("faint"))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = _k(CELL * 4 + 27)
+	col.add_child(hint)
+	return col
+
+
 # ---- Filling it in ----
 
 func _refresh() -> void:
@@ -558,7 +624,7 @@ func _refresh() -> void:
 		var c: BagCell = _cells[i]
 		c.shut = keep and i >= cap
 		c.owned = keep and i >= Bag.BASE_SLOTS and i < cap
-		c.on = i == selected and picked_slot == ""
+		c.on = i == selected and picked_slot == "" and not in_theirs
 		var what: Array = _shows[i]
 		if what.is_empty(): c.show_nothing()
 		elif what[0] == "item": c.show_item(bag.items[what[1]])
@@ -569,6 +635,24 @@ func _refresh() -> void:
 		if bag.items[i] != "" or bag.stack_in(i) != "":
 			used += 1
 	_labels.bag_count.text = "%d/%d" % [used, cap]
+	_labels.bag_title.text = "Bag" if theirs == null else "%s's bag" % Playable.name_now()
+	_their_col.visible = theirs != null
+	if theirs != null:
+		var their_cap := theirs.capacity()
+		var their_used := 0
+		for i in Bag.SIZE:
+			var c: BagCell = _their_cells[i]
+			c.visible = i < their_cap
+			c.on = in_theirs and i == selected and picked_slot == ""
+			c.owned = i >= Bag.BASE_SLOTS and i < their_cap
+			if theirs.items[i] != "": c.show_item(theirs.items[i])
+			elif theirs.stack_in(i) != "": c.show_stack(theirs.stack_in(i), theirs.count(theirs.stack_in(i)), HudStyle.color("text"))
+			else: c.show_nothing()
+			if i < their_cap and (theirs.items[i] != "" or theirs.stack_in(i) != ""):
+				their_used += 1
+			c.queue_redraw()
+		_labels.their_title.text = "%s's bag" % str(shown.get("name", "?"))
+		_labels.their_count.text = "%d/%d" % [their_used, their_cap]
 	for f in _filter_buttons:
 		_filter_buttons[f].modulate = Color(1.3, 1.15, 0.8) if f == filter else Color(1, 1, 1, 0.7)
 	for i in _stat_tabs.size():
@@ -688,7 +772,21 @@ func _layout() -> void:
 
 
 func _bag_pick() -> Array:
-	return [] if picked_slot != "" or selected < 0 else _shows[selected]
+	if picked_slot != "" or selected < 0:
+		return []
+	if in_theirs:
+		if theirs == null:
+			return []
+		if theirs.items[selected] != "":
+			return ["item", selected]
+		var r := theirs.stack_in(selected)
+		return [] if r == "" else ["stack", r]
+	return _shows[selected]
+
+
+# The bag the pick is in.
+func _pick_bag() -> Bag:
+	return theirs if in_theirs and theirs != null else bag
 
 
 func _picked() -> void:
@@ -701,17 +799,17 @@ func _picked() -> void:
 		_show_item(it_name)
 		action = "Take off"
 	elif not pick.is_empty() and pick[0] == "item":
-		_show_item(bag.items[pick[1]])
+		_show_item(_pick_bag().items[pick[1]])
 		action = "Wear"
 	elif not pick.is_empty():
 		var r: String = pick[1]
 		_pick_icon.show_stack(r, 0, Color.WHITE)
 		_pick_icon._count = ""
-		_labels.pick_name.text = "%s  ×%d" % [UiKit.resource_name(r), bag.count(r)]
+		_labels.pick_name.text = "%s  ×%d" % [UiKit.resource_name(r), _pick_bag().count(r)]
 		var usable: bool = UiKit.data.resources.get(r, {}).get("usable", false)
 		var kind := "Potion" if r.ends_with("Potion") else ("Drink" if r == "Tea" else ("Seed" if r == "Seed" else ("Food" if UiKit.data.resources.get(r, {}).get("group", "") == "Consumables" else "Material")))
 		_set_info("%s · %s" % [kind, USES.get(r, "For building.")])
-		if usable:
+		if usable and not in_theirs:
 			action = "Drink" if r == "Tea" or r.ends_with("Potion") else "Eat"
 	else:
 		_labels.pick_name.text = ""
@@ -719,6 +817,9 @@ func _picked() -> void:
 	_pick_icon.queue_redraw()
 	_action.visible = action != ""
 	_action.text = action
+	# Between the two bags: Give to them, Take from them.
+	_give.visible = theirs != null and not pick.is_empty()
+	_give.text = "Take" if in_theirs else "Give to %s" % str(shown.get("name", "?"))
 	var key := str(pick)
 	if _destroy_armed != key:
 		_destroy_armed = ""
@@ -752,8 +853,9 @@ func _set_info(text: String) -> void:
 	_labels.pick_info.tooltip_text = text
 
 
-func clicked(i: int, double: bool) -> void:
+func clicked(i: int, double: bool, in_their_bag := false) -> void:
 	selected = i
+	in_theirs = in_their_bag and theirs != null
 	picked_slot = ""
 	_destroy_armed = ""
 	if double:
@@ -764,16 +866,34 @@ func clicked(i: int, double: bool) -> void:
 func pick_slot(slot: String) -> void:
 	picked_slot = slot if stats.worn_in(slot) != "" else ""
 	selected = -1
+	in_theirs = false
 	_dirty = true
 
 
-## Using shown slot [param i]: wearing gear, or eating (drinking) one of a stack.
+## Using shown slot [param i]: wearing gear, or eating (drinking) one of a stack. On a companion's page gear from the
+## played one's bag goes into theirs first, then on (what it pushes off stays in theirs); from their bag, straight on.
 func use(i: int) -> void:
+	if in_theirs:
+		if theirs != null and theirs.items[i] != "":
+			stats.equip(theirs, i)
+			selected = -1
+		return
 	var what: Array = _shows[i]
 	if what.is_empty():
 		return
 	if what[0] == "item":
-		stats.equip(bag, what[1])
+		if theirs != null:
+			var to := theirs.free_slot()
+			if to < 0 or bag.give(what[1], theirs, -1, to) <= 0:
+				FloatingText.spawn(world, "%s's bag is full" % str(shown.get("name", "?")), miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
+				return
+			var it_name: String = theirs.items[to]
+			stats.equip(theirs, to)
+			# (not something they can wear: back where it was)
+			if theirs.items[to] == it_name:
+				theirs.give(to, bag, -1, what[1])
+		else:
+			stats.equip(bag, what[1])
 		selected = -1
 		return
 	var r: String = what[1]
@@ -784,17 +904,87 @@ func use(i: int) -> void:
 		needs.eat(r)
 
 
-func dropped(from: int, to: int) -> void:
-	if filter != "All" and filter != "Equipment":
+## A cell dragged onto another: moved within a bag, or across from one bag to the other (shift: one of a stack).
+func dropped(from: int, to: int, from_theirs := false, to_theirs := false) -> void:
+	var keep := filter == "All" or filter == "Equipment"
+	if from_theirs == to_theirs:
+		if from_theirs:
+			if theirs != null:
+				theirs.move(from, to)
+		elif keep:
+			bag.move(from, to)
+		else:
+			return
+		selected = to
+		in_theirs = from_theirs and theirs != null
+		_dirty = true
 		return
-	bag.move(from, to)
-	selected = to
+	var one := Input.is_key_pressed(KEY_SHIFT)
+	if from_theirs:
+		take_from_them(from, one, to if keep else -1)
+	else:
+		give_to_them(slot_shown(from), one, to)
+	selected = -1
 	_dirty = true
+
+
+## The played one's bag slot shown in cell [param i] (by the filter), or -1.
+func slot_shown(i: int) -> int:
+	var what: Array = _shows[i] if i >= 0 and i < _shows.size() else []
+	if what.is_empty():
+		return -1
+	return int(what[1]) if what[0] == "item" else int(bag.stack_slot.get(what[1], -1))
+
+
+## Hands what's in the played one's bag slot [param slot] to the companion whose page it is (all of a stack, or one
+## with [param one]), into their slot [param at] if that's free; how many went.
+func give_to_them(slot: int, one := false, at := -1) -> int:
+	return _hand_over(bag, {}, theirs, shown, slot, one, at)
+
+
+## Takes what's in the companion's bag slot [param slot] into the played one's; how many came.
+func take_from_them(slot: int, one := false, at := -1) -> int:
+	return _hand_over(theirs, shown, bag, {}, slot, one, at)
+
+
+## The picked thing over to the other bag: Give (to them) or Take (from them).
+func give_picked(one := false) -> void:
+	if theirs == null or selected < 0 or picked_slot != "":
+		return
+	if in_theirs:
+		take_from_them(selected, one)
+	else:
+		give_to_them(slot_shown(selected), one)
+	selected = -1
+	in_theirs = false
+	_dirty = true
+
+
+func _hand_over(a: Bag, a_who: Dictionary, b: Bag, b_who: Dictionary, slot: int, one: bool, at: int) -> int:
+	if a == null or b == null or slot < 0:
+		return 0
+	var pouch: bool = a.items[slot] == "WaterPouch" and not b.items.has("WaterPouch")
+	var n := a.give(slot, b, 1 if one else -1, at)
+	if n <= 0:
+		var whose := Playable.name_now() if b_who.is_empty() else str(b_who.get("name", "?"))
+		FloatingText.spawn(world, "No room in %s's bag" % whose, miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
+		return 0
+	# (a water pouch goes as full as it was)
+	if pouch and Party.active != null:
+		Party.active.set_pouch(b_who, Party.active.pouch_of(a_who))
+	return n
+
+
+# The kit of [param p] ({} the one played), in the Kit window.
+func _open_kit(p: Dictionary) -> void:
+	if KitWindow.active != null:
+		toggle()
+		KitWindow.active.open_for(p, false)
 
 
 func _do_action() -> void:
 	if picked_slot != "":
-		stats.unequip(bag, picked_slot)
+		stats.unequip(theirs if theirs != null else bag, picked_slot)
 		picked_slot = ""
 	elif selected >= 0:
 		use(selected)
@@ -806,10 +996,12 @@ func _do_drop() -> void:
 	var pick := _bag_pick()
 	if pick.is_empty():
 		return
+	var pb := _pick_bag()
 	if pick[0] == "stack":
-		var n := bag.count(pick[1])
-		if n > 0 and bag.spend(pick[1], n):
-			Pickup.drop(world, pick[1], n, miko.position)
+		var n := pb.count(pick[1])
+		var body: Node2D = Companions.body_of(shown) if in_theirs else null
+		if n > 0 and pb.spend(pick[1], n):
+			Pickup.drop(world, pick[1], n, body.position if body != null else miko.position, true)
 	else:
 		FloatingText.spawn(world, "Gear can't be dropped yet: store it in a chest", miko.position + Vector2(0, -1.4 * world.px), HudStyle.color("coral"))
 	selected = -1
@@ -825,11 +1017,12 @@ func _do_destroy() -> void:
 		_destroy_armed = str(pick)
 		_dirty = true
 		return
+	var pb := _pick_bag()
 	if pick[0] == "item":
-		bag.items[pick[1]] = ""
-		bag.changed.emit()
+		pb.items[pick[1]] = ""
+		pb.changed.emit()
 	else:
-		bag.spend(pick[1], bag.count(pick[1]))
+		pb.spend(pick[1], pb.count(pick[1]))
 	_destroy_armed = ""
 	selected = -1
 	_dirty = true
@@ -862,6 +1055,7 @@ class BagCell extends ChestWindow.Cell:
 	var index := 0
 	var on := false
 	var owned := false
+	var theirs := false        ## one of the companion's bag's cells
 
 	func _draw() -> void:
 		super._draw()
@@ -875,7 +1069,7 @@ class BagCell extends ChestWindow.Cell:
 		if shut:
 			return
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			panel.clicked(index, event.double_click)
+			panel.clicked(index, event.double_click, theirs)
 			accept_event()
 
 	func _get_drag_data(_at: Vector2) -> Variant:
@@ -886,13 +1080,13 @@ class BagCell extends ChestWindow.Cell:
 		preview.custom_minimum_size = Vector2(40, 40)
 		preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		set_drag_preview(preview)
-		return {"bag_slot": index}
+		return {"bag_slot": index, "theirs": theirs}
 
 	func _can_drop_data(_at: Vector2, d: Variant) -> bool:
 		return not shut and d is Dictionary and d.has("bag_slot")
 
 	func _drop_data(_at: Vector2, d: Variant) -> void:
-		panel.dropped(int(d.bag_slot), index)
+		panel.dropped(int(d.bag_slot), index, bool(d.get("theirs", false)), theirs)
 
 
 ## One worn slot: its name when empty ("2H" when a two-handed weapon takes it), the gear in it, amber when picked.

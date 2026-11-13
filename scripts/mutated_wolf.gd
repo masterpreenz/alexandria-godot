@@ -90,9 +90,9 @@ func _loop(path: String) -> AudioStreamPlayer2D:
 func _feet(delta: float) -> void:
 	if _run_grass == null:
 		return
-	var running := velocity.length() > 1.2 * world.px and state != State.LEAP
+	var is_running := velocity.length() > 1.2 * world.px and state != State.LEAP
 	_grass_mix = move_toward(_grass_mix, 0.0 if world.on_floor(position) else 1.0, delta * 8.0)
-	var loud := 0.7 if running else 0.0
+	var loud := 0.7 if is_running else 0.0
 	for pair in [[_run_grass, _grass_mix], [_run_solid, 1.0 - _grass_mix]]:
 		var pl: AudioStreamPlayer2D = pair[0]
 		var v := loud * float(pair[1])

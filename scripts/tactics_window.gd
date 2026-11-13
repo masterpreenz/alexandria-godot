@@ -216,7 +216,11 @@ func _choice(title: String, options: Array, now_id: String, key: String) -> void
 		if id == now_id:
 			about = str(o.get("about", ""))
 		var b := _pill(str(o.label), id == now_id, 104)
-		b.pressed.connect(func(): set_stance(key, (id == "on") if key == "dodge" else id, true))
+		b.pressed.connect(func():
+			if key == "dodge":
+				set_stance(key, id == "on", true)
+			else:
+				set_stance(key, id, true))
 		r.add_child(b)
 	_stance.add_child(r)
 	_stance.add_child(_note(about))

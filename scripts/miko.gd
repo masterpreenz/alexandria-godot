@@ -326,6 +326,9 @@ func _animate(delta: float) -> void:
 		frames = f.runUpLeft if facing_up else f.runDownLeft
 		right_frames = f.runUpRight if facing_up else f.runDownRight
 		fps = data.runFps if running else data.walkFps
+		# (a look whose back-facing run has more or fewer frames than its front: its own pace, the same stride)
+		if facing_up and data.has("upPace"):
+			fps *= float(data.upPace)
 	else:
 		frames = f.idleUpLeft if facing_up else f.idleDownLeft
 		fps = data.idleFps

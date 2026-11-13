@@ -81,27 +81,97 @@ static func willing(p: Dictionary) -> bool:
 const NEEDY := 35.0
 
 
-## Hands [param p] the best of what's to eat in Sera's bag; what they ate, or "" if she has nothing (or they're full).
-func feed(p: Dictionary) -> String:
+## Hands [param p] the best of what's to eat in their own bag, else in the bag of the one played (not with
+## [param own_only]); what they ate, or "" if there's nothing (or they're full).
+func feed(p: Dictionary, own_only := false) -> String:
 	if float(p.get("hunger", 100.0)) >= 90.0:
 		return ""
-	for f in Villager.FOODS:
-		var kind := str(f[0])
-		if miko.bag.count(kind) > 0:
-			miko.bag.spend(kind, 1)
-			p.hunger = minf(100.0, float(p.get("hunger", 100.0)) + float(f[1]))
-			return kind
+	var bags := [Companions.pack_of(p)]
+	if not own_only:
+		bags.append(miko.bag)
+	for bag in bags:
+		if bag == null:
+			continue
+		for f in Villager.FOODS:
+			var kind := str(f[0])
+			if (bag as Bag).count(kind) > 0:
+				(bag as Bag).spend(kind, 1)
+				p.hunger = minf(100.0, float(p.get("hunger", 100.0)) + float(f[1]))
+				return kind
 	return ""
 
 
-## A drink for [param p] from Sera's water pouch: whether there was one to give.
-func give_drink(p: Dictionary) -> bool:
-	var needs: Needs = miko.get_node_or_null("Needs")
-	if needs == null or not miko.bag.items.has("WaterPouch") or needs.pouch < Needs.POUCH_DRINK - 0.01 or float(p.get("thirst", 100.0)) >= 90.0:
+## A drink for [param p] from their own water pouch, else from the one played's (not with [param own_only]):
+## whether there was one to give.
+func give_drink(p: Dictionary, own_only := false) -> bool:
+	if float(p.get("thirst", 100.0)) >= 90.0:
 		return false
-	needs.pouch = maxf(0.0, needs.pouch - Needs.POUCH_DRINK)
-	p["thirst"] = minf(100.0, float(p.get("thirst", 100.0)) + 40.0)
-	return true
+	var whose := [p] if own_only else [p, {}]
+	for q in whose:
+		if has_pouch(q) and pouch_of(q) >= Needs.POUCH_DRINK - 0.01:
+			set_pouch(q, pouch_of(q) - Needs.POUCH_DRINK)
+			p["thirst"] = minf(100.0, float(p.get("thirst", 100.0)) + 40.0)
+			return true
+	return false
+
+
+## Whether [param p] (a companion; {} the one played) carries a water pouch.
+func has_pouch(p: Dictionary) -> bool:
+	var bag: Bag = miko.bag if p.is_empty() else Companions.pack_of(p)
+	return bag != null and bag.items.has("WaterPouch")
+
+
+## How full [param p]'s water pouch is (percent; {} the one played's).
+func pouch_of(p: Dictionary) -> float:
+	if p.is_empty():
+		var needs: Needs = miko.get_node_or_null("Needs")
+		return needs.pouch if needs != null else 0.0
+	return clampf(float(p.get("pouch", Needs.MAX)), 0.0, Needs.MAX)
+
+
+func set_pouch(p: Dictionary, v: float) -> void:
+	v = clampf(v, 0.0, Needs.MAX)
+	if p.is_empty():
+		var needs: Needs = miko.get_node_or_null("Needs")
+		if needs != null:
+			needs.pouch = v
+	else:
+		p["pouch"] = v
+
+
+## A companion hungry or thirsty eats or drinks from their own bag, if they've anything: whether they did.
+func look_after(p: Dictionary) -> bool:
+	if float(p.get("hunger", 100.0)) < NEEDY and feed(p, true) != "":
+		return true
+	return float(p.get("thirst", 100.0)) < NEEDY and give_drink(p, true)
+
+
+## The party's pouches filled along with the one played's (at a well, a river or a lake): whether any needed it.
+func fill_pouches() -> bool:
+	var any := false
+	for id in members:
+		var p := Uniques.person(people, str(id))
+		if not p.is_empty() and has_pouch(p) and pouch_of(p) < Needs.MAX - 0.5:
+			set_pouch(p, Needs.MAX)
+			any = true
+	return any
+
+
+# Each companion back in the village restocks by their kit, once a visit (on their own, if their kit says so).
+func _restock_at_home() -> void:
+	var v := world.village
+	for id in members:
+		var p := Uniques.person(people, str(id))
+		if p.is_empty():
+			continue
+		var body := Companions.body_of(p)
+		var home := body != null and v.founded() and v.contains(body.position)
+		if not home:
+			p.erase("kitHome")
+		elif not bool(p.get("kitHome", false)):
+			p["kitHome"] = true
+			if bool(Kit.of(p).get("auto", true)):
+				Kit.restock_now(p)
 
 
 func full() -> bool:
@@ -183,6 +253,9 @@ func _process(_delta: float) -> void:
 	if now < _next:
 		return
 	_next = now + 1.0
+	var __r := Time.get_ticks_usec()
+	_restock_at_home()
+	Perf.add(&"party.restock", __r)
 	_hud()
 
 

@@ -2,9 +2,6 @@ extends Scenario
 ## Miyu's own sprite set (look 5): her poses in a row beside Sera and an ordinary villager for scale, her fishing rod
 ## tips, a fall and a bed for her sleeping. (Played as Miyu: scenario playmiyu.) Run with --window=miyuart.
 
-var _row: Array = []
-
-
 func _miyu_look(v: Villager, facing_right := false, facing_up := false) -> void:
 	v.person["unique"] = "miyu"
 	v.person["name"] = "Miyu"
@@ -74,7 +71,7 @@ func run() -> void:
 		var v: Villager = vs[i + 1] if i < 4 else vs[(i % 11) + 1]
 		_miyu_look(v, false, str(poses[i][0]).ends_with("Up"))
 		_freeze(v)
-		_put(v, row_at + Vector2(1.5 * (i / 2), 1.6 * (i % 2)) * world.px)
+		_put(v, row_at + Vector2(1.5 * floori(i / 2.0), 1.6 * (i % 2)) * world.px)
 		var frames: Array = v.s.get(poses[i][0], [])
 		v._show(int(frames[poses[i][1]]))
 	miko.place(row_at + Vector2(3.8, 0.8) * world.px)

@@ -8,8 +8,9 @@ extends Node
 ## the party and following. "Play as Sera" on Sera, once she's a companion, turns it back.
 ##
 ## The one played is kept out of the village's people (their person is [member played]); the one left takes their
-## place there: in their bed if they had one, and in the party. Sera's bag, coins and water pouch stay with whoever's
-## played (it's the party's bag), and so do the life skills.
+## place there: in their bed if they had one, and in the party. Each keeps their own bag (the one played has theirs
+## as Miko's bag; the one left takes theirs as a companion's, person.pack), their water pouch's fill and their kit;
+## the coins are the party's purse and stay with whoever's played, and so do the life skills.
 ##
 ## Saved as "player.playing"; "player.stats" is always Sera's own, so an older game (or one saved as Sera) loads as it
 ## always has.
@@ -32,6 +33,7 @@ var bars := {}                    ## id -> their hotbar as they left it: {bar (H
 var _lead_data: Dictionary        ## player.json: Sera's art as the player
 var _lead_look: Dictionary = {}   ## Sera's art as a villager (made from hers as the player, the first time it's needed)
 var _looks := {}                  ## id -> their art as the player (made from their villager look)
+var kit: Dictionary = {}          ## the kit of whoever's played (see [Kit]): it goes with them into their person
 
 
 static func data() -> Dictionary:
@@ -70,9 +72,9 @@ static func own_levels(p: Dictionary) -> bool:
 	return str(entry(str(p.get("unique", ""))).get("stats", "")) == "player"
 
 
-## Whether what [param p] wears changes the room in the bag (Sera's own gear: her bag is the party's).
-static func wears_bag(p: Dictionary) -> bool:
-	return own_levels(p)
+## Whether what [param _p] wears changes the room in their bag: everyone's, now each has a bag of their own.
+static func wears_bag(_p: Dictionary) -> bool:
+	return true
 
 
 ## [param p]'s art as a villager when it isn't a villagers.json look (Sera's, made from hers as the player), else {}.
@@ -84,13 +86,9 @@ static func villager_look(p: Dictionary) -> Dictionary:
 	return active._sera_as_villager()
 
 
-## The bag's extra slots from Sera's talents (her pockets), whoever's played: the bag is hers.
+## The bag's extra slots from the talents of whoever's played (Sera's pockets): the bag is theirs.
 static func bag_slots(m: Miko) -> int:
-	if active == null or active.who == LEAD or m.stats == null:
-		return int(m.stats.stat("bagSlots")) if m.stats != null else 0
-	var p := Uniques.person(active.people, LEAD)
-	var st := Companions.stats_for(p) if not p.is_empty() else null
-	return int(st.stat("bagSlots")) if st != null else 0
+	return int(m.stats.stat("bagSlots")) if m.stats != null else 0
 
 
 ## Their voice's pitch in a talk, when playables.json gives one (else 0: by their look).
@@ -176,8 +174,11 @@ func switch_to(v: Villager) -> bool:
 	var my_up := miko.facing_up
 	_swap_in_village(them, me, to_id)
 	_dress(v, me)
+	_bags(me, them)
 	_wear(to_id, them)
 	_needs_from(them)
+	miko.bag.worn = miko.stats.equipped
+	miko.bag.changed.emit()
 	miko.place(there)
 	miko.facing_right = v.facing_right
 	miko.facing_up = v.facing_up
@@ -194,6 +195,28 @@ func switch_to(v: Villager) -> bool:
 	Puffs.burst(world, miko.position + Vector2(0, -0.4 * world.px), 0.6, 10)
 	VillageLog.event("played:" + to_id, "You're playing %s now" % name_of(to_id))
 	return true
+
+
+# Each keeps their own bag: the one played now ([param me]) has theirs written into their person (the purse
+# aside), and [param them] takes theirs as Miko's bag, with the purse; so too the water pouch's fill and the kit.
+func _bags(me: Dictionary, them: Dictionary) -> void:
+	var bag := miko.bag
+	var gold := bag.count("Gold")
+	bag.counts["Gold"] = 0
+	me["pack"] = bag.to_json()
+	var json := str(them.get("pack", ""))
+	bag.from_json(json if json != "" and JSON.parse_string(json) is Dictionary else JSON.stringify({}), [])
+	bag.counts["Gold"] = bag.count("Gold") + gold
+	them.erase("pack")
+	var needs: Needs = miko.get_node_or_null("Needs")
+	if needs != null:
+		me["pouch"] = needs.pouch
+		needs.pouch = clampf(float(them.get("pouch", Needs.MAX)), 0.0, Needs.MAX)
+		them.erase("pouch")
+	if not kit.is_empty():
+		me["kit"] = kit
+	kit = them.get("kit", {}) if them.get("kit") is Dictionary else {}
+	them.erase("kit")
 
 
 # The one played now as a person (to be left as a companion): their stats, HP and needs written in.
@@ -296,7 +319,7 @@ func _wear(id: String, p: Dictionary, loading := false) -> void:
 	var natural: Dictionary = saved.get("natural", {}) if saved.get("natural") is Dictionary else {}
 	if natural.is_empty():
 		natural = {"maxHp": float(p.get("maxHp", 40.0)), "atk": float(p.get("atk", 6.0))}
-	_put_stats(Companions.character_of(p, natural), str(saved.get("stats", "")), own_levels(p))
+	_put_stats(Companions.character_of(p, natural), str(saved.get("stats", "")), wears_bag(p))
 	miko.set_look(player_look(id, p))
 	if not loading:
 		_bar_in(id)
@@ -390,6 +413,10 @@ func player_look(id: String, p: Dictionary = {}) -> Dictionary:
 	d["walkFps"] = float(s.get("walkFps", 8))
 	d["runFps"] = float(s.get("walkFps", 8)) * 1.5
 	d["idleFps"] = 4.0
+	if s.has("walkFpsUp"):
+		d["upPace"] = float(s.walkFpsUp) / maxf(0.01, float(s.get("walkFps", 8)))
+	else:
+		d.erase("upPace")
 	if lk.has("shadow"):
 		d["shadow"] = (lk.shadow as Dictionary).duplicate()
 	var anims := {}
@@ -527,7 +554,7 @@ func lead_stats_json() -> String:
 func to_json() -> String:
 	_bar_out(who)
 	var me := _me_as_person() if who != LEAD or not played.is_empty() else {}
-	return JSON.stringify({"who": who, "played": me, "bars": bars})
+	return JSON.stringify({"who": who, "played": me, "bars": bars, "kit": kit})
 
 
 ## Loads who was played (after the player's stats, the village's people and the party): their stats, art and hotbar
@@ -537,6 +564,7 @@ func from_json(json: String) -> void:
 	if not d is Dictionary:
 		return
 	bars = d.get("bars", {}) if d.get("bars") is Dictionary else {}
+	kit = d.get("kit", {}) if d.get("kit") is Dictionary else {}
 	var id := str(d.get("who", LEAD))
 	var p: Dictionary = d.get("played", {}) if d.get("played") is Dictionary else {}
 	for k in ["level", "xp", "job", "toolsLeft", "bagSlots", "bagLeft", "look"]:
@@ -547,3 +575,4 @@ func from_json(json: String) -> void:
 		who = LEAD
 		return
 	_wear(id, p, true)
+	miko.bag.worn = miko.stats.equipped

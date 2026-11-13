@@ -26,6 +26,7 @@ var rise := 0.0
 var age := 0.0
 var landed_at := -1.0
 var bounces := 0
+var thrown := false   ## thrown away from a bag: left lying (no drifting back to her, nobody hauls it off) till it goes
 var art: Sprite2D
 var shadow: Sprite2D
 
@@ -99,13 +100,14 @@ static func launch_icon(w: World, res: String, amt: int, from: Vector2, throw_sp
 
 
 ## Drops [param amount] of [param res] at [param at] in up to three pieces (Unity's Village.Drop: coins from a monster).
-static func drop(w: World, res: String, amt: int, at: Vector2) -> void:
+## [param from_bag]: thrown away from a bag, so it's left where it lies.
+static func drop(w: World, res: String, amt: int, at: Vector2, from_bag := false) -> void:
 	var pieces := clampi(amt, 1, 3)
 	for i in pieces:
 		@warning_ignore("integer_division")
 		var share := amt / pieces + (1 if i < amt % pieces else 0)
 		if share > 0:
-			launch_icon(w, res, share, at + Vector2(0, -0.3 * w.px))
+			launch_icon(w, res, share, at + Vector2(0, -0.3 * w.px)).thrown = from_bag
 
 
 func _process(delta: float) -> void:
@@ -134,7 +136,7 @@ func _process_timed(delta: float) -> void:
 			else:
 				rise = 0.0
 				landed_at = age
-	elif world.player != null and age - landed_at > SETTLE:
+	elif world.player != null and age - landed_at > SETTLE and not thrown:
 		var to: Vector2 = world.player.position - ground
 		var d := to.length()
 		# (lying still, far from her and off screen: nothing to move or draw again)
@@ -190,7 +192,7 @@ static func to_json(w: World) -> String:
 	var items := []
 	for p in all:
 		if is_instance_valid(p) and p.amount > 0:
-			items.append({"resource": p.resource, "amount": p.amount, "gear": "", "x": p.ground.x / w.px, "y": -p.ground.y / w.px, "age": p.age})
+			items.append({"resource": p.resource, "amount": p.amount, "gear": "", "x": p.ground.x / w.px, "y": -p.ground.y / w.px, "age": p.age, "thrown": p.thrown})
 	return JSON.stringify({"items": items})
 
 
@@ -210,3 +212,4 @@ static func from_json(w: World, json: String) -> void:
 		p.height = 0.0
 		p.age = float(g.get("age", 0.0))
 		p.landed_at = p.age - 10.0
+		p.thrown = bool(g.get("thrown", false))
