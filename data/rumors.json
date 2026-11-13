@@ -130,9 +130,8 @@
    "place": {
     "kind": "forest",
     "section": "F6",
-    "corner": "upper-left",
     "misted": true,
-    "vague": 6
+    "vague": 4
    },
    "done": {
     "kind": "reach",

@@ -75,6 +75,9 @@ func _process(delta: float) -> void:
 	if _clock < CHECK_EVERY or Chronicle.active == null or world.clock == null:
 		return
 	_clock = 0.0
+	if not _placed_again:
+		_placed_again = true
+		_place_again()
 	_offer()
 	for id in heard:
 		var st: Dictionary = heard[id]
@@ -211,9 +214,41 @@ func _find_place(def: Dictionary, st: Dictionary, i: int) -> void:
 		st.places[str(steps[i].id)] = [at.x, at.y]
 
 
-# The wood in a map section (as "F6"), at the corner of it asked for (as seen on screen): the edge of the trees on
-# that side, a way in. In the mist that can be cleared, if that's asked for. With no trees there, a wood near the
-# village.
+var _placed_again := false
+
+
+# The section a step's place is asked to be in (as "F6"), in cells; empty for none.
+func _section_rect(step: Dictionary) -> Rect2i:
+	var pl: Dictionary = step.get("place", {})
+	if str(pl.get("kind", "")) != "forest" or not pl.has("section"):
+		return Rect2i()
+	var cr := MapMarks.section_of(str(pl.section).to_upper())
+	return Rect2i() if cr.is_empty() else MapMarks.section_bounds(int(cr[0]), int(cr[1]))
+
+
+# A heard rumor whose place was found outside the map section it names (an older game: the woods' edge was looked
+# for just past it): found again, there, and the steps that go "same" with it.
+func _place_again() -> void:
+	for id in heard:
+		var st: Dictionary = heard[id]
+		var def: Dictionary = by_id[id]
+		var steps: Array = def.get("steps", [])
+		var moved := false
+		for i in steps.size():
+			var sect := _section_rect(steps[i])
+			var at := place_of(st, def, i)
+			if sect.has_area() and at != Vector2.INF and not sect.has_point(world.floors.cell_at(at)):
+				_find_place(def, st, i)
+				moved = true
+			elif moved and str(steps[i].get("place", {}).get("kind", "")) == "same" and st.places.has(str(steps[i].id)):
+				_find_place(def, st, i)
+		if moved:
+			changed.emit()
+
+
+# The wood in a map section (as "F6"): at the corner of it asked for (as seen on screen), the edge of the trees on
+# that side, a way in; else the trees nearest the section's middle. In the mist that can be cleared, if that's asked
+# for. With no trees there, a wood near the village.
 func _wood_in(pl: Dictionary) -> Vector2:
 	var wanted := str(pl.get("section", "")).to_upper()
 	var misted := bool(pl.get("misted", false))
@@ -222,7 +257,8 @@ func _wood_in(pl: Dictionary) -> Vector2:
 	if not cr.is_empty():
 		cells = MapMarks.section_bounds(int(cr[0]), int(cr[1]))
 	var way: Vector2 = {"upper-left": Vector2(-1, -1), "upper-right": Vector2(1, -1), "lower-left": Vector2(-1, 1), "lower-right": Vector2(1, 1)}.get(str(pl.get("corner", "")), Vector2.ZERO)
-	var c := world.village.centre()
+	# (with no corner asked for: the trees nearest the section's middle, so it's plainly in it)
+	var c := world.floors.cell_centre(cells.get_center()) if cells.has_area() else world.village.centre()
 	var best := Vector2.INF
 	var best_score := -INF
 	for g in Gatherable.all:
@@ -232,16 +268,18 @@ func _wood_in(pl: Dictionary) -> Vector2:
 			continue
 		if Wilds.trees_near(g.foot, 3.2 * world.px).size() < 3:
 			continue   # (a tree on its own isn't the wood)
-		# (the furthest that way; with no corner asked for, the nearest the village)
+		# (the furthest that way; with no corner asked for, the nearest the middle)
 		var score: float = g.foot.dot(way) if way != Vector2.ZERO else -g.foot.distance_to(c)
 		if score > best_score:
 			best_score = score
 			best = g.foot
 	if best == Vector2.INF:
 		return _a_wood(misted)
-	# (just outside the trees, on that side: where she'd walk in)
-	var out := best + (way.normalized() if way != Vector2.ZERO else (c - best).normalized()) * Vector2(1.6, 0.8) * world.px
-	return out if Wilds.open(world, out, 0.5, 0.3) else best
+	# (a corner asked for: just outside the trees, on that side, where she'd walk in; still in the section)
+	if way == Vector2.ZERO:
+		return best
+	var out := best + way.normalized() * Vector2(1.6, 0.8) * world.px
+	return out if Wilds.open(world, out, 0.5, 0.3) and cells.has_point(world.floors.cell_at(out)) else best
 
 
 # The middle of a map section (as "A8"), or the nearest dry ground to it.
@@ -440,6 +478,14 @@ func marks() -> Array:
 		var h := hash("%s/%d" % [id, int(st.step)])
 		var a := float(h % 628) / 100.0
 		var off := Vector2(cos(a), sin(a) * 0.5) * vague * 0.55 * world.px
+		# (a place in a named section: its ring kept wholly in that section)
+		var sect := _section_rect(step_of(def, st))
+		if sect.has_area():
+			var v := mini(int(ceilf(vague)), mini(sect.size.x, sect.size.y) / 2 - 1)
+			var c := world.floors.cell_at(at + off)
+			var inside := Vector2i(clampi(c.x, sect.position.x + v, sect.end.x - 1 - v), clampi(c.y, sect.position.y + v, sect.end.y - 1 - v))
+			if inside != c:
+				off = world.floors.cell_centre(inside) - at
 		out.append({"id": id, "title": str(def.title), "at": at + off, "radius": vague * world.px})
 	return out
 
