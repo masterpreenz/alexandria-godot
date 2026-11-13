@@ -53,7 +53,7 @@ static func entry(id: String) -> Dictionary:
 static func name_now() -> String:
 	if active == null:
 		return Miko.NAME
-	return active.name_of(active.who)
+	return Playable.name_of(active.who)
 
 
 ## The name of [param id]: playables.json's, else the unique's.
