@@ -371,7 +371,7 @@ func _advance(def: Dictionary, st: Dictionary) -> void:
 	st.from = Chronicle.active.now()
 	_find_place(def, st, int(st.step))
 	FloatingText.spawn(world, "Rumor: something new", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
-	VillageLog.event("rumor." + id, "%s: there's more to it (K)" % str(def.title))
+	VillageLog.event("rumor." + id, "%s: there's more to it (J)" % str(def.title))
 	changed.emit()
 
 

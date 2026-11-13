@@ -253,7 +253,7 @@ func _ask_rumor() -> void:
 		return
 	who.show_mood("idea", 3.0)
 	var told := Rumors.active.hear(str(rumor.id), who)
-	FloatingText.spawn(world, "New rumor (K)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
+	FloatingText.spawn(world, "New rumor (J)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
 	# (a plea to answer: Sera's word is the one reply; she says it, and the talk's over)
 	if str(rumor.get("accept", "")) != "":
 		_show_replies(told, [[str(rumor.accept), _accept.bind(str(rumor.accept))]])

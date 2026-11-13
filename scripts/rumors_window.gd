@@ -1,6 +1,6 @@
 class_name RumorsWindow
 extends PanelContainer
-## The rumors journal (K): the rumors Miko's heard down the left (those still open first), and the one picked on the
+## The rumors journal (J): the rumors Miko's heard down the left (those still open first), and the one picked on the
 ## right: who told it and when, what's known of it so far a step at a time (nothing of what comes of it), whether
 ## it's tracked on the maps, and her own notes on it, typed in and kept. Miko stands still while it's open (she'd
 ## walk as the notes were typed).
@@ -28,7 +28,7 @@ func _k(v: float) -> float:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_K and (visible or not miko.locked):
+		if event.keycode == KEY_J and (visible or not miko.locked):
 			if visible: close()
 			else: open()
 			get_viewport().set_input_as_handled()
@@ -142,4 +142,4 @@ func _detail(box: VBoxContainer) -> void:
 	var id := chosen
 	_notes.text_changed.connect(func(): rumors.set_notes(id, _notes.text))
 	box.add_child(_notes)
-	box.add_child(HudStyle.label("K or Esc to close", 9, "body", HudStyle.color("faint")))
+	box.add_child(HudStyle.label("J or Esc to close", 9, "body", HudStyle.color("faint")))

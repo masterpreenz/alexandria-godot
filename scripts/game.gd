@@ -276,7 +276,7 @@ func _ready() -> void:
 		# What she's picked up this life (it'd fall with her).
 		if sv.get("sections", {}).has("player.life"):
 			Fainting.from_json(world, sv.sections["player.life"])
-	# The Character & Bag window (C or I) and the talents (P).
+	# The Character & Bag window (C) and the talents (K).
 	var char_panel := CharacterPanel.new()
 	char_panel.name = "CharacterPanel"
 	char_panel.theme = UiKit.theme
@@ -285,7 +285,7 @@ func _ready() -> void:
 	($Hud/Hotbar as Hotbar).panel = char_panel
 	if Shots.arg("bag") != "":
 		char_panel.toggle()
-	# The village's windows: chests and the town banner (E), the jobs (J), and the workbenches (E at one).
+	# The village's windows: chests and the town banner (E), the jobs (L), and the workbenches (E at one).
 	var desk := VillageDesk.new()
 	desk.name = "VillageDesk"
 	add_child(desk)
@@ -377,7 +377,7 @@ func _ready() -> void:
 	minimap.name = "Minimap"
 	$Hud.add_child(minimap)
 	minimap.setup(world, miko, time_card)
-	# The chronicle (what's happened, and when) and the rumors that go by it; the journal (K).
+	# The chronicle (what's happened, and when) and the rumors that go by it; the journal (J).
 	var chronicle := Chronicle.new()
 	chronicle.name = "Chronicle"
 	add_child(chronicle)

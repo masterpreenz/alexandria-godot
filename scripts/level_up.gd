@@ -51,7 +51,7 @@ static func play(w: World, who: Node2D, level: int) -> void:
 	_banner(w, level)
 
 
-# A banner across the top of the screen: "Level up! · Level 9 · +1 talent point (P)", sliding in and fading after a
+# A banner across the top of the screen: "Level up! · Level 9 · +1 talent point (K)", sliding in and fading after a
 # few seconds.
 static func _banner(w: World, level: int) -> void:
 	var hud := w.get_tree().current_scene.get_node_or_null("Hud")

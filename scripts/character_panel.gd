@@ -128,9 +128,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if get_viewport().gui_get_focus_owner() is LineEdit:
 		return
 	match event.keycode:
-		KEY_I:
+		KEY_C:
 			toggle()
-		KEY_P:
+		KEY_K:
 			toggle_talents()
 		KEY_ESCAPE:
 			if talents.visible: toggle_talents()
@@ -176,12 +176,12 @@ func _gap() -> Control:
 func tabs(here: int, points_badge: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_k(10)))
-	var a := HudStyle.button("Character & Bag   I", 14, "pill", HudStyle.color("text") if here == 0 else HudStyle.color("muted"))
+	var a := HudStyle.button("Character & Bag   C", 14, "pill", HudStyle.color("text") if here == 0 else HudStyle.color("muted"))
 	if here == 0:
 		a.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
 	a.pressed.connect(_to_tab.bind(0, here))
 	row.add_child(a)
-	var b := HudStyle.button("Talents   P", 14, "pill", HudStyle.color("text") if here == 1 else HudStyle.color("muted"))
+	var b := HudStyle.button("Talents   K", 14, "pill", HudStyle.color("text") if here == 1 else HudStyle.color("muted"))
 	if here == 1:
 		b.add_theme_stylebox_override("normal", HudStyle.piece("pill", Color(HudStyle.color("accent"), 0.6)))
 	b.pressed.connect(_to_tab.bind(1, here))
@@ -231,7 +231,7 @@ func _build() -> void:
 	var foot := HBoxContainer.new()
 	foot.add_child(HudStyle.label("Click  pick    Double-click  use / wear    Drag  move    Click a worn slot  pick it", 11, "bold", HudStyle.color("faint")))
 	foot.add_child(_gap())
-	foot.add_child(HudStyle.label("I  toggle  ·  Esc  close", 11, "bold", HudStyle.color("faint")))
+	foot.add_child(HudStyle.label("C  toggle  ·  Esc  close", 11, "bold", HudStyle.color("faint")))
 	root.add_child(foot)
 
 

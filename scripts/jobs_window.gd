@@ -70,7 +70,9 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_J:
+		# (L; not while the map is open: there L shows its sections)
+		var map: Control = get_parent().get_node_or_null("WorldMap") as Control
+		if event.keycode == KEY_L and not (map != null and map.visible):
 			if not visible and Chronicle.active != null and Chronicle.active.happened("intro_started") and not Chronicle.active.happened("village_given"):
 				var w := world
 				FloatingText.spawn(w, "The village isn't yours to run yet.", w.player.position + Vector2(0, -2.0 * w.px), Color(0.9, 0.85, 0.75))
@@ -149,7 +151,7 @@ func _build() -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
-	head.add_child(HudStyle.label("J or Esc to close  ·  Q / E switch tabs", 11, "body", HudStyle.color("muted")))
+	head.add_child(HudStyle.label("L or Esc to close  ·  Q / E switch tabs", 11, "body", HudStyle.color("muted")))
 	root.add_child(head)
 	# As big as the screen allows: every villager a row, every job a column.
 	var view := get_viewport_rect().size / HudStyle.SCALE

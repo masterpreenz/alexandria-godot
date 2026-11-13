@@ -29,7 +29,7 @@ func _k(v: float) -> float:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo) or HudStyle.typing(get_viewport()):
 		return
-	if event.keycode == KEY_C and (visible or not miko.locked):
+	if event.keycode == KEY_P and (visible or not miko.locked):
 		if visible: close()
 		else: open()
 		get_viewport().set_input_as_handled()
@@ -130,7 +130,7 @@ func _build() -> void:
 		for p in keen:
 			lines.add_child(_wrapped("%s would come: talk to them and ask." % str(p.name), 11, HudStyle.color("text")))
 		box.add_child(free)
-	box.add_child(HudStyle.label("C or Esc to close", 9, "body", HudStyle.color("faint")))
+	box.add_child(HudStyle.label("P or Esc to close", 9, "body", HudStyle.color("faint")))
 	for r in _rows:
 		r.call()
 	reset_size()

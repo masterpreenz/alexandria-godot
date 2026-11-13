@@ -146,6 +146,6 @@ func _watch() -> void:
 		hint("cook", UiKit.resource_icon("Meal"), "Warm food", "Cook raw meat at a bonfire (E beside one) for a warm meal: it fills far more hunger than raw meat.")
 	var needs: Needs = miko.get_node_or_null("Needs")
 	if needs != null and needs.hunger < 35.0:
-		hint("hungry", UiKit.resource_icon("Meal"), "Getting hungry", "Eat from time to time: press F, or open the bag (I) and pick something to eat. A warm cooked meal fills the most.")
+		hint("hungry", UiKit.resource_icon("Meal"), "Getting hungry", "Eat from time to time: press F, or open the bag (C) and pick something to eat. A warm cooked meal fills the most.")
 	if needs != null and needs.energy < 30.0 and not needs.sleeping():
 		hint("tired", HudStyle.icon("moon"), "Getting tired", "Sleep in a bed (Z beside it) to get your energy back. Build one in build mode (B).")

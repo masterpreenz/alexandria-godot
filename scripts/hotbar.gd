@@ -106,7 +106,7 @@ func setup(w: World, c: SpellCaster, b: Bag, st: CharacterStats) -> void:
 	quick.size_flags_vertical = Control.SIZE_SHRINK_END
 	var qrow := HBoxContainer.new()
 	qrow.add_theme_constant_override("separation", int(_k(GAP)))
-	for q in [["build", "B", "Build"], ["bagButton", "I", "Bag & character"]]:
+	for q in [["build", "B", "Build"], ["bagButton", "C", "Bag & character"]]:
 		var qb := QuickButton.new()
 		qb.icon_name = q[0]
 		qb.key = q[1]
