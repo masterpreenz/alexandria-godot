@@ -18,7 +18,9 @@ extends Node
 const FILE := "res://data/playables.json"
 const LEAD := "sera"              ## Sera's id (her person's "unique" while she's a companion)
 ## What a companion can be doing and still be switched to: standing, walking about, or following.
-const FREE := [Villager.State.STAND, Villager.State.WALK, Villager.State.FOLLOW]
+## What keeps someone from being played this moment: fighting, running for their life, asleep, down in the cellar.
+## (Anything else, work included, they drop.)
+const BUSY := [Villager.State.FIGHT, Villager.State.FLEE, Villager.State.ASLEEP, Villager.State.CELLAR]
 
 static var active: Playable
 static var _data := {}
@@ -110,8 +112,8 @@ func setup(w: World, m: Miko, vs: Villagers, bar: Hotbar) -> void:
 
 # ---- Who can be switched to ----
 
-## Why [param v] can't be played now ("" when they can): someone who can be played, in the village with her, in her
-## party or living there, up and about and not busy, and the story not in the middle of something.
+## Why [param v] can't be played now ("" when they can): someone who can be played, in the village with her (in her
+## party or not), up and about and not fighting or asleep, and the story not in the middle of something.
 func why_not(v: Villager) -> String:
 	if v == null or not is_instance_valid(v):
 		return "nobody"
@@ -122,10 +124,7 @@ func why_not(v: Villager) -> String:
 		return "already played"
 	if not world.village.founded() or not world.village.contains(miko.position) or not world.village.contains(v.position):
 		return "not in the village"
-	var party := Party.active
-	if not (party != null and party.has_member(v.person)) and not people._living(v.person):
-		return "not with her or living here"
-	if v.in_bed or not (v.state in FREE) or v.hit == null or not v.hit.alive():
+	if v.in_bed or v.state in BUSY or v.hit == null or not v.hit.alive():
 		return "busy"
 	var needs: Needs = miko.get_node_or_null("Needs")
 	if needs != null and needs.sleep != Needs.Sleep.AWAKE:
@@ -411,9 +410,13 @@ func player_look(id: String, p: Dictionary = {}) -> Dictionary:
 	else:
 		d.frames.erase("attackDownLeft")
 	d["walkFps"] = float(s.get("walkFps", 8))
-	d["runFps"] = float(s.get("walkFps", 8)) * 1.5
+	if s.has("walkCycle"):
+		d["walkFps"] = (s.get("walkDown", []) as Array).size() / maxf(0.05, float(s.walkCycle))
+	d["runFps"] = float(d.walkFps) * 1.5
 	d["idleFps"] = 4.0
-	if s.has("walkFpsUp"):
+	if s.has("walkCycle"):
+		d["upPace"] = float((s.get("walkUp", []) as Array).size()) / maxf(1.0, float((s.get("walkDown", []) as Array).size()))
+	elif s.has("walkFpsUp"):
 		d["upPace"] = float(s.walkFpsUp) / maxf(0.01, float(s.get("walkFps", 8)))
 	else:
 		d.erase("upPace")

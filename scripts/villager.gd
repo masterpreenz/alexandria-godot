@@ -1080,6 +1080,10 @@ func _stand(t: float, seconds: float) -> void:
 # How fast their walking frames go: a look's back-facing run may have its own pace (walkFpsUp: fewer or more frames
 # than its front, the same stride).
 func _walk_fps() -> float:
+	# (a look with "walkCycle": the seconds one stride cycle takes, whatever each way's frame count: its pace set by that)
+	if s.has("walkCycle"):
+		var frames: Array = s.walkUp if facing_up else s.walkDown
+		return frames.size() / maxf(0.05, float(s.walkCycle))
 	return float(s.walkFpsUp) if facing_up and s.has("walkFpsUp") else float(s.walkFps)
 
 

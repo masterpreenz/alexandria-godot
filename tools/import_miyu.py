@@ -31,7 +31,7 @@ CHOP_STRIKE = [7]                # where the axe lands
 MINE_STRIKE = [4]                # where the pick lands
 STAB_STRIKE = [8]                # the staff "swing" is the casting frames in order; this is its hit (and cast pose) frame
 LIE_FRAMES = 4                   # sleeping frames before she is settled
-RUN_CYCLE = 0.9                  # seconds for one run cycle (two strides), whatever each sheet's frame count
+RUN_CYCLE = 1.2                  # seconds for one run cycle (two strides), whatever each sheet's frame count
 FAINT_ORDER = [0, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 12, 13, 14, 15]   # stagger (10), fall (2), lying (4)
 
 os.makedirs(ART, exist_ok=True)
@@ -175,8 +175,10 @@ fd, fu = idx('faint', 'down'), idx('faint', 'up')
 s['faintDown'], s['faintUp'] = [fd[i] for i in FAINT_ORDER], [fu[i] for i in FAINT_ORDER]
 s['idleDown'], s['idleUp'] = idx('idle', 'down')[IDLE_FRAME], idx('idle', 'up')[IDLE_FRAME]
 s['walkDown'], s['walkUp'] = idx('run', 'down'), idx('run', 'up')
-s['walkFps'] = round(COUNT[('run', 'down')] / RUN_CYCLE, 2)
-s['walkFpsUp'] = round(COUNT[('run', 'up')] / RUN_CYCLE, 2)
+# Her run's pace: "walkCycle" (seconds a stride cycle takes) in her look, tuned by hand there and kept on a re-run.
+s.setdefault('walkCycle', RUN_CYCLE)
+s['walkFps'] = round(COUNT[('run', 'down')] / float(s['walkCycle']), 2)
+s['walkFpsUp'] = round(COUNT[('run', 'up')] / float(s['walkCycle']), 2)
 s['mineDown'], s['mineUp'] = idx('mine', 'down'), idx('mine', 'up')
 s['mineStrikesDown'] = s['mineStrikesUp'] = MINE_STRIKE
 s['chopDown'], s['chopUp'] = idx('chop', 'down'), idx('chop', 'up')
