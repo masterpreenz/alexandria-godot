@@ -122,7 +122,7 @@ func _effects(st: CharacterStats, caster: SpellCaster) -> void:
 		await get_tree().process_frame
 		if is_instance_valid(sl) and StatusEffects.has_effect(sl.hit, "Burn"):
 			burnt = true
-	print("Tree: Searing Circle: slime HP ", snappedf(hp0, 0.1), " -> ", snappedf(sl.hit.hp, 0.1) if is_instance_valid(sl) else "gone", ", burning ", burnt, ", circles out ", HealingCircle.live.size(), ", circle radius ", snappedf(HealingCircle.live[0].radius / world.px, 0.01) if not HealingCircle.live.is_empty() else 0.0)
+	print("Tree: Searing Circle: slime HP ", snappedf(hp0, 0.1), " -> ", str(snappedf(sl.hit.hp, 0.1)) if is_instance_valid(sl) else "gone",", burning ", burnt, ", circles out ", HealingCircle.live.size(), ", circle radius ", snappedf(HealingCircle.live[0].radius / world.px, 0.01) if not HealingCircle.live.is_empty() else 0.0)
 	shot("circle")
 	# Spirit Host: how many attack shikigami at once (Second Spear and Spirit Host: three; Spirit Host alone: two).
 	for k in 4:
@@ -148,13 +148,13 @@ func _effects(st: CharacterStats, caster: SpellCaster) -> void:
 	var before := sl2.hit.hp
 	ward.hurt(20.0)
 	await _frames(2)
-	print("Tree: Thorned Ward: the ward took 20, the slime ", snappedf(before, 0.1), " -> ", snappedf(sl2.hit.hp, 0.1) if is_instance_valid(sl2) else "gone")
+	print("Tree: Thorned Ward: the ward took 20, the slime ", snappedf(before, 0.1), " -> ", str(snappedf(sl2.hit.hp, 0.1)) if is_instance_valid(sl2) else "gone")
 	print("Tree: the ward's guard ", float(sd.ShikigamiDefender.guardPercent) + ward.ward_guard, "%, ward seconds +", ward.ward_secs, ", HP ", roundi(ward.max_hp), ", speed x", ward.speed_k)
 	before = sl2.hit.hp if is_instance_valid(sl2) else 0.0
 	sl2.position = ward.position + Vector2(0.5, 0.2) * world.px
 	ward.dismiss()
 	await _frames(3)
-	print("Tree: Bursting Ward: the slime ", snappedf(before, 0.1), " -> ", snappedf(sl2.hit.hp, 0.1) if is_instance_valid(sl2) else "gone (burst down)")
+	print("Tree: Bursting Ward: the slime ", snappedf(before, 0.1), " -> ", str(snappedf(sl2.hit.hp, 0.1)) if is_instance_valid(sl2) else "gone (burst down)")
 	shot("burst")
 	for s in Shikigami.active.duplicate():
 		if is_instance_valid(s):
