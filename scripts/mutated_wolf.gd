@@ -138,19 +138,33 @@ func _physics_process_timed(delta: float) -> void:
 					_stand(t)
 		State.CHASE:
 			var to: Vector2 = prey.position - position
-			face(to, 0.1)
 			var far := to.length()
-			if far <= float(s.jumpFrom) * world.px and t >= _next_jump and _clear_leap(prey.position):
+			var in_range := far <= float(s.jumpFrom) * world.px
+			if in_range and t >= _next_jump and _flank == Vector2.INF and _clear_leap(prey.position):
+				face(to, 0.1)
 				_crouch(t)
-			elif far > float(s.jumpMin) * world.px * 0.8:
+			elif not in_range and _flank == Vector2.INF:
+				# After her, facing where it runs.
 				var step := way_to(prey.position) - position
 				var v := step.normalized() * float(s.chaseSpeed) * world.px
 				velocity = v if _route != null else steer.around(v, delta)
+				face(velocity, 0.1)
 				if stuck_on(prey):
 					prey = null
 			else:
-				# (too close to leap: circling back out a little)
-				velocity = -to.normalized() * float(s.walkSpeed) * world.px
+				# In range but not ready to leap, or too close: off round her to another side, turned the way it
+				# runs, then facing her again to come at her from there.
+				if _flank == Vector2.INF or t >= _flank_until:
+					_pick_flank(t)
+				if _flank != Vector2.INF:
+					var go := _flank - position
+					if go.length() < 0.3 * world.px:
+						_flank = Vector2.INF
+						velocity = Vector2.ZERO
+						face(to, 0.1)
+					else:
+						velocity = go.normalized() * float(s.chaseSpeed) * 0.8 * world.px
+						face(velocity, 0.1)
 		State.CROUCH:
 			velocity = Vector2.ZERO
 			var left := state_until - t
@@ -215,6 +229,28 @@ func _clear_leap(at: Vector2) -> bool:
 
 
 # Down on its haunches, the strip shown.
+var _flank := Vector2.INF             ## where it's running to, round her, to come at her from another side
+var _flank_until := 0.0
+
+
+# A spot round its prey a quarter to a third of the way round from where it is, at leaping distance, dry and open.
+func _pick_flank(t: float) -> void:
+	var from := position - prey.position
+	from.y *= 2.0   # (round her on the ground, not on the screen)
+	var lo := float(s.jumpMin) + 0.5
+	var hi := maxf(lo, float(s.jumpFrom) - 0.5)
+	for i in 6:
+		var turn := deg_to_rad(randf_range(60.0, 110.0)) * (1.0 if randf() < 0.5 else -1.0)
+		var d := from.normalized().rotated(turn) * randf_range(lo, hi) * world.px
+		var spot: Vector2 = prey.position + Vector2(d.x, d.y * 0.5)
+		if Wilds.dry(world, spot, 0.4) and not world.village.contains(spot, 0.5):
+			_flank = spot
+			_flank_until = t + 2.0
+			return
+	_flank = Vector2.INF
+	_flank_until = t + 0.5
+
+
 func _crouch(t: float) -> void:
 	state = State.CROUCH
 	state_until = t + float(s.windUp)
