@@ -80,6 +80,33 @@ static func wears_bag(_p: Dictionary) -> bool:
 
 
 ## [param p]'s art as a villager when it isn't a villagers.json look (Sera's, made from hers as the player), else {}.
+const PORTRAITS := "res://assets/Art/UI/Portraits/"
+static var _portraits := {}
+
+
+## [param id]'s own painted portrait (round, in its gold ring), for those who have one (Sera, Miyu, ...): a unique's
+## id, or "sera". Null for anyone else.
+static func portrait_of(id: String) -> Texture2D:
+	if id == "":
+		return null
+	if not _portraits.has(id):
+		var path := PORTRAITS + id + ".png"
+		_portraits[id] = load(path) if ResourceLoader.exists(path) else null
+	return _portraits[id]
+
+
+## The one whose portrait to show for [param p]: their unique's id, "sera" for Sera as a companion; "" for others.
+static func portrait_id(p: Dictionary) -> String:
+	if not villager_look(p).is_empty():
+		return LEAD
+	return str(p.get("unique", ""))
+
+
+## Whether [param tex] is one of the round painted portraits (drawn with its own ring, not in a square frame).
+static func round_portrait(tex: Texture2D) -> bool:
+	return tex != null and tex.resource_path.begins_with(PORTRAITS)
+
+
 static func villager_look(p: Dictionary) -> Dictionary:
 	if active == null or not p.has("unique"):
 		return {}
@@ -553,6 +580,9 @@ func pose() -> Texture2D:
 
 
 func portrait() -> Texture2D:
+	var own := portrait_of(who)
+	if own != null:
+		return own
 	if str(entry(who).get("art", "look")) == "player" or Party.active == null:
 		return HudStyle.icon("portrait")
 	return Party.active.face(played)

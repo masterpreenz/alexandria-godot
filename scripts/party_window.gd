@@ -395,10 +395,13 @@ class Portrait extends Control:
 	func _draw() -> void:
 		var k := HudStyle.SCALE
 		var fr := Rect2(Vector2.ZERO, size)
-		draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
+		var round_one := Playable.round_portrait(tex)
+		if not round_one:
+			draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
 		if tex != null:
 			draw_texture_rect(tex, fr, false)
-		draw_style_box(HudStyle.piece("portraitFrame"), fr)
+		if not round_one:
+			draw_style_box(HudStyle.piece("portraitFrame"), fr)
 		var badge := Rect2(fr.end - Vector2(14, 14) * k, Vector2(18, 18) * k)
 		var b_tex := HudStyle.icon("badge")
 		if b_tex != null:

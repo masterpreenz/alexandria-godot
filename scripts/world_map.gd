@@ -334,6 +334,11 @@ func _face(at: Vector2, tex: Texture2D, w: float, rim: Color) -> void:
 	if tex == null:
 		_square(at, w * 0.5, rim)
 		return
+	# (a painted portrait: round, centred on where they are)
+	if Playable.round_portrait(tex):
+		var d := w * 1.3
+		draw_texture_rect(tex, Rect2(at - Vector2(d, d) * 0.5, Vector2(d, d)), false)
+		return
 	var sz := tex.get_size()
 	var h := w * 1.3
 	var wide := h * sz.x / maxf(1.0, sz.y)

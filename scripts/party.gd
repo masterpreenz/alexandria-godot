@@ -298,6 +298,10 @@ var _poses := {}                  ## look (or "sera") -> their standing pose, fo
 ## [param p]'s standing pose, whole (transparent round it): what the maps show for those who can be played. Sera's
 ## own for her, as a villager or played.
 func pose(p: Dictionary) -> Texture2D:
+	# (their painted portrait, those who have one)
+	var own := Playable.portrait_of(Playable.LEAD if p.is_empty() else Playable.portrait_id(p))
+	if own != null:
+		return own
 	var sera := p.is_empty() or not Playable.villager_look(p).is_empty()
 	var key := "sera" if sera else str(int(p.get("look", 0)))
 	if _poses.has(key):
@@ -367,7 +371,10 @@ class PartyCards extends Control:
 			accept_event()
 
 	func face(p: Dictionary) -> Texture2D:
-		# (Sera, a companion while someone else is played: her own portrait)
+		# (their painted portrait, those who have one; Sera's own while someone else is played)
+		var own := Playable.portrait_of(Playable.portrait_id(p))
+		if own != null:
+			return own
 		if not Playable.villager_look(p).is_empty():
 			return HudStyle.icon("portrait")
 		var look := int(p.get("look", 0))
@@ -423,11 +430,14 @@ class PartyCards extends Control:
 			var card := Rect2(Vector2(0, y), CARD * k)
 			draw_style_box(HudStyle.piece("panel"), card)
 			var fr := Rect2(card.position + Vector2(7, 7) * k, Vector2(FACE, FACE) * k)
-			draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
 			var tex := face(p)
+			var round_one := Playable.round_portrait(tex)
+			if not round_one:
+				draw_rect(fr, Color(0.08, 0.06, 0.06, 0.9))
 			if tex != null:
 				draw_texture_rect(tex, fr, false)
-			draw_style_box(HudStyle.piece("portraitFrame"), fr)
+			if not round_one:
+				draw_style_box(HudStyle.piece("portraitFrame"), fr)
 			var lv := str(int(p.get("level", 1)))
 			var badge := Rect2(fr.end - Vector2(12, 12) * k, Vector2(16, 16) * k)
 			var b_tex := HudStyle.icon("badge")

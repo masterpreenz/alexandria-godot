@@ -65,7 +65,9 @@ func _draw() -> void:
 	var pr := Rect2(Vector2(8, 8) * k, Vector2(56, 56) * k)
 	if portrait != null:
 		draw_texture_rect(portrait, pr, false)
-	draw_style_box(HudStyle.piece("portraitFrame"), pr)
+	# (a painted portrait has its own gold ring)
+	if not Playable.round_portrait(portrait):
+		draw_style_box(HudStyle.piece("portraitFrame"), pr)
 	var badge := Rect2(Vector2(8 + 56 - 15, 8 + 56 - 15) * k, Vector2(20, 20) * k)
 	var b_tex := HudStyle.icon("badge")
 	if b_tex != null:

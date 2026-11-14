@@ -567,7 +567,8 @@ func _play_blip() -> void:
 
 ## Their portrait (head and shoulders: the top of what's drawn in their standing frame, square).
 func _face_of(v: Villager) -> Texture2D:
-	return _face_from(int(v.s.idleDown))
+	var own := Playable.portrait_of(Playable.portrait_id(v.person))
+	return own if own != null else _face_from(int(v.s.idleDown))
 
 
 ## A portrait from one frame (sprite [param id]: a standing frame), head and shoulders, square.
@@ -611,7 +612,8 @@ func _show_speaker(speaker: String) -> void:
 		_voice = SERA_PITCH if speaker == "sera" else float(LOOK_PITCH[clampi(int(Playable.active.played.get("look", 0)), 0, LOOK_PITCH.size() - 1)])
 		# (her standing frame, as anyone's: the same look as theirs)
 		var idle: Array = miko.data.frames.get("idleDownLeft", [])
-		_face.texture = _face_from(int(idle[0])) if not idle.is_empty() else HudStyle.icon("portrait")
+		var own := Playable.portrait_of(speaker)
+		_face.texture = own if own != null else (_face_from(int(idle[0])) if not idle.is_empty() else HudStyle.icon("portrait"))
 		_name.text = Playable.name_now()
 		_work.text = "Shrine maiden" if speaker == "sera" else ""
 		return

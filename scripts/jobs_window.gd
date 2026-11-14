@@ -411,7 +411,10 @@ static var _faces := {}
 func _portrait(p: Dictionary) -> Texture2D:
 	var looks: Array = villagers.d.get("looks", [])
 	var look := clampi(int(p.get("look", 0)), 0, maxi(0, looks.size() - 1))
-	# (Sera, a companion while someone else is played: her own portrait)
+	# (their painted portrait, those who have one; Sera's own while someone else is played)
+	var own := Playable.portrait_of(Playable.portrait_id(p))
+	if own != null:
+		return own
 	if not Playable.villager_look(p).is_empty():
 		return HudStyle.icon("portrait")
 	if _faces.has(look):
