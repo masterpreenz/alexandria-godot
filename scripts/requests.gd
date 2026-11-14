@@ -15,6 +15,7 @@ const MOST_AT_ONCE := 3            ## personal asks offered or open at once, in 
 const ASK_CHANCE := 0.3            ## each hour, the chance one more villager comes to want something
 const UNASKED_FOR := 48.0          ## hours an ask waits to be heard before they let it go
 const AGAIN_AFTER := 48.0          ## hours after one ask's ended before the same villager asks again
+const CELLAR_FOOD := 40          ## food in storage that has the village asking for a cellar, while there's none
 const CARRIERS := [Villager.Job.HAULING, Villager.Job.MINING, Villager.Job.LUMBERING, Villager.Job.FARMING, Villager.Job.FISHING]
 
 static var active: Requests
@@ -83,6 +84,10 @@ func wanting(p: Dictionary, wants: String) -> bool:
 	if p.has("unique"):
 		return false   # (the uniques have their own ways: companions carry packs)
 	match wants:
+		"cellar":
+			# (plenty of food in the chests, spoiling, and nowhere cold to keep it)
+			var cellars := Cellars.active
+			return cellars != null and cellars.all().is_empty() and cellars.food_stored() >= CELLAR_FOOD
 		"bag":
 			return str(p.get("bag", "")) == "" and Villager.jobs_of(p).any(func(j): return CARRIERS.has(j))
 		"scarf":
@@ -303,6 +308,8 @@ func open_for(v: Villager) -> String:
 ## Where Sera has what [param def] asks for (a thing of its kind, or the one item it names) to hand over: [bag slot,
 ## -1], [-1, storage index], or [] if nowhere.
 func find_thing(def: Dictionary) -> Array:
+	if not def.has("item") and not def.has("kind"):
+		return []   # (something to build, not to hand over: a cellar)
 	var fits := func(nm: String) -> bool:
 		return nm != "" and (nm == str(def.item) if def.has("item") else str(UiKit.item(nm).get("kind", "")) == str(def.kind))
 	for i in miko.bag.items.size():
@@ -379,7 +386,7 @@ func _hand_out() -> void:
 	for k in asks:
 		var st: Dictionary = asks[k]
 		var def: Dictionary = by_id[str(st.id)]
-		if st.state != "open" or not bool(def.get("every", false)):
+		if st.state != "open" or not bool(def.get("every", false)) or not def.has("kind"):
 			continue
 		var idx := -1
 		for i in world.village.items.size():
@@ -461,7 +468,7 @@ func lines(key: String) -> Array:
 	match str(st.state):
 		"open":
 			out.append([_fill(str(def.get("note", "")), key), false])
-			if bool(def.get("every", false)):
+			if bool(def.get("every", false)) and def.has("kind"):
 				var p := progress(key)
 				out.append(["%d of %d have %s." % [p.x, p.y, str(def.thing).to_lower()], false])
 			elif float(def.get("days", 0)) > 0.0:

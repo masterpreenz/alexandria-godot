@@ -1,5 +1,5 @@
 {
-"_about": "Villagers' requests: small asks of their own (a pouch, a scarf, new tools) and asks for the whole village (pouches for every worker). One wanting something shows a gold ! over their head; talking to them, Sera gives her word, and it goes in the journal (J). Handing the thing over (from her bag, or storage while she's in the village) settles it, for thanks and gold. 'wants' is what makes someone ask (bag: a worker with nothing to carry more in; scarf: autumn or winter, none round their neck; tools: a miner or woodcutter whose tools are worn through). 'kind' is the kind of item that answers it (ui.json's items). 'soon': asked straight away, not waiting its turn (one of the party with no mist crystal). 'item': the one item that answers it, where 'kind' alone would take any of that kind. 'every' asks are for the whole village: open once enough are wanting ('least'), done when nobody's wanting any more; Sachets or scarves put in storage are handed out to those wanting. 'days': how long one waits before giving up on Sera. See scripts/requests.gd.",
+"_about": "Villagers' requests: small asks of their own (a pouch, a scarf, new tools) and asks for the whole village (pouches for every worker). One wanting something shows a gold ! over their head; talking to them, Sera gives her word, and it goes in the journal (J). Handing the thing over (from her bag, or storage while she's in the village) settles it, for thanks and gold. 'wants' is what makes someone ask (bag: a worker with nothing to carry more in; scarf: autumn or winter, none round their neck; tools: a miner or woodcutter whose tools are worn through). 'kind' is the kind of item that answers it (ui.json's items). 'soon': asked straight away, not waiting its turn (one of the party with no mist crystal). 'item': the one item that answers it, where 'kind' alone would take any of that kind. 'every' asks are for the whole village: open once enough are wanting ('least'), done when nobody's wanting any more; Sachets or scarves put in storage are handed out to those wanting. 'days': how long one waits before giving up on Sera. An ask with no 'kind' or 'item' is for something to build, not hand over (the cellar: wanted while the chests hold plenty of food and there's no cellar; done once one's built). See scripts/requests.gd.",
 "requests": [
 	{"id": "pouch", "title": "A pouch for {name}", "wants": "bag", "kind": "Bag", "thing": "a Sachet", "days": 5, "gold": 12,
 		"ask": ["I keep going back and forth to storage with half a load. A pouch would let me carry more.", "If I had a little bag, a Sachet, I could bring home twice as much."],
@@ -30,6 +30,11 @@
 		"ask": ["Winter's on its way and most of us have nothing warm. A scarf for everyone would see us through."],
 		"accept": "Scarves for everyone before the snow.",
 		"thanks": ["Everyone's wrapped up warm. Let the snow come!"],
-		"note": "Make Scarves at the tool workbench and give them out, or put them in storage: those without take one."}
+		"note": "Make Scarves at the tool workbench and give them out, or put them in storage: those without take one."},
+	{"id": "cellar", "title": "A cellar for the food", "every": true, "wants": "cellar", "thing": "a Cellar", "least": 1, "days": 0, "gold": 25,
+		"ask": ["{miko}, the chests are full of food and it's going off before we can eat it. A cellar would keep it cold.", "There's more food than we can eat before it spoils. If we dug a cellar, it'd keep for days."],
+		"accept": "I'll build a cellar.",
+		"thanks": ["A cellar! The food will keep so much longer down there. Thank you, {miko}."],
+		"note": "Build a Cellar (Storage, in the build menu) in the village: its doors go in the ground outdoors. The villagers carry the food down themselves."}
 ]
 }
