@@ -35,6 +35,7 @@ def main() -> int:
 
         def send(msg):
             data = json.dumps(msg).encode()
+            s.settimeout(60)  # (reads wait only briefly; a send may wait for a slow editor)
             s.sendall(b"Content-Length: %d\r\n\r\n" % len(data) + data)
 
         def read(wait):
