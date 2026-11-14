@@ -362,6 +362,10 @@ func _ready() -> void:
 	var build_mode := BuildMode.new()
 	build_mode.name = "BuildMode"
 	world.add_child(build_mode)
+	# (F3: each villager's way, in red, and what they're at)
+	var villager_debug := VillagerDebug.new()
+	villager_debug.world = world
+	world.add_child(villager_debug)
 	build_mode.setup(world, miko, world._load_json("res://data/build.json") if FileAccess.file_exists("res://data/build.json") else {})
 	var build_bar := BuildBar.new()
 	build_bar.name = "BuildBar"
