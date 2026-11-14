@@ -3431,7 +3431,7 @@ func _stop_work(t: float) -> void:
 # ---- Clearing up: logs, stones and crops left lying, taken to storage ----
 
 func _gatherable(r: String) -> bool:
-	return r == "Wood" or r == "Stone" or Farming.CROPS.has(r)
+	return r == "Wood" or r == "Stone" or r == "Gold" or Farming.CROPS.has(r)
 
 
 func _nearest_loose(within: float) -> Pickup:

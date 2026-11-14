@@ -61,10 +61,12 @@ func to_json() -> String:
 
 # ---- Storage ----
 
+const GOLD_UNLIMITED := 1000000000   ## gold has no limit, in a bag or a chest: this many is never reached
+
 ## What a bag (and each chest) holds of [param r] at most.
 static func base_cap(r: String) -> int:
 	match r:
-		"Gold": return 1000
+		"Gold": return GOLD_UNLIMITED   # (coins: as many as you like, in her purse or a chest)
 		"Wood", "Stone": return 100
 	return 40
 
