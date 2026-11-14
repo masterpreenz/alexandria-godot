@@ -17,7 +17,7 @@ func _list(label: String, seconds: float) -> void:
 	var n0 := Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 	var next := 0
 	var mm: Minimap = Minimap.active
-	var renders := 0
+	var _renders := 0
 	var drawn_at: float = mm._drawn_at
 	while Time.get_ticks_msec() - t0 < seconds * 1000.0:
 		if Time.get_ticks_msec() - t0 >= next:
@@ -28,7 +28,7 @@ func _list(label: String, seconds: float) -> void:
 		await get_tree().process_frame
 		if mm._drawn_at != drawn_at:
 			drawn_at = mm._drawn_at
-			renders += 1
+			_renders += 1
 	var cr: Corruption = Corruption.active
 	print("Farmnight: rotten trees ", cr.corrupted.size(), ", near her ", cr.armed.size(), ", curing ", cr.curing.size(),
 		", cleansing crystals ", world.props_named("CleansingCrystal").size(), ", trees ", Gatherable.all.size())
@@ -36,7 +36,7 @@ func _list(label: String, seconds: float) -> void:
 	frames.sort()
 	var n := frames.size()
 	print("Farmnight: %s  frames %d  median %.1f ms  95%% %.1f  worst %.1f  nodes %d -> %d" % [label, n,
-		frames[n / 2], frames[int(n * 0.95)], frames[n - 1], n0, Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+		frames[int(n / 2.0)], frames[int(n * 0.95)], frames[n - 1], n0, Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
 	var rows := p._sorted(Perf._total, float(n))
 	for r in rows.slice(0, 30):
 		print("  %6.3f ms  %6.1f calls  worst %6.2f  %s" % [r[1], r[2], float(Perf._worst.get(r[0], 0)) / 1000.0, r[0]])

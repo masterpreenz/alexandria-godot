@@ -44,8 +44,8 @@ func run() -> void:
 	man.person["lastMeal"] = 999999
 	var spot := _mist_spot(5.0)
 	print("Clear: ", man.person.name, " hunts ", man.hunts(), "; slime at ", (spot / world.px).round(), " in the mist ", not Villager.safe_ground(world, spot), ", outside the village ", not world.village.contains(spot, 2.0), ", within reach of the village ", world.village.contains(spot, Villager.CLEAR_REACH))
-	var vd: Vector2 = world.floors.fractional_cell(spot) - world.floors.fractional_cell(world.village.centre())
-	print("Clear: slime ", vd.round(), " cells from the village's middle; its half size ", world.village.half_size(), "; from him ", snappedf(spot.distance_to(man.position) / world.px, 0.1), " units")
+	var cells_off: Vector2 = world.floors.fractional_cell(spot) - world.floors.fractional_cell(world.village.centre())
+	print("Clear: slime ", cells_off.round(), " cells from the village's middle; its half size ", world.village.half_size(), "; from him ", snappedf(spot.distance_to(man.position) / world.px, 0.1), " units")
 	var md: Dictionary = world._load_json("res://data/monsters.json")
 	var sl: Slime = Slime.spawn(world, md.slime, false, spot, 1.0)
 	miko.place(man.position + Vector2(-3, 2) * world.px)
@@ -76,7 +76,8 @@ func run() -> void:
 	# A second, with him nearly sick enough already.
 	await _secs(4.0)
 	var sl2: Slime = Slime.spawn(world, md.slime, false, _mist_spot(6.0), 1.0)
-	man._end_hunt(Villager.now(), false) if man.state == Villager.State.HUNT else null
+	if man.state == Villager.State.HUNT:
+		man._end_hunt(Villager.now(), false)
 	man._stand(Villager.now(), 0.0)
 	man.mist_sick = 0.0
 	print("Clear: second slime: sent ", man._go_clear())
