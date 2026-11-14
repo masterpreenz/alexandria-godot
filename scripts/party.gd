@@ -304,8 +304,10 @@ func pose(p: Dictionary) -> Texture2D:
 		return _poses[key]
 	var id := -1
 	if sera:
+		# Her own art, never the body's (which wears whoever's played).
 		var me := world.player as Miko
-		var idle: Array = me.data.frames.get("idleDownLeft", []) if me != null else []
+		var art: Dictionary = Playable.active._lead_data if Playable.active != null and not Playable.active._lead_data.is_empty() else (me.data if me != null else {})
+		var idle: Array = (art.get("frames", {}) as Dictionary).get("idleDownLeft", [])
 		id = int(idle[0]) if not idle.is_empty() else -1
 	else:
 		id = int(people.d.looks[int(p.get("look", 0))].settings.idleDown)

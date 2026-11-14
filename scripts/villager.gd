@@ -2521,8 +2521,8 @@ func _refuge(from: Vector2) -> Vector2:
 const HUNT_AROUND := 16.0         ## units round a crystal game is hunted in
 const HUNT_FROM := 60.0           ## units away from them, at most, game is gone after
 const SLIME_CHANCE := 0.3         ## the times they'll go after a slime too
-const BOW_RANGE := 6.5            ## units: close enough to shoot
-const BOW_NEAR := 2.6             ## units: closer than this, what's after them is backed away from
+const BOW_RANGE := 3.25           ## units: close enough to shoot
+const BOW_NEAR := 1.5             ## units: closer than this, what's after them is backed away from
 const SHOT_EVERY := 1.5           ## seconds between arrows
 const HUNT_FOR := 120.0           ## seconds one hunt lasts at most
 
