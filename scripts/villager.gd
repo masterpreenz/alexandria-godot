@@ -1235,7 +1235,7 @@ func sleep_pose() -> String:
 ## (SleepTune: x, y px and degrees by which way the bed faces, mirrored with them).
 func lie_in_bed() -> void:
 	var lying: Variant = look.get("lying", {}).get(sleep_pose())
-	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right, 1.0)
+	var lie: Array = Needs.lie_on_bed(world, home, lying, facing_right != _sleep_faces_right(), 1.0)
 	var tune := SleepTune.of(facing_right)
 	var side := -1.0 if facing_right else 1.0
 	position = (lie[0] as Vector2) + Vector2(float(tune[0]) * side, float(tune[1]))
@@ -1261,7 +1261,13 @@ func _sleeping(delta: float) -> void:
 		frame = int(down)
 	else:
 		frame = lie + int((sleep_clock - lie_time) * float(s.asleepFps)) % maxi(1, frames.size() - lie)
-	_show(int(frames[clampi(frame, 0, frames.size() - 1)]))
+	var k := _scale()
+	world.show_frame(art, int(frames[clampi(frame, 0, frames.size() - 1)]), Vector2(-k if facing_right != _sleep_faces_right() else k, k))
+
+
+# Whether their sleeping art is drawn facing right (Sera's own, as a villager), where the villagers' faces left.
+func _sleep_faces_right() -> bool:
+	return bool(s.get("sleepFacesRight", false))
 
 
 func _wake_up(t: float) -> void:
