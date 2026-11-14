@@ -2709,7 +2709,7 @@ func _go_hunt(_put_on: bool) -> bool:
 		var by: Variant = hunted.get(c)
 		if by != null and by != self and is_instance_valid(by) and (by as Villager).state == State.HUNT:
 			continue
-		if world.village.contains(c.position, 1.0) or not safe_ground(world, c.position) or not _by_crystal(c.position, spots):
+		if world.village.contains(c.position, 1.0) or not safe_ground(world, c.position) or not _by_crystal(c.position, spots) 				or (c.hit != null and now() < float(_let_be.get(c.hit, -1.0))):
 			continue
 		var d := c.position.distance_to(position)
 		if d < best_d:
@@ -2723,6 +2723,8 @@ func _go_hunt(_put_on: bool) -> bool:
 	prey = best
 	hunted[best] = self
 	state = State.HUNT
+	_chase_best = INF
+	_chase_best_at = now()
 	clock = 0.0
 	state_until = now() + HUNT_FOR
 	next_chase = 0.0
@@ -2751,6 +2753,16 @@ func _hunting(t: float, delta: float) -> void:
 		_end_hunt(t, false)
 		return
 	_prey_last = prey.position
+	# Gone into the mist out of bow range, or no nearer it in 8 seconds (the mist or a wall between): let be a while,
+	# not run at on the spot at the mist's edge till the hunt runs out.
+	var d := prey.position.distance_to(position)
+	if d < _chase_best - 0.3 * world.px or d <= BOW_RANGE * 1.5 * world.px:
+		_chase_best = d
+		_chase_best_at = t
+	if (d > BOW_RANGE * 1.5 * world.px and not safe_ground(world, prey.position)) or t - _chase_best_at > 8.0:
+		_let_be[prey.hit] = t + 60.0
+		_end_hunt(t, false)
+		return
 	_bow_at(prey.hit, t, delta, State.HUNT)
 
 

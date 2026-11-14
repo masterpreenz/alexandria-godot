@@ -33,9 +33,9 @@ func _draw() -> void:
 	for v: Villager in Villager.all:
 		if not is_instance_valid(v) or not v.visible or not view.has_point(v.position):
 			continue
-		var held := v._trying_for > 3.0
+		var held := v._trying_for > 3.0 or (v.state in [Villager.State.FIGHT, Villager.State.HUNT] and Villager.now() - v._chase_best_at > 3.0)
 		var red := Color(1.0, 0.1, 0.1, 0.95) if held else Color(1.0, 0.25, 0.25, 0.75)
-		var going := v._going() or v.state == Villager.State.FIGHT or v.state == Villager.State.FOLLOW
+		var going := v._going() or v.state in [Villager.State.FIGHT, Villager.State.FOLLOW, Villager.State.HUNT]
 		if going:
 			var pts := PackedVector2Array([v.position])
 			if v._detour != Vector2.INF:
@@ -44,11 +44,17 @@ func _draw() -> void:
 				for i in range(v.leg, v.route.size()):
 					pts.append(v.route[i].at)
 			pts.append(v.target)
+			# (a hunter: on to the game)
+			if v.state == Villager.State.HUNT and v.prey != null and is_instance_valid(v.prey):
+				pts.append(v.prey.position)
 			draw_polyline(pts, red, (5.0 if held else 3.0) * k)
 			draw_circle(v.target, 6.0 * k, red)
 		var lines: Array[String] = [str(v.person.get("name", "")) + ": " + v.activity(), Villager.State.keys()[v.state]]
 		if v._trying_for > 0.5:
 			lines[1] += "  stuck %.1fs" % v._trying_for
+		var chasing := v.state in [Villager.State.FIGHT, Villager.State.HUNT] and Villager.now() - v._chase_best_at > 1.5
+		if chasing:
+			lines[1] += "  no nearer %.1fs" % (Villager.now() - v._chase_best_at)
 		if v._detour != Vector2.INF:
 			lines[1] += "  round the mist"
 		if world.mist != null and not Villager.safe_ground(world, v.position):
