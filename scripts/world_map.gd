@@ -305,7 +305,15 @@ func _draw() -> void:
 	if Rumors.active != null:
 		Rumors.active.draw_marks(self, _to_screen, _frame.size.x / _view().size.x, _frame, true)
 	# Miko on top.
-	_square(_to_screen(miko.position), 11 * k, HudStyle.color("accentLight"))
+	# The ones who can be played, by their faces; the one played on top.
+	for v in Villager.all:
+		if v.visible and MapMarks.playable(v) and Party.active != null:
+			_face(_to_screen(v.position), Party.active.face(v.person), 20 * k, HudStyle.color("muted"))
+	var mine: Texture2D = Playable.active.portrait() if Playable.active != null else null
+	if mine != null:
+		_face(_to_screen(miko.position), mine, 24 * k, HudStyle.color("accentLight"))
+	else:
+		_square(_to_screen(miko.position), 11 * k, HudStyle.color("accentLight"))
 
 
 func _line(a: Vector2, b: Vector2, c: Color, width: float) -> void:
@@ -316,6 +324,19 @@ func _line(a: Vector2, b: Vector2, c: Color, width: float) -> void:
 	for seg in clipped:
 		if seg.size() >= 2:
 			draw_line(seg[0], seg[seg.size() - 1], c, width * HudStyle.SCALE, true)
+
+
+# A small portrait at [param at], [param w] across, in a dark frame with a coloured rim (kept inside the map's frame).
+func _face(at: Vector2, tex: Texture2D, w: float, rim: Color) -> void:
+	if not _frame.has_point(at):
+		return
+	if tex == null:
+		_square(at, w * 0.5, rim)
+		return
+	var box := Rect2(at - Vector2(w, w) / 2.0, Vector2(w, w))
+	draw_rect(box.grow(2.5), Color(0.1, 0.07, 0.06, 0.95))
+	draw_rect(box.grow(1.5), rim)
+	draw_texture_rect(tex, box, false)
 
 
 func _square(at: Vector2, w: float, c: Color, h := -1.0) -> void:

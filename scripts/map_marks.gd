@@ -88,9 +88,15 @@ static func marks(_w: World) -> Array:
 			continue
 		out.append([c.position, HOSTILE if _hostile(c) else CALM, 5.0])
 	for v in Villager.all:
-		if v.visible:
+		if v.visible and not playable(v):
 			out.append([v.position, ALLY, 5.0])
 	return out
+
+
+## Whether [param v] is someone who can be played (Miyu, Sera while someone else is): shown by their face on the maps,
+## not a dot.
+static func playable(v: Villager) -> bool:
+	return is_instance_valid(v) and not Playable.entry(str(v.person.get("unique", ""))).is_empty()
 
 
 static func _hostile(c: Node) -> bool:

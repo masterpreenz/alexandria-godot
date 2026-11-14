@@ -167,7 +167,28 @@ func _draw() -> void:
 			var rumor_at: Array = _to_map(m.at)
 			if not rumor_at[1]:
 				_diamond(rumor_at[0], 6 * k, Color(1.0, 0.82, 0.3))
-	_square(r.get_center(), 10 * k, HudStyle.color("accentLight"))
+	# The ones who can be played, by their faces: the others where they are, the one played in the middle, on top.
+	for v in Villager.all:
+		if v.visible and MapMarks.playable(v) and Party.active != null:
+			var vat: Array = _to_map(v.position)
+			if vat[1]:
+				_face(vat[0], Party.active.face(v.person), 16 * k, HudStyle.color("muted"))
+	var mine: Texture2D = Playable.active.portrait() if Playable.active != null else null
+	if mine != null:
+		_face(r.get_center(), mine, 20 * k, HudStyle.color("accentLight"))
+	else:
+		_square(r.get_center(), 10 * k, HudStyle.color("accentLight"))
+
+
+# A small portrait at [param at], [param w] across, in a dark frame with a coloured rim.
+func _face(at: Vector2, tex: Texture2D, w: float, rim: Color) -> void:
+	if tex == null:
+		_square(at, w * 0.5, rim)
+		return
+	var box := Rect2(at - Vector2(w, w) / 2.0, Vector2(w, w))
+	draw_rect(box.grow(2.5), Color(0.1, 0.07, 0.06, 0.95))
+	draw_rect(box.grow(1.5), rim)
+	draw_texture_rect(tex, box, false)
 
 
 func _square(at: Vector2, w: float, c: Color, h := -1.0) -> void:

@@ -253,6 +253,12 @@ func _process(_delta: float) -> void:
 	if now < _next:
 		return
 	_next = now + 1.0
+	# Out of a fight a while: their wounds close quickly too (their HP is their body's).
+	if CharacterStats.resting():
+		for id in members:
+			var body := Companions.body_of(Uniques.person(people, id))
+			if body != null and body.hit != null and body.hit.alive() and now - body.hit._last_hit >= CharacterStats.REST_AFTER:
+				body.hit.heal(body.hit.max_hp * CharacterStats.REST_HP)
 	var __r := Time.get_ticks_usec()
 	_restock_at_home()
 	Perf.add(&"party.restock", __r)

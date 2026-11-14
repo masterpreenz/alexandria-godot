@@ -195,13 +195,61 @@ func _process_timed(delta: float) -> void:
 		_wind_left -= step
 		hp = minf(float(t.get("maxHp", 100.0)), hp + float(t.get("maxHp", 100.0)) * WIND_HEAL * step / WIND_OVER)
 		changed.emit()
-	var m := clampf(mana + float(t.get("manaRegen", 0.0)) * delta, 0.0, t.get("maxMana", 50.0))
+	# Out of a fight a while, and not hurt lately: HP and mana come back quickly.
+	var quick := resting() and _now() - _last_hurt >= REST_AFTER
+	if quick and hp > 0.0 and hp < float(t.get("maxHp", 100.0)):
+		var h := minf(float(t.get("maxHp", 100.0)), hp + float(t.get("maxHp", 100.0)) * REST_HP * delta)
+		var tell_hp := floori(h) != floori(hp) or h >= float(t.get("maxHp", 100.0))
+		hp = h
+		if tell_hp:
+			changed.emit()
+	var m := clampf(mana + (float(t.get("manaRegen", 0.0)) + (float(t.get("maxMana", 50.0)) * REST_MANA if quick else 0.0)) * delta, 0.0, t.get("maxMana", 50.0))
 	if m != mana:
 		# (told only when the whole number shown changes, or it's full: not every frame of a refill)
 		var tell := floori(m) != floori(mana) or m >= float(t.get("maxMana", 50.0))
 		mana = m
 		if tell:
 			changed.emit()
+
+
+# ---- Out of a fight: HP and mana come back quickly ----
+
+const REST_AFTER := 4.0            ## seconds after the last fight (and the last hit) before the quick mending starts
+const REST_HP := 0.05              ## share of max HP a second, then
+const REST_MANA := 0.06            ## and of max mana
+const FIGHT_NEAR := 12.0           ## units: a monster this near whoever's played, after them or lately hit, means a fight
+
+static var _fight_seen := -99.0
+static var _fight_checked := -1.0
+
+
+## Whether the party's been out of a fight a while (no monster near whoever's played coming for them or lately hit, no
+## raid): when HP and mana come back quickly, for them and their companions.
+static func resting() -> bool:
+	var now := _now()
+	if now - _fight_checked >= 0.5:
+		_fight_checked = now
+		if _fight_now():
+			_fight_seen = now
+	return now - _fight_seen >= REST_AFTER
+
+
+static func _fight_now() -> bool:
+	if Raids.on():
+		return true
+	var pl := Playable.active
+	if pl == null or pl.miko == null or pl.world == null:
+		return false
+	var near := FIGHT_NEAR * pl.world.px
+	for c in Creature.all:
+		if not is_instance_valid(c) or c.asleep or c is Rabbit or c.hit == null or not c.hit.alive():
+			continue
+		if c.position.distance_to(pl.miko.position) >= near:
+			continue
+		# (one coming for them, a boar charging, or one hit in the last few seconds: idle monsters about don't count)
+		if c.hostile() or MapMarks._hostile(c) or _now() - c.hit._last_hit < 3.0:
+			return true
+	return false
 
 
 static func _now() -> float:
