@@ -17,7 +17,7 @@ const EQUIP_W := 330.0
 const STATS_W := 280.0
 const CELL := 42.0
 const LEFT_SLOTS := [["LeftHand", "Weapon"], ["Armor", "Armor"], ["Gloves", "Gloves"], ["Pants", "Pants"], ["Shoes", "Shoes"]]
-const RIGHT_SLOTS := [["RightHand", "Off-hand"], ["Necklace", "Necklace"], ["Ring1", "Ring 1"], ["Ring2", "Ring 2"], ["Bag", "Bag"]]
+const RIGHT_SLOTS := [["RightHand", "Off-hand"], ["Necklace", "Necklace"], ["Trinket", "Trinket"], ["Ring1", "Ring 1"], ["Ring2", "Ring 2"], ["Bag", "Bag"]]
 const FILTERS := [["All", "All"], ["Equipment", "Gear"], ["Consumables", "Food & drink"], ["Materials", "Materials"]]
 const USES := {
 	"Meal": "Fills 60 hunger.", "Food": "Raw meat: not eaten raw. Cook it at a fire.", "Seed": "Plant with T to grow a tree.",

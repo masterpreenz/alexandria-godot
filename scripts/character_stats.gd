@@ -390,7 +390,7 @@ func from_json(json: String) -> void:
 
 # ---- What's worn, slot by slot (Unity's EquipSlot) ----
 
-const SLOTS := ["LeftHand", "RightHand", "Armor", "Gloves", "Pants", "Shoes", "Necklace", "Ring1", "Ring2", "Bag"]
+const SLOTS := ["LeftHand", "RightHand", "Armor", "Gloves", "Pants", "Shoes", "Necklace", "Trinket", "Ring1", "Ring2", "Bag"]
 
 var worn := {}                     ## slot -> item name
 
@@ -446,7 +446,8 @@ func slot_for(item: String, clear: Array) -> String:
 			var ring := "Ring1" if not worn.has("Ring1") else ("Ring2" if not worn.has("Ring2") else "Ring1")
 			clear.append(ring)
 			return ring
-	var slot: String = kind if kind in ["Armor", "Gloves", "Pants", "Shoes"] else "Necklace"
+	# (a trinket, the mist crystals: a slot of its own, so a necklace can be worn as well)
+	var slot: String = kind if kind in ["Armor", "Gloves", "Pants", "Shoes", "Trinket"] else "Necklace"
 	clear.append(slot)
 	return slot
 

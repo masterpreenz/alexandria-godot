@@ -126,6 +126,7 @@ static func kind_color(kind: String) -> Color:
 		"Pants": return Color(0.35, 0.45, 0.35)
 		"Shoes": return Color(0.45, 0.35, 0.25)
 		"Necklace": return Color(0.75, 0.65, 0.25)
+		"Trinket": return Color(0.45, 0.7, 0.85)
 	return Color(0.65, 0.4, 0.7)
 
 

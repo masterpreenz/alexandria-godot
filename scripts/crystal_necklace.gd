@@ -5,7 +5,7 @@ extends Node
 ## only; Mist.set_personal). It wears out as it's worn (combat.json's durability, in seconds worn), its light dimming
 ## towards the end; when it's used up it breaks and is gone.
 
-const SLOT := "Necklace"
+const SLOT := "Trinket"   ## worn as a trinket (its own slot), not in place of a necklace
 const WARN_AT := 0.15           ## of its life left: "the crystal is dimming"
 
 var miko: Miko

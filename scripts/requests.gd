@@ -73,13 +73,13 @@ func _process(delta: float) -> void:
 # ---- Who wants what ----
 
 ## Whether [param p] wants what [param wants] names ("bag", "scarf", "tools"; "mistcrystal": one of the party with
-## no necklace on, nothing between them and the mist).
+## no mist crystal worn as a trinket, nothing between them and the mist).
 func wanting(p: Dictionary, wants: String) -> bool:
 	if wants == "mistcrystal":
 		if Party.active == null or not Party.active.has_member(p):
 			return false
 		var st := Companions.stats_for(p)
-		return st != null and st.worn_in("Necklace") == "" and not _carries(p, "CrystalNecklace")
+		return st != null and st.worn_in("Trinket") == "" and not _carries(p, "CrystalNecklace")
 	if p.has("unique"):
 		return false   # (the uniques have their own ways: companions carry packs)
 	match wants:

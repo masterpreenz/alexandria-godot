@@ -66,10 +66,10 @@ func run() -> void:
 	# No mist crystal on her: she asks for one, and wears it once given.
 	var req := Requests.active
 	var key := req.offered_by(miyu)
-	print("Mist crystal: she asks ", key != "", " (", miyu._rumor_emote(), "); wearing ", Companions.stats_for(miyu.person).worn_in("Necklace"))
+	print("Mist crystal: she asks ", key != "", " (", miyu._rumor_emote(), "); wearing ", Companions.stats_for(miyu.person).worn_in("Trinket"))
 	if key != "":
 		print("Mist crystal: she says \"", req.said(key), "\"")
 		req.accept(key)
 		miko.bag.items[miko.bag.free_slot()] = "CrystalNecklace"
-		print("Mist crystal: given: \"", req.give(req.open_for(miyu), miyu), "\"; now wearing ", Companions.stats_for(miyu.person).worn_in("Necklace"), ", state ", req.asks[key].state)
+		print("Mist crystal: given: \"", req.give(req.open_for(miyu), miyu), "\"; now wearing ", Companions.stats_for(miyu.person).worn_in("Trinket"), ", state ", req.asks[key].state)
 
