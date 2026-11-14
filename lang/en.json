@@ -21,6 +21,7 @@
 	"bark.hungry": ["I'm hungry.", "I'm starving..."],
 	"bark.no_food": ["No food left?!", "The stores are empty...", "Nothing to eat..."],
 	"bark.cold": ["So cold last night...", "I couldn't get warm.", "We need a fire in the house.", "Brr... my fingers are numb."],
+	"bark.mistsick": ["The mist's getting to me. Back home.", "My head's swimming... that's enough for today.", "I can't stay out in this. Going back."],
 	"bark.threat": ["Something's after me!", "Monster! Out here!", "Help! By the trees!", "It's coming for me!"],
 	"bark.chilly": ["So cold!", "So cold... I wish I had a scarf.", "Brr... it's freezing!", "My hands are numb.", "I can't feel my toes.", "This wind cuts right through me."],
 	"bark.chilly.scarf": ["Still cold, even with the scarf.", "Brr. Good thing I've a scarf.", "This snow won't stop."],

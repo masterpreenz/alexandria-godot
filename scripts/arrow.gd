@@ -5,7 +5,7 @@ extends Node2D
 ## moment and fades.
 
 const SPEED := 16.0               ## units a second
-const LENGTH := 0.42              ## units, shaft and head
+const LENGTH := 0.34              ## units, shaft and head
 const STUCK_FOR := 1.2            ## seconds a miss stays in the ground
 
 var world: World
@@ -70,9 +70,9 @@ func _draw() -> void:
 	var tilt := dir.rotated(-0.5 * signf(dir.x if dir.x != 0.0 else 1.0) * (1.0 - _gone * 2.0)) if _stuck_until < 0.0 else (dir + Vector2(0, 0.9)).normalized()
 	var tip := Vector2(0, lift) + tilt * LENGTH * 0.5 * px
 	var tail := Vector2(0, lift) - tilt * LENGTH * 0.5 * px
-	var w := maxf(1.0, 0.03 * px)
+	var w := maxf(1.0, 0.018 * px)
 	draw_line(tail, tip, Color(0.55, 0.38, 0.22), w, true)
-	var side := Vector2(-tilt.y, tilt.x) * 0.05 * px
-	draw_colored_polygon(PackedVector2Array([tip + tilt * 0.09 * px, tip + side, tip - side]), Color(0.78, 0.8, 0.84))
-	draw_line(tail, tail + tilt * 0.08 * px + side * 1.4, Color(0.92, 0.9, 0.85), w, true)
-	draw_line(tail, tail + tilt * 0.08 * px - side * 1.4, Color(0.92, 0.9, 0.85), w, true)
+	var side := Vector2(-tilt.y, tilt.x) * 0.028 * px
+	draw_colored_polygon(PackedVector2Array([tip + tilt * 0.07 * px, tip + side, tip - side]), Color(0.78, 0.8, 0.84))
+	draw_line(tail, tail + tilt * 0.06 * px + side * 1.2, Color(0.92, 0.9, 0.85), w, true)
+	draw_line(tail, tail + tilt * 0.06 * px - side * 1.2, Color(0.92, 0.9, 0.85), w, true)

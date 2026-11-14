@@ -64,6 +64,8 @@ func _draw() -> void:
 			lines[1] += "  round the mist"
 		if world.mist != null and not Villager.safe_ground(world, v.position):
 			lines[1] += "  in the mist"
+		if v.mist_sick > 0.01:
+			lines[1] += "  mist sick %d%%" % roundi(v.mist_sick * 50.0)
 		var size := 15.0 * k
 		var at := v.position + Vector2(0, -1.6 * px)
 		for i in lines.size():

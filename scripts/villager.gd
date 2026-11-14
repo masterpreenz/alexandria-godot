@@ -366,7 +366,7 @@ func _do_job(j: int, t: float, put_on: bool, chance: float) -> bool:
 		Job.FARMING: return (keen or _crops_need_care()) and _go_farm(put_on)
 		Job.COOKING: return keen and (_go_cook(put_on) or _go_craft(put_on, "cook"))
 		Job.FISHING: return keen and _go_fish(put_on)
-		Job.HUNTING: return keen and _go_hunt(put_on)
+		Job.HUNTING: return keen and (_go_hunt(put_on) or _go_clear())
 		Job.CRAFTING: return keen and _go_craft(put_on, "craft")
 		Job.LUMBERING, Job.MINING:
 			if keen and _find_work(j, put_on):
@@ -630,6 +630,7 @@ func _physics_process_timed(delta: float) -> void:
 		return
 	var __t := Time.get_ticks_usec()
 	_needs()
+	_mist_sickness(delta)
 	Perf.add(&"villager: needs", __t)
 	__t = Time.get_ticks_usec()
 	_unstick(t, delta)
@@ -1223,6 +1224,8 @@ func _pick_spot() -> bool:
 func _keep_out_of_mist(t: float, delta: float) -> void:
 	if velocity == Vector2.ZERO or world.mist == null or not safe_ground(world, position) or _in_party():
 		return
+	if state == State.HUNT and _clearing:
+		return   # (out after a monster: into the mist after it, till it makes them sick)
 	# (fetching game lying just inside the mist's edge: the step in is allowed)
 	if state == State.TO_PICKUP and loose != null and is_instance_valid(loose) and GAME_DROPS.has(loose.resource) 			and loose.ground.distance_to(position) < 2.5 * world.px:
 		return
@@ -2690,6 +2693,11 @@ const BOW_RANGE := 3.25           ## units: close enough to shoot
 const BOW_NEAR := 1.5             ## units: closer than this, what's after them is backed away from
 const SHOT_EVERY := 1.5           ## seconds between arrows
 const HUNT_FOR := 120.0           ## seconds one hunt lasts at most
+const CLEAR_REACH := 40.0         ## floor cells (about 10 units) round the village a hunter with nothing to hunt clears of monsters
+const MIST_BUILD := 90.0          ## seconds in the mist to grow mist sick (as Sera does)...
+const STRONG_MIST_BUILD := 35.0   ## ...twice as sick in strong mist, and quicker
+const MIST_RECOVER := 25.0        ## seconds out of it for each step of it to wear off
+const MIST_HOME := 1.0            ## mist sick enough ("50%") that a hunter out after monsters turns for home
 
 static var hunted := {}           ## Creature -> the Villager hunting it (so two don't go after one)
 
@@ -2703,6 +2711,8 @@ var _closing_from := -1.0         ## when they started closing in on it (shot fr
 var _game_at := Vector2.INF       ## where the game fell: its meat gathered up once it's landed
 var _gather_at := 0.0
 var _prey_last := Vector2.INF     ## where the game was last seen (it's gone the moment it falls)
+var _clearing := false            ## the hunt's after a monster round the village, into the mist if need be, not game
+var mist_sick := 0.0              ## how mist sick they are: it builds in the mist (faster in strong), wears off out of it
 
 
 ## Whether they hunt (set to it): then they fight with a bow.
@@ -2714,6 +2724,8 @@ func _prey_name() -> String:
 	if prey is Boar: return "boar"
 	if prey is Rabbit: return "rabbit"
 	if prey is Slime: return "slime"
+	if prey is MutatedWolf: return "mist wolf"
+	if prey is MutatedVillager: return "mist-taken villager"
 	return "something"
 
 
@@ -2751,11 +2763,18 @@ func _go_hunt(_put_on: bool) -> bool:
 			best = c
 	if best == null:
 		return false
+	_start_hunt(best, false)
+	return true
+
+
+# Off after [param what]: game, or ([param clearing]) a monster round the village.
+func _start_hunt(what: Creature, clearing: bool) -> void:
 	if job != null:
 		claimed.erase(job)
 		job = null
-	prey = best
-	hunted[best] = self
+	prey = what
+	hunted[what] = self
+	_clearing = clearing
 	state = State.HUNT
 	_chase_best = INF
 	_chase_best_at = now()
@@ -2763,7 +2782,47 @@ func _go_hunt(_put_on: bool) -> bool:
 	state_until = now() + HUNT_FOR
 	next_chase = 0.0
 	_next_shot = now() + 0.8
+
+
+# Nothing to hunt, and not still mist sick from last time: by day, after the nearest monster round the village (a
+# slime, a wolf or a villager the mist has taken), into the mist after it if need be, till the mist makes them sick
+# enough to turn for home. Whether they went.
+func _go_clear() -> bool:
+	if _night() or not able(person, Job.HUNTING) or carrying > 0 or _in_party() or mist_sick > MIST_HOME * 0.25:
+		return false
+	var best: Creature = null
+	var best_d := INF
+	for c in Creature.all:
+		if not is_instance_valid(c) or c.hit == null or not c.hit.alive() or c.raid_to != Vector2.INF:
+			continue
+		if not (c is Slime or c is MutatedWolf or c is MutatedVillager) or (c is Slime and (c as Slime).large):
+			continue   # (a big slime's too much for one with a bow)
+		var by: Variant = hunted.get(c)
+		if by != null and by != self and is_instance_valid(by) and (by as Villager).state == State.HUNT:
+			continue
+		if not world.village.contains(c.position, CLEAR_REACH) or now() < float(_let_be.get(c.hit, -1.0)):
+			continue
+		var d := c.position.distance_to(position)
+		if d < best_d:
+			best_d = d
+			best = c
+	if best == null:
+		return false
+	_start_hunt(best, true)
 	return true
+
+
+# Mist sickness: it builds while they stand in the mist (twice as far and quicker in strong mist) and wears off out of
+# it. Only a hunter out after monsters goes into it.
+func _mist_sickness(delta: float) -> void:
+	if mist_sick <= 0.0 and not (state == State.HUNT and _clearing):
+		return
+	var tier := world.mist.tier_at(position) if world.mist != null else Mist.Tier.CLEAR
+	var most := 2.0 if tier == Mist.Tier.STRONG else (1.0 if tier != Mist.Tier.CLEAR else 0.0)
+	if mist_sick < most:
+		mist_sick = minf(most, mist_sick + delta / (STRONG_MIST_BUILD / 2.0 if tier == Mist.Tier.STRONG else MIST_BUILD))
+	else:
+		mist_sick = maxf(most, mist_sick - delta / MIST_RECOVER)
 
 
 func _hunting(t: float, delta: float) -> void:
@@ -2783,6 +2842,12 @@ func _hunting(t: float, delta: float) -> void:
 	if prey == null or not is_instance_valid(prey) or prey.hit == null or not prey.hit.alive():
 		_end_hunt(t, true)
 		return
+	# (out after a monster and the mist's got to them: home, to let it wear off)
+	if _clearing and mist_sick >= MIST_HOME:
+		_end_hunt(t, false)
+		bark("bark.mistsick", {}, true)
+		_go_home()
+		return
 	if _night() or t > state_until or prey.position.distance_to(position) > HUNT_FROM * 1.3 * world.px:
 		_end_hunt(t, false)
 		return
@@ -2790,10 +2855,10 @@ func _hunting(t: float, delta: float) -> void:
 	# Gone into the mist out of bow range, or no nearer it in 8 seconds (the mist or a wall between): let be a while,
 	# not run at on the spot at the mist's edge till the hunt runs out.
 	var d := prey.position.distance_to(position)
-	if d < _chase_best - 0.3 * world.px or d <= BOW_RANGE * 1.5 * world.px:
+	if d < _chase_best - 0.3 * world.px or d <= BOW_RANGE * (1.75 if _clearing else 1.5) * world.px:
 		_chase_best = d
 		_chase_best_at = t
-	if (d > BOW_RANGE * 1.5 * world.px and not safe_ground(world, prey.position)) or t - _chase_best_at > 8.0:
+	if (d > BOW_RANGE * 1.5 * world.px and not safe_ground(world, prey.position) and not _clearing) or t - _chase_best_at > 8.0:
 		_let_be[prey.hit] = t + 60.0
 		_end_hunt(t, false)
 		return
@@ -2806,6 +2871,7 @@ func _end_hunt(t: float, got_it: bool) -> void:
 	_prey_last = Vector2.INF
 	hunted.erase(prey)
 	prey = null
+	_clearing = false
 	_bow_shown(false)
 	_shot_from = -1.0
 	if got_it:
@@ -2870,7 +2936,7 @@ func _bow_at(shot_at: Damageable, t: float, delta: float, keep: State) -> void:
 			dodge_until = t + 0.9
 			return
 	# (closing in; but held up a while, a bank or a wall in the way, they shoot from a little further)
-	var held_up := _closing_from >= 0.0 and t - _closing_from > 2.5 and d <= BOW_RANGE * 1.5 * world.px
+	var held_up := _closing_from >= 0.0 and t - _closing_from > 2.5 and d <= BOW_RANGE * (1.75 if _clearing else 1.5) * world.px
 	if d > BOW_RANGE * world.px and not held_up:
 		if _closing_from < 0.0:
 			_closing_from = t
