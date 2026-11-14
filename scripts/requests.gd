@@ -62,6 +62,7 @@ func _process(delta: float) -> void:
 	_clock = 0.0
 	var __t := Time.get_ticks_usec()
 	_hand_out()
+	_raise_soon()
 	var h := int(Chronicle.active.now())
 	if h != _hour:
 		_hour = h
@@ -71,8 +72,14 @@ func _process(delta: float) -> void:
 
 # ---- Who wants what ----
 
-## Whether [param p] wants what [param wants] names ("bag", "scarf", "tools").
+## Whether [param p] wants what [param wants] names ("bag", "scarf", "tools"; "mistcrystal": one of the party with
+## no necklace on, nothing between them and the mist).
 func wanting(p: Dictionary, wants: String) -> bool:
+	if wants == "mistcrystal":
+		if Party.active == null or not Party.active.has_member(p):
+			return false
+		var st := Companions.stats_for(p)
+		return st != null and st.worn_in("Necklace") == "" and not _carries(p, "CrystalNecklace")
 	if p.has("unique"):
 		return false   # (the uniques have their own ways: companions carry packs)
 	match wants:
@@ -84,6 +91,12 @@ func wanting(p: Dictionary, wants: String) -> bool:
 			var jobs := Villager.jobs_of(p)
 			return (jobs.has(Villager.Job.MINING) or jobs.has(Villager.Job.LUMBERING)) and int(p.get("toolsLeft", 0)) <= 0
 	return false
+
+
+# Whether [param p] has [param item] in their own bag already.
+func _carries(p: Dictionary, item: String) -> bool:
+	var bag := Companions.bag_of(p)
+	return bag != null and bag.items.has(item)
 
 
 # Whether the village is in the cold months, or the one before them.
@@ -164,6 +177,16 @@ func _still(def: Dictionary, v: Villager) -> bool:
 	return wanting(v.person, str(def.wants))
 
 
+# Asks that don't wait their turn ("soon"): one of the party with no mist crystal asks for one straight away.
+func _raise_soon() -> void:
+	for def in defs:
+		if not bool(def.get("soon", false)):
+			continue
+		for v in Villager.all:
+			if is_instance_valid(v) and wanting(v.person, str(def.wants)) and not _asking(v):
+				offer(def, v)
+
+
 # One more villager comes to want something of their own (a few at once in the village at most).
 func _raise_one(now: float) -> void:
 	var mine := asks.values().filter(func(st): return not bool(by_id[str(st.id)].get("every", false)) and (st.state == "offered" or st.state == "open"))
@@ -178,7 +201,7 @@ func _raise_one(now: float) -> void:
 		if not is_instance_valid(v) or busy.has(str(v.person.name)) or now - float(last.get(str(v.person.name), -INF)) < AGAIN_AFTER:
 			continue
 		for def in defs:
-			if bool(def.get("every", false)) or not wanting(v.person, str(def.wants)):
+			if bool(def.get("every", false)) or bool(def.get("soon", false)) or not wanting(v.person, str(def.wants)):
 				continue
 			if _every_open_for(str(def.wants)):
 				continue   # (the whole village is already asking for it)
@@ -277,21 +300,24 @@ func open_for(v: Villager) -> String:
 	return ""
 
 
-## Where Sera has a thing of [param kind] to hand over: [bag slot, -1], [-1, storage index], or [] if nowhere.
-func find_thing(kind: String) -> Array:
+## Where Sera has what [param def] asks for (a thing of its kind, or the one item it names) to hand over: [bag slot,
+## -1], [-1, storage index], or [] if nowhere.
+func find_thing(def: Dictionary) -> Array:
+	var fits := func(nm: String) -> bool:
+		return nm != "" and (nm == str(def.item) if def.has("item") else str(UiKit.item(nm).get("kind", "")) == str(def.kind))
 	for i in miko.bag.items.size():
-		if str(miko.bag.items[i]) != "" and str(UiKit.item(str(miko.bag.items[i])).get("kind", "")) == kind:
+		if fits.call(str(miko.bag.items[i])):
 			return [i, -1]
 	if world.village.in_reach(miko):
 		for i in world.village.items.size():
-			if str(UiKit.item(str(world.village.items[i])).get("kind", "")) == kind:
+			if fits.call(str(world.village.items[i])):
 				return [-1, i]
 	return []
 
 
 ## The name of the thing [param key]'s for, as handed over ("Sachet").
 func thing_name(key: String) -> String:
-	var at := find_thing(str(by_id[str(asks[key].id)].kind))
+	var at := find_thing(by_id[str(asks[key].id)])
 	if at.is_empty():
 		return str(by_id[str(asks[key].id)].thing)
 	var nm := str(miko.bag.items[at[0]]) if at[0] >= 0 else str(world.village.items[at[1]])
@@ -302,7 +328,7 @@ func thing_name(key: String) -> String:
 func give(key: String, v: Villager) -> String:
 	var st: Dictionary = asks[key]
 	var def: Dictionary = by_id[str(st.id)]
-	var at := find_thing(str(def.kind))
+	var at := find_thing(def)
 	if at.is_empty():
 		return ""
 	var nm: String
@@ -337,6 +363,15 @@ func _put_on(p: Dictionary, wants: String, item: String) -> void:
 			p["scarf"] = true
 		"tools":
 			p["toolsLeft"] = Villager.TOOL_USES
+		"mistcrystal":
+			# (round their neck: into their bag, and worn from there)
+			var bag := Companions.bag_of(p)
+			var st := Companions.stats_for(p)
+			var slot := bag.free_slot() if bag != null else -1
+			if slot >= 0 and st != null:
+				bag.items[slot] = item
+				st.equip(bag, slot)
+				Companions.sync(p)
 
 
 # What's put in storage for a whole-village ask goes to those still without, one a second.
@@ -380,7 +415,7 @@ func _settle(key: String, v: Villager) -> String:
 	var gold := int(def.get("gold", 0))
 	if gold > 0:
 		miko.bag.add("Gold", gold)
-	FloatingText.spawn(world, "Request done  +%d gold" % gold, miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.5)
+	FloatingText.spawn(world, ("Request done  +%d gold" % gold) if gold > 0 else "Request done", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.5)
 	VillageLog.event("request:" + key, "%s: done" % _fill(str(def.title), key))
 	var teller := v if v != null else _villager(str(st.by))
 	if teller != null:
@@ -433,7 +468,7 @@ func lines(key: String) -> Array:
 				var left := float(def.days) * 24.0 - (Chronicle.active.now() - float(st.took))
 				out.append(["%s will wait about %d more day%s." % [str(st.by), maxi(1, ceili(left / 24.0)), "" if left <= 24.0 else "s"], false])
 		"done":
-			out.append(["Done. Thanked with %d gold." % int(def.get("gold", 0)), true])
+			out.append([("Done. Thanked with %d gold." % int(def.get("gold", 0))) if int(def.get("gold", 0)) > 0 else "Done.", true])
 		"met":
 			out.append(["They found one themselves.", true])
 		"gone":

@@ -209,7 +209,7 @@ func _show(line: String) -> void:
 		if ask != "":
 			_add("Something on your mind?", _ask_request.bind(ask), true)
 		var open_key := Requests.active.open_for(who)
-		if open_key != "" and not Requests.active.find_thing(str(Requests.active.by_id[str(Requests.active.asks[open_key].id)].kind)).is_empty():
+		if open_key != "" and not Requests.active.find_thing(Requests.active.by_id[str(Requests.active.asks[open_key].id)]).is_empty():
 			_add("Give %s a %s" % [str(who.person.name), Requests.active.thing_name(open_key).to_lower()], _give_request.bind(open_key), true)
 	# (someone unique: something of their own to talk about, and a gift)
 	if Intimacy.has(who.person):
@@ -672,35 +672,50 @@ func _head_of(n: Node2D) -> Vector2:
 	return n.position
 
 
-# Over their head, a little to the side, kept on screen; the tail from its bottom edge down to their head.
+# Over their head, a little to the side, kept on screen; the tail from its bottom edge down to their head. No room
+# over them (near the top of the screen, or a long list of replies): beside them instead, to the right (or the left
+# with no room there), the tail from its side.
 func _place() -> void:
 	reset_size()
 	var k := HudStyle.SCALE
 	var vp := get_viewport_rect().size
 	var head := get_viewport().get_canvas_transform() * _head_of(_speaking if _speaking != null and is_instance_valid(_speaking) else who)
 	var at := head + Vector2(-60 * k, -size.y - 34 * k)
-	at.x = clampf(at.x, 8.0, vp.x - size.x - 8.0)
-	at.y = clampf(at.y, 8.0, vp.y - size.y - 8.0)
-	position = at.round()
-	# The tail's root on the bubble's bottom edge, near the head, its tip at the head.
-	var root_x := clampf(head.x, position.x + 24 * k, position.x + size.x - 40 * k)
-	_tail.from = Vector2(root_x, position.y + size.y - 3 * k)
+	if at.y >= 8.0:
+		at.x = clampf(at.x, 8.0, vp.x - size.x - 8.0)
+		position = at.round()
+		# The tail's root on the bubble's bottom edge, near the head, its tip at the head.
+		var root_x := clampf(head.x, position.x + 24 * k, position.x + size.x - 40 * k)
+		_tail.from = Vector2(root_x, position.y + size.y - 3 * k)
+		_tail.across = Vector2.RIGHT
+	else:
+		var gap := 46 * k
+		var right := head.x + gap + size.x <= vp.x - 8.0
+		at.x = head.x + gap if right else head.x - gap - size.x
+		at.x = clampf(at.x, 8.0, vp.x - size.x - 8.0)
+		at.y = clampf(head.y - size.y * 0.35, 8.0, vp.y - size.y - 8.0)
+		position = at.round()
+		# The tail's root on the side facing them, level with the head (as near as the bubble allows).
+		var root_y := clampf(head.y, position.y + 24 * k, position.y + size.y - 24 * k)
+		_tail.from = Vector2(position.x + 3 * k if right else position.x + size.x - 3 * k, root_y)
+		_tail.across = Vector2.DOWN
 	_tail.width = 22 * k
 	_tail.tip = head
 	_tail.queue_redraw()
 
 
-## The bubble's tail: a wedge from the bubble down to the speaker, in the panel's colours.
+## The bubble's tail: a wedge from the bubble's edge to the speaker, in the panel's colours.
 class Tail extends Control:
 	var from := Vector2.ZERO
 	var tip := Vector2.ZERO
 	var width := 22.0
+	var across := Vector2.RIGHT     ## along the edge it grows from (the bottom edge, or a side)
 
 	func _draw() -> void:
 		var fill := Color8(28, 20, 16, 244)
 		var edge := Color8(90, 70, 50, 255)
-		var a := from + Vector2(-width / 2.0, 0)
-		var b := from + Vector2(width / 2.0, 0)
+		var a := from - across * width / 2.0
+		var b := from + across * width / 2.0
 		draw_colored_polygon(PackedVector2Array([a, b, tip]), fill)
 		draw_line(a, tip, edge, 2.0, true)
 		draw_line(b, tip, edge, 2.0, true)

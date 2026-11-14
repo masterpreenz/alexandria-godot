@@ -1,8 +1,8 @@
 {
 "_about": "A companion's tactics (scripts/tactics.gd, the Tactics window from the party window, scripts/companion_magic.gd thinking with them): a stance and a list of rules. think: seconds between their looks. keepNear/keepFar: units from the monster a companion keeping their distance stays between (they step back nearer than keepNear, come in further than keepFar); moveEvery: seconds at least between two such steps. dodgeMargin: units past a marked strip's edge they step to; dodgeFill: how full a strip can be and still be got out of. potionEvery: seconds at least between two potions; meleeRange: units counted as 'in melee'; nearRange: units counted as 'near' (Enemies near). guardAfter: seconds since a blow that still counts as being attacked. weights: a rule's weight, 1 (Rarely) to 5 (Always): every (seconds before it can fire again) and chance (that it's taken when it could be; tried again a second later if not). frequencies: how freely they cast: gap (seconds between two casts at least) and reserve (% of mana kept back on top of the stance's own, for attack spells; heals and shields may spend it). conditions/actions: what a rule is made of (value: pct, count or none; spell: the action names a spell). spellKinds: the spells a rule can name by what they're for (the best of that kind they know), before the spells by name. The stance's dodge (on: out of a marked strip before anything else, dropping a spell) is what keeps them out of charges and leaps; a rule 'Standing in a marked strip -> Dodge' does it in its turn among the rules, never mid-spell. defaults: the preset each companion starts with (by unique id; '' for anyone else). presets: stance and rules; a rule is when (condition), value, do (action), spell (cast only), weight 1-5, on.",
 "think": 0.3,
-"keepNear": 4.0,
-"keepFar": 6.0,
+"keepNear": 2.0,
+"keepFar": 3.0,
 "moveEvery": 2.0,
 "dodgeMargin": 0.45,
 "dodgeFill": 0.92,
@@ -24,7 +24,7 @@
 ],
 "ranges": [
  {"id": "close", "label": "Close", "about": "Closes in and stabs; casts from wherever they are."},
- {"id": "distance", "label": "Keep distance", "about": "Stays 4-6 steps from the monsters and casts from there; steps back only when one comes close, never mid-spell."}
+ {"id": "distance", "label": "Keep distance", "about": "Stays 2-3 steps from the monsters and casts from there; steps back only when one comes close, never mid-spell."}
 ],
 "protects": [
  {"id": "leader", "label": "The leader", "about": "Heals and shields go to the one you play first."},

@@ -342,6 +342,9 @@ func _urgent() -> bool:
 # it, whatever their boxes say. ----
 
 func _board_work(t: float, chance: float) -> bool:
+	# (meat lying about spoils: whoever can carry it brings it in before anything else)
+	if _go_fetch_game():
+		return true
 	var first := int(person.get("first", -1))
 	if first > 0 and _do_job(first, t, true, 1.0):
 		return true
@@ -508,7 +511,11 @@ func _party_threat() -> Damageable:
 		var c: Creature = d.get_parent()
 		if c is Rabbit:
 			continue
-		var near := minf(d.global_position.distance_to(me), d.global_position.distance_to(position))
+		# (what's near the leader; near them only if it's after them: else, left behind, it's not worth turning back for)
+		var near := d.global_position.distance_to(me)
+		var on_them := c.hostile() and d.global_position.distance_to(position) < 2.0 * world.px
+		if on_them:
+			near = minf(near, d.global_position.distance_to(position))
 		if near < best_d and (c.hostile() or near < 3.0 * world.px):
 			best_d = near
 			best = d
@@ -634,6 +641,35 @@ func _physics_process_timed(delta: float) -> void:
 		facing_up = to.y < 0.0
 		_show_idle()
 		return
+	# Game lying close by on the way (meat, hide, jelly): picked up into their own bag, mist or no mist, while she's near.
+	var me: Node2D = world.player if state == State.FOLLOW and _in_party() else null
+	if _grab != null and me == null:
+		gathering.erase(_grab)
+		_grab = null
+	if _grab != null:
+		if not is_instance_valid(_grab) or me == null or _grab.ground.distance_to(me.position) > Party.GUARD * world.px:
+			gathering.erase(_grab)
+			_grab = null
+		elif _step_to(_grab.ground, delta, 1.4):
+			var bag := Companions.bag_of(person)
+			if bag != null and bag.add(_grab.resource, _grab.amount):
+				FloatingText.spawn(world, "+%d %s" % [_grab.amount, UiKit.resource_name(_grab.resource).to_lower()], position + Vector2(0, -1.4 * world.px), Color(0.95, 0.9, 0.7), 14, 1.0)
+				_grab.take_away()
+			gathering.erase(_grab)
+			_grab = null
+			velocity = Vector2.ZERO
+			return
+		else:
+			move_and_slide()
+			return
+	elif t >= _next_grab_look and me != null:
+		_next_grab_look = t + 0.5
+		var bag := Companions.bag_of(person)
+		for p in Pickup.all:
+			if is_instance_valid(p) and p.settled() and not p.thrown and not gathering.has(p) and GAME_DROPS.has(p.resource) 					and p.ground.distance_to(position) < 4.0 * world.px and p.ground.distance_to(me.position) < Party.GUARD * world.px 					and bag != null and bag.has_room_for(p.resource):
+				_grab = p
+				gathering[p] = true
+				break
 	# Out of a strip a monster has marked (a companion's tactics): straight out of it, quickly.
 	if t < dodge_until and dodge_to != Vector2.INF:
 		if _step_to(dodge_to, delta, 1.7):
@@ -913,6 +949,13 @@ func _someone_near(mid: Vector2, me: bool) -> bool:
 	return false
 
 
+var _grab: Pickup                 ## game lying near that one of the party is picking up on the way
+var _next_grab_look := 0.0
+const SPRINT_BEHIND := 3.0         ## units behind the leader past which one of the party sprints to catch up
+var _stride := 0.0                ## how far through their walk cycle (frames)
+var _walk_speed_now := 0.0         ## px a second they were last walking at
+
+
 func _walk(t: float, delta: float) -> void:
 	if _doors(t):
 		return
@@ -931,10 +974,20 @@ func _walk(t: float, delta: float) -> void:
 	if dir.x > 0.02 * world.px: facing_right = true
 	elif dir.x < -0.02 * world.px: facing_right = false
 	clock += delta
+	# (the stride quickens with their pace, so their feet keep up with the ground)
+	_stride += delta * _walk_fps() * _walk_speed_now / maxf(0.01, float(s.walkSpeed) * world.px * Traits.mul(person, "speed"))
 	var frames: Array = s.walkUp if facing_up else s.walkDown
 	if not frames.is_empty():
-		_show(int(frames[int(clock * _walk_fps()) % frames.size()]))
+		_show(int(frames[int(_stride) % frames.size()]))
 	var speed := float(s.walkSpeed) * world.px * (1.7 if state == State.FLEE else 1.0) * Traits.mul(person, "speed")   # (running for it)
+	# (with the party: never slower than the leader walks, and sprinting as she runs once they've fallen behind)
+	if state == State.FOLLOW and world.player is Miko:
+		var me := world.player as Miko
+		speed = maxf(speed, me.walk_speed * me.speed_scale)
+		speed = maxf(speed, me.velocity.length() * 1.05)
+		if position.distance_to(me.position) > SPRINT_BEHIND * world.px:
+			speed = maxf(speed, me.run_speed * me.speed_scale * 1.1)
+	_walk_speed_now = speed
 	var v := dir.normalized() * minf(speed, dir.length() / maxf(delta, 0.001))
 	v = steer.around(v, delta)
 	if steer.stuck:
@@ -2018,7 +2071,7 @@ func _head_room(id: int) -> float:
 # ---- Chats ----
 
 func _free() -> bool:
-	return state == State.STAND or state == State.WALK
+	return (state == State.STAND or state == State.WALK) and not _in_party()   # (one of the party isn't stopped for a chat)
 
 
 # Free time: two villagers get together and talk, in little picture bubbles.
@@ -2252,7 +2305,9 @@ func _fighting(t: float, delta: float) -> void:
 			or (not raid and foe.global_position.distance_to(_home_at()) > float(s.chaseRange) * world.px) \
 			or (_in_party() and world.player != null and foe.global_position.distance_to(world.player.position) > Party.GUARD * 1.8 * world.px):
 		foe = null
-		_stand(t, randf_range(1.0, 2.0))
+		# (one of the party: straight back after the leader, no standing about)
+		if _in_party(): _follow_start(t)
+		else: _stand(t, randf_range(1.0, 2.0))
 		return
 	# A companion's tactics: back to the leader when told; kept at a distance when that's their stance.
 	if _in_party():
@@ -2592,9 +2647,12 @@ func _gather_game(t: float) -> void:
 	var best: Pickup = null
 	var best_d := 4.5 * world.px
 	for p in Pickup.all:
-		if is_instance_valid(p) and p.settled() and not p.thrown and not gathering.has(p) and p.ground.distance_to(at) < best_d:
-			best_d = p.ground.distance_to(at)
-			best = p
+		if is_instance_valid(p) and p.settled() and not p.thrown and not gathering.has(p) and p.ground.distance_to(at) < best_d * 2.0:
+			# (the meat first: it's what spoils)
+			var dd := p.ground.distance_to(at) * (0.5 if p.resource == "Food" else 1.0)
+			if dd < best_d:
+				best_d = dd
+				best = p
 	if best == null:
 		_stand(t, randf_range(1.0, 2.0))
 		return
@@ -3131,6 +3189,43 @@ func _nearest_loose(within: float) -> Pickup:
 			best_d = dd
 			best = p
 	return best
+
+
+## What game leaves where it falls (meat first, then hide and slime jelly): fetched by whoever can haul, wherever it
+## lies on cleared ground, before other work.
+const GAME_DROPS := ["Food", "Hide", "Jelly"]
+
+
+# The nearest meat (or hide, or jelly) lying about: off to bring it in. Whether they went.
+func _go_fetch_game() -> bool:
+	if not able(person, Job.HAULING) or _in_party() or carrying >= _carry_most():
+		return false
+	var best: Pickup = null
+	var best_d := 30.0 * world.px
+	var t := now()
+	for p in Pickup.all:
+		if not is_instance_valid(p) or not p.settled() or p.thrown or gathering.has(p) or not GAME_DROPS.has(p.resource):
+			continue
+		if carrying > 0 and p.resource != carry_kind:
+			continue
+		if t < float(out_of_reach.get(p, -1.0)) or not safe_ground(world, p.ground) or world.village.stored(p.resource) >= world.village.stash_cap(p.resource):
+			continue
+		# (meat counts as nearer: it's what spoils)
+		var dd := p.ground.distance_to(position) * (0.5 if p.resource == "Food" else 1.0)
+		if dd < best_d:
+			best_d = dd
+			best = p
+	if best == null:
+		return false
+	if world.walls != null and VillagerRoute.find(world, position, best.ground) == null and position.distance_to(best.ground) > 1.2 * world.px:
+		out_of_reach[best] = t + 60.0
+		return false
+	loose = best
+	gathering[best] = true
+	state = State.TO_PICKUP
+	clock = 0.0
+	_set_goal(best.ground)
+	return true
 
 
 func _go_pick_up(put_on := false) -> bool:

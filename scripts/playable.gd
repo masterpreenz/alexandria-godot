@@ -522,10 +522,10 @@ func _sera_as_villager() -> Dictionary:
 	s["sleepFacesRight"] = bool(nd.get("needs", {}).get("artFacesRight", nd.get("artFacesRight", false)))
 	if nd.has("lying"):
 		var lying: Dictionary = (nd.lying as Dictionary).duplicate(true)
-		for pose in lying:
+		for lie_pose in lying:
 			for pt in ["middle", "head"]:
-				if lying[pose].has(pt):
-					lying[pose][pt] = [float(lying[pose][pt][0]) * World.BODY_SCALE, float(lying[pose][pt][1]) * World.BODY_SCALE]
+				if lying[lie_pose].has(pt):
+					lying[lie_pose][pt] = [float(lying[lie_pose][pt][0]) * World.BODY_SCALE, float(lying[lie_pose][pt][1]) * World.BODY_SCALE]
 		lk["lying"] = lying
 	var faint: Dictionary = (world._load_json("res://data/monsters.json") as Dictionary).get("fainting", {})
 	if faint.has("faintFront"):
