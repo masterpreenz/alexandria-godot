@@ -343,7 +343,7 @@ func nearest(at: Vector2, reach: float, want_lit: bool, cook: bool) -> Dictionar
 	var best := {}
 	var best_d := reach
 	for f in fires:
-		if lit(f) != want_lit or (cook and bool(f.s.torch)):
+		if lit(f) != want_lit or (cook and (bool(f.s.torch) or bool(f.s.get("hearth", false)))):
 			continue
 		var dd: float = f.pos.distance_to(at)
 		if dd <= best_d:

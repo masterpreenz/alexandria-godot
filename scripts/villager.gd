@@ -3776,7 +3776,8 @@ func _go_cook(urgent := false) -> bool:
 	var best_d := INF
 	var any_fire := false
 	for f in fires.fires:
-		if bool(f.s.torch) or not world.village.contains(f.pos, 1.0):
+		# (a fireplace warms its house; nobody cooks at one, behind its wall)
+		if bool(f.s.torch) or bool(f.s.get("hearth", false)) or not world.village.contains(f.pos, 1.0):
 			continue
 		any_fire = true
 		if cooking_at.has(f.key):
