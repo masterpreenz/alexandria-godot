@@ -2471,6 +2471,8 @@ var prey: Creature                ## what they're hunting
 var _next_shot := 0.0
 var _next_back := 0.0
 var _bow: BowArt
+var _shot_from := -1.0            ## when the shot under way began (its animation: drawn, held, loosed), or -1
+var _loosed := false
 var _game_at := Vector2.INF       ## where the game fell: its meat gathered up once it's landed
 var _gather_at := 0.0
 var _prey_last := Vector2.INF     ## where the game was last seen (it's gone the moment it falls)
@@ -2566,6 +2568,7 @@ func _end_hunt(t: float, got_it: bool) -> void:
 	hunted.erase(prey)
 	prey = null
 	_bow_shown(false)
+	_shot_from = -1.0
 	if got_it:
 		people.practise(person, LifeSkills.Skill.STRENGTH)
 		show_mood("success", 3.0)
@@ -2599,7 +2602,9 @@ func _gather_game(t: float) -> void:
 # of a charge's marked path quickly, and back from whatever's come too close. [param keep] is the state they're in.
 func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
 	var it := target.get_parent() as Node2D
-	_bow_shown(true)
+	# (a look with its own bow art: that; else the bow drawn in their hands)
+	var drawn_art: bool = not (s.get("bowDown", []) as Array).is_empty()
+	_bow_shown(not drawn_art)
 	# (stepping out of the way: a charge's path, or something come too close)
 	if t < dodge_until and dodge_to != Vector2.INF:
 		if _step_to(dodge_to, delta, 1.8):
@@ -2632,16 +2637,40 @@ func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
 	velocity = Vector2.ZERO
 	facing_up = to.y < 0.0
 	facing_right = to.x > 0.0
-	_show_idle()
-	_bow.aim(to, 1.0 - clampf((_next_shot - t) / SHOT_EVERY, 0.0, 1.0))
-	if t >= _next_shot:
-		_next_shot = t + SHOT_EVERY * randf_range(0.85, 1.15)
-		# (a little ahead of it, if it's on the move)
-		var lead := it.position
-		if it is CharacterBody2D:
-			lead += (it as CharacterBody2D).velocity * clampf(d / (Arrow.SPEED * world.px), 0.0, 0.6)
-		var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
-		Arrow.loose(world, self, position + Vector2(0, -0.45 * world.px), target, lead, float(person.get("atk", s.stabDamage)) * strength)
+	if not drawn_art:
+		_show_idle()
+		_bow.aim(to, 1.0 - clampf((_next_shot - t) / SHOT_EVERY, 0.0, 1.0))
+		if t >= _next_shot:
+			_next_shot = t + SHOT_EVERY * randf_range(0.85, 1.15)
+			_loose_at(target, it, d)
+		return
+	# The shot: the bow raised and drawn, held, loosed on its frame, lowered; a breath, then the next.
+	var frames: Array = s.bowUp if facing_up else s.bowDown
+	if _shot_from < 0.0:
+		if t < _next_shot:
+			_show(int(frames[0]))
+			return
+		_shot_from = t
+		_loosed = false
+	var f := int((t - _shot_from) * float(s.get("bowFps", 10)))
+	if f >= frames.size():
+		_shot_from = -1.0
+		_next_shot = t + randf_range(0.2, 0.6)
+		_show(int(frames[0]))
+		return
+	_show(int(frames[f]))
+	if not _loosed and f >= int(s.get("bowLooseUp" if facing_up else "bowLooseDown", frames.size() >> 1)):
+		_loosed = true
+		_loose_at(target, it, d)
+
+
+# An arrow off at [param target] ([param it], [param d] px away), a little ahead of it if it's on the move.
+func _loose_at(target: Damageable, it: Node2D, d: float) -> void:
+	var lead := it.position
+	if it is CharacterBody2D:
+		lead += (it as CharacterBody2D).velocity * clampf(d / (Arrow.SPEED * world.px), 0.0, 0.6)
+	var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
+	Arrow.loose(world, self, position + Vector2(0, -0.45 * world.px), target, lead, float(person.get("atk", s.stabDamage)) * strength)
 
 
 # Out of [param strip] sideways (to the nearer edge), a step past it.

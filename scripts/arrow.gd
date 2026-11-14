@@ -31,6 +31,7 @@ static func loose(w: World, hunter: Node2D, from_px: Vector2, target: Damageable
 	a._flight = maxf(0.08, from_px.distance_to(land) / (SPEED * w.px))
 	a.position = from_px
 	w.things.add_child(a)
+	Sfx.play(w, Sfx.stream("res://assets/Sounds/bow_attack.mp3"), from_px, 0.7, 0.08)
 	return a
 
 
@@ -51,7 +52,6 @@ func _process(delta: float) -> void:
 			c.hunter = by
 			c.hunted_until = Time.get_ticks_msec() / 1000.0 + 15.0
 		at.hurt(damage)
-		Sfx.play(world, Sfx.stream("res://assets/Sounds/shiki_spear_stab.mp3"), position, 0.35, 0.15)   # (no bow sounds yet: the thud going in)
 		queue_free()
 		return
 	if _gone >= 1.0:

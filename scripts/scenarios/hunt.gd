@@ -71,7 +71,7 @@ func run() -> void:
 		if dodging and not was_dodging:
 			dodges += 1
 		was_dodging = dodging
-		if pictured == 0 and Time.get_ticks_msec() - start > 3000:
+		if pictured == 0 and man._shot_from > 0.0 and Villager.now() - man._shot_from > 0.7:
 			pictured = 1
 			shot("aim")
 		if pictured == 1 and boar != null and is_instance_valid(boar) and boar.state == Boar.State.WIND_UP:
