@@ -28,8 +28,8 @@ func run() -> void:
 		for v in Villager.all:
 			if not is_instance_valid(v) or v.stove.is_empty():
 				continue
-			var name := str(v.stove.type)
-			picks[name] = int(picks.get(name, 0)) + 1
+			var kind := str(v.stove.type)
+			picks[kind] = int(picks.get(kind, 0)) + 1
 			if v.stove.key == hearth.key:
 				at_hearth += 1
 	print("Hearth cook: frames a cook had the fireplace ", at_hearth, ", fires cooked at (frames) ", picks)
