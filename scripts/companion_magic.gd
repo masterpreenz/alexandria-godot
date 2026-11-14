@@ -78,7 +78,7 @@ func _think(_delta: float) -> void:
 	# dropped); looked for often, as a leap comes quickly. With it off they keep at what they're doing.
 	if not Telegraph.live.is_empty() and t >= _next_strip_look and t >= body.dodge_until:
 		_next_strip_look = t + 0.1
-		if body.world != null and body._in_party() and not body.talking and body.hit != null and body.hit.alive() 				and body.state != Villager.State.FLEE and bool(Tactics.stance(body.person).get("dodge", true)):
+		if body.world != null and _on() and not body.talking and body.hit != null and body.hit.alive() 				and body.state != Villager.State.FLEE and bool(Tactics.stance(body.person).get("dodge", true)):
 			var strip := Tactics.strip_at(body.position)
 			if strip != null:
 				if _pending != "":
@@ -93,7 +93,7 @@ func _think(_delta: float) -> void:
 	if t < _next:
 		return
 	_next = t + float(Tactics.data().get("think", 0.3))
-	if body.world == null or not body._in_party() or body.talking or body.hit == null or not body.hit.alive():
+	if body.world == null or not _on() or body.talking or body.hit == null or not body.hit.alive():
 		return
 	if body.state == Villager.State.FLEE or body.state == Villager.State.ASLEEP or t < body.dodge_until or t < body.cast_until:
 		return
@@ -104,6 +104,15 @@ func _think(_delta: float) -> void:
 	var __t := Time.get_ticks_usec()
 	_follow_rules(t, st, Tactics.of(body.person))
 	Perf.add(&"companion_magic.rules", __t)
+
+
+# Whether their mind's at work: with the party, or in a fight of the village's own (at home, they fight as they
+# would with the party, their rules about the leader aside).
+func _on() -> bool:
+	return body._in_party() or body.state == Villager.State.FIGHT
+
+
+const LEADERS_RULES := ["toLeader", "attackLeaderTarget", "leaderHpBelow", "leaderAttacked"]
 
 
 # Their rules, top first: the first that holds and can be done now is done.
@@ -120,6 +129,8 @@ func _follow_rules(t: float, st: CharacterStats, tac: Dictionary) -> void:
 	for i in rules.size():
 		var r: Dictionary = rules[i]
 		if not bool(r.get("on", true)) or (str(r.get("do", "")) == "cast" and _spells(st, str(r.get("spell", ""))).is_empty()):
+			continue
+		if not body._in_party() and (str(r.get("do", "")) in LEADERS_RULES or str(r.get("when", "")) in LEADERS_RULES):
 			continue
 		var key := i
 		if t < float(_rule_next.get(key, 0.0)):
@@ -161,7 +172,7 @@ func _look_at_lead(t: float) -> void:
 func _foe() -> Damageable:
 	if body.foe != null and is_instance_valid(body.foe) and body.foe.alive():
 		return body.foe
-	return body._party_threat()
+	return body._party_threat() if body._in_party() else body._threat()
 
 
 # Whether a rule's condition holds now: {} if not, else what it found (the foe, the ally it's about, the strip).

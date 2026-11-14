@@ -692,7 +692,7 @@ func _physics_process_timed(delta: float) -> void:
 		return
 	# Stepping to keep their distance from the monsters (a companion fighting from range): there, then still again.
 	if _reposition != Vector2.INF:
-		if t > _reposition_until or not _in_party() or _step_to(_reposition, delta, 1.0):
+		if t > _reposition_until or not (_in_party() or _casts()) or _step_to(_reposition, delta, 1.0):
 			_reposition = Vector2.INF
 			velocity = Vector2.ZERO
 		else:
@@ -1147,7 +1147,11 @@ func _walk_fps() -> float:
 	return float(s.walkFpsUp) if facing_up and s.has("walkFpsUp") else float(s.walkFps)
 
 
+var shown := -1                    ## the frame they're showing now
+
+
 func _show(id: int) -> void:
+	shown = id
 	var k := _scale()
 	world.show_frame(art, id, Vector2(-k if facing_right else k, k))
 
@@ -1214,7 +1218,7 @@ func _pick_spot() -> bool:
 # Villagers live on cleared ground (the village, a crystal's clearing): a step from there into the mist isn't taken,
 # and whatever they were walking to is given up. Caught out in it (the mist came back over them), they may walk out.
 func _keep_out_of_mist(t: float, delta: float) -> void:
-	if velocity == Vector2.ZERO or world.mist == null or not safe_ground(world, position):
+	if velocity == Vector2.ZERO or world.mist == null or not safe_ground(world, position) or _in_party():
 		return
 	var ahead := position + velocity * maxf(delta, 0.016) * 4.0
 	if safe_ground(world, ahead):
@@ -2334,6 +2338,9 @@ func _threat() -> Damageable:
 		var at := d.global_position
 		if not of_raid and not world.village.contains(at):
 			continue
+		# (a slime in the mist, the village's corner reaching into it, or one they couldn't get near: let be)
+		if not of_raid and (not safe_ground(world, at) or now() < float(_let_be.get(d, -1.0))):
+			continue
 		if of_raid and not world.village.contains(at, 10.0):
 			continue   # (not chased off into the mist: met as they come in)
 		var near := minf(at.distance_to(position), at.distance_to(_home_at()))
@@ -2343,7 +2350,20 @@ func _threat() -> Damageable:
 	return best
 
 
+## Whether they fight as one of the party does, by their tactics and spells (Miyu and the others who can be played),
+## in the party or not.
+func _casts() -> bool:
+	return has_node("Magic")
+
+
+var _let_be := {}                  ## monsters given up on (out of reach): Damageable -> until when
+var _chase_best := INF             ## closest they've got to what they're fighting, and when
+var _chase_best_at := 0.0
+
+
 func _fight(threat: Damageable) -> void:
+	_chase_best = INF
+	_chase_best_at = now()
 	if partner != null:
 		_end_chat(now())
 	# After dark, an unlit torch close by: lit first, so there's light to fight by (unless it's on them already).
@@ -2410,14 +2430,14 @@ func _fighting(t: float, delta: float) -> void:
 		else: _stand(t, randf_range(1.0, 2.0))
 		return
 	# A companion's tactics: back to the leader when told; kept at a distance when that's their stance.
-	if _in_party():
-		if t < hold_until:
-			foe = null
-			_follow_start(t)
-			return
-		if t >= melee_until and Tactics.keeps_distance(person):
-			_keep_distance(t)
-			return
+	if _in_party() and t < hold_until:
+		foe = null
+		_follow_start(t)
+		return
+	# (one who fights as a companion does, in the party or at home in the village: their stance kept)
+	if (_in_party() or _casts()) and t >= melee_until and Tactics.keeps_distance(person):
+		_keep_distance(t)
+		return
 	# (a hunter: the bow, from a distance)
 	if hunts():
 		_bow_at(foe, t, delta, State.FIGHT)
@@ -2425,6 +2445,17 @@ func _fighting(t: float, delta: float) -> void:
 	_bow_shown(false)
 	var to := foe.global_position - position
 	var reach := float(s.stabReach) * world.px + foe.radius * 0.5
+	# Not one of the party, and it's gone into the mist, or they've got no nearer it in 4 seconds (the mist or a wall
+	# between): let be a while, not chased on the spot forever.
+	if to.length() > reach and not _in_party():
+		if to.length() < _chase_best - 0.3 * world.px:
+			_chase_best = to.length()
+			_chase_best_at = t
+		if (not raid and not safe_ground(world, foe.global_position)) or t - _chase_best_at > 4.0:
+			_let_be[foe] = t + 30.0
+			foe = null
+			_stand(t, randf_range(1.0, 2.0))
+			return
 	if to.length() > reach:
 		# After it, round walls: the way found again as it moves.
 		if t >= next_chase:

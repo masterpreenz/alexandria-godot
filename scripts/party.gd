@@ -276,6 +276,11 @@ func _companions() -> void:
 		var body := Companions.body_of(p)
 		if body != null:
 			CompanionMagic.give(body)
+	# (those who can be played, at home in the village: they fight as they would with the party)
+	for v in Villager.all:
+		if is_instance_valid(v) and not Playable.entry(str(v.person.get("unique", ""))).is_empty():
+			Companions.stats_for(v.person)
+			CompanionMagic.give(v)
 	Companions.sync_all()
 
 

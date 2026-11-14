@@ -1,81 +1,49 @@
 extends Scenario
-## Miyu brought home: carried into the village (the elder marked), his scene (it closes by itself), then on to a bed in
-## the elders' house, and laid in it (E): she lives there now, asleep. Run with --window=miyuhome --slot=new (the
-## opening skipped through to its end).
+## Miyu at home in the village (not in the party) when a slime comes in: she fights it as she would with the party,
+## by her tactics, casting her spells (Ice Shard) and keeping her stance. Run with --window=miyuhome.
+
+
+func _secs(s: float) -> void:
+	var until := Time.get_ticks_msec() + int(s * 1000.0)
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame
 
 
 func run() -> void:
-	for i in 30:
-		await get_tree().process_frame
-	var st: Story = g.get_node("Story")
-	for e in ["village_warded", "scene:messenger", "scene:aftermath", "intro_fed", "scene:food_given", "scene:peculiar"]:
-		Chronicle.active.record(e)
-	while str(st._beats()[st.beat].id) != "until_miyu":
-		st._begin(st.beat + 1, false)
-		await get_tree().process_frame
-	st._release()
-	for i in 200:
-		if not miko.locked:
-			break
-		await get_tree().process_frame
-	miko.locked = false
-	var ch := Chronicle.active
-	var rescue: Rescue = Rescue.active
-	# Heard, found, picked up: she's in Sera's arms, out past the village.
-	Rumors.active.heard.erase("find_miyu")
-	Rumors.active.offers["find_miyu"] = "x"
-	Rumors.active.hear("find_miyu", Villager.all[0])
-	Rumors.active.heard["find_miyu"].step = 1
-	rescue.state = "carried"
-	rescue._carry(false)
-	miko.place(world.village.centre() + Vector2(0, 30) * world.px)
-	for i in 10:
-		await get_tree().process_frame
-	print("Miyu home: carried ", rescue.state, ", told the elder yet ", ch.happened("miyu_carried_home"))
-	# Into the village.
-	var elder: Villager = null
-	for v in Villager.all:
-		if is_instance_valid(v) and str(v.person.get("unique", "")) == "elder":
-			elder = v
-	miko.place(elder.position + Vector2(0.7, 0.3) * world.px)
-	for i in 10:
-		await get_tree().process_frame
-	print("Miyu home: in the village, to the elder ", ch.happened("miyu_carried_home"), ", elder marked ", Story.active._marks.uniques.has("elder"), ", his scene waiting ", Scenes.for_speaker(elder.person).get("id", ""))
-	shot("to_elder")
-	var talk: Talk = g.get_node("Hud/Talk")
-	talk.open(elder)
-	var said := []
-	for i in 30:
-		await get_tree().process_frame
-		if not talk.visible:
-			break
-		talk._finish_typing()
-		said.append(talk._line.text.left(30))
-		if not talk._acts.is_empty():
-			talk._act_or_finish(talk._acts[0])
-	print("Miyu home: his scene ", said.size(), " lines, talk closed by itself ", not talk.visible, ", told ", ch.happened("miyu_told"))
-	for i in 5:
-		await get_tree().process_frame
-	print("Miyu home: on to a bed ", rescue.state, " at ", rescue.bed, " (", snappedf(rescue.bed.distance_to(elder.position) / world.px, 0.1), " units from him)" if rescue.bed != Vector2.INF else "")
-	if rescue.bed == Vector2.INF:
-		return
-	miko.place(rescue.bed + Vector2(0.6, 0.4) * world.px)
-	for i in 10:
-		await get_tree().process_frame
-	print("Miyu home: by the bed, prompt '", rescue.prompt.text, "' showing ", rescue.prompt.visible)
-	shot("by_bed")
-	rescue._pressed = true
+	await _secs(1.0)
+	var miyu: Villager = Villager.all[1]
+	miyu.person["unique"] = "miyu"
+	miyu.person["name"] = "Miyu"
+	miyu.person["look"] = 5
+	var tl: Array = miyu.person.get("traits", []).duplicate()
+	tl.append("unique")
+	miyu.person["traits"] = tl
+	var lk: Dictionary = people._look_for(miyu.person)
+	miyu.look = lk
+	miyu.s = lk.settings
+	miyu.person["level"] = 8
+	miyu.person["hunger"] = 100.0
+	miyu.person["thirst"] = 100.0
+	miyu.person["lastMeal"] = 999999
+	var st := Companions.stats_for(miyu.person)
+	Companions.teach(st, Companions.data().books[0])
+	st.mana = st.stat("maxMana")
+	var c := world.village.centre()
+	miyu.position = c + Vector2(1.5, 1.0) * world.px
+	miyu.reset_physics_interpolation()
+	miyu._stand(Villager.now(), 0.2)
+	miko.place(c + Vector2(-4.0, 3.0) * world.px)
+	await _secs(1.0)
+	var magic: CompanionMagic = miyu.get_node_or_null("Magic")
+	print("Miyu at home: in the party ", miyu._in_party(), ", fights as a companion ", magic != null, ", knows ", st.known_spells(), ", mana ", roundi(st.mana))
+	var sl := Slime.spawn(world, world._load_json("res://data/monsters.json").slime, false, miyu.position + Vector2(3.0, -1.0) * world.px, 1.0)
+	var states := {}
 	for i in 20:
-		await get_tree().process_frame
-	var miyu: Villager = null
-	for v in Villager.all:
-		if is_instance_valid(v) and str(v.person.get("unique", "")) == "miyu":
-			miyu = v
-	print("Miyu home: laid down ", rescue.state, ", home ", ch.happened("miyu_home"), "; Miyu ", "there" if miyu != null else "missing",
-		(", in bed %s, asleep %s, %.1f units from the bed" % [miyu.in_bed, miyu.state == Villager.State.ASLEEP, miyu.home.pos.distance_to(rescue._bed_entry(miyu.home.pos).get("pos", Vector2.ZERO)) / world.px]) if miyu != null and not miyu.home.is_empty() else "")
-	if miyu != null:
-		print("Miyu home: her id ", miyu.get_instance_id(), " state ", Villager.State.keys()[miyu.state], ", visible ", miyu.visible, ", hour ", snappedf(world.clock.hour(), 0.1), ", rest until ", snappedf(float(miyu.person.get("restUntil", -1)) - world.clock.hours, 0.1), " h more")
-		for i in 240:
-			await get_tree().process_frame
-		print("Miyu home: 4 s on, ", Villager.State.keys()[miyu.state], ", in bed ", miyu.in_bed, ", held ", miyu.held, ", process ", miyu.is_physics_processing(), ", state until ", snappedf(miyu.state_until - Villager.now(), 0.1))
-	shot("in_bed")
+		await _secs(0.5)
+		var k: String = Villager.State.keys()[miyu.state]
+		states[k] = int(states.get(k, 0)) + 1
+		if i == 6:
+			shot("fight")
+		if not is_instance_valid(sl) or not sl.hit.alive():
+			break
+	print("Miyu at home: states ", states, ", casts ", magic.casts.map(func(x): return x[0]) if magic != null else [], ", done ", magic.done if magic != null else {}, ", slime down ", not is_instance_valid(sl) or not sl.hit.alive())
