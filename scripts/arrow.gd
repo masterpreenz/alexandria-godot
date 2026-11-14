@@ -52,6 +52,7 @@ func _process(delta: float) -> void:
 			c.hunter = by
 			c.hunted_until = Time.get_ticks_msec() / 1000.0 + 15.0
 		at.hurt(damage)
+		Sfx.play(world, Sfx.stream("res://assets/Sounds/arrow_hit.mp3"), position, 0.7, 0.1)
 		queue_free()
 		return
 	if _gone >= 1.0:

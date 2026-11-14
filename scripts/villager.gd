@@ -2600,8 +2600,8 @@ func _gather_game(t: float) -> void:
 
 # Shooting at [param target] with a bow: near enough first, then standing, turned to it, an arrow every so often; out
 # of a charge's marked path quickly, and back from whatever's come too close. [param keep] is the state they're in.
-func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
-	var it := target.get_parent() as Node2D
+func _bow_at(shot_at: Damageable, t: float, delta: float, keep: State) -> void:
+	var it := shot_at.get_parent() as Node2D
 	# (a look with its own bow art: that; else the bow drawn in their hands)
 	var drawn_art: bool = not (s.get("bowDown", []) as Array).is_empty()
 	_bow_shown(not drawn_art)
@@ -2642,7 +2642,7 @@ func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
 		_bow.aim(to, 1.0 - clampf((_next_shot - t) / SHOT_EVERY, 0.0, 1.0))
 		if t >= _next_shot:
 			_next_shot = t + SHOT_EVERY * randf_range(0.85, 1.15)
-			_loose_at(target, it, d)
+			_loose_at(shot_at, it, d)
 		return
 	# The shot: the bow raised and drawn, held, loosed on its frame, lowered; a breath, then the next.
 	var frames: Array = s.bowUp if facing_up else s.bowDown
@@ -2661,16 +2661,16 @@ func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
 	_show(int(frames[f]))
 	if not _loosed and f >= int(s.get("bowLooseUp" if facing_up else "bowLooseDown", frames.size() >> 1)):
 		_loosed = true
-		_loose_at(target, it, d)
+		_loose_at(shot_at, it, d)
 
 
 # An arrow off at [param target] ([param it], [param d] px away), a little ahead of it if it's on the move.
-func _loose_at(target: Damageable, it: Node2D, d: float) -> void:
+func _loose_at(shot_at: Damageable, it: Node2D, d: float) -> void:
 	var lead := it.position
 	if it is CharacterBody2D:
 		lead += (it as CharacterBody2D).velocity * clampf(d / (Arrow.SPEED * world.px), 0.0, 0.6)
 	var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
-	Arrow.loose(world, self, position + Vector2(0, -0.45 * world.px), target, lead, float(person.get("atk", s.stabDamage)) * strength)
+	Arrow.loose(world, self, position + Vector2(0, -0.45 * world.px), shot_at, lead, float(person.get("atk", s.stabDamage)) * strength)
 
 
 # Out of [param strip] sideways (to the nearer edge), a step past it.

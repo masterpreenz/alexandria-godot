@@ -275,7 +275,7 @@ func hostile() -> bool:
 func _hurt(_amount: float) -> void:
 	flash_until = now() + 0.12
 	# Knocked back a little (away from whoever hit it: a hunter's arrow, or Miko), and angry now.
-	var p: Node2D = hunted_by() if hunted_by() != null else player()
+	var p: Node2D = (hunted_by() as Node2D) if hunted_by() != null else (player() as Node2D)
 	if p != null:
 		var away := (position - p.position).normalized()
 		position += away * 0.18 * world.px / _scale()

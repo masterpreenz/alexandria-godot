@@ -220,7 +220,7 @@ func _begin_wind_up() -> void:
 	velocity = Vector2.ZERO
 	if warn == null:
 		warn = Telegraph.make(world, 0.75)
-	var p: Node2D = hunted_by() if hunted_by() != null else player()
+	var p: Node2D = (hunted_by() as Node2D) if hunted_by() != null else (player() as Node2D)
 	var to := (p.position - position) if p != null and p.position.distance_squared_to(position) > 1.0 else charge_dir
 	warn.point(position, position + to.normalized() * _charge_reach(), _charge_reach())
 
