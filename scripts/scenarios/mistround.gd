@@ -65,7 +65,7 @@ func run() -> void:
 				if v.state != Villager.State.TO_WELL:
 					break
 				if not old_way and (Time.get_ticks_msec() - start) % 1000 < 17:
-					print("   at ", (v.position / world.px).snapped(Vector2(0.1, 0.1)), " detour ", (v._detour / world.px).snapped(Vector2(0.1, 0.1)) if v._detour != Vector2.INF else "-", " way ", v._mist_way.map(func(q): return (q / world.px).snapped(Vector2(0.1, 0.1))), " x", v._detours, " vel ", v.velocity.round())
+					print("   at ", (v.position / world.px).snapped(Vector2(0.1, 0.1)), " detour ", str((v._detour / world.px).snapped(Vector2(0.1, 0.1))) if v._detour != Vector2.INF else "-"," way ", v._mist_way.map(func(q): return (q / world.px).snapped(Vector2(0.1, 0.1))), " x", v._detours, " vel ", v.velocity.round())
 			print("Mist round (", "old way" if old_way else "round by the middle", "): there ", arrived >= 0.0, " after ", arrived, " s; now ", Villager.State.keys()[v.state], ", ", snappedf(v.position.distance_to(pair[1]) / world.px, 0.1), " away, frames in the mist ", into_mist)
 			if arrived >= 0.0:
 				tally[old_way] += 1

@@ -2812,7 +2812,7 @@ func _end_hunt(t: float, got_it: bool) -> void:
 		people.practise(person, LifeSkills.Skill.STRENGTH)
 		show_mood("success", 3.0)
 		_game_at = at
-		_gather_at = t + 1.6
+		_gather_at = t + 2.4
 		return
 	_stand(t, randf_range(1.0, 2.0))
 
@@ -3102,7 +3102,33 @@ func _let_go() -> void:
 # Strength lets them carry more: one more for every two levels past the first, and a bag more again.
 func _carry_most() -> int:
 	@warning_ignore("integer_division")
-	return maxi(2, int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0)) + int(Traits.add(person, "carry")))
+	return maxi(2, int(s.carryMost) + (Villagers.skill(person, LifeSkills.Skill.STRENGTH) - 1) / 2 + int(person.get("bagSlots", 0)) + int(Traits.add(person, "carry")) + (HUNTER_BAG if hunts() else 0))
+
+
+const HUNTER_BAG := 8               ## more a hunter carries: a whole boar's meat and hide home in one go
+var side_load := {}                 ## other game carried with the load (a hunter's hide with the meat): kind -> amount
+
+
+# All they carry, the load and what's with it.
+func _carried() -> int:
+	var n := carrying
+	for k in side_load:
+		n += int(side_load[k])
+	return n
+
+
+# The nearest of the game lying about within [param within] (meat, hide, jelly; any of them, for a hunter's bag).
+func _nearest_game(within: float) -> Pickup:
+	var best: Pickup = null
+	var best_d := within
+	for p in Pickup.all:
+		if not is_instance_valid(p) or not p.settled() or p.thrown or gathering.has(p) or not GAME_DROPS.has(p.resource) or not _game_reachable(p.ground):
+			continue
+		var dd := p.ground.distance_to(position)
+		if dd < best_d:
+			best_d = dd
+			best = p
+	return best
 
 
 func _has_tools() -> bool:
@@ -3386,7 +3412,7 @@ func _game_reachable(at: Vector2) -> bool:
 
 func _go_fetch_game() -> bool:
 	# (haulers, and a hunter: all of what his game dropped is his to bring home)
-	if not (able(person, Job.HAULING) or hunts()) or _in_party() or carrying >= _carry_most():
+	if not (able(person, Job.HAULING) or hunts()) or _in_party() or _carried() >= _carry_most():
 		return false
 	var best: Pickup = null
 	var best_d := 30.0 * world.px
@@ -3394,7 +3420,7 @@ func _go_fetch_game() -> bool:
 	for p in Pickup.all:
 		if not is_instance_valid(p) or not p.settled() or p.thrown or gathering.has(p) or not GAME_DROPS.has(p.resource):
 			continue
-		if carrying > 0 and p.resource != carry_kind:
+		if carrying > 0 and p.resource != carry_kind and not hunts():
 			continue
 		if t < float(out_of_reach.get(p, -1.0)) or not _game_reachable(p.ground) or world.village.stored(p.resource) >= world.village.stash_cap(p.resource):
 			continue
@@ -3444,15 +3470,20 @@ func _pick_up(t: float) -> void:
 	if loose != null and is_instance_valid(loose) and loose.settled():
 		if carrying == 0:
 			carry_kind = loose.resource
-		carrying += loose.amount
+		# (a hunter: the hide goes in with the meat)
+		if loose.resource != carry_kind:
+			side_load[loose.resource] = int(side_load.get(loose.resource, 0)) + loose.amount
+		else:
+			carrying += loose.amount
 		gathering.erase(loose)
 		loose.take_away()
 		people.practise(person, LifeSkills.Skill.STRENGTH)
 	elif loose != null:
 		gathering.erase(loose)
 	loose = null
-	if carrying < _carry_most():
-		var nxt := _nearest_loose(3.0 * world.px)
+	if _carried() < _carry_most():
+		# (a hunter: every bit of the game, whatever it is, before home)
+		var nxt := _nearest_game(6.0 * world.px) if hunts() else _nearest_loose(3.0 * world.px)
 		if nxt != null:
 			loose = nxt
 			gathering[nxt] = true
@@ -3465,6 +3496,10 @@ func _pick_up(t: float) -> void:
 
 
 func _done_pick_up(t: float) -> void:
+	# (a hunter whose next bit of game is gone, taken or run together with another: on to the rest of it)
+	if hunts():
+		_pick_up(t)
+		return
 	if loose != null:
 		gathering.erase(loose)
 	loose = null
@@ -3516,6 +3551,10 @@ func _unload(t: float, stand := true) -> void:
 		elif cap > 0 and have >= cap * 0.85:
 			VillageLog.problem("storage-nearly", "Storage is nearly full of %s" % what)
 		carrying = 0
+	# (and the rest of a hunter's catch with it)
+	for k in side_load:
+		world.village.deposit(str(k), int(side_load[k]), position + Vector2(0, -0.3 * world.px))
+	side_load.clear()
 	if stand:
 		_stand(t, randf_range(2.0, 4.0))
 

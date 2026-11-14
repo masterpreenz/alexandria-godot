@@ -87,14 +87,12 @@ func run() -> void:
 		if is_instance_valid(pk) and pk.resource == "Food" and pk.position.distance_to(at) < 8.0 * world.px:
 			meat += pk.amount
 	print("Hunt: meat on the ground from the boar ", meat)
-	var hide0 := world.village.stored("Hide")
-	var food0 := world.village.stored("Food")
 	var last_st := -1
 	for i in 120:
 		await _secs(0.5)
 		if man.state != last_st:
 			last_st = man.state
-			print("Hunt: trace ", snappedf(i * 0.5, 0.1), "s ", Villager.State.keys()[man.state], " carrying ", man.carrying, " ", man.carry_kind, " at ", (man.position / world.px).round(), " to ", (man.target / world.px).round(), " trying ", snappedf(man._trying_for, 0.1))
+			print("Hunt: trace ", snappedf(i * 0.5, 0.1), "s ", Villager.State.keys()[man.state], " carrying ", man.carrying, " ", man.carry_kind, " and ", man.side_load, " at ", (man.position / world.px).round(), " to ", (man.target / world.px).round(), " trying ", snappedf(man._trying_for, 0.1))
 		if i % 20 == 0:
 			print("Hunt: then: ", Villager.State.keys()[man.state], " carrying ", man.carrying, " ", man.carry_kind, " (", man.activity(), ")")
 	print("Hunt: a minute on: he carries ", man.carrying, " ", man.carry_kind, "; hide lying about near the kill ", Pickup.all.filter(func(p): return is_instance_valid(p) and p.resource == "Hide" and p.ground.distance_to(at) < 8.0 * world.px).size())
