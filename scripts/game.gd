@@ -392,6 +392,13 @@ func _ready() -> void:
 	rumors.setup(world, miko)
 	if sv.get("sections", {}).has("world.rumors"):
 		rumors.from_json(sv.sections["world.rumors"])
+	# Villagers' requests: a pouch, a scarf, tools; and the whole village's (in the journal too).
+	var requests := Requests.new()
+	requests.name = "Requests"
+	add_child(requests)
+	requests.setup(world, miko)
+	if sv.get("sections", {}).has("world.requests"):
+		requests.from_json(sv.sections["world.requests"])
 	# The story's opening, on a new game (and where it's at, in one under way).
 	var story := Story.new()
 	story.name = "Story"

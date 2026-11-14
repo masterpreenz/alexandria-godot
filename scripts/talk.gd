@@ -203,6 +203,14 @@ func _show(line: String) -> void:
 	# (only with a rumor to tell; the way to ask stands out: a gold border)
 	if Rumors.active != null and Rumors.active.has_offer(who):
 		_add(Loc.t("talk.choice.rumor"), _ask_rumor, true)
+	# (something they want: asked about once, then handed over when Sera has it)
+	if Requests.active != null:
+		var ask := Requests.active.offered_by(who)
+		if ask != "":
+			_add("Something on your mind?", _ask_request.bind(ask), true)
+		var open := Requests.active.open_for(who)
+		if open != "" and not Requests.active.find_thing(str(Requests.active.by_id[str(Requests.active.asks[open].id)].kind)).is_empty():
+			_add("Give %s a %s" % [str(who.person.name), Requests.active.thing_name(open).to_lower()], _give_request.bind(open), true)
 	# (someone unique: something of their own to talk about, and a gift)
 	if Intimacy.has(who.person):
 		_hearts()
@@ -270,6 +278,27 @@ func _ask_rumor() -> void:
 		_show_replies(told, [[str(rumor.accept), _accept.bind(str(rumor.accept))]])
 		return
 	_show(told)
+
+
+# What they'd like (a request): Sera gives her word, and it's in the journal.
+func _ask_request(key: String) -> void:
+	who.show_mood("idea", 3.0)
+	_show_replies(Requests.active.said(key), [[Requests.active.accept_line(key), _accept_request.bind(key)], ["Not now.", _say_bye]])
+
+
+func _accept_request(key: String) -> void:
+	Requests.active.accept(key)
+	FloatingText.spawn(world, "New request (J)", miko.position + Vector2(0, -2.2 * world.px), Color(1, 0.86, 0.45), 20, 2.0)
+	_accept(Requests.active.accept_line(key))
+
+
+# Sera hands over what they asked for: their thanks.
+func _give_request(key: String) -> void:
+	var line := Requests.active.give(key, who)
+	if line == "":
+		_show(Loc.pick("talk.need.nothing", {"miko": Playable.name_now()}))
+		return
+	_show(line)
 
 
 # Sera gives her word (a rumor's "accept"): said aloud, and the talk closes.

@@ -3,7 +3,7 @@ extends PanelContainer
 ## The rumors journal (J): the rumors Miko's heard down the left (those still open first), and the one picked on the
 ## right: who told it and when, what's known of it so far a step at a time (nothing of what comes of it), whether
 ## it's tracked on the maps, and her own notes on it, typed in and kept. Miko stands still while it's open (she'd
-## walk as the notes were typed).
+## walk as the notes were typed). Under the rumors, the villagers' requests she's given her word on.
 
 var rumors: Rumors
 var miko: Miko
@@ -20,6 +20,10 @@ func setup(r: Rumors, who: Miko) -> void:
 	rumors.changed.connect(func():
 		if visible:
 			_build())
+	if Requests.active != null:
+		Requests.active.changed.connect(func():
+			if visible:
+				_build())
 
 
 func _k(v: float) -> float:
@@ -59,8 +63,9 @@ func _build() -> void:
 		c.queue_free()
 	_notes = null
 	var ids := rumors.listed()
-	if not ids.has(chosen):
-		chosen = ids[0] if not ids.is_empty() else ""
+	var reqs: Array = Requests.active.listed() if Requests.active != null else []
+	if not ids.has(chosen) and not (chosen.begins_with("req:") and reqs.has(chosen.substr(4))):
+		chosen = ids[0] if not ids.is_empty() else ("req:" + str(reqs[0]) if not reqs.is_empty() else "")
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", roundi(_k(12)))
 	add_child(row)
@@ -71,7 +76,7 @@ func _build() -> void:
 	row.add_child(left)
 	left.add_child(HudStyle.label("Rumors", 16, "pixel", HudStyle.color("accentLight")))
 	if ids.is_empty():
-		var none := HudStyle.label("Nothing heard yet. Villagers with something to tell show it over their heads: talk to them.", 11, "body", HudStyle.color("muted"))
+		var none := HudStyle.label("No rumors heard yet." if not reqs.is_empty() else "Nothing heard yet. Villagers with something to tell show it over their heads: talk to them.", 11, "body", HudStyle.color("muted"))
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		none.custom_minimum_size.x = _k(200)
 		left.add_child(none)
@@ -94,15 +99,53 @@ func _build() -> void:
 			chosen = id
 			_build())
 		list.add_child(b)
+	# (the requests, under the rumors)
+	if not reqs.is_empty():
+		list.add_child(HudStyle.label("Requests", 14, "pixel", HudStyle.color("accentLight")))
+	for k in reqs:
+		var st: Dictionary = Requests.active.asks[k]
+		var mark: String = {"open": "", "done": "✓ ", "met": "✓ ", "gone": "✗ "}.get(st.state, "")
+		var picked := chosen == "req:" + str(k)
+		var b := HudStyle.button(mark + Requests.active.title(k), 11, "pill", HudStyle.color("accentLight") if picked else (HudStyle.color("text") if st.state == "open" else HudStyle.color("faint")))
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(_k(200), _k(26))
+		b.pressed.connect(func():
+			chosen = "req:" + str(k)
+			_build())
+		list.add_child(b)
 	# The one picked.
 	var right := VBoxContainer.new()
 	right.custom_minimum_size = Vector2(_k(380), _k(360))
 	right.add_theme_constant_override("separation", roundi(_k(6)))
 	row.add_child(right)
-	if chosen != "":
+	if chosen.begins_with("req:"):
+		_request(right, chosen.substr(4))
+	elif chosen != "":
 		_detail(right)
 	reset_size()
 	position = ((get_viewport_rect().size - size) / 2.0).round()
+
+
+# A request picked: who asked and when, what they said, what to bring, how long they'll wait or how many have theirs.
+func _request(box: VBoxContainer, key: String) -> void:
+	var req := Requests.active
+	var st: Dictionary = req.asks[key]
+	box.add_child(HudStyle.label(req.title(key), 15, "bold", HudStyle.color("accentLight")))
+	var ch := Chronicle.active
+	var how := "Asked by %s  ·  %s" % [str(st.by), ch.date(float(st.took))]
+	if st.state != "open":
+		how += "  ·  ended %s" % ch.date(float(st.ended))
+	box.add_child(HudStyle.label(how, 10, "body", HudStyle.color("muted")))
+	for l in req.lines(key):
+		var line := HudStyle.label(("✓  " if l[1] else "•  ") + str(l[0]), 12, "body", HudStyle.color("faint") if l[1] else HudStyle.color("text"))
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.custom_minimum_size.x = _k(370)
+		box.add_child(line)
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(fill)
+	box.add_child(HudStyle.label("J or Esc to close", 9, "body", HudStyle.color("faint")))
 
 
 func _detail(box: VBoxContainer) -> void:

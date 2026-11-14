@@ -256,6 +256,8 @@ func capture() -> Dictionary:
 		s["world.chronicle"] = Chronicle.active.to_json()
 	if Rumors.active != null:
 		s["world.rumors"] = Rumors.active.to_json()
+	if Requests.active != null:
+		s["world.requests"] = Requests.active.to_json()
 	if Rescue.active != null:
 		s["world.rescue"] = Rescue.active.to_json()
 	if Party.active != null:

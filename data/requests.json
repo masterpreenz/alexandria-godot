@@ -1,0 +1,30 @@
+{
+"_about": "Villagers' requests: small asks of their own (a pouch, a scarf, new tools) and asks for the whole village (pouches for every worker). One wanting something shows a gold ! over their head; talking to them, Sera gives her word, and it goes in the journal (J). Handing the thing over (from her bag, or storage while she's in the village) settles it, for thanks and gold. 'wants' is what makes someone ask (bag: a worker with nothing to carry more in; scarf: autumn or winter, none round their neck; tools: a miner or woodcutter whose tools are worn through). 'kind' is the kind of item that answers it (ui.json's items). 'every' asks are for the whole village: open once enough are wanting ('least'), done when nobody's wanting any more; Sachets or scarves put in storage are handed out to those wanting. 'days': how long one waits before giving up on Sera. See scripts/requests.gd.",
+"requests": [
+	{"id": "pouch", "title": "A pouch for {name}", "wants": "bag", "kind": "Bag", "thing": "a Sachet", "days": 5, "gold": 12,
+		"ask": ["I keep going back and forth to storage with half a load. A pouch would let me carry more.", "If I had a little bag, a Sachet, I could bring home twice as much."],
+		"accept": "I'll make you one.",
+		"thanks": ["A pouch of my own! I'll fill it every trip.", "Oh, this is perfect. Thank you, {miko}!"],
+		"note": "Make a Sachet at the tool workbench (Hide and Wood) and give it to them."},
+	{"id": "scarf", "title": "A scarf for {name}", "wants": "scarf", "kind": "Scarf", "thing": "a Scarf", "days": 6, "gold": 8,
+		"ask": ["The cold's coming. I've nothing to wrap round my neck.", "My fingers and my neck ache in the cold. A scarf would help."],
+		"accept": "I'll find you a scarf.",
+		"thanks": ["It's so warm! Thank you.", "Winter won't bite so hard now. Thank you, {miko}."],
+		"note": "Make a Scarf at the tool workbench (Fiber) and give it to them."},
+	{"id": "tools", "title": "New tools for {name}", "wants": "tools", "kind": "Tools", "thing": "a set of Tools", "days": 3, "gold": 10,
+		"ask": ["My tools are worn through. I'm working with my bare hands.", "I can't chop or dig like this. Could you get me new tools?"],
+		"accept": "I'll get you new tools.",
+		"thanks": ["Good tools! Now we'll get somewhere.", "Back to work, properly this time. Thank you!"],
+		"note": "Make Tools at the tool workbench (Wood and Stone) and give them to them, or leave them in storage."},
+	{"id": "pouches_all", "title": "Pouches for every worker", "every": true, "wants": "bag", "kind": "Bag", "thing": "Sachets", "least": 3, "days": 0, "gold": 40,
+		"ask": ["Half of us carry whatever fits in our arms. If every worker had a pouch, we'd bring home so much more."],
+		"accept": "Pouches for everyone, then.",
+		"thanks": ["Every one of us has a pouch now. Look at all we're bringing home!"],
+		"note": "Make Sachets at the tool workbench and give them out, or put them in storage: those without take one."},
+	{"id": "scarves_all", "title": "Scarves before winter", "every": true, "wants": "scarf", "kind": "Scarf", "thing": "Scarves", "least": 3, "days": 0, "gold": 30, "season": "autumn",
+		"ask": ["Winter's on its way and most of us have nothing warm. A scarf for everyone would see us through."],
+		"accept": "Scarves for everyone before the snow.",
+		"thanks": ["Everyone's wrapped up warm. Let the snow come!"],
+		"note": "Make Scarves at the tool workbench and give them out, or put them in storage: those without take one."}
+]
+}

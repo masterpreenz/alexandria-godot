@@ -1099,6 +1099,7 @@ func _scale() -> float:
 
 # Something to tell Miko (a rumor), shown over their head while they're up and about with nothing else showing; or a
 # story scene of theirs waiting (the elder handing over the village), shown over whatever they're doing, at home too.
+# Else a request of theirs not yet heard: a !.
 func _rumor_emote() -> String:
 	if state == State.ASLEEP or state == State.CELLAR:
 		return ""
@@ -1106,7 +1107,10 @@ func _rumor_emote() -> String:
 		return "quest"
 	if Rumors.active == null or state == State.HOME:
 		return ""
-	return "quest" if Rumors.active.has_offer(self) else ""
+	if Rumors.active.has_offer(self):
+		return "quest"
+	# (something they want of their own, or for the village: a ! till Sera asks)
+	return "excl" if Requests.active != null and Requests.active.offered_by(self) != "" else ""
 
 
 # Whether a story scene's waiting for Sera to talk to them.
@@ -1780,6 +1784,17 @@ func bark(key: String, values := {}, force := false) -> void:
 	_bark.say(line, bark_kind(key))
 	_bark.visible = true
 	_bark_until = t + 2.8
+
+
+## Says [param line] aloud, now (thanks for a request settled while Sera's away from them).
+func say_line(line: String) -> void:
+	if _bark == null:
+		_bark = SpeechBubble.new()
+		add_child(_bark)
+	_bark.say(line, SpeechBubble.Kind.SAY)
+	_bark.visible = true
+	_bark_until = now() + 3.5
+	_bark_any = now() + 3.5
 
 
 ## How a line is said: thought (hungry, tired, rain), shouted (a fight, no food), in alarm (hurt, a raid, starving),
