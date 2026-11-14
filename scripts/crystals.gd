@@ -315,13 +315,28 @@ func _process_timed(delta: float) -> void:
 		c.light.energy = (0.75 + 0.25 * sin((_clock + c.phase) * 2.2)) * 0.6 * night
 	for wd in wards:
 		wd.light.energy = (0.75 + 0.25 * sin((_clock + wd.phase) * 2.2)) * 0.6 * night   # (pulsing as a teleport crystal does)
-	if Villager.now() >= _check_at:
+	var __s := Time.get_ticks_usec()
+	var check := Villager.now() >= _check_at
+	if check:
 		_check_at = Villager.now() + 0.5
-		for wd in wards:
-			_check_edge(wd)
+	# A cleansing crystal out of sight leaves its curtain be: coming into sight, it's set straight to where the mist
+	# is now (not eased there).
 	for wd in wards:
-		_curtain(wd, delta)
+		var seen := world.on_screen(wd.pos, WARD_RADIUS + 2.0)
+		if seen and not wd.get("seen", false):
+			_check_edge(wd)
+			wd.shown.fill(-1.0)
+			wd.built = false
+		elif seen and check:
+			_check_edge(wd)
+		wd.seen = seen
+	Perf.add(&"crystals: where the mist meets the edge", __s)
+	__s = Time.get_ticks_usec()
+	for wd in wards:
+		if wd.seen:
+			_curtain(wd, delta)
 		_reach(wd, delta)
+	Perf.add(&"crystals: curtains", __s)
 	flash.color.a = clampf((_flash_until - Villager.now()) / 0.5, 0.0, 1.0) * 0.85
 	_travel(pressed)
 
@@ -432,6 +447,7 @@ func _check_edge(wd: Dictionary) -> void:
 		var beyond: Vector2 = wd.pos + Vector2(cos(a) * r, -sin(a) * r * 0.5)
 		var clear := world.mist.tier_at(beyond) == Mist.Tier.CLEAR and _outside_others(beyond, wd) >= 1.0
 		wd.wanted[i] = 0.0 if clear else 1.0
+	wd.settled = false
 	# Motes drift up only along the stretches that show.
 	var pts := PackedVector2Array()
 	for i in SEGMENTS:
@@ -457,6 +473,8 @@ func _shown_at(wd: Dictionary, a: float) -> float:
 # The curtain eases where it shows towards where it should; its mesh is built again only while that's changing
 # (the rippling and swaying are in its shader).
 func _curtain(wd: Dictionary, delta: float) -> void:
+	if wd.get("settled", false):
+		return   # (where it should be: nothing to ease until the mist round it is looked at again)
 	var changed: bool = not wd.built
 	for i in SEGMENTS + 1:
 		var was: float = wd.shown[i]
@@ -464,6 +482,7 @@ func _curtain(wd: Dictionary, delta: float) -> void:
 		if wd.shown[i] != was:
 			changed = true
 	if not changed:
+		wd.settled = true
 		return
 	wd.built = true
 	_half(wd, wd.back, true)

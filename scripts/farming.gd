@@ -192,6 +192,7 @@ func water(p: Dictionary, sound := true) -> void:
 	for q in field_of(p):   # the whole field at once
 		_settle(q)
 		_state(q).wateredAt = _hours()
+		_changed(q)
 	if sound:
 		splash(p)
 
@@ -210,6 +211,7 @@ func clear_pests(p: Dictionary) -> void:
 	for q in field_of(p):
 		_settle(q)
 		_state(q).pest = false
+		_changed(q)
 
 
 # Once a game hour: growing crops brought up to date (at full speed watered, half dry, not at all with pests in them),
@@ -222,6 +224,7 @@ func _tend(dh: float) -> void:
 		var st := _state(p)
 		if not st.sown:
 			continue
+		_changed(p)
 		# Winter's frost: what's still growing dies (the field goes on to its next crop in spring).
 		if frost and stage(p) == 1:
 			states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": st.setTo, "last": crop(p), "waiting": false}
@@ -246,6 +249,7 @@ func _tend(dh: float) -> void:
 					if stage(q) == 1:
 						_settle(q)
 						_state(q).pest = true
+						_changed(q)
 	if killed > 0:
 		VillageLog.event("frost", "Winter's frost killed %d growing plot%s: plant again in spring" % [killed, "" if killed == 1 else "s"])
 
@@ -351,6 +355,29 @@ func _overlay(p: Dictionary, st: int) -> int:
 
 static var _pest_tex: Texture2D
 
+## Something was done to a plot (sown, watered, harvested, pests in or out, frost): it's drawn again.
+func _changed(p: Dictionary) -> void:
+	p.next = -INF
+
+
+# When a plot's look next changes by itself (game hours; INF: not until something's done to it): its crop ripening,
+# or its soil drying out a day after it was watered. A dry crop grows at half speed, one with pests not at all.
+func _next_change(p: Dictionary) -> float:
+	var st := _state(p)
+	if stage(p) != 1:
+		return INF
+	var now := _hours()
+	var left := _grow(p) - _grown(p)
+	var dries := float(st.get("wateredAt", -INF)) + WET_FOR
+	var wet := maxf(0.0, dries - now)
+	var ripe := INF
+	if not st.has("grown"):
+		ripe = now + left   # (an old save's plot: grown by the clock since it was sown)
+	elif not st.get("pest", false):
+		ripe = now + left if left <= wet else now + wet + (left - wet) / DRY_RATE
+	return minf(ripe, dries if dries > now else INF)
+
+
 # A dry crop looks a little parched (its soil pale); one with pests in it has a small bubble over it (the pest emote) until cleared.
 func _show_care(p: Dictionary, old_art: bool) -> void:
 	var holder: Node2D = p.node
@@ -373,8 +400,18 @@ func _show_care(p: Dictionary, old_art: bool) -> void:
 		holder.add_child(mark)
 		p.mark = mark
 	mark.visible = has_pests
-	if not has_pests:
+	p.bugs = has_pests
+	if has_pests:
+		_bob_pests(p)
+
+
+# The pests' bubble over a plot, bobbing and turning through its frames.
+func _bob_pests(p: Dictionary) -> void:
+	var m: Variant = p.get("mark")
+	if not is_instance_valid(m) or not is_instance_valid(p.node):
 		return
+	var mark: Sprite2D = m
+	var holder: Node2D = p.node
 	@warning_ignore("integer_division")
 	var fw := _pest_tex.get_width() / 8
 	var t := Time.get_ticks_msec() / 1000.0
@@ -434,9 +471,18 @@ func _process_timed(_delta: float) -> void:
 		_tended_at = now
 	Perf.add(&"farming: growing", __t)
 	__t = Time.get_ticks_usec()
+	# A plot's look is only worked out again when it changes: something done to it (sown, watered, harvested, pests
+	# in or out), its crop ripening or its soil drying out (both known ahead), or its coming into sight (those out of
+	# sight are left as they were and brought up to date then).
 	for p in plots:
-		if world.on_screen(p.pos, 2.0):   # (only those in sight: they're brought up to date as they come into it)
+		var seen := world.on_screen(p.pos, 2.0)
+		if seen and (not p.get("seen", false) or now >= float(p.get("next", -INF)) or now < float(p.get("drawn_at", -INF))):
 			_show(p)
+			p.drawn_at = now
+			p.next = _next_change(p) if is_instance_valid(p.node) else -INF   # (its prop not there yet: tried again)
+		p.seen = seen
+		if seen and p.get("bugs", false):
+			_bob_pests(p)
 	Perf.add(&"farming: drawing plots", __t)
 	var fires: Fires = miko.get_node_or_null("Fires")
 	var p := {} if miko.locked or (fires != null and fires.cooking) else nearest(miko.position, RANGE * world.px)
@@ -550,6 +596,7 @@ func sow(p: Dictionary, c: String) -> bool:
 	st.at = _hours()
 	st.wateredAt = _hours()   # sowing waters it
 	st.pest = false
+	_changed(p)
 	return true
 
 
@@ -563,6 +610,7 @@ func harvest(p: Dictionary) -> Array:
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
 	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c, "waiting": true}
+	_changed(p)
 	return [c, n, seeds]
 
 
@@ -733,6 +781,7 @@ func _even_fields() -> void:
 				if _state(q).sown:
 					_state(q).crop = main
 					q.erase("drawn")
+					_changed(q)
 
 
 func _harvest(p: Dictionary) -> void:
@@ -742,6 +791,7 @@ func _harvest(p: Dictionary) -> void:
 	var n := randi_range(int(y[0]), int(y[1]))
 	var seeds := randi_range(int(info.seedBack[0]), int(info.seedBack[1])) if int(info.seedBack[1]) > 0 else 0
 	states[p.key] = {"sown": false, "sownAt": 0.0, "crop": "", "setTo": _state(p).setTo, "last": c, "waiting": true}
+	_changed(p)
 	_till(p)
 	# Her farming skill: a 6% chance a level (past the first) of one more.
 	if randf() < 0.06 * (LifeSkills.get_level(LifeSkills.Skill.FARMING) - 1):

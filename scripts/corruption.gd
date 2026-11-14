@@ -2,9 +2,9 @@ class_name Corruption
 extends Node
 ## The mist rotting the forest (from Unity's Corruption). In the mist, trees turn corrupted: dark and twisted, tougher
 ## to chop (some swings glance off) and half the wood. At the start a share of the forest in the mist is already gone,
-## in patches (more in strong mist); then every game hour the rot creeps (faster in strong mist, faster beside other
-## rotten trees), never on cleared ground, by a spring or near the village; on cleared ground, and faster by a
-## spring, rotten trees heal. Corrupted trees near Miko can be fought (they glow faintly and have HP): brought down,
+## in patches (more in strong mist), and the rot stays where it is: it doesn't creep to other trees. On cleared
+## ground, and faster by a spring, rotten trees heal, and a cleansing crystal cures those in its clearing.
+## Corrupted trees near Miko can be fought (they glow faintly and have HP): brought down,
 ## they fall like a felled tree. Healthy forest (few rotten trees) is where the wildlife lives. Which trees are rotten
 ## is saved (world.forest), with the springs.
 
@@ -30,7 +30,7 @@ var curing := {}                  ## Gatherable -> how far cured (0 to 1): the r
 var _cure_at := -1.0              ## the clock's hours when the curing was last moved on
 var _next_cure := 0.0
 var _bars: CureBars
-var _hour_left: Array = []        ## the trees still to be seen to this hour (a few hundred a frame, not all at once)
+var _hour_left: Array = []        ## the rotten trees still to be seen to this hour (a few hundred a frame, not all at once)
 const HOUR_EACH := 250            ## trees seen to in one frame
 
 
@@ -86,7 +86,9 @@ func _process_timed(_delta: float) -> void:
 	if world.player == null:
 		return
 	if _pending != null and _now() >= 0.5:
+		var __a := Time.get_ticks_usec()
 		_apply(_pending)
+		Perf.add(&"corruption: the save's rotten trees put back", __a)
 		_pending = null
 		seeded = true
 	if not seeded and _now() >= _seed_at:
@@ -105,14 +107,22 @@ func _process_timed(_delta: float) -> void:
 			_tick()
 			i += 1
 		_last_hour = maxf(_last_hour, hour)
+	var __s := Time.get_ticks_usec()
 	_tick_some()
+	Perf.add(&"corruption: the forest's hour", __s)
 	if _now() >= _next_arm:
 		_next_arm = _now() + 1.0
+		__s = Time.get_ticks_usec()
 		_arm()
+		Perf.add(&"corruption: rotten trees near her", __s)
 	if _now() >= _next_cure:
 		_next_cure = _now() + 0.25
+		__s = Time.get_ticks_usec()
 		_cure()
+		Perf.add(&"corruption: crystals curing", __s)
+	__s = Time.get_ticks_usec()
 	_glow()
+	Perf.add(&"corruption: glow", __s)
 
 
 # A cleansing crystal cures the rotten trees in its clearing, over hours: each fills up (quicker the nearer it
@@ -126,7 +136,13 @@ func _cure() -> void:
 	_cure_at = hours
 	var wards: Array = world.props_named("CleansingCrystal")
 	var reach := Crystals.WARD_RADIUS
-	for t in corrupted.duplicate():
+	# (only the rotten trees standing near a crystal looked at, not every one in the forest four times a second)
+	var near := {}
+	for w in wards:
+		for t in Gatherable.near(w, reach * world.px):
+			if t.corrupted:
+				near[t] = true
+	for t in near:
 		if not is_instance_valid(t):
 			continue
 		var nearest := INF
@@ -202,10 +218,10 @@ static func _hash(at: Vector2) -> float:
 	return h - floorf(h)
 
 
-# An hour of the forest: rot creeping in the mist, healing where it's cleared or by a spring. Every tree's turn comes
-# over the next frames (_tick_some), not all in one.
+# An hour of the forest: rotten trees healing where it's cleared or by a spring (the rot itself spreads no further).
+# Every rotten tree's turn comes over the next frames (_tick_some), not all in one.
 func _tick() -> void:
-	_hour_left.append_array(_trees())
+	_hour_left.append_array(corrupted)
 
 
 # A few hundred trees' hour, seen to.
@@ -221,20 +237,13 @@ func _tick_some() -> void:
 
 
 func _tree_hour(t: Gatherable) -> void:
+	if not t.corrupted:
+		return   # (healed already this hour)
 	var at: Vector2 = t.foot
-	var tier := world.mist.tier_at(at)
 	var spring := Springs.near(at)
-	if t.corrupted:
-		var heal := float(s.healSpring) if spring else (float(s.healClear) if tier == Mist.Tier.CLEAR else 0.0)
-		if heal > 0.0 and not curing.has(t) and randf() < heal:
-			_turn(t, false, true)
-		return
-	if tier == Mist.Tier.CLEAR or spring or world.village.contains(at, 2.0):
-		return
-	var chance := float(s.rotStrong) if tier == Mist.Tier.STRONG else float(s.rotNormal)
-	chance += minf(float(s.spreadMost), corrupted_near(at, float(s.spreadReach) * world.px) * float(s.spreadEach))
-	if randf() < chance:
-		_turn(t, true, true)
+	var heal := float(s.healSpring) if spring else (float(s.healClear) if world.mist.tier_at(at) == Mist.Tier.CLEAR else 0.0)
+	if heal > 0.0 and not curing.has(t) and randf() < heal:
+		_turn(t, false, true)
 
 
 # Corrupts or heals a tree; seen happen, with a burst of sparks.
@@ -242,8 +251,9 @@ func _turn(t: Gatherable, rot: bool, show: bool) -> void:
 	if rot:
 		if not rotten.has(t.healthy):
 			return
+		var was: bool = t.corrupted   # (on the list just when it's rotten: not looked for among thousands)
 		t.set_corrupted(true, rotten[t.healthy])
-		if not corrupted.has(t):
+		if not was:
 			corrupted.append(t)
 	else:
 		t.set_corrupted(false, -1)
@@ -289,8 +299,8 @@ func _burst(at: Vector2, a: Color, b: Color) -> void:
 func _arm() -> void:
 	var at: Vector2 = world.player.position
 	var r := float(s.hitReach) * world.px
-	for t in corrupted:
-		if is_instance_valid(t) and t.standing() and t.foot.distance_to(at) <= r and not armed.has(t):
+	for t in Gatherable.near(at, r):   # (those filed near her, not every rotten tree in the forest)
+		if t.corrupted and t.standing() and t.foot.distance_to(at) <= r and not armed.has(t):
 			armed[t] = _make_armed(t)
 	for t in armed.keys():
 		var a: Array = armed[t]
@@ -313,12 +323,14 @@ func _make_armed(t: Gatherable) -> Array:
 		fx.play()
 		if is_instance_valid(t):
 			t.flinch())
-	hit.died.connect(func():
-		armed.erase(t)
-		if is_instance_valid(t):
-			t.fell())
 	# The glowing veins light the ground a little.
 	var l := PointLight2D.new()
+	hit.died.connect(func():
+		armed.erase(t)
+		if is_instance_valid(l):
+			l.queue_free()   # (its glow goes with it, not left lighting the stump)
+		if is_instance_valid(t):
+			t.fell())
 	l.texture = Fires._glow()
 	l.color = Color(0.78, 0.4, 1.0)
 	l.texture_scale = 1.6 * 2.0 * world.px / float(Fires._glow().get_width())
