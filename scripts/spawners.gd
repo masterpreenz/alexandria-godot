@@ -9,7 +9,7 @@ extends Node
 ## - Mutated villagers roam the mist, a few, the first not far from Miko. Mutated wolves come at night, in packs, from
 ##   the north and east.
 ## - Boars live in the healthy forest: among trees, not by roads or out in the open, outside the village, never beside
-##   her, one to a stretch of forest. Each new day the number is topped back up.
+##   her, one to a stretch of forest. One lost comes back a few hours later (backAfterHours), one at a time.
 
 var world: World
 var d: Dictionary                 ## monsters.json
@@ -22,7 +22,9 @@ var large: Array[Slime] = []
 var forest: Array[Slime] = []
 var boars: Array[Boar] = []
 var _next_restock := 0.0
-var _last_day := -1
+var _last_day := -1               ## -1 till the boars are first all out (or to finish putting them out next frame)
+var _boar_back := -1.0            ## game hours when the next lost boar comes back, or -1 while none's missing
+var _boar_look := 0.0
 
 
 func setup(w: World, data: Dictionary) -> void:
@@ -53,10 +55,22 @@ func _process_timed(_delta: float) -> void:
 	if d.has("mutatedWolf") and _now() >= _next_wolves:
 		_next_wolves = _now() + float(d.mutatedWolfSpawner.restockEvery)
 		restock_wolves()
+	# The boars: all out at first; after that one lost (hunted, or gone into the village) comes back a few hours later,
+	# one at a time, not all at once the next day.
 	var day: int = world.clock.day() if world.clock != null else 1
-	if d.has("boar") and day != _last_day:
+	if d.has("boar") and _last_day == -1:
 		_last_day = day
 		restock_boars()
+	elif d.has("boar") and world.clock != null and _now() >= _boar_look:
+		_boar_look = _now() + 1.0
+		boars.assign(_alive(boars))
+		if boars.size() >= int(d.boarSpawner.count):
+			_boar_back = -1.0
+		elif _boar_back < 0.0:
+			_boar_back = world.clock.hours + float(d.boarSpawner.get("backAfterHours", 4))
+		elif world.clock.hours >= _boar_back:
+			_boar_back = -1.0
+			restock_boars(1)
 
 
 ## Keeps a few mutated villagers shambling about the mist: the first near Miko (out of sight), the rest anywhere.
@@ -266,20 +280,20 @@ func _forest_spot(at: Vector2) -> bool:
 	return Wilds.healthy_forest(world, at) and Wilds.open(world, at, float(sp.villageMargin) + 2.0)
 
 
-## Brings the boars back up to their number (any that ended up in the village go).
-func restock_boars() -> void:
+## Brings the boars back up to their number, [param most] at a time (any that ended up in the village go).
+func restock_boars(most := 99) -> void:
 	var __t := Time.get_ticks_usec()
-	_restock_boars_untimed()
+	_restock_boars_untimed(most)
 	Perf.add(&"spawning: boars", __t)
 
 
-func _restock_boars_untimed() -> void:
+func _restock_boars_untimed(most: int) -> void:
 	boars.assign(_alive(boars))
 	for b in boars.duplicate():
 		if world.village.contains(b.position, 0.5):
 			boars.erase(b)
 			b.queue_free()
-	for i in range(boars.size(), int(d.boarSpawner.count)):
+	for i in range(boars.size(), mini(int(d.boarSpawner.count), boars.size() + most)):
 		if not _budget():
 			_last_day = -1   # the rest next frame
 			return

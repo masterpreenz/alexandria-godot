@@ -91,5 +91,16 @@ func run() -> void:
 		await _secs(2.0)
 		print("Hunt: then: ", Villager.State.keys()[man.state], " carrying ", man.carrying, " ", man.carry_kind, " (", man.activity(), ")")
 	shot("after")
+	# A boar lost comes back a few hours later (game hours), one at a time.
+	var sp: Spawners = g.find_children("*", "Spawners", true, false)[0]
+	var before := sp.boars.size()
+	print("Hunt: boars about the world ", before, " (of ", sp.d.boarSpawner.count, "), forest spots for them ", Wilds.find_spot(world, sp._boar_fits, 160) != null)
+	if before == 0:
+		return
+	sp.boars[0].queue_free()
+	await _secs(1.5)
+	clock.hours += 4.1
+	await _secs(2.5)
+	print("Hunt: boars ", before, ", one taken away, 4 game hours on: ", sp.boars.size())
 	# The maps: whoever can be played shown standing.
 	shot("minimap")
