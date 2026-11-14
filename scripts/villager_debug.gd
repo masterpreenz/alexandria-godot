@@ -2,7 +2,7 @@ class_name VillagerDebug
 extends Node2D
 ## With the F3 debug view open: each villager's way drawn in red (from them, along their route round walls, to where
 ## they're going), and over their head what they're at: their task, their state, and how long they've been trying to
-## get somewhere without getting further than a step. A detour round the mist (to the middle of the cleared land) is
+## get somewhere without getting further than a step. A way round the mist (over cleared ground) is
 ## drawn in orange; someone held up past 3 seconds has their line and words in a stronger red.
 
 var world: World
@@ -39,7 +39,12 @@ func _draw() -> void:
 		if going:
 			var pts := PackedVector2Array([v.position])
 			if v._detour != Vector2.INF:
-				draw_line(v.position, v._detour, Color(1.0, 0.6, 0.1, 0.9), 3.0 * k)
+				var way := PackedVector2Array([v.position])
+				for p in v._mist_way:
+					way.append(p)
+				if way.size() == 1:
+					way.append(v._detour)
+				draw_polyline(way, Color(1.0, 0.6, 0.1, 0.9), 3.0 * k)
 			if v.route != null:
 				for i in range(v.leg, v.route.size()):
 					pts.append(v.route[i].at)

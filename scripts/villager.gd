@@ -342,6 +342,9 @@ func _urgent() -> bool:
 # it, whatever their boxes say. ----
 
 func _board_work(t: float, chance: float) -> bool:
+	# (still holding a load from a trip given up on: it goes to storage first, not carried about all day)
+	if carrying > 0 and not _in_party() and _go_store():
+		return true
 	# (meat lying about spoils: whoever can carry it brings it in before anything else)
 	if _go_fetch_game():
 		return true
@@ -880,7 +883,7 @@ func _set_goal(p: Vector2) -> void:
 func _aim() -> Vector2:
 	if _detour != Vector2.INF:
 		if not _past_detour():
-			return _detour
+			return _detour_aim()
 	if route == null or route.is_empty():
 		return target
 	while leg < route.size() - 1 and not route[leg].exact and _clear(route[leg + 1].at):
@@ -1220,19 +1223,23 @@ func _pick_spot() -> bool:
 func _keep_out_of_mist(t: float, delta: float) -> void:
 	if velocity == Vector2.ZERO or world.mist == null or not safe_ground(world, position) or _in_party():
 		return
+	# (fetching game lying just inside the mist's edge: the step in is allowed)
+	if state == State.TO_PICKUP and loose != null and is_instance_valid(loose) and GAME_DROPS.has(loose.resource) 			and loose.ground.distance_to(position) < 2.5 * world.px:
+		return
 	var ahead := position + velocity * maxf(delta, 0.016) * 4.0
 	if safe_ground(world, ahead):
 		return
-	# Where they're going is on cleared ground, past a bit of mist: round it by the middle of the cleared land they're
-	# on (the village, a crystal's clearing), not stopped dead at its edge. Twice round for the same place and still
-	# blocked: given up as before.
+	# Where they're going is on cleared ground, past a bit of mist: a way round it on cleared ground (MistWay), else
+	# by the middle of the cleared land they're on (the village, a crystal's clearing), not stopped dead at its edge.
+	# Twice round for the same place and still blocked: given up as before.
 	if target != _detour_for:
 		_detours = 0
 	if _going() and safe_ground(world, target) and _detours < 2:
 		if _detour == Vector2.INF:
-			_detour = _clear_middle()
 			_detour_for = target
 			_detours += 1
+			_mist_way = MistWay.find(world, position, target)
+			_detour = _mist_way[0] if not _mist_way.is_empty() else _clear_middle()
 		var turned := _along_mist(velocity, delta)
 		if turned != Vector2.ZERO:
 			velocity = turned
@@ -1243,7 +1250,25 @@ func _keep_out_of_mist(t: float, delta: float) -> void:
 		_stand(t, randf_range(0.5, 1.5))
 
 
-var _detour := Vector2.INF          ## the middle of the cleared land, walked toward to get round mist in the way
+var _detour := Vector2.INF          ## the point walked to now to get round mist in the way
+var _mist_way: Array[Vector2] = [] ## the rest of the way round the mist (the first of them the detour now)
+var _detour_route: Variant = null   ## the way to the detour point round walls (VillagerRoute points), or null
+var _detour_leg := 0
+var _detour_routed := Vector2.INF   ## the detour point that route is for
+
+
+# The point to walk to now on the way to the detour point: round walls, as any way is.
+func _detour_aim() -> Vector2:
+	if _detour_routed != _detour:
+		_detour_routed = _detour
+		_detour_route = VillagerRoute.find(world, position, _detour)
+		_detour_leg = 0
+	if _detour_route == null or (_detour_route as Array).is_empty():
+		return _detour
+	var r: Array = _detour_route
+	while _detour_leg < r.size() - 1 and (position.distance_to(r[_detour_leg].at) < 0.35 * world.px or (not r[_detour_leg].exact and _clear(r[_detour_leg + 1].at))):
+		_detour_leg += 1
+	return r[_detour_leg].at
 var _detour_for := Vector2.INF      ## where they were going when they turned for it
 var _detours := 0                   ## times turned for it on the way to the same place
 var _next_detour_look := 0.0
@@ -1254,10 +1279,18 @@ var _next_detour_look := 0.0
 func _past_detour() -> bool:
 	if target != _detour_for or not _going():
 		_detour = Vector2.INF
+		_mist_way.clear()
 		_detours = 0
 		return true
-	if position.distance_to(_detour) < 0.5 * world.px:
+	if position.distance_to(_detour) < 0.4 * world.px:
+		# (on to the next point of the way round)
+		if not _mist_way.is_empty():
+			_mist_way.pop_front()
+		if not _mist_way.is_empty() and _mist_way[0] != target:
+			_detour = _mist_way[0]
+			return false
 		_detour = Vector2.INF
+		_mist_way.clear()
 		return true
 	var t := now()
 	if t < _next_detour_look:
@@ -1266,6 +1299,7 @@ func _past_detour() -> bool:
 	var on: Vector2 = target if route == null or route.is_empty() else (route[leg].at as Vector2)
 	if _mist_free(position, on):
 		_detour = Vector2.INF
+		_mist_way.clear()
 		return true
 	return false
 
@@ -3340,8 +3374,19 @@ const GAME_DROPS := ["Food", "Hide", "Jelly"]
 
 
 # The nearest meat (or hide, or jelly) lying about: off to bring it in. Whether they went.
+## Game lying on cleared ground, or just inside the mist's edge (a step or so in): fetched, not left to spoil.
+func _game_reachable(at: Vector2) -> bool:
+	if safe_ground(world, at):
+		return true
+	for a in 8:
+		if safe_ground(world, at + Vector2.from_angle(a * TAU / 8.0) * 1.5 * world.px):
+			return true
+	return false
+
+
 func _go_fetch_game() -> bool:
-	if not able(person, Job.HAULING) or _in_party() or carrying >= _carry_most():
+	# (haulers, and a hunter: all of what his game dropped is his to bring home)
+	if not (able(person, Job.HAULING) or hunts()) or _in_party() or carrying >= _carry_most():
 		return false
 	var best: Pickup = null
 	var best_d := 30.0 * world.px
@@ -3351,7 +3396,7 @@ func _go_fetch_game() -> bool:
 			continue
 		if carrying > 0 and p.resource != carry_kind:
 			continue
-		if t < float(out_of_reach.get(p, -1.0)) or not safe_ground(world, p.ground) or world.village.stored(p.resource) >= world.village.stash_cap(p.resource):
+		if t < float(out_of_reach.get(p, -1.0)) or not _game_reachable(p.ground) or world.village.stored(p.resource) >= world.village.stash_cap(p.resource):
 			continue
 		# (meat counts as nearer: it's what spoils)
 		var dd := p.ground.distance_to(position) * (0.5 if p.resource == "Food" else 1.0)

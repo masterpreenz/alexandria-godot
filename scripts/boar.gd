@@ -388,7 +388,8 @@ func _died() -> void:
 	# (a boar's a rare catch and a big one: plenty of meat, far more than a rabbit's)
 	for i in randi_range(2, 3):
 		Pickup.launch_icon(world, "Food", 2, at, 2.2)
-	Pickup.launch_icon(world, "Hide", 1, at, 2.2)
+	# (the hide close by the body, not flung off into the mist where nobody would fetch it)
+	Pickup.launch_icon(world, "Hide", 1, at, 0.8)
 	drop_seed()
 	_clear_warn()
 	# The dust trail stays a moment to fade, apart from the boar.
