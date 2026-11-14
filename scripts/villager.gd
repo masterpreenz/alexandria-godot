@@ -878,6 +878,9 @@ func _set_goal(p: Vector2) -> void:
 
 # The point to walk to now: along the route, cutting past the in-between points they can see beyond.
 func _aim() -> Vector2:
+	if _detour != Vector2.INF:
+		if not _past_detour():
+			return _detour
 	if route == null or route.is_empty():
 		return target
 	while leg < route.size() - 1 and not route[leg].exact and _clear(route[leg + 1].at):
@@ -1216,10 +1219,107 @@ func _keep_out_of_mist(t: float, delta: float) -> void:
 	var ahead := position + velocity * maxf(delta, 0.016) * 4.0
 	if safe_ground(world, ahead):
 		return
+	# Where they're going is on cleared ground, past a bit of mist: round it by the middle of the cleared land they're
+	# on (the village, a crystal's clearing), not stopped dead at its edge. Twice round for the same place and still
+	# blocked: given up as before.
+	if target != _detour_for:
+		_detours = 0
+	if _going() and safe_ground(world, target) and _detours < 2:
+		if _detour == Vector2.INF:
+			_detour = _clear_middle()
+			_detour_for = target
+			_detours += 1
+		var turned := _along_mist(velocity, delta)
+		if turned != Vector2.ZERO:
+			velocity = turned
+			return
 	velocity = Vector2.ZERO
 	# A stroll or a chat is just given up; a job is left to its own "stuck" handling (it lets go of what it claimed).
 	if state == State.WALK or state == State.TO_CHAT:
 		_stand(t, randf_range(0.5, 1.5))
+
+
+var _detour := Vector2.INF          ## the middle of the cleared land, walked toward to get round mist in the way
+var _detour_for := Vector2.INF      ## where they were going when they turned for it
+var _detours := 0                   ## times turned for it on the way to the same place
+var _next_detour_look := 0.0
+
+
+# Heading for the middle of the cleared land, until the way on to where they're going is clear of mist (or they're
+# there, or going somewhere else now).
+func _past_detour() -> bool:
+	if target != _detour_for or not _going():
+		_detour = Vector2.INF
+		_detours = 0
+		return true
+	if position.distance_to(_detour) < 0.5 * world.px:
+		_detour = Vector2.INF
+		return true
+	var t := now()
+	if t < _next_detour_look:
+		return false
+	_next_detour_look = t + 0.5
+	var on: Vector2 = target if route == null or route.is_empty() else (route[leg].at as Vector2)
+	if _mist_free(position, on):
+		_detour = Vector2.INF
+		return true
+	return false
+
+
+# No mist on the straight line from [param a] to [param b].
+func _mist_free(a: Vector2, b: Vector2) -> bool:
+	var steps := maxi(1, ceili(a.distance_to(b) / (0.4 * world.px)))
+	for k in range(1, steps + 1):
+		if not safe_ground(world, a.lerp(b, k / float(steps))):
+			return false
+	return true
+
+
+# The middle of the cleared land they're on: the village's banner, or the crystal whose clearing it is (the nearest
+# they can walk straight to without crossing mist).
+func _clear_middle() -> Vector2:
+	return _clear_middle_from(position)
+
+
+## The middle of the cleared land at [param at] (as [method _clear_middle]).
+func _clear_middle_from(at: Vector2) -> Vector2:
+	var middles: Array = []
+	if world.village != null and world.village.founded():
+		middles.append(world.village.centre())
+	if Crystals.active != null:
+		middles.append_array(Crystals.active.spots())
+	var best := at
+	var best_d := INF
+	for m in middles:
+		var d := at.distance_to(m)
+		if d < best_d and safe_ground(world, m) and _mist_free(at, m):
+			best = m
+			best_d = d
+	return best
+
+
+# A way on that doesn't step into the mist: turned from [param want] toward the middle of the cleared land first,
+# sliding along the mist's edge. Zero when every way on is mist.
+func _along_mist(want: Vector2, delta: float) -> Vector2:
+	var speed := want.length()
+	if speed < 0.001:
+		return Vector2.ZERO
+	var dir := want / speed
+	var to_mid := (_detour - position).normalized() if _detour != Vector2.INF else Vector2.ZERO
+	var tries: Array = []
+	if to_mid != Vector2.ZERO:
+		tries.append(to_mid)
+	for a in [30.0, 60.0, 90.0, 120.0, 150.0]:
+		var l := dir.rotated(deg_to_rad(a))
+		var r := dir.rotated(deg_to_rad(-a))
+		if r.dot(to_mid) > l.dot(to_mid):
+			tries.append_array([r, l])
+		else:
+			tries.append_array([l, r])
+	for d: Vector2 in tries:
+		if safe_ground(world, position + d * speed * maxf(delta, 0.016) * 4.0):
+			return d * speed
+	return Vector2.ZERO
 
 
 static func safe_ground(w: World, at: Vector2) -> bool:

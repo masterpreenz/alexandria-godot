@@ -37,7 +37,7 @@ func run() -> void:
 	for v in Villager.all:
 		if is_instance_valid(v) and str(v.person.get("unique", "")) == Playable.LEAD:
 			sera_v = v
-	print("Map pose: Miyu played ", ok, "; Sera the villager drawn as Sera ", _is_sera(Party.active.pose(sera_v.person)) if sera_v != null else "?")
+	print("Map pose: Miyu played ", ok, "; Sera the villager drawn as Sera ", str(_is_sera(Party.active.pose(sera_v.person))) if sera_v != null else "?")
 	ok = Playable.active.switch_to(sera_v)
 	await _frames(30)
 	print("Map pose: back to Sera ", ok, "; the minimap shows her own ", _is_sera(Playable.active.pose()))
