@@ -22,7 +22,7 @@ func run() -> void:
 	await _secs(1.0)
 	var req := Requests.active
 	print("Requests: founded ", world.village.founded(), ", villagers ", Villager.all.size())
-	var carriers: Array = Villager.all.filter(func(v): return is_instance_valid(v) and not v.person.has("unique") and Villager.jobs_of(v.person).any(func(j): return Requests.CARRIERS.has(j)))
+	var carriers: Array = Villager.all.filter(func(vi): return is_instance_valid(vi) and not vi.person.has("unique") and Villager.jobs_of(vi.person).any(func(job): return Requests.CARRIERS.has(job)))
 	print("Requests: workers who carry ", carriers.size())
 	if carriers.is_empty():
 		return

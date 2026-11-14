@@ -208,9 +208,9 @@ func _show(line: String) -> void:
 		var ask := Requests.active.offered_by(who)
 		if ask != "":
 			_add("Something on your mind?", _ask_request.bind(ask), true)
-		var open := Requests.active.open_for(who)
-		if open != "" and not Requests.active.find_thing(str(Requests.active.by_id[str(Requests.active.asks[open].id)].kind)).is_empty():
-			_add("Give %s a %s" % [str(who.person.name), Requests.active.thing_name(open).to_lower()], _give_request.bind(open), true)
+		var open_key := Requests.active.open_for(who)
+		if open_key != "" and not Requests.active.find_thing(str(Requests.active.by_id[str(Requests.active.asks[open_key].id)].kind)).is_empty():
+			_add("Give %s a %s" % [str(who.person.name), Requests.active.thing_name(open_key).to_lower()], _give_request.bind(open_key), true)
 	# (someone unique: something of their own to talk about, and a gift)
 	if Intimacy.has(who.person):
 		_hearts()
