@@ -2473,6 +2473,7 @@ var _next_back := 0.0
 var _bow: BowArt
 var _shot_from := -1.0            ## when the shot under way began (its animation: drawn, held, loosed), or -1
 var _loosed := false
+var _closing_from := -1.0         ## when they started closing in on it (shot from further if they can't get nearer)
 var _game_at := Vector2.INF       ## where the game fell: its meat gathered up once it's landed
 var _gather_at := 0.0
 var _prey_last := Vector2.INF     ## where the game was last seen (it's gone the moment it falls)
@@ -2627,13 +2628,19 @@ func _bow_at(shot_at: Damageable, t: float, delta: float, keep: State) -> void:
 			dodge_to = back
 			dodge_until = t + 0.9
 			return
-	if d > BOW_RANGE * world.px:
+	# (closing in; but held up a while, a bank or a wall in the way, they shoot from a little further)
+	var held_up := _closing_from >= 0.0 and t - _closing_from > 2.5 and d <= BOW_RANGE * 1.5 * world.px
+	if d > BOW_RANGE * world.px and not held_up:
+		if _closing_from < 0.0:
+			_closing_from = t
 		if t >= next_chase:
 			next_chase = t + 0.5
 			_set_goal(it.position)
 		_walk(t, delta)
 		state = keep   # (walking there isn't arriving anywhere)
 		return
+	if d <= BOW_RANGE * world.px:
+		_closing_from = -1.0
 	velocity = Vector2.ZERO
 	facing_up = to.y < 0.0
 	facing_right = to.x > 0.0

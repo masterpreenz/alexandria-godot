@@ -385,8 +385,9 @@ func _died() -> void:
 		p.stats.gain_xp(int(s.xp))
 	var at := position + Vector2(0, -0.2 * world.px)
 	Puffs.burst(world, at, 1.2, 28)
-	for i in randi_range(1, 2):
-		Pickup.launch_icon(world, "Food", 1, at, 2.2)
+	# (a boar's a rare catch and a big one: plenty of meat, far more than a rabbit's)
+	for i in randi_range(2, 3):
+		Pickup.launch_icon(world, "Food", 2, at, 2.2)
 	Pickup.launch_icon(world, "Hide", 1, at, 2.2)
 	drop_seed()
 	_clear_warn()

@@ -79,7 +79,14 @@ func run() -> void:
 			shot("charge")
 		if not is_instance_valid(boar) or not boar.hit.alive():
 			break
+		if Engine.get_process_frames() % 300 == 0:
+			print("Hunt: ... ", Villager.State.keys()[man.state], " ", man.activity(), ", boar ", Boar.State.keys()[boar.state], " HP ", roundi(boar.hit.hp), ", apart ", snappedf(man.position.distance_to(boar.position) / world.px, 0.1), ", boar from crystal ", snappedf(boar.position.distance_to(at) / world.px, 0.1))
 	print("Hunt: after ", (Time.get_ticks_msec() - start) / 1000.0, " s: boar ", ("down" if not is_instance_valid(boar) or not boar.hit.alive() else "HP %d" % roundi(boar.hit.hp)), ", dodges ", dodges, ", his HP ", roundi(hurt0), " -> ", roundi(man.hit.hp), ", state ", Villager.State.keys()[man.state], ", activity: ", man.activity())
+	var meat := 0
+	for pk in Pickup.all:
+		if is_instance_valid(pk) and pk.resource == "Food" and pk.position.distance_to(at) < 8.0 * world.px:
+			meat += pk.amount
+	print("Hunt: meat on the ground from the boar ", meat)
 	for i in 4:
 		await _secs(2.0)
 		print("Hunt: then: ", Villager.State.keys()[man.state], " carrying ", man.carrying, " ", man.carry_kind, " (", man.activity(), ")")
