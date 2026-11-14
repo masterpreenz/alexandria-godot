@@ -291,9 +291,41 @@ func _hud() -> void:
 
 
 var _cards: PartyCards
+var _poses := {}                  ## look (or "sera") -> their standing pose, for the maps
 
 
 ## [param p]'s face, as on their party card (for the party window).
+## [param p]'s standing pose, whole (transparent round it): what the maps show for those who can be played. Sera's
+## own for her, as a villager or played.
+func pose(p: Dictionary) -> Texture2D:
+	var sera := p.is_empty() or not Playable.villager_look(p).is_empty()
+	var key := "sera" if sera else str(int(p.get("look", 0)))
+	if _poses.has(key):
+		return _poses[key]
+	var id := -1
+	if sera:
+		var me := world.player as Miko
+		var idle: Array = me.data.frames.get("idleDownLeft", []) if me != null else []
+		id = int(idle[0]) if not idle.is_empty() else -1
+	else:
+		id = int(people.d.looks[int(p.get("look", 0))].settings.idleDown)
+	if id < 0:
+		return null
+	var info: Dictionary = world.sprites[id]
+	var at := AtlasTexture.new()
+	at.atlas = world._texture(info.tex)
+	var frame := Rect2i(int(info.rect[0]), int(info.rect[1]), int(info.rect[2]), int(info.rect[3]))
+	var used := frame
+	var img := at.atlas.get_image() if at.atlas != null else null
+	if img != null:
+		var r := img.get_region(frame).get_used_rect()
+		if r.size.x > 0:
+			used = Rect2i(frame.position + r.position, r.size)
+	at.region = Rect2(used)
+	_poses[key] = at
+	return at
+
+
 func face(p: Dictionary) -> Texture2D:
 	if _cards == null:
 		_hud()

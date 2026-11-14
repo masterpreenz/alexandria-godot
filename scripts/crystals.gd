@@ -28,7 +28,20 @@ var flash: ColorRect
 var _flash_until := 0.0
 
 
+static var active: Crystals
+
+
+## Where the crystals stand (px), near or far: the teleport crystals and the wards. Hunters look for game round them.
+func spots() -> Array:
+	var out := []
+	for nm in ["TeleportCrystal", "CleansingCrystal"]:
+		for e in world.props.entries_named(nm):
+			out.append(e.pos)
+	return out
+
+
 func setup(w: World, who: Miko, hud: Node) -> void:
+	active = self
 	world = w
 	miko = who
 	prompt = Label.new()

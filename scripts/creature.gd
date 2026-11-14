@@ -28,6 +28,8 @@ var art_scale := 1.0
 var raid_to := Vector2.INF       ## raiding (Raids): where in the village it's making for; INF when not
 var taunted_by: Damageable       ## a shield shikigami that's drawn it off: it goes for that instead, while it lasts
 var taunt_until := 0.0
+var hunter: Node2D               ## a villager out hunting it (Hunting): it's after them, not Miko, while it's being hunted
+var hunted_until := 0.0          ## till then it's being hunted: awake however far from Miko, and turned on its hunter
 var _check_at := 0.0
 
 
@@ -286,6 +288,13 @@ func player() -> Miko:
 	return world.player as Miko
 
 
+## The hunter it's turned on (a villager out hunting it, still about), or null.
+func hunted_by() -> Villager:
+	if now() < hunted_until and hunter != null and is_instance_valid(hunter) and (hunter as Villager).hit.alive():
+		return hunter as Villager
+	return null
+
+
 ## Rests while far from Miko; true while resting (the caller skips its thinking). Frozen solid (Cold Snap), it does
 ## nothing at all till the ice lets go.
 func resting() -> bool:
@@ -294,6 +303,9 @@ func resting() -> bool:
 		return true
 	if raid_to != Vector2.INF:
 		asleep = false   # a raider keeps coming, however far from Miko
+		return false
+	if now() < hunted_until:
+		asleep = false   # (hunted: it runs or fights back, wherever Miko is)
 		return false
 	var t := now()
 	if t >= _check_at:

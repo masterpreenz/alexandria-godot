@@ -537,6 +537,13 @@ func _sera_as_villager() -> Dictionary:
 
 
 ## Her face for the card and the party window: her portrait as Sera, else the played one's (as on a party card).
+## The standing pose of whoever's played (the maps show it).
+func pose() -> Texture2D:
+	if Party.active == null:
+		return null
+	return Party.active.pose({} if str(entry(who).get("art", "look")) == "player" else played)
+
+
 func portrait() -> Texture2D:
 	if str(entry(who).get("art", "look")) == "player" or Party.active == null:
 		return HudStyle.icon("portrait")

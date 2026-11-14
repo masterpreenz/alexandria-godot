@@ -39,7 +39,7 @@ func setup(w: World, data: Dictionary, beds: Dictionary, eat_sound: Variant) -> 
 var board: Array = BOARD.duplicate()
 static var closed := false            ## nobody new comes while it's set (the story has its own people at its start)
 const BOARD := [Villager.Job.BUILDING, Villager.Job.HAULING, Villager.Job.FARMING, Villager.Job.COOKING, Villager.Job.FISHING,
-	Villager.Job.CRAFTING, Villager.Job.LUMBERING, Villager.Job.MINING]
+	Villager.Job.CRAFTING, Villager.Job.LUMBERING, Villager.Job.MINING, Villager.Job.HUNTING]
 
 
 ## The saved people (Unity's village.people).
@@ -48,6 +48,10 @@ func from_json(json: String) -> void:
 	people = data.get("people", []) if data is Dictionary else []
 	# (the board as saved, as long as it's every job once: else the usual order)
 	var saved: Array = (data.get("board", []) as Array).map(func(j): return int(j)) if data is Dictionary and data.get("board") is Array else []
+	# (a job added since it was saved goes on the end)
+	for j in BOARD:
+		if not saved.is_empty() and not saved.has(j):
+			saved.append(j)
 	board = saved if saved.size() == BOARD.size() and BOARD.all(func(j): return saved.has(j)) else BOARD.duplicate()
 	for p in people:
 		_fix(p)

@@ -24,9 +24,9 @@ extends CharacterBody2D
 ## lets them carry more. At dusk they light the fires and torches from storage.
 
 enum State { STAND, WALK, HOME, ASLEEP, FIGHT, TO_EAT, TO_MEAL, EATING, TO_CHAT, CHAT, CHAT_WAIT, TO_DOOR,
-	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH, TO_WELL, FOLLOW }
+	TO_WORK, WORK, TO_STORE, TO_PICKUP, TO_FARM, FARM, TO_COOK, COOK, TO_LIGHT, TO_BUILD, BUILD, TO_CRAFT, CRAFT, TO_REPAIR, REPAIR, FLEE, CELLAR, TO_FISH, FISH, TO_WELL, FOLLOW, HUNT }
 
-enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING, HAULING }
+enum Job { ANY, MINING, LUMBERING, REST, FARMING, BUILDING, COOKING, CRAFTING, FISHING, HAULING, HUNTING }
 
 const BAG_TRIPS := 40             ## trips to storage a bag lasts
 const TOOL_USES := 150            ## uses a set of tools lasts
@@ -360,6 +360,7 @@ func _do_job(j: int, t: float, put_on: bool, chance: float) -> bool:
 		Job.FARMING: return (keen or _crops_need_care()) and _go_farm(put_on)
 		Job.COOKING: return keen and (_go_cook(put_on) or _go_craft(put_on, "cook"))
 		Job.FISHING: return keen and _go_fish(put_on)
+		Job.HUNTING: return keen and _go_hunt(put_on)
 		Job.CRAFTING: return keen and _go_craft(put_on, "craft")
 		Job.LUMBERING, Job.MINING:
 			if keen and _find_work(j, put_on):
@@ -376,6 +377,7 @@ func doing() -> int:
 		State.TO_FARM, State.FARM: return Job.FARMING
 		State.TO_COOK, State.COOK: return Job.COOKING
 		State.TO_FISH, State.FISH: return Job.FISHING
+		State.HUNT: return Job.HUNTING
 		State.TO_BUILD, State.BUILD, State.TO_REPAIR, State.REPAIR: return Job.BUILDING
 		State.TO_CRAFT, State.CRAFT: return Job.COOKING if str(craft_bench.get("skill", "")) == "Cooking" else Job.CRAFTING
 		State.TO_WORK, State.WORK:
@@ -736,6 +738,8 @@ func _physics_process_timed(delta: float) -> void:
 				_sleeping(delta)
 		State.FIGHT:
 			_fighting(t, delta)
+		State.HUNT:
+			_hunting(t, delta)
 		State.FLEE:
 			_fleeing(t, delta)
 		State.CELLAR:
@@ -2253,6 +2257,11 @@ func _fighting(t: float, delta: float) -> void:
 		if t >= melee_until and Tactics.keeps_distance(person):
 			_keep_distance(t)
 			return
+	# (a hunter: the bow, from a distance)
+	if hunts():
+		_bow_at(foe, t, delta, State.FIGHT)
+		return
+	_bow_shown(false)
 	var to := foe.global_position - position
 	var reach := float(s.stabReach) * world.px + foe.radius * 0.5
 	if to.length() > reach:
@@ -2444,6 +2453,245 @@ func _refuge(from: Vector2) -> Vector2:
 	return position + away * 3.0 * world.px
 
 
+# ---- Hunting: the men set to it go out to the crystals by day, after boars and rabbits found round them (now and
+# then a slime), shooting from a bow at a distance, stepping out of a charge's path and backing off from what comes at
+# them; the meat brought home. In a fight they use the bow too. ----
+
+const HUNT_AROUND := 16.0         ## units round a crystal game is hunted in
+const HUNT_FROM := 60.0           ## units away from them, at most, game is gone after
+const SLIME_CHANCE := 0.3         ## the times they'll go after a slime too
+const BOW_RANGE := 6.5            ## units: close enough to shoot
+const BOW_NEAR := 2.6             ## units: closer than this, what's after them is backed away from
+const SHOT_EVERY := 1.5           ## seconds between arrows
+const HUNT_FOR := 120.0           ## seconds one hunt lasts at most
+
+static var hunted := {}           ## Creature -> the Villager hunting it (so two don't go after one)
+
+var prey: Creature                ## what they're hunting
+var _next_shot := 0.0
+var _next_back := 0.0
+var _bow: BowArt
+var _game_at := Vector2.INF       ## where the game fell: its meat gathered up once it's landed
+var _gather_at := 0.0
+var _prey_last := Vector2.INF     ## where the game was last seen (it's gone the moment it falls)
+
+
+## Whether they hunt (set to it): then they fight with a bow.
+func hunts() -> bool:
+	return not _in_party() and weight_of(person, Job.HUNTING) > 1
+
+
+func _prey_name() -> String:
+	if prey is Boar: return "boar"
+	if prey is Rabbit: return "rabbit"
+	if prey is Slime: return "slime"
+	return "something"
+
+
+# Whether [param at] is within reach of one of [param spots] (the crystals).
+func _by_crystal(at: Vector2, spots: Array) -> bool:
+	for c in spots:
+		if at.distance_to(c) <= HUNT_AROUND * world.px:
+			return true
+	return false
+
+
+# Game round a crystal, by day: off after the nearest (a boar or a rabbit; a slime only now and then). Whether they went.
+func _go_hunt(_put_on: bool) -> bool:
+	if _night() or not able(person, Job.HUNTING) or Crystals.active == null or carrying > 0 or _in_party():
+		return false
+	var spots := Crystals.active.spots()
+	if spots.is_empty():
+		return false
+	var slimes := randf() < SLIME_CHANCE
+	var best: Creature = null
+	var best_d := HUNT_FROM * world.px
+	for c in Creature.all:
+		if not is_instance_valid(c) or c.hit == null or not c.hit.alive() or c.raid_to != Vector2.INF:
+			continue
+		if not (c is Boar or c is Rabbit or (slimes and c is Slime and not (c as Slime).large)):
+			continue
+		var by: Variant = hunted.get(c)
+		if by != null and by != self and is_instance_valid(by) and (by as Villager).state == State.HUNT:
+			continue
+		if world.village.contains(c.position, 1.0) or not safe_ground(world, c.position) or not _by_crystal(c.position, spots):
+			continue
+		var d := c.position.distance_to(position)
+		if d < best_d:
+			best_d = d
+			best = c
+	if best == null:
+		return false
+	if job != null:
+		claimed.erase(job)
+		job = null
+	prey = best
+	hunted[best] = self
+	state = State.HUNT
+	clock = 0.0
+	state_until = now() + HUNT_FOR
+	next_chase = 0.0
+	_next_shot = now() + 0.8
+	return true
+
+
+func _hunting(t: float, delta: float) -> void:
+	if _low():
+		var danger := _danger()
+		if danger != null:
+			_end_hunt(t, false)
+			_flee(danger)
+			return
+	# (the game down: a moment for what it dropped to land, then that gathered up)
+	if _game_at != Vector2.INF:
+		velocity = Vector2.ZERO
+		_show_idle()
+		if t >= _gather_at:
+			_gather_game(t)
+		return
+	if prey == null or not is_instance_valid(prey) or prey.hit == null or not prey.hit.alive():
+		_end_hunt(t, true)
+		return
+	if _night() or t > state_until or prey.position.distance_to(position) > HUNT_FROM * 1.3 * world.px:
+		_end_hunt(t, false)
+		return
+	_prey_last = prey.position
+	_bow_at(prey.hit, t, delta, State.HUNT)
+
+
+# The hunt's over: the game down, they gather up what it dropped and bring it home; else back to the day.
+func _end_hunt(t: float, got_it: bool) -> void:
+	var at := prey.position if prey != null and is_instance_valid(prey) else (_prey_last if _prey_last != Vector2.INF else position)
+	_prey_last = Vector2.INF
+	hunted.erase(prey)
+	prey = null
+	_bow_shown(false)
+	if got_it:
+		people.practise(person, LifeSkills.Skill.STRENGTH)
+		show_mood("success", 3.0)
+		_game_at = at
+		_gather_at = t + 1.6
+		return
+	_stand(t, randf_range(1.0, 2.0))
+
+
+# The meat and hide lying where the game fell: into their arms, and off home with it.
+func _gather_game(t: float) -> void:
+	var at := _game_at
+	_game_at = Vector2.INF
+	var best: Pickup = null
+	var best_d := 4.5 * world.px
+	for p in Pickup.all:
+		if is_instance_valid(p) and p.settled() and not p.thrown and not gathering.has(p) and p.ground.distance_to(at) < best_d:
+			best_d = p.ground.distance_to(at)
+			best = p
+	if best == null:
+		_stand(t, randf_range(1.0, 2.0))
+		return
+	loose = best
+	gathering[best] = true
+	state = State.TO_PICKUP
+	clock = 0.0
+	_set_goal(best.ground)
+
+
+# Shooting at [param target] with a bow: near enough first, then standing, turned to it, an arrow every so often; out
+# of a charge's marked path quickly, and back from whatever's come too close. [param keep] is the state they're in.
+func _bow_at(target: Damageable, t: float, delta: float, keep: int) -> void:
+	var it := target.get_parent() as Node2D
+	_bow_shown(true)
+	# (stepping out of the way: a charge's path, or something come too close)
+	if t < dodge_until and dodge_to != Vector2.INF:
+		if _step_to(dodge_to, delta, 1.8):
+			dodge_until = 0.0
+			dodge_to = Vector2.INF
+		move_and_slide()
+		return
+	if not Telegraph.live.is_empty():
+		var strip := Tactics.strip_at(position)
+		if strip != null:
+			_dodge_strip(strip, t)
+			return
+	var to := it.position - position
+	var d := to.length()
+	var after_them := (it is Creature and (it as Creature).hostile()) or (it is Boar and (it as Boar).angry_until > t)
+	if after_them and d < BOW_NEAR * world.px and t >= _next_back:
+		_next_back = t + 1.4
+		var back := position - to.normalized() * 2.2 * world.px
+		if Wilds.dry(world, back, 0.3):
+			dodge_to = back
+			dodge_until = t + 0.9
+			return
+	if d > BOW_RANGE * world.px:
+		if t >= next_chase:
+			next_chase = t + 0.5
+			_set_goal(it.position)
+		_walk(t, delta)
+		state = keep   # (walking there isn't arriving anywhere)
+		return
+	velocity = Vector2.ZERO
+	facing_up = to.y < 0.0
+	facing_right = to.x > 0.0
+	_show_idle()
+	_bow.aim(to, 1.0 - clampf((_next_shot - t) / SHOT_EVERY, 0.0, 1.0))
+	if t >= _next_shot:
+		_next_shot = t + SHOT_EVERY * randf_range(0.85, 1.15)
+		# (a little ahead of it, if it's on the move)
+		var lead := it.position
+		if it is CharacterBody2D:
+			lead += (it as CharacterBody2D).velocity * clampf(d / (Arrow.SPEED * world.px), 0.0, 0.6)
+		var strength := 1.0 + 0.06 * (maxi(1, Villagers.skill(person, LifeSkills.Skill.STRENGTH)) - 1)
+		Arrow.loose(world, self, position + Vector2(0, -0.45 * world.px), target, lead, float(person.get("atk", s.stabDamage)) * strength)
+
+
+# Out of [param strip] sideways (to the nearer edge), a step past it.
+func _dodge_strip(strip: Telegraph, t: float) -> void:
+	var g := Telegraph._ground(position - strip.from)
+	var gd := Telegraph._ground(strip.dir * strip.length)
+	var n := Vector2(-gd.y, gd.x).normalized()
+	var side := g.dot(n)
+	var sgn := signf(side) if absf(side) > 0.05 * world.px else (1.0 if randf() < 0.5 else -1.0)
+	var out := sgn * (strip.width * 0.5 + 0.5 * world.px) - side
+	dodge_to = position + Telegraph._screen(n * out)
+	dodge_until = t + 1.0
+
+
+func _bow_shown(on: bool) -> void:
+	if on and _bow == null:
+		_bow = BowArt.new()
+		_bow.px = world.px
+		add_child(_bow)
+	if _bow != null:
+		_bow.visible = on
+
+
+## The bow in a hunter's hands while they hunt or fight: drawn back as the next arrow nears.
+class BowArt extends Node2D:
+	var px := 1.0
+	var dir := Vector2.RIGHT
+	var pull := 0.0
+
+	func aim(to: Vector2, drawn: float) -> void:
+		dir = to.normalized() if to.length_squared() > 0.01 else dir
+		pull = drawn
+		position = Vector2(dir.x * 0.18 * px, -0.42 * px + dir.y * 0.08 * px)
+		queue_redraw()
+
+	func _draw() -> void:
+		var side := Vector2(-dir.y, dir.x)
+		var r := 0.26 * px
+		var pts := PackedVector2Array()
+		for i in 9:
+			var a := lerpf(-1.1, 1.1, i / 8.0)
+			pts.append(dir * cos(a) * r * 0.55 + side * sin(a) * r)
+		draw_polyline(pts, Color(0.45, 0.28, 0.14), maxf(1.5, 0.045 * px), true)
+		var nock := -dir * pull * 0.16 * px
+		draw_line(pts[0], nock, Color(0.9, 0.88, 0.8, 0.9), maxf(1.0, 0.015 * px), true)
+		draw_line(pts[8], nock, Color(0.9, 0.88, 0.8, 0.9), maxf(1.0, 0.015 * px), true)
+		if pull > 0.15:
+			draw_line(nock, nock + dir * 0.4 * px, Color(0.55, 0.38, 0.22), maxf(1.0, 0.025 * px), true)
+
+
 # ---- Work ----
 
 func _job() -> int:
@@ -2451,17 +2699,27 @@ func _job() -> int:
 
 
 ## The jobs there are to set, in the order the jobs window shows them.
-const JOBS := [Job.LUMBERING, Job.MINING, Job.FARMING, Job.FISHING, Job.COOKING, Job.BUILDING, Job.CRAFTING, Job.HAULING]
+const JOBS := [Job.LUMBERING, Job.MINING, Job.FARMING, Job.FISHING, Job.HUNTING, Job.COOKING, Job.BUILDING, Job.CRAFTING, Job.HAULING]
 
 
 ## How much of job [param j] the villager [param p] is set to do: 1 (none of it) to 10 (as much as there is), as
 ## set in the jobs window ("weights"). Older saves: what was ticked, or their one job, counts 10 and the rest 1.
 const JOB_KEYS := {Job.LUMBERING: "lumbering", Job.MINING: "mining", Job.FARMING: "farming", Job.FISHING: "fishing", Job.COOKING: "cooking",
-	Job.BUILDING: "building", Job.CRAFTING: "crafting", Job.HAULING: "hauling"}
+	Job.BUILDING: "building", Job.CRAFTING: "crafting", Job.HAULING: "hauling", Job.HUNTING: "hunting"}
+
+## The looks of the men (young and old): only they hunt.
+const MALE_LOOKS := [0, 3]
+
+
+## Whether [param p] is a man (by their look).
+static func male(p: Dictionary) -> bool:
+	return MALE_LOOKS.has(int(p.get("look", -1)))
 
 
 ## Whether [param p] can do job [param j] at all (some can't: the elder only cooks, crafts and fishes).
 static func able(p: Dictionary, j: int) -> bool:
+	if j == Job.HUNTING and not male(p):
+		return false   # (hunting is for the men)
 	var can: Array = p.get("canDo", [])
 	return can.is_empty() or can.has(JOB_KEYS.get(j, ""))
 
@@ -2469,12 +2727,14 @@ static func able(p: Dictionary, j: int) -> bool:
 static func weight_of(p: Dictionary, j: int) -> int:
 	if not able(p, j):
 		return 1
+	# (hunting only for those set to it in particular: "any work" never takes it in)
+	var any_counts := j != Job.HUNTING
 	if p.has("weights"):
-		return clampi(int(p.weights.get(str(j), 10)), 1, 10)
+		return clampi(int(p.weights.get(str(j), 10 if any_counts else 1)), 1, 10)
 	if p.has("jobs"):
-		return 10 if (p.jobs as Array).has(Job.ANY) or (p.jobs as Array).has(j) else 1
+		return 10 if ((p.jobs as Array).has(Job.ANY) and any_counts) or (p.jobs as Array).has(j) else 1
 	var one := int(p.get("job", Job.ANY))
-	return 10 if one == Job.ANY or one == j else 1
+	return 10 if (one == Job.ANY and any_counts) or one == j else 1
 
 
 static func set_weight(p: Dictionary, j: int, w: int) -> void:
@@ -2489,7 +2749,7 @@ static func set_weight(p: Dictionary, j: int, w: int) -> void:
 ## Sets [param p] to do only [param jobs] (each as much as there is), and none of the rest.
 static func only(p: Dictionary, jobs: Array) -> void:
 	for k in JOBS:
-		set_weight(p, k, 10 if jobs.has(k) or jobs.has(Job.ANY) else 1)
+		set_weight(p, k, 10 if jobs.has(k) or (jobs.has(Job.ANY) and k != Job.HUNTING) else 1)
 
 
 ## The jobs [param p] does at all (those set above 1): none, and they rest.
@@ -3939,6 +4199,7 @@ func activity() -> String:
 		State.COOK: return "Cooking %s (%d/%d)" % [lower.call(dish), world.village.stored(dish), Kitchen.target(dish)]
 		State.TO_PICKUP: return "Clearing up"
 		State.FIGHT: return "Fighting a slime"
+		State.HUNT: return ("Hunting a %s" % _prey_name()) if prey != null and is_instance_valid(prey) else "Gathering up the game"
 		State.FLEE: return "Running for their life"
 		State.CELLAR: return "Down in the cellar"
 		State.TO_FISH: return "Off to the dock to fish"

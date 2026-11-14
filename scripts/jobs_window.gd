@@ -10,13 +10,14 @@ const COL := 370.0
 const H := 430.0
 const NAME_W := 250.0           ## the table's first column: who
 const GAP := 10.0               ## between the table's columns
-const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting", "Fishing", "Hauling"]
+const JOB_NAMES := ["Any work", "Mining", "Lumbering", "Rest", "Farming", "Building", "Cooking", "Crafting", "Fishing", "Hauling", "Hunting"]
 ## The work that can be ticked for a villager, in the order shown: [Job, what it covers, the skill it goes by or -1].
 const JOB_LIST := [
 	[Villager.Job.LUMBERING, "Felling trees and bringing the wood in", LifeSkills.Skill.LUMBERING],
 	[Villager.Job.MINING, "Mining rocks and bringing the stone in", LifeSkills.Skill.MINING],
 	[Villager.Job.FARMING, "Planting, watering, weeding and harvesting", LifeSkills.Skill.FARMING],
 	[Villager.Job.FISHING, "Fishing at the docks", LifeSkills.Skill.FISHING],
+	[Villager.Job.HUNTING, "Hunting boars and rabbits round the crystals with a bow (men only; only those set to it)", LifeSkills.Skill.STRENGTH],
 	[Villager.Job.COOKING, "Cooking at fires and the cooking bench", LifeSkills.Skill.COOKING],
 	[Villager.Job.BUILDING, "Building, and mending walls and gates", LifeSkills.Skill.BUILDING],
 	[Villager.Job.CRAFTING, "Making things at the workbenches", -1],
@@ -436,7 +437,7 @@ func _portrait(p: Dictionary) -> Texture2D:
 ## What a villager's work comes to, in a few words: "Any work", "Resting", the one or two jobs, or how many.
 static func jobs_text(p: Dictionary) -> String:
 	var js := Villager.jobs_of(p)
-	var could := Villager.JOBS.filter(func(j): return j != Villager.Job.COOKING or Villagers.skill(p, LifeSkills.Skill.COOKING) > 0)
+	var could := Villager.JOBS.filter(func(j): return j != Villager.Job.HUNTING and (j != Villager.Job.COOKING or Villagers.skill(p, LifeSkills.Skill.COOKING) > 0))
 	if js.is_empty():
 		return "Resting"
 	if could.all(func(j): return js.has(j)):
@@ -645,6 +646,9 @@ func _refresh_board() -> void:
 				text = "%d pieces ready to build  ·  walls, gates and houses mended as they wear" % pieces
 			Villager.Job.CRAFTING:
 				text = "Tools, potions and gear at the workbenches, up to what the storage rules keep"
+			Villager.Job.HUNTING:
+				var hunters := Villager.all.filter(func(x): return is_instance_valid(x) and x.hunts()).size()
+				text = "Nobody set to hunt (only the men can: set one to it)" if hunters == 0 else "%d set to hunt  ·  boars and rabbits round the crystals, by day  ·  meat %d in storage" % [hunters, v.stored("Food")]
 			Villager.Job.HAULING:
 				var move := Cellars.active.to_move() if Cellars.active != null else 0
 				text = "%d food to carry down to the cellar  ·  whatever's lying about brought in" % move

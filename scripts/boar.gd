@@ -91,6 +91,11 @@ func _physics_process_timed(delta: float) -> void:
 	var p := player()
 	var to_player := p.position - position if p != null else Vector2.ZERO
 	var player_out := p != null and not world.village.contains(p.position) and (p.stats == null or p.stats.hp > 0.0)
+	# (hunted: it's the hunter it goes for)
+	var h := hunted_by()
+	if h != null:
+		to_player = h.position - position
+		player_out = true
 	var near := 7.0 * world.px
 	if state == State.WIND_UP or state == State.CHARGE:
 		angry_until = maxf(angry_until, t + 6.0)
@@ -215,7 +220,7 @@ func _begin_wind_up() -> void:
 	velocity = Vector2.ZERO
 	if warn == null:
 		warn = Telegraph.make(world, 0.75)
-	var p := player()
+	var p: Node2D = hunted_by() if hunted_by() != null else player()
 	var to := (p.position - position) if p != null and p.position.distance_squared_to(position) > 1.0 else charge_dir
 	warn.point(position, position + to.normalized() * _charge_reach(), _charge_reach())
 
@@ -281,7 +286,14 @@ func _charge(t: float, to_player: Vector2, delta: float) -> void:
 	velocity = Vector2.ZERO if blocked else v
 	# Connects: hurts her and throws her back along the charge, up off her feet in an arc.
 	var p := player()
-	if not hit_this_charge and p != null and p.stats != null and p.stats.hp > 0.0 and to_player.length() < 0.7 * world.px:
+	var h := hunted_by()
+	if h != null:
+		# (into its hunter: hurt, and the charge ends there)
+		if not hit_this_charge and to_player.length() < 0.7 * world.px:
+			hit_this_charge = true
+			h.hit.hurt(float(s.damage))
+			state_until = minf(state_until, t + 0.12)
+	elif not hit_this_charge and p != null and p.stats != null and p.stats.hp > 0.0 and to_player.length() < 0.7 * world.px:
 		hit_this_charge = true
 		hurt_player(float(s.damage), charge_dir * float(s.knockback) * world.px, float(s.tossTime))
 		p.toss(float(s.tossHeight), float(s.tossTime))

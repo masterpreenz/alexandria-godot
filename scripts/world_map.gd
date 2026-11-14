@@ -308,8 +308,8 @@ func _draw() -> void:
 	# The ones who can be played, by their faces; the one played on top.
 	for v in Villager.all:
 		if v.visible and MapMarks.playable(v) and Party.active != null:
-			_face(_to_screen(v.position), Party.active.face(v.person), 20 * k, HudStyle.color("muted"))
-	var mine: Texture2D = Playable.active.portrait() if Playable.active != null else null
+			_face(_to_screen(v.position), Party.active.pose(v.person), 20 * k, HudStyle.color("muted"))
+	var mine: Texture2D = Playable.active.pose() if Playable.active != null else null
 	if mine != null:
 		_face(_to_screen(miko.position), mine, 24 * k, HudStyle.color("accentLight"))
 	else:
@@ -326,17 +326,18 @@ func _line(a: Vector2, b: Vector2, c: Color, width: float) -> void:
 			draw_line(seg[0], seg[seg.size() - 1], c, width * HudStyle.SCALE, true)
 
 
-# A small portrait at [param at], [param w] across, in a dark frame with a coloured rim (kept inside the map's frame).
+# Someone who can be played, at [param at]: their standing pose, [param w] tall, feet a little below the spot (nothing
+# round it: the art's own outline). [param rim] marks the square drawn when there's no art.
 func _face(at: Vector2, tex: Texture2D, w: float, rim: Color) -> void:
 	if not _frame.has_point(at):
 		return
 	if tex == null:
 		_square(at, w * 0.5, rim)
 		return
-	var box := Rect2(at - Vector2(w, w) / 2.0, Vector2(w, w))
-	draw_rect(box.grow(2.5), Color(0.1, 0.07, 0.06, 0.95))
-	draw_rect(box.grow(1.5), rim)
-	draw_texture_rect(tex, box, false)
+	var sz := tex.get_size()
+	var h := w * 1.3
+	var wide := h * sz.x / maxf(1.0, sz.y)
+	draw_texture_rect(tex, Rect2(at + Vector2(-wide * 0.5, -h * 0.75), Vector2(wide, h)), false)
 
 
 func _square(at: Vector2, w: float, c: Color, h := -1.0) -> void:
