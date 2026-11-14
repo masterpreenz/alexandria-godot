@@ -12,7 +12,7 @@ extends Node2D
 ## A unique who's been Sera's companion also has maxMana, mana and companion (their gear, talents and spells: Companions).
 
 const NAMES := [["Taro", "Kenji", "Haru", "Sota", "Ren", "Daichi", "Kaito", "Yuto"], ["Hana", "Yui", "Aoi", "Mei", "Sakura", "Rin", "Emi", "Nao"],
-	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"], ["Genzo", "Tetsuo", "Isamu"], ["Haruko", "Fumiko", "Setsuko"]]
+	["Miyu", "Kaede", "Chiyo", "Suzu", "Akane", "Kiku", "Tsubaki", "Momo"], ["Genzo", "Tetsuo", "Isamu"], ["Haruko", "Fumiko", "Setsuko"], ["Miyu"], ["Ryu", "Takumi", "Hiroshi", "Jiro", "Shin", "Goro", "Manabu", "Eiji"]]
 const SKILL_NAMES := ["lumbering", "mining", "strength", "farming", "cooking", "building", "stamina", "fishing"]
 
 static var heart := 1.0          ## how much faster the villagers work now (Village Heart, with Miko in the village)
@@ -77,7 +77,7 @@ func _fix(p: Dictionary) -> void:
 				0: lv.append(int(p.get("lumbering", 1)))
 				1: lv.append(int(p.get("mining", 1)))
 				3: lv.append(int(p.get("farming", 1)))
-				4: lv.append(randi_range(1, 5) if int(p.get("look", 0)) >= 1 else 0)  # only women cook, for now
+				4: lv.append(0 if Villager.male(p) else randi_range(1, 5))  # only women cook, for now
 				_: lv.append(randi_range(1, 5))
 		p["skills"] = {"level": lv, "xp": [0, 0, 0, 0, 0, 0, 0]}
 	for k in ["talkedDay", "giftDay"]:
@@ -266,7 +266,7 @@ func _homeless() -> Variant:
 # A newcomer: by turns, a woman first, so the village gets a mix; a name not yet taken.
 func _newcomer() -> Dictionary:
 	# (the looks in turn; not one that's someone's own, as Miyu's is)
-	var turn := [1, 0, 2].filter(func(l): return l < d.looks.size() and str(d.looks[l].settings.get("uniqueTo", "")) == "")
+	var turn := [1, 0, 6, 2].filter(func(l): return l < d.looks.size() and str(d.looks[l].settings.get("uniqueTo", "")) == "")
 	var look: int = turn[(turn.find(int(people[-1].look)) + 1) % turn.size()] if not people.is_empty() else 1
 	# (a look nobody here has yet comes first)
 	for l in turn:

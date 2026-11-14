@@ -494,7 +494,7 @@ const BEEP := "res://assets/Sounds/Dialog/beep.wav"   ## the one beep (the user'
 const SERA_PITCH := 1.15
 ## A voice (the beep's pitch) for each look (villagers.json's looks, in order): the man, the woman, Miyu, the old man,
 ## the old woman.
-const LOOK_PITCH := [0.9, 1.05, 1.25, 0.78, 0.95, 1.25]   # (the last, look 5: Miyu's own)
+const LOOK_PITCH := [0.9, 1.05, 1.25, 0.78, 0.95, 1.25, 0.85]   # (look 5: Miyu's own; look 6: the second young man)
 
 var _voice := 1.0                   ## the speaker's pitch (0: no voice)
 var _typed := -1.0                  ## letters shown so far (fractional); below 0 when the whole line's shown

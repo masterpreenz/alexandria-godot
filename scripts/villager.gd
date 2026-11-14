@@ -2985,7 +2985,7 @@ const JOB_KEYS := {Job.LUMBERING: "lumbering", Job.MINING: "mining", Job.FARMING
 	Job.BUILDING: "building", Job.CRAFTING: "crafting", Job.HAULING: "hauling", Job.HUNTING: "hunting"}
 
 ## The looks of the men (young and old): only they hunt.
-const MALE_LOOKS := [0, 3]
+const MALE_LOOKS := [0, 3, 6]
 
 
 ## Whether [param p] is a man (by their look).

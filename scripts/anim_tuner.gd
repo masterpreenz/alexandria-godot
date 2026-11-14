@@ -674,19 +674,28 @@ func _build() -> void:
 	x.custom_minimum_size = Vector2(_k(26), _k(24))
 	x.pressed.connect(close)
 	head.add_child(x)
-	# Look, animation, facing.
-	var looks := [-1]
+	# Look and animation: drop-downs, sorted by name, as the list of looks keeps growing.
+	var look_items := []
+	look_items.append([-1, look_name(-1)])
 	for i in people.d.looks.size():
-		looks.append(i)
-	looks.sort()
-	var look_pills := []
-	for i in looks:
-		look_pills.append([look_name(int(i)), int(i) == look, _pick_look.bind(int(i))])
-	_pills("Look", look_pills)
-	var anim_pills := []
+		var nm := look_name(i)
+		var cut := nm.find(" ")
+		look_items.append([i, "%s  · look %d" % [nm.substr(cut + 1) if cut > 0 else nm, i]])
+	look_items.sort_custom(func(a, b): return str(a[1]).naturalnocasecmp_to(str(b[1])) < 0)
+	var anim_items := []
 	for a in anims():
-		anim_pills.append([str(a), a == anim, _pick_anim.bind(str(a))])
-	_pills("Animation", anim_pills)
+		anim_items.append([str(a), str(a)])
+	anim_items.sort_custom(func(a, b): return str(a[1]).naturalnocasecmp_to(str(b[1])) < 0)
+	var picks := HBoxContainer.new()
+	picks.add_theme_constant_override("separation", roundi(_k(8)))
+	_top.add_child(picks)
+	var lh := HudStyle.label("Look", 11, "bold", HudStyle.color("muted"))
+	lh.custom_minimum_size.x = _k(80)
+	picks.add_child(lh)
+	picks.add_child(_dropdown(look_items, look, 300, func(v): _pick_look(int(v))))
+	var ah := HudStyle.label("   Animation", 11, "bold", HudStyle.color("muted"))
+	picks.add_child(ah)
+	picks.add_child(_dropdown(anim_items, anim, 180, func(v): _pick_anim(str(v))))
 	var flip_pills := [["Down (SW)", not facing_up, _set_facing.bind(false)], ["Up (NW)", facing_up, _set_facing.bind(true)],
 		["Mirrored (E)", mirrored, _flip.bind("mirrored")]]
 	if speed() > 0.0:
@@ -773,6 +782,39 @@ func _pills(title: String, items: Array) -> void:
 		var b := HudStyle.button(str(it[0]), 10, "tileOn" if it[1] else "pill", accent if it[1] else null)
 		b.pressed.connect(it[2])
 		r.add_child(b)
+
+
+## A drop-down in the HUD's look: [param items] as [id, label], with [param now_id] picked.
+func _dropdown(items: Array, now_id: Variant, w: float, picked: Callable) -> OptionButton:
+	var o := OptionButton.new()
+	o.focus_mode = Control.FOCUS_NONE
+	o.custom_minimum_size = Vector2(_k(w), _k(24))
+	o.fit_to_longest_item = false
+	o.clip_text = true
+	for k in ["normal", "hover", "pressed", "disabled", "focus"]:
+		o.add_theme_stylebox_override(k, HudStyle.piece("well", Color(1.1, 1.08, 1.0) if k == "hover" else Color.WHITE))
+	var f := HudStyle.font("body")
+	if f != null:
+		o.add_theme_font_override("font", f)
+	o.add_theme_font_size_override("font_size", roundi(_k(11)))
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		o.add_theme_color_override(k, HudStyle.color("text"))
+	var pop := o.get_popup()
+	pop.add_theme_stylebox_override("panel", HudStyle.piece("panelStrong"))
+	if f != null:
+		pop.add_theme_font_override("font", f)
+	pop.add_theme_font_size_override("font_size", roundi(_k(12)))
+	pop.add_theme_color_override("font_color", HudStyle.color("text"))
+	pop.add_theme_color_override("font_hover_color", HudStyle.color("accentLight"))
+	var sel := 0
+	for i in items.size():
+		o.add_item(str(items[i][1]))
+		o.set_item_metadata(i, items[i][0])
+		if items[i][0] == now_id:
+			sel = i
+	o.select(sel)
+	o.item_selected.connect(func(i: int): picked.call(o.get_item_metadata(i)))
+	return o
 
 
 func _pick_look(i: int) -> void:
